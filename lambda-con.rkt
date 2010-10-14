@@ -1,27 +1,32 @@
 #lang racket
 (require redex)
 
-
-(define-language λc
+(define-language λc-user
   (P (M ... E))
   (M (module f C V))
   (L (λ x E))
-  (W L ((C --> C) <= f f V f W))
+  (W L)
   (V n W)
-  (B (blame f f V C V))
-  (E V x (f ^ f) (E E f) (if0 E E E) (C <= f f V f E) B)
-  (C int any/c (C -> C) (C --> C) (pred L) λ)
+  (E V x (f ^ f) (E E f) (if0 E E E))
+  (C int any/c (C -> C) (pred L))
   (x variable-not-otherwise-mentioned)
-  (f variable-not-otherwise-mentioned † Λ)
+  (f variable-not-otherwise-mentioned †)
   (n number)
-  (Ε hole (Ε E f) (V Ε f) (C <= f f V f Ε) (if0 Ε E E)))
+  (Ε hole (Ε E f) (V Ε f) (if0 Ε E E)))
+  
+(define-extended-language λc λc-user
+  (W .... ((C --> C) <= f f V f W))
+  (B (blame f f V C V))
+  (E .... (C <= f f V f E) B)
+  (C .... (C --> C) λ)
+  (f .... Λ)
+  (Ε .... (C <= f f V f Ε)))
 
 (define-extended-language λc~ λc
   (V .... (-- C))
   (B .... (blame f? g? V1? C? V2?))
   (M .... (module f C ☁))
   (W .... (-- (C -> C)) (-- (pred L))))
-  
 
 (define example-8
   (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
@@ -29,7 +34,9 @@
          (module h any/c (λ z (((f ^ h) (g ^ h) h) 8 h)))
          ((h ^ †) 0 †)]))
 
+(test-predicate (redex-match λc-user P) example-8)
 (test-predicate (redex-match λc P) example-8)
+(test-predicate (redex-match λc~ P) example-8)
 
 (define-metafunction λc~ subst : x any any -> any  
   ;; 1. x bound, so don't continue in λ body  
