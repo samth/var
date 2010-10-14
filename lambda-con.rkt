@@ -1,6 +1,7 @@
 #lang racket
 (require redex)
 
+
 (define-language λc
   (P (M ... E))
   (M (module f C V))
@@ -15,6 +16,13 @@
   (n number)
   (Ε hole (Ε E f) (V Ε f) (C <= f f V f Ε) (if0 Ε E E)))
 
+(define-extended-language λc~ λc
+  (V .... (-- C))
+  (B .... (blame f? g? V1? C? V2?))
+  (M .... (module f C ☁))
+  (W .... (-- (C -> C)) (-- (pred L))))
+  
+
 (define example-8
   (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
          (module g ((pred (λ x x)) -> int) (λ x 0))
@@ -23,7 +31,7 @@
 
 (test-predicate (redex-match λc P) example-8)
 
-(define-metafunction λc subst : x any any -> any  
+(define-metafunction λc~ subst : x any any -> any  
   ;; 1. x bound, so don't continue in λ body  
   [(subst x any_1 (λ x any_2)) 
    (λ x any_2)] 
@@ -44,7 +52,7 @@
   [(subst x_1 any_1 any_2) 
    any_2])
 
-(define-metafunction λc subst-var : x any any -> any 
+(define-metafunction λc~ subst-var : x any any -> any 
   [(subst-var x_1 any_1 x_1) any_1] 
   [(subst-var x_1 any_1 (any_2 ...)) 
    ((subst-var x_1 any_1 any_2) ...)] 
@@ -56,7 +64,7 @@
 
 (define v
   (reduction-relation
-   λc #:domain E
+   λc~ #:domain E
    (--> ((λ x E) V f) (subst x V E) β)
    (--> (n V f) (blame f Λ n λ n) wrong)
    (--> (if0 0 E_1 E_2) E_1 if0-0)
@@ -71,7 +79,7 @@
 
 (define (Δ Ms)
   (reduction-relation
-   λc #:domain E
+   λc~ #:domain E
    (--> (f ^ f)
         V
         (where (M_1 ... (module f C V) M_2 ...) ,Ms))
@@ -87,9 +95,28 @@
          (term (f ^ g))
          (term (any/c <= f g 0 f 0)))
 
+(define (Δ~ Ms)
+  (reduction-relation
+   λc~ #:domain E
+   (--> (f ^ f)
+        V
+        (where (M_1 ... (module f C V) M_2 ...) ,Ms))
+   (--> (f_1 ^ f_2)
+        (C <= f_1 f_2 V f_1 V)
+        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f_1) (term f_2)))))
+   (--> (f_1 ^ f_2)
+        (-- C)
+        (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f_1) (term f_2)))))))
+
+(test--> (Δ~ (term [(module f any/c ☁)]))
+         (term (f ^ g))
+         (term (-- any/c)))
+
 (define c
   (reduction-relation
-   λc #:domain E
+   λc~ #:domain E
    (--> (((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
         (C_2 <= f_1 f_2 V_1 f_3 (W (C_1 <= f_2 f_1 V_1 f_3 V_2) f_4))
         split)   
@@ -109,7 +136,7 @@
    
    ;; sugar
    (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
-        
+
 
 (test--> c 
          (term (((any/c --> any/c) <= f g 7 f (λ x 5)) 8 †))
@@ -130,39 +157,90 @@
                     5
                     (blame f f 0 (pred (λ x 0)) 5))))
 
+(define c~
+  (reduction-relation
+   λc~ #:domain E
+   (--> ((-- (pred L)) V f)
+        (-- any/c))
+   (--> ((-- (pred L)) V f)
+        (blame f? g? V1? C? V2?))
+   (--> ((-- (C_1 -> C_2)) V f)
+        (-- C_2))
+   (--> ((-- (C_1 -> C_2)) V f)
+        (blame f? g? V1? C? V2?))
+   (--> ((-- int) V)
+        (blame f Λ (-- int) λ (-- int)))
+   (--> (if0 (-- C) E_1 E_2)
+        E_2)
+   (--> (if0 (-- int) E_1 E_2)
+        E_1)
+   (--> (if0 (-- (pred L)) E_1 E_2)
+        E_1)
+   (--> (int <= f_1 f_2 V f_3 (-- int))
+        (-- int))
+   (--> (int <= f_1 f_2 V f_3 (-- (pred L)))
+        (-- int))   
+   (--> (int <= f_1 f_2 V f_3 (-- (pred L)))
+        (blame f_1 f_3 V int (-- (pred L))))
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred L)))
+        (-- (C_1 -> C_2)))
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred L)))
+        (blame f_1 f_3 V (C_1 -> C_2) (-- (pred L))))
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- int))
+        (blame f_1 f_3 V (C_1 -> C_2) (-- int)))
+   
+   ;; sugar
+   (--> ((-- any/c) V f)
+        (-- any/c))
+   (--> ((-- any/c) V f)
+        (blame f? g? V1? C? V2?))
+   (--> (if0 (-- any/c) E_1 E_2)
+        E_1)   
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- any/c))
+        (blame f_1 f_3 V (C_1 -> C_2) (-- any/c)))   
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- any/c))
+        (-- (C_1 -> C_2)))
+   (--> (int <= f_1 f_2 V f_3 (-- any/c))
+        (-- int))
+   (--> (int <= f_1 f_2 V f_3 (-- any/c))
+        (blame f_1 f_3 V int (-- any/c)))))
+   
+   
+(define example-8-opaque
+  (term [(module f (any/c -> (any/c -> any/c)) ☁)
+         (module g ((pred (λ x x)) -> int) ☁)
+         (module h any/c (λ z (((f ^ h) (g ^ h) h) 8 h)))
+         ((h ^ †) 0 †)]))
+
+
+(test-predicate (redex-match λc~ P) example-8-opaque)
+
 (define (all-but-last ls)
   (cond [(empty? (rest ls)) empty]
         [else (cons (first ls)
                     (all-but-last (rest ls)))]))
   
-(define (-->_cvΔ Ms)
-  (context-closure (union-reduction-relations v c (Δ Ms)) λc Ε))
+(define (-->_vcΔ Ms)
+  (context-closure (union-reduction-relations v c (Δ Ms)) λc~ Ε))
 
-(define (eval_cvΔ P)
-  (apply-reduction-relation* (-->_cvΔ (all-but-last P))
+(define (-->_vcc~Δ Ms)
+  (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ Ε))
+
+
+(define (eval_vcΔ P)
+  (apply-reduction-relation* (-->_vcΔ (all-but-last P))
                              (last P)))
 
-(test-predicate (redex-match λc [(in-hole Ε (blame h g (λ x 0) (pred (λ x x)) 8))])
-                (eval_cvΔ example-8))
+(define (eval_vcc~Δ P)
+  (apply-reduction-relation* (-->_vcc~Δ (all-but-last P))
+                             (last P)))
 
-(traces (-->_cvΔ (all-but-last example-8))
+(test-predicate (redex-match λc 
+                  [(in-hole Ε (blame h g (λ x 0) (pred (λ x x)) 8))])
+                (eval_vcΔ example-8))
+
+(traces (-->_vcΔ (all-but-last example-8))
         (last example-8))
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+(traces (-->_vcc~Δ (all-but-last example-8-opaque))
+        (last example-8-opaque))
