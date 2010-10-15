@@ -144,6 +144,13 @@
    ;; sugar
    (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
 
+;; when we get blame, discard the context
+(define error-propagate
+  (reduction-relation 
+   λc~ #:domain E
+   (--> (in-hole Ε B) B
+        (side-condition (not (equal? (term hole) (term Ε)))))))
+
 
 (test--> c 
          (term (((any/c --> any/c) <= f g 7 f (λ x 5)) 8 †))
@@ -228,10 +235,10 @@
                     (all-but-last (rest ls)))]))
   
 (define (-->_vcΔ Ms)
-  (context-closure (union-reduction-relations v c (Δ Ms)) λc~ Ε))
+  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (Δ Ms)) λc~ Ε)))
 
 (define (-->_vcc~Δ Ms)
-  (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ Ε))
+  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ Ε)))
 
 
 (define (eval_vcΔ P)
@@ -241,13 +248,13 @@
 (define (eval_vcc~Δ P)
   (apply-reduction-relation* (-->_vcc~Δ (all-but-last P))
                              (last P)))
-
+#;
 (test-predicate (redex-match λc 
                   [(in-hole Ε (blame h g (λ x 0) (pred (λ x x)) 8))])
                 (eval_vcΔ example-8))
-
+#;
 (traces (-->_vcΔ (all-but-last example-8))
         (last example-8))
-
+#;
 (traces (-->_vcc~Δ (all-but-last example-8-opaque))
         (last example-8-opaque))
