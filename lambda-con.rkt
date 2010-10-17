@@ -12,7 +12,7 @@
   (C exact-integer? any/c (-> C C) L)
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned)
-  (n number))
+  (n integer))
 
 (define example-8-racket
   (term (module top racket/load
@@ -41,12 +41,15 @@
   (L (λ x E))
   (W L)
   (V n #t #f W)
-  (E V x (f ^ f) (E E f) (if E E E))
+  (E V x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f))
   (C int any/c (C -> C) (pred L))
   (x variable-not-otherwise-mentioned)
-  (f variable-not-otherwise-mentioned †)
-  (n number)
-  (Ε hole (Ε E f) (V Ε f) (if Ε E E)))
+  (f variable-not-otherwise-mentioned o †)
+  (n integer)
+  (o o1 o2)
+  (o1 add1 sub1 zero?)
+  (o2 + - * expt = < <= > >=)
+  (Ε hole (Ε E f) (V Ε f) (if Ε E E) (o V ... Ε E ... f)))
   
 (define-extended-language λc λc-user
   (W .... ((C --> C) <= f f V f W))
@@ -76,6 +79,40 @@
 (test-predicate (redex-match λc-user P) example-8)
 (test-predicate (redex-match λc P) example-8)
 (test-predicate (redex-match λc~ P) example-8)
+
+(define-metafunction λc~
+  [(δ (add1 n f)) ,(add1 (term n))]
+  [(δ (sub1 n f)) ,(sub1 (term n))]
+  [(δ (zero? n f)) ,(zero? (term n))]
+  [(δ (o1 V f)) (blame f o1 V λ V)]
+  [(δ (+ n_1 n_2 f)) ,(+ (term n_1) (term n_2))]
+  [(δ (- n_1 n_2 f)) ,(- (term n_1) (term n_2))]
+  [(δ (* n_1 n_2 f)) ,(* (term n_1) (term n_2))]
+  [(δ (expt n_1 n_2 f)) ,(expt (term n_1) (term n_2))]
+  [(δ (= n_1 n_2 f)) ,(= (term n_1) (term n_2))]
+  [(δ (< n_1 n_2 f)) ,(< (term n_1) (term n_2))]
+  [(δ (<= n_1 n_2 f)) ,(<= (term n_1) (term n_2))]
+  [(δ (> n_1 n_2 f)) ,(> (term n_1) (term n_2))]  
+  [(δ (>= n_1 n_2 f)) ,(>= (term n_1) (term n_2))]
+  ;; FIXME: should refer to V_1 and V_2.
+  [(δ (o2 V_1 V_2 f)) (blame f o2 V_1 λ V_1)])
+
+(test-equal (term (δ (add1 0 f))) +1)
+(test-equal (term (δ (sub1 0 f))) -1)
+(test-equal (term (δ (zero? 0 f))) #t)
+(test-equal (term (δ (zero? 1 f))) #f)
+(test-equal (term (δ (add1 #t f))) (term (blame f add1 #t λ #t)))
+
+;; Test for δ totalness.
+(redex-check λc~ (o1 V)
+             (or (redex-match λc~ V (term (δ (o1 V f))))
+                 (equal? (term (blame f o1 V λ V))
+                         (term (δ (o1 V f))))))
+(redex-check λc~ (o2 V_1 V_2)
+             (or (redex-match λc~ V (term (δ (o2 V_1 V_2 f))))
+                 (redex-match λc~ B (term (δ (o2 V_1 V_2 f))))))
+
+
 
 (define-metafunction λc~ subst : x any any -> any  
   ;; 1. x bound, so don't continue in λ body  
@@ -292,16 +329,13 @@
 (define (eval_vcc~Δ P)
   (apply-reduction-relation* (-->_vcc~Δ (all-but-last P))
                              (last P)))
-#;
 
 (test-predicate (redex-match λc 
                   [(in-hole Ε (blame h g (λ x 0) (pred (λ x x)) #f))])
                 (eval_vcΔ example-8))
 #;
-#;
 (traces (-->_vcΔ (all-but-last example-8))
         (last example-8))
-#;
 #;
 (traces (-->_vcc~Δ (all-but-last example-8-opaque))
         (last example-8-opaque))
