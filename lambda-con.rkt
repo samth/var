@@ -35,41 +35,80 @@
 
 ;; TODO: Add operations.
 
+;; Figure 5.
 (define-language λc-user
   (P (M ... E))
   (M (module f C V))
   (L (λ x E))
   (W L)
-  (V n #t #f W)
+  (V n #t #f W string) 
+  (SV L f) ; Syntactic values for pred.  [Different than paper]
   (E V x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f))
-  (C int any/c (C -> C) (pred L))
+  (C int any/c string/c (C -> C) (pred SV))
   (x variable-not-otherwise-mentioned)
-  (f variable-not-otherwise-mentioned o †)
+  (f variable-not-otherwise-mentioned o †) ;; † is top-level
   (n integer)
   (o o1 o2)
   (o1 add1 sub1 zero?)
   (o2 + - * expt = < <= > >=)
-  (Ε hole (Ε E f) (V Ε f) (if Ε E E) (o V ... Ε E ... f)))
+  (𝓔 hole (𝓔 E f) (V 𝓔 f) (if 𝓔 E E) (o V ... 𝓔 E ... f)))
   
+;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
   (W .... ((C --> C) <= f f V f W))
   (B (blame f f V C V))
   (E .... (C <= f f V f E) B)
   (C .... (C --> C) λ)
   (f .... Λ)
-  (Ε .... (C <= f f V f Ε)))
+  (𝓔 .... (C <= f f V f 𝓔)))
 
+;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
-  (V .... (-- C))
+  (V .... (-- C))                       ;; (-- X) is overline X.
   (B .... (blame f? g? V1? C? V2?))
   (M .... (module f C ☁))
   (W .... (-- (C -> C)) (-- (pred L)))
   
+  ;; CEK stuff
   (s (E ρ κ))
   (ρ ((x V) ...))
   (κ mt (ar f E ρ κ) (fn f V ρ κ) (if E E ρ κ) (ck f f V f C κ)))
 
-;; Modified from paper (8 -> #f).
+;; Current reductions give:
+;; (prime? (-- prime?))
+;; -> ((--> int any/c) (-- prime?))
+;;
+;; b/c: 
+;; prime? -> (--> int any/c)
+
+;; Want:
+;; (prime? (-- prime?))
+;; -> #t
+
+;; (prime? V)
+;; -> ((-- (--> int any/c)) V)    if V != (-- prime?)
+
+;; ((f ^ g) (-- (pred f))) --> #t
+;; ((f ^ g) V)             --> ((-- C) V)      where V != (-- (pred f)), (module f C ☁) in P.
+
+;; (let ((x = f)) (x V))
+
+
+
+(define fit-example
+  (term [(module prime? (int -> any/c) ☁)
+         (module rsa ((pred prime?) -> (string/c -> string/c)) ☁)
+         (module keygen (any/c -> (pred prime?)) ☁)
+         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+
+(define fit-example-alt
+  (term [(module prime? (int -> any/c) ☁)
+         (module rsa (string/c -> ((pred prime?) -> string/c)) ☁)
+         (module keygen (any/c -> (pred prime?)) ☁)
+         (((rsa ^ †) "Plain" †) ((keygen ^ †) #f †) †)]))
+
+
+;; Modified from Figure 8 in paper (8 -> #f).
 (define example-8
   (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
          (module g ((pred (λ x x)) -> int) (λ x 0))
@@ -79,6 +118,9 @@
 (test-predicate (redex-match λc-user P) example-8)
 (test-predicate (redex-match λc P) example-8)
 (test-predicate (redex-match λc~ P) example-8)
+
+(test-predicate (redex-match λc~ P) fit-example)
+(test-predicate (redex-match λc~ P) fit-example-alt)
 
 (define-metafunction λc~
   [(δ (add1 n f)) ,(add1 (term n))]
@@ -196,7 +238,14 @@
    (--> (f_1 ^ f_2)
         (-- C)
         (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2)))))))
+        (side-condition (not (eq? (term f_1) (term f_2)))))
+   
+   ;; New reductions
+   (--> ((f_1 ^ f_2) (-- (pred f_1)) f_3)
+        #t
+        smart-check)))
+   
+   
 
 (test--> (Δ~ (term [(module f any/c ☁)]))
          (term (f ^ g))
@@ -213,6 +262,11 @@
         (blame f_1 f_3 V_1 int V_2)
         (side-condition (not (integer? (term V_2))))
         chk-int-fail)
+   (--> (string/c <= f_1 f_2 V f_3 string) string chk-string-pass)   ;; new
+   (--> (string/c <= f_1 f_2 V_1 f_3 V_2) 
+        (blame f_1 f_3 V_1 string/c V_2)
+        (side-condition (not (string? (term V_2))))
+        chk-string-fail)   
    (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W)
         ((C_1 --> C_2) <= f_1 f_2 V f_3 W)
         chk-fun-pass)
@@ -230,8 +284,8 @@
 (define error-propagate
   (reduction-relation 
    λc~ #:domain E
-   (--> (in-hole Ε B) B
-        (side-condition (not (equal? (term hole) (term Ε)))))))
+   (--> (in-hole 𝓔 B) B
+        (side-condition (not (equal? (term hole) (term 𝓔)))))))
 
 
 (test--> c 
@@ -263,6 +317,9 @@
         (-- any/c))
    (--> ((-- (pred L)) V f)
         (blame f? g? V1? C? V2?))
+   ;; C_1 dropped on floor entirely.  Fix and work around soundness problem.
+   ;; Should be more like the split rule.
+   ;; Check C_1 <= V; (-- C_2)
    (--> ((-- (C_1 -> C_2)) V f)
         (-- C_2))
    (--> ((-- (C_1 -> C_2)) V f)
@@ -316,10 +373,10 @@
                     (all-but-last (rest ls)))]))
   
 (define (-->_vcΔ Ms)
-  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (Δ Ms)) λc~ Ε)))
+  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (Δ Ms)) λc~ 𝓔)))
 
 (define (-->_vcc~Δ Ms)
-  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ Ε)))
+  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
 
 
 (define (eval_vcΔ P)
@@ -330,8 +387,16 @@
   (apply-reduction-relation* (-->_vcc~Δ (all-but-last P))
                              (last P)))
 
+
+(define-syntax-rule (trace-it R P)
+  (traces (R (all-but-last P))
+          (last P)))
+
+(trace-it -->_vcc~Δ fit-example)
+
+
 (test-predicate (redex-match λc 
-                  [(in-hole Ε (blame h g (λ x 0) (pred (λ x x)) #f))])
+                  [(in-hole 𝓔 (blame h g (λ x 0) (pred (λ x x)) #f))])
                 (eval_vcΔ example-8))
 #;
 (traces (-->_vcΔ (all-but-last example-8))
