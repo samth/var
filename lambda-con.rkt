@@ -140,13 +140,14 @@
 ;; [[number]] = \x.0
 ;; [[a -> b]] = \f. [[b]](f \over{a})
 
+#;
 (define fit-example
   (term [(module prime? (int/c -> any/c) ☁)
          (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
          (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
          (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
 
-(define fit-example-know-more
+(define fit-example
   (term [(module prime? (int/c -> any/c) ☁)
          (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
          (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x 7))
