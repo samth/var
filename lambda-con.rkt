@@ -42,7 +42,7 @@
   (bool #t #f)
   (V n bool W string) 
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
-  (E V x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f))
+  (E V x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f) (let x E E) (begin E E))
   (C int/c any/c bool/c string/c none/c (C -> C) (pred SV))
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned o † ★) ;; † is top-level
@@ -51,7 +51,7 @@
   (o o1 o2)
   (o1 add1 sub1 zero? proc?)
   (o2 + - * expt = < <= > >=)
-  (𝓔 hole (𝓔 E f) (V 𝓔 f) (if 𝓔 E E) (o V ... 𝓔 E ... f)))
+  (𝓔 hole (𝓔 E f) (V 𝓔 f) (if 𝓔 E E) (o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
   
 
 ;; Modified from Figure 8 in paper (8 -> #f).
@@ -86,10 +86,15 @@
   (M .... (module f C ☁))
   (W .... (-- (C -> C) C ...) (-- any/c C ...) (-- (pred SV) C ...))
   
-  (aproc W)
-  (aint int (-- int/c C ...))
-  (astring string (-- string/c C ...))
-  (abool bool (-- bool/c C ...))
+  
+  (W* L 
+      ((C --> C) <= f f V f W*) 
+      (-- C ... (C -> C) C ...))
+  
+  (aproc W*)
+  (aint int (-- C ... int/c C ...))
+  (astring string (-- C ... string/c C ...))
+  (abool bool (-- C ... bool/c C ...))
   
   ;; CEK stuff
   (s (E ρ κ))
@@ -130,11 +135,6 @@
   ;; Maybe add blessed arrow contracts
   [(demonic (C_0 -> C_1)) (λ f ((demonic C_1) (f (-- C_0) ★) ★))])
 
-(define-metafunction λc~
-  seq : E E -> E
-  [(seq E_0 E_1) ((λ i E_1) E_0 ★)
-                 (where i ,(variable-not-in (term E_1) 'i))])  
-
 ;; [[any]] = rec f x. if (proc? (x \over{any})) (f (x \over{any})) 0
 ;; [[(pred p)]] = [[any]]
 ;; [[number]] = \x.0
@@ -142,14 +142,20 @@
 
 (define fit-example
   (term [(module prime? (int/c -> any/c) ☁)
-         (module rsa ((pred (prime? ^ prime?)) -> (string/c -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ prime?))) ☁)
+         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
+         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+
+(define fit-example-know-more
+  (term [(module prime? (int/c -> any/c) ☁)
+         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x 7))
          (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
 
 (define fit-example-alt
   (term [(module prime? (int/c -> any/c) ☁)
-         (module rsa (string/c -> ((pred (prime? ^ prime?)) -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ prime?))) ☁)
+         (module rsa (string/c -> ((pred (prime? ^ rsa)) -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
          (((rsa ^ †) "Plain" †) ((keygen ^ †) #f †) †)]))
 
 
@@ -214,7 +220,9 @@
   [(subst x any_1 (λ x_0 x any_2))
    (λ x_0 x any_2)]
   [(subst x any_1 (λ x x_0 any_2))
-   (λ x_0 x any_2)]  
+   (λ x_0 x any_2)]
+  [(subst x any_1 (let x any_2 any_3))
+   (let x (subst x any_1 any_2) any_3)]
   ;; 2. general purpose capture avoiding case  
   [(subst x_1 any_1 (λ x_2 any_2)) 
    (λ x_new
@@ -230,6 +238,13 @@
                              (term x_2))
            ,(variable-not-in (term (x_1 x_2 any_1 any_2)) 
                              (term x_3))))]
+    [(subst x_1 any_1 (let x_2 any_2 any_3))
+   (let x_new
+     (subst x_1 any_1 any_2)
+     (subst x_1 any_1 (subst-var x_2 x_new any_2)))   
+   (where x_new 
+          ,(variable-not-in (term (x_1 any_1 any_2)) 
+                            (term x_2)))]
   
   ;; 3. replace x_1 with e_1  
   [(subst x_1 any_1 x_1) any_1]  
@@ -262,10 +277,13 @@
         if-t)
    (--> (if V E_1 E_2) E_2 
         (side-condition (not (term V)))
-        if-f)
-   
+        if-f)   
    (--> (o V ... f)
-        (δ (o V ... f)))))
+        (δ (o V ... f))
+        δ)   
+   (--> (begin V E) E begin)
+   (--> (let x V E)
+        (subst x V E) let)))
    
 (test--> v (term ((λ x 0) 1 †)) (term 0))
 (test--> v 
@@ -314,15 +332,42 @@
         (side-condition (not (eq? (term f_1) (term f_2)))))
    
    ;; New reductions
+   #;
    (--> ((f_1 ^ f_2) (-- (pred (f_1 ^ f_4))) f_3)
         #t
-        smart-check)))
+        smart-check)
    
+    (--> ((pred (f_0 ^ f_4)) <= f_1 f_2 V_1 f_3 V_2)
+         (if ((f_0 ^ f_4) V_2 Λ)
+             (remember-contract V_2 (pred (f_0 ^ f_4)) (dom-contract f_0 ,Ms))
+             (blame f_1 f_3 V_1 (pred (f_0 ^ f_4)) V_2))
+        chk-pred-Delta)))
+   
+;; smart
+#;
 (test--> (Δ~ (term [(module prime? any/c ☁)]))
-         (term ((prime? ^ prime?)
-                (-- (pred (prime? ^ prime?)))
+         (term ((prime? ^ rsa)
+                (-- (pred (prime? ^ keygen)))
                 Λ))
          #t)  
+
+
+(test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
+         (term ((prime? ^ rsa)
+                (--
+                 (pred
+                  (prime? ^ keygen)))
+                Λ))
+         (term ((-- any/c)
+                (--
+                 (pred
+                  (prime? ^ keygen)))
+                 Λ)))
+
+(test--> (Δ~ (term [(module prime? any/c ☁)]))
+         (term (prime? ^ rsa))
+         (term (-- any/c)))
+
 (test--> (Δ~ (term [(module f any/c ☁)]))
          (term (f ^ g))
          (term (-- any/c)))
@@ -331,13 +376,27 @@
 (define astring? (redex-match λc~ astring))
 (define abool? (redex-match λc~ abool))
 
+(define-metafunction λc~
+  remember-contract : V C ... -> V
+  [(remember-contract (-- C_0 C_1 ...) C_2 ...)
+   (-- C_0 C_2 ... C_1 ...)]
+  [(remember-contract V C ...) V])
+
+(define-metafunction λc~
+  dom-contract : f (M ...) -> C
+  [(dom-contract f (any_0 ... (module f (C_0 -> C_1) any) any_1 ...))
+   C_0]
+  [(dom-contract f any) any/c])
+
 (define c
   (reduction-relation
    λc~ #:domain E
    (--> (((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
         (C_2 <= f_1 f_2 V_1 f_3 (W (C_1 <= f_2 f_1 V_1 f_3 V_2) f_4))
         split)   
-   (--> (int/c <= f_1 f_2 V f_3 aint) aint chk-int-pass)
+   (--> (int/c <= f_1 f_2 V f_3 aint) 
+        (remember-contract aint int/c) 
+        chk-int-pass)
    (--> (int/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 int/c V_2)
         (side-condition (not (aint? (term V_2))))
@@ -345,12 +404,16 @@
    (--> (none/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 none/c V_2)
         chk-none-fail)
-   (--> (string/c <= f_1 f_2 V f_3 astring) astring chk-string-pass)   ;; new
+   (--> (string/c <= f_1 f_2 V f_3 astring) 
+        (remember-contract astring string/c)
+        chk-string-pass)   ;; new
    (--> (string/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 string/c V_2)
         (side-condition (not (astring? (term V_2))))
         chk-string-fail)   
-   (--> (bool/c <= f_1 f_2 V f_3 abool) abool chk-bool-pass)   ;; new
+   (--> (bool/c <= f_1 f_2 V f_3 abool)
+        (remember-contract abool bool/c)
+        chk-bool-pass)   ;; new
    (--> (bool/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 bool/c V_2)
         (side-condition (not (abool? (term V_2))))
@@ -361,9 +424,11 @@
    (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 n)
         (blame f_1 f_3 V (C_1 -> C_2) n)
         chk-fun-fail)
-   (--> ((pred SV) <= f_1 f_2 V_1 f_3 V_2)
-        (if (SV V_2 Λ) V_2 (blame f_1 f_3 V_1 (pred SV) V_2))
-        chk-pred)
+   (--> ((pred L) <= f_1 f_2 V_1 f_3 V_2)
+        (if (L V_2 Λ) 
+            (remember-contract V_2 (pred L))
+            (blame f_1 f_3 V_1 (pred L) V_2))
+        chk-pred-c)   
    
    ;; sugar
    (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
@@ -400,65 +465,89 @@
                    5
                    (blame f f 0 (pred (λ x 0)) 5))))
 
+(define abstract-value? (redex-match λc~ (-- C ...)))
+
 (define c~
   (reduction-relation
    λc~ #:domain E
-   (--> ((-- (pred SV)) V f)
-        (seq ((demonic (pred SV)) V ★) (-- any/c))
-        apply-abs-pred)
-   (--> ((-- (C_1 -> C_2)) V f)
-        (seq ((demonic C_1) (C_1 <= f ★ V f V) ★) (-- C_2))
-        apply-abs-func)
-   #;
-   (--> ((-- (C_1 -> C_2)) V f)
-        (blame f? g? V1? C? V2?))
+   ;; IMPROVE ME: for all (C_1 -> C_2) in C ..., you know C_2 of result.
+   (--> ((-- (pred SV) C ...) V f)
+        (begin ((demonic (pred SV)) V ★) (-- any/c))
+        (side-condition (not (abstract-value? (term V))))
+        apply-abs-pred-concrete)
+   (--> ((-- (pred SV) C ...) (-- C_0 ...) f)
+        (-- any/c)
+        apply-abs-pred-abs)
+        
+   ;; IMPROVE ME: for all (C_1 -> C_2) in C ..., you know C_2 of result.
+   (--> ((-- (C_1 -> C_2) C ...) V f)
+        (begin ((demonic C_1) V #;(C_1 <= f ★ V f V) ★) (-- C_2))
+        (side-condition (not (abstract-value? (term V))))
+        apply-abs-func-concrete) 
+   (--> ((-- (C_1 -> C_2) C ...) (-- C_0 ...) f)
+        (-- C_2)        
+        apply-abs-func-abs)
+   
    (--> ((-- int/c) V)
         (blame f Λ (-- int/c) λ (-- int/c))
         apply-abs-int)
-   (--> (if (-- C) E_1 E_2)
+   (--> (if (-- C C_0 ...) E_1 E_2)
         E_2
         if-abs-false)
-   (--> (if (-- C) E_1 E_2)
+   (--> (if (-- C C_0 ...) E_1 E_2)
         E_1
         if-abs-true)
    (--> (int/c <= f_1 f_2 V f_3 (-- int/c))
         (-- int/c)
         check-int-abs-int)
-   (--> (int/c <= f_1 f_2 V f_3 (-- (pred SV)))
-        (-- int/c)
+   (--> (int/c <= f_1 f_2 V f_3 (-- (pred SV) C ...))
+        (-- int/c (pred SV) C ...)
         check-int-abs-pred-pass)
-   (--> (int/c <= f_1 f_2 V f_3 (-- (pred SV)))
-        (blame f_1 f_3 V int/c (-- (pred SV)))
+   (--> (int/c <= f_1 f_2 V f_3 (-- (pred SV) C ...))
+        (blame f_1 f_3 V int/c (-- (pred SV) C ...))
         check-int-abs-pred-fail)
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred SV)))
-        (-- (C_1 -> C_2))
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred SV) C ...))
+        (-- (C_1 -> C_2) (pred SV) C ...)
         check-func-abs-pred-pass)
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred SV)))
-        (blame f_1 f_3 V (C_1 -> C_2) (-- (pred SV)))
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred SV) C ...))
+        (blame f_1 f_3 V (C_1 -> C_2) (-- (pred SV) C ...))
         check-func-abs-pred-fail)
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- int/c))
-        (blame f_1 f_3 V (C_1 -> C_2) (-- int/c))
+   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- int/c C ...))
+        (blame f_1 f_3 V (C_1 -> C_2) (-- int/c C ...))
         check-func-abs-int-fail)
    
+   (--> (C <= f_1 f_2 V f_3 (-- C_0 ... C C_1 ...))
+        (-- C_0 ... C C_1 ...) 
+        smart*)
+   
    ;; sugar
+   #;
    (--> ((-- any/c) V f)
-        (seq ((demonic any/c) V ★) (-- any/c)))   
+        (begin ((demonic any/c) V ★) (-- any/c)))
+   
+   (--> ((-- any/c C ...) V f)
+        (begin ((demonic any/c) V ★) (-- any/c))
+        (side-condition (not (abstract-value? (term V))))
+        apply-abs-any-concrete)
+   (--> ((-- any/c C ...) (-- C_0 ...) f)
+        (-- any/c)
+        apply-abs-any-abs)      
    (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- any/c))
         (blame f_1 f_3 V (C_1 -> C_2) (-- any/c)))   
    (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- any/c))
         (-- (C_1 -> C_2)))
-   (--> (int/c <= f_1 f_2 V f_3 (-- any/c))
-        (-- int/c))
-   (--> (int/c <= f_1 f_2 V f_3 (-- any/c))
-        (blame f_1 f_3 V int/c (-- any/c)))
-   (--> (bool/c <= f_1 f_2 V f_3 (-- any/c))
-        (-- bool/c))
-   (--> (bool/c <= f_1 f_2 V f_3 (-- any/c))
-        (blame f_1 f_3 V bool/c (-- any/c)))
-   (--> (string/c <= f_1 f_2 V f_3 (-- any/c))
-        (-- string/c))   
-   (--> (string/c <= f_1 f_2 V f_3 (-- any/c))
-        (blame f_1 f_3 V string/c (-- any/c)))))
+   (--> (int/c <= f_1 f_2 V f_3 (-- any/c C ...))
+        (-- int/c C ...))
+   (--> (int/c <= f_1 f_2 V f_3 (-- any/c C ...))
+        (blame f_1 f_3 V int/c (-- any/c C ...)))
+   (--> (bool/c <= f_1 f_2 V f_3 (-- any/c C ...))
+        (-- bool/c C ...))
+   (--> (bool/c <= f_1 f_2 V f_3 (-- any/c C ...))
+        (blame f_1 f_3 V bool/c (-- any/c C ...)))
+   (--> (string/c <= f_1 f_2 V f_3 (-- any/c C ...))
+        (-- string/c C ...))   
+   (--> (string/c <= f_1 f_2 V f_3 (-- any/c C ...))
+        (blame f_1 f_3 V string/c (-- any/c C ...)))))
    
    
    
@@ -494,9 +583,24 @@
 
 (define-syntax-rule (trace-it R P)
   (traces (R (all-but-last P))
-          (last P)))
+          (last P)
+          #:pred colorize))
+
+(define (final-state? x)
+  (or (redex-match λc~ V x)
+      (redex-match λc~ B x)))
+
+(define (colorize x)
+  (if (final-state? x)
+      "red"
+      #t))
+
+(define-syntax-rule (step-it R P)
+  (stepper (R (all-but-last P))
+           (last P)))
 
 (trace-it -->_vcc~Δ fit-example)
+(step-it -->_vcc~Δ fit-example)
 
 
 (test-predicate (redex-match λc 
