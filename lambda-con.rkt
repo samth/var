@@ -1,37 +1,11 @@
 #lang racket
 (require redex)
 
-;;-------
-;; Experimenting with Racket subset.
-(define-language λc-racket
-  (P (module top racket/load M ... (require 'f) ... E))
-  (M (module f racket (provide/contract [f C]) (require 'f) ... (define f V)))
-  (L (λ (x) E))
-  (V n L)
-  (E V x f (E E) (if E E E))
-  (C exact-integer? any/c (-> C C) L)
-  (x variable-not-otherwise-mentioned)
-  (f variable-not-otherwise-mentioned)
-  (n integer))
+(define (all-but-last ls)
+  (drop-right ls 1))
 
-(define example-8-racket
-  (term (module top racket/load
-          (module f racket 
-            (provide/contract [f (-> any/c (-> any/c any/c))])
-            (define f (λ (x) x)))
-          #;(module g racket
-            (provide/contract [g (-> (λ (x) (= x 0)) exact-integer?)])
-            (define g (λ (x) 0)))
-          (module h racket
-            (provide/contract [h any/c])
-            (require 'f)
-            (require 'g)
-            (define h (λ (z) ((f g) 8))))
-          (require 'h)
-          (h 0))))
-
-(test-predicate (redex-match λc-racket P) example-8-racket)
-;;-------
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Languages
 
 ;; Figure 5.
 (define-language λc-user
@@ -53,23 +27,6 @@
   (o2 + - * expt = < <= > >=)
   (𝓔 hole (𝓔 E f) (V 𝓔 f) (if 𝓔 E E) (o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
   
-
-;; Modified from Figure 8 in paper (8 -> #f).
-(define example-8
-  (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
-         (module g ((pred (λ x x)) -> int/c) (λ x 0))
-         (module h any/c (λ z (((f ^ h) (g ^ h) h) #f h)))
-         ((h ^ †) 0 †)]))
-
-(test-predicate (redex-match λc-user M) (first example-8))
-(test-predicate (redex-match λc-user M) (second example-8))
-(test-predicate (redex-match λc-user M) (third example-8))
-(test-predicate (redex-match λc-user E) (last example-8))
-
-(test-predicate (redex-match λc-user C) (term ((pred (λ x x)) -> int/c)))
-
-
-
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
   (W .... ((C --> C) <= f f V f W))  
@@ -86,7 +43,6 @@
   (M .... (module f C ☁))
   (W .... (-- (C -> C) C ...) (-- any/c C ...) (-- (pred SV) C ...))
   
-  
   (W* L 
       ((C --> C) <= f f V f W*) 
       (-- C ... (C -> C) C ...))
@@ -94,38 +50,27 @@
   (aproc W*)
   (aint int (-- C ... int/c C ...))
   (astring string (-- C ... string/c C ...))
-  (abool bool (-- C ... bool/c C ...))
-  
-  ;; CEK stuff
-  (s (E ρ κ))
-  (ρ ((x V) ...))
-  (κ mt (ar f E ρ κ) (fn f V ρ κ) (if E E ρ κ) (ck f f V f C κ)))
+  (abool bool (-- C ... bool/c C ...)))
 
-;; Current reductions give:
-;; (prime? (-- prime?))
-;; -> ((--> int any/c) (-- prime?))
-;;
-;; b/c: 
-;; prime? -> (--> int any/c)
+(define aint? (redex-match λc~ aint))
+(define astring? (redex-match λc~ astring))
+(define abool? (redex-match λc~ abool))
+(define abstract-value? (redex-match λc~ (-- C ...)))
+(define (final-state? x)
+  (or (redex-match λc~ V x)
+      (redex-match λc~ B x)))
 
-;; Want:
-;; (prime? (-- prime?))
-;; -> #t
 
-;; (prime? V)
-;; -> ((-- (--> int any/c)) V)    if V != (-- prime?)
-
-;; ((f ^ g) (-- (pred f))) --> #t
-;; ((f ^ g) V)             --> ((-- C) V)      where V != (-- (pred f)), (module f C ☁) in P.
-
-;; (let ((x = f)) (x V))
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Metafunctions
 
 (define-metafunction λc~
   demonic : C -> L
   [(demonic any/c)
    (λ f x (if (proc? x ★) 
               (f (x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
-              0))]
+              0))
+   (where (f x) ,(list (gensym 'f) (gensym 'x)))]
   [(demonic (pred SV))
    (demonic any/c)]
   [(demonic int/c) (λ x 0)]
@@ -133,39 +78,9 @@
   [(demonic bool/c) (λ x 0)]
   [(demonic none/c) (λ x 0)]
   ;; Maybe add blessed arrow contracts
-  [(demonic (C_0 -> C_1)) (λ f ((demonic C_1) (f (-- C_0) ★) ★))])
-
-;; [[any]] = rec f x. if (proc? (x \over{any})) (f (x \over{any})) 0
-;; [[(pred p)]] = [[any]]
-;; [[number]] = \x.0
-;; [[a -> b]] = \f. [[b]](f \over{a})
-
-#;
-(define fit-example
-  (term [(module prime? (int/c -> any/c) ☁)
-         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
-         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
-
-(define fit-example
-  (term [(module prime? (int/c -> any/c) ☁)
-         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x 7))
-         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
-
-(define fit-example-alt
-  (term [(module prime? (int/c -> any/c) ☁)
-         (module rsa (string/c -> ((pred (prime? ^ rsa)) -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
-         (((rsa ^ †) "Plain" †) ((keygen ^ †) #f †) †)]))
-
-
-(test-predicate (redex-match λc-user P) example-8)
-(test-predicate (redex-match λc P) example-8)
-(test-predicate (redex-match λc~ P) example-8)
-
-(test-predicate (redex-match λc~ P) fit-example)
-(test-predicate (redex-match λc~ P) fit-example-alt)
+  [(demonic (C_0 -> C_1)) 
+   (λ f ((demonic C_1) (f (-- C_0) ★) ★))
+   (where f ,(gensym 'f))])
 
 ;; FIXME: Don't handle abstract values
 (define-metafunction λc~
@@ -196,7 +111,6 @@
   [(δ (o2 V_1 V_2 f)) (blame f o2 V_1 λ V_1)])
 
 (test-equal (term (δ (proc? #f f))) #f)
-
 (test-equal (term (δ (add1 0 f))) 1)
 (test-equal (term (δ (sub1 0 f))) 0)
 (test-equal (term (δ (zero? 0 f))) #t)
@@ -211,8 +125,6 @@
 (redex-check λc~ (o2 V_1 V_2)
              (or (redex-match λc~ V (term (δ (o2 V_1 V_2 f))))
                  (redex-match λc~ B (term (δ (o2 V_1 V_2 f))))))
-
-
 
 (define-metafunction λc~ subst : x any any -> any  
   ;; 1. x bound, so don't continue in λ body  
@@ -267,6 +179,79 @@
 (test-equal (term (subst x 0 y)) (term y))
 (test-equal (term (subst x 0 (λ x x))) (term (λ x x)))
 
+(define-metafunction λc~
+  remember-contract : V C ... -> V
+  [(remember-contract (-- C_0 ... C C_1 ...) C C_2 ...)
+   (remember-contract (-- C_0 ... C C_1 ...) C_2 ...)]
+  [(remember-contract (-- C_0 C_1 ...) C_2 ...)
+   (-- C_0 C_2 ... C_1 ...)]
+  [(remember-contract V C ...) V])
+
+(define-metafunction λc~
+  dom-contract : f (M ...) -> C
+  [(dom-contract f (any_0 ... (module f (C_0 -> C_1) any) any_1 ...))
+   C_0]
+  [(dom-contract f any) any/c])
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Examples and tests
+
+;; Modified from Figure 8 in paper (8 -> #f).
+(define example-8
+  (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
+         (module g ((pred (λ x x)) -> int/c) (λ x 0))
+         (module h any/c (λ z (((f ^ h) (g ^ h) h) #f h)))
+         ((h ^ †) 0 †)]))
+
+(define example-8-opaque
+  (term [(module f (any/c -> (any/c -> any/c)) ☁)
+         (module g ((pred (λ x x)) -> int/c) ☁)
+         (module h any/c (λ z (((f ^ h) (g ^ h) h) #f h)))
+         ((h ^ †) 0 †)]))
+
+(test-predicate (redex-match λc-user M) (first example-8))
+(test-predicate (redex-match λc-user M) (second example-8))
+(test-predicate (redex-match λc-user M) (third example-8))
+(test-predicate (redex-match λc-user E) (last example-8))
+(test-predicate (redex-match λc~ P) example-8-opaque)
+(test-predicate (redex-match λc-user P) example-8)
+(test-predicate (redex-match λc P) example-8)
+(test-predicate (redex-match λc~ P) example-8)
+
+(test-predicate (redex-match λc-user C) (term ((pred (λ x x)) -> int/c)))
+
+(define fit-example
+  (term [(module prime? (int/c -> any/c) ☁)
+         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
+         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+
+(define fit-example-rsa-7
+  (term [(module prime? (int/c -> any/c) ☁)
+         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x 7))
+         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+
+;; Should see keygen break contract with prime?.
+(define fit-example-keygen-string
+  (term [(module prime? (int/c -> any/c) ☁)
+         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x "Key"))
+         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+
+(define fit-example-alt
+  (term [(module prime? (int/c -> any/c) ☁)
+         (module rsa (string/c -> ((pred (prime? ^ rsa)) -> string/c)) ☁)
+         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
+         (((rsa ^ †) "Plain" †) ((keygen ^ †) #f †) †)]))
+
+(test-predicate (redex-match λc~ P) fit-example)
+(test-predicate (redex-match λc~ P) fit-example-alt)
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Reduction relations
+
 (define v
   (reduction-relation
    λc~ #:domain E
@@ -297,103 +282,11 @@
 (test--> v (term (add1 0 †)) 1)
 (test--> v (term (proc? #f †)) #f)
 
-(define (Δ Ms)
-  (reduction-relation
-   λc~ #:domain E
-   (--> (f ^ f)
-        V
-        (where (M_1 ... (module f C V) M_2 ...) ,Ms)
-        Δ-self)
-   (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 V f_1 V)
-        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2))))
-        Δ-other)))
-
-(test--> (Δ (term [(module f any/c 0)]))
-         (term (f ^ f))
-         (term 0))
-(test--> (Δ (term [(module f any/c 0)]))
-         (term (f ^ g))
-         (term (any/c <= f g 0 f 0)))
-
-(define (Δ~ Ms)
-  (reduction-relation
-   λc~ #:domain E
-   (--> (f ^ f)
-        V
-        (where (M_1 ... (module f C V) M_2 ...) ,Ms))
-   (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 V f_1 V)
-        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2)))))
-   (--> (f_1 ^ f_2)
-        (-- C)
-        (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2)))))
-   
-   ;; New reductions
-   #;
-   (--> ((f_1 ^ f_2) (-- (pred (f_1 ^ f_4))) f_3)
-        #t
-        smart-check)
-   
-    (--> ((pred (f_0 ^ f_4)) <= f_1 f_2 V_1 f_3 V_2)
-         (if ((f_0 ^ f_4) V_2 Λ)
-             (remember-contract V_2 (pred (f_0 ^ f_4)) (dom-contract f_0 ,Ms))
-             (blame f_1 f_3 V_1 (pred (f_0 ^ f_4)) V_2))
-        chk-pred-Delta)))
-   
-;; smart
-#;
-(test--> (Δ~ (term [(module prime? any/c ☁)]))
-         (term ((prime? ^ rsa)
-                (-- (pred (prime? ^ keygen)))
-                Λ))
-         #t)  
-
-
-(test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
-         (term ((prime? ^ rsa)
-                (--
-                 (pred
-                  (prime? ^ keygen)))
-                Λ))
-         (term ((-- any/c)
-                (--
-                 (pred
-                  (prime? ^ keygen)))
-                 Λ)))
-
-(test--> (Δ~ (term [(module prime? any/c ☁)]))
-         (term (prime? ^ rsa))
-         (term (-- any/c)))
-
-(test--> (Δ~ (term [(module f any/c ☁)]))
-         (term (f ^ g))
-         (term (-- any/c)))
-
-(define aint? (redex-match λc~ aint))
-(define astring? (redex-match λc~ astring))
-(define abool? (redex-match λc~ abool))
-
-(define-metafunction λc~
-  remember-contract : V C ... -> V
-  [(remember-contract (-- C_0 C_1 ...) C_2 ...)
-   (-- C_0 C_2 ... C_1 ...)]
-  [(remember-contract V C ...) V])
-
-(define-metafunction λc~
-  dom-contract : f (M ...) -> C
-  [(dom-contract f (any_0 ... (module f (C_0 -> C_1) any) any_1 ...))
-   C_0]
-  [(dom-contract f any) any/c])
-
 (define c
   (reduction-relation
    λc~ #:domain E
    (--> (((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
-        (C_2 <= f_1 f_2 V_1 f_3 (W (C_1 <= f_2 f_1 V_1 f_3 V_2) f_4))
+        (C_2 <= f_1 f_2 V_1 f_3 (W (C_1 <= f_2 f_1 V_2 f_3 V_2) f_4))
         split)   
    (--> (int/c <= f_1 f_2 V f_3 aint) 
         (remember-contract aint int/c) 
@@ -425,28 +318,24 @@
    (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 n)
         (blame f_1 f_3 V (C_1 -> C_2) n)
         chk-fun-fail)
-   (--> ((pred L) <= f_1 f_2 V_1 f_3 V_2)
-        (if (L V_2 Λ) 
-            (remember-contract V_2 (pred L))
-            (blame f_1 f_3 V_1 (pred L) V_2))
+      
+   (--> ((pred SV) <= f_1 f_2 V_1 f_3 V_2)
+        (if (SV V_2 Λ) 
+            (remember-contract V_2 (pred SV))
+            (blame f_1 f_3 V_1 (pred SV) V_2))
+        ;; Only want smart to fire when condition holds
+        (side-condition 
+         (not (redex-match λc~ 
+                           ((pred (f_a ^ f_b)) <= f_1* f_2* V_* f_3* (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...))
+                           (term ((pred SV) <= f_1 f_2 V_1 f_3 V_2)))))
         chk-pred-c)   
    
    ;; sugar
    (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
 
-;; when we get blame, discard the context
-(define error-propagate
-  (reduction-relation 
-   λc~ #:domain E
-   (--> (in-hole 𝓔 (-- none/c)) (-- none/c)
-        (side-condition (not (equal? (term hole) (term 𝓔)))))
-   (--> (in-hole 𝓔 B) B
-        (side-condition (not (equal? (term hole) (term 𝓔)))))))
-
-
 (test--> c 
          (term (((any/c --> any/c) <= f g 7 f (λ x 5)) 8 †))
-         (term (any/c <= f g 7 f ((λ x 5) (any/c <= g f 7 f 8) †))))
+         (term (any/c <= f g 7 f ((λ x 5) (any/c <= g f 8 f 8) †))))
 (test--> c (term (int/c <= f g 0 f 5)) (term 5))
 (test--> c 
          (term (int/c <= f g 0 f (λ x x))) 
@@ -466,8 +355,6 @@
                    5
                    (blame f f 0 (pred (λ x 0)) 5))))
 
-(define abstract-value? (redex-match λc~ (-- C ...)))
-
 (define c~
   (reduction-relation
    λc~ #:domain E
@@ -485,8 +372,10 @@
         (begin ((demonic C_1) V #;(C_1 <= f ★ V f V) ★) (-- C_2))
         (side-condition (not (abstract-value? (term V))))
         apply-abs-func-concrete) 
-   (--> ((-- (C_1 -> C_2) C ...) (-- C_0 ...) f)
-        (-- C_2)        
+   (--> ((-- (C_1 -> C_2) C ...) (-- C_0 ...) f)  
+        #;(begin (C_1 <= f ★ (-- C_0 ...) f (-- C_0 ...))
+                 (-- C_2))
+        (-- C_2)
         apply-abs-func-abs)
    
    (--> ((-- int/c) V)
@@ -518,8 +407,15 @@
         check-func-abs-int-fail)
    
    (--> (C <= f_1 f_2 V f_3 (-- C_0 ... C C_1 ...))
-        (-- C_0 ... C C_1 ...) 
+        (-- C_0 ... C C_1 ...)
+        (side-condition (not (redex-match λc~ (C_a -> C_b) (term C))))
         smart*)
+   
+   ;; Possible overlapping
+   (--> ((pred (f_a ^ f_b)) <= f_1 f_2 V f_3 (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...))
+        (-- C_0 ... (pred (f_a ^ f_b)) C_1 ...)
+        (side-condition (not (eq? (term f_b) (term f_c))))
+        smart*-pred-mod)
    
    ;; sugar
    #;
@@ -549,29 +445,100 @@
         (-- string/c C ...))   
    (--> (string/c <= f_1 f_2 V f_3 (-- any/c C ...))
         (blame f_1 f_3 V string/c (-- any/c C ...)))))
-   
-   
-   
-(define example-8-opaque
-  (term [(module f (any/c -> (any/c -> any/c)) ☁)
-         (module g ((pred (λ x x)) -> int/c) ☁)
-         (module h any/c (λ z (((f ^ h) (g ^ h) h) 8 h)))
-         ((h ^ †) 0 †)]))
 
+(define (Δ Ms)
+  (reduction-relation
+   λc~ #:domain E
+   (--> (f ^ f)
+        V
+        (where (M_1 ... (module f C V) M_2 ...) ,Ms)
+        Δ-self)
+   (--> (f_1 ^ f_2)
+        (C <= f_1 f_2 V f_1 V)
+        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f_1) (term f_2))))
+        Δ-other)))
 
-(test-predicate (redex-match λc~ P) example-8-opaque)
+(test--> (Δ (term [(module f any/c 0)]))
+         (term (f ^ f))
+         (term 0))
+(test--> (Δ (term [(module f any/c 0)]))
+         (term (f ^ g))
+         (term (any/c <= f g 0 f 0)))
 
-(define (all-but-last ls)
-  (cond [(empty? (rest ls)) empty]
-        [else (cons (first ls)
-                    (all-but-last (rest ls)))]))
-  
+(define (Δ~ Ms)
+  (reduction-relation
+   λc~ #:domain E
+   (--> (f ^ f)
+        V
+        (where (M_1 ... (module f C V) M_2 ...) ,Ms)
+        self-mod-ref)
+   (--> (f_1 ^ f_2)
+        (C <= f_1 f_2 V f_1 V)
+        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f_1) (term f_2))))
+        concrete-mod-ref)
+   (--> (f_1 ^ f_2)
+        (C <= f_1 f_2 (-- C) f_1 (-- C))
+        #;(-- C)
+        (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f_1) (term f_2))))
+        opaque-mod-ref)))
+
+(test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
+         (term ((prime? ^ rsa)
+                (--
+                 (pred
+                  (prime? ^ keygen)))
+                Λ))         
+         (term ((any/c <= prime? rsa (-- any/c) prime? (-- any/c))
+                (--
+                 (pred
+                  (prime? ^ keygen)))
+                 Λ)))
+
+(test--> (Δ~ (term [(module prime? any/c ☁)]))
+         (term (prime? ^ rsa))
+         (term (any/c <= prime? rsa (-- any/c) prime? (-- any/c))))
+
+(test--> (Δ~ (term [(module f any/c ☁)]))
+         (term (f ^ g))
+         (term (any/c <= f g (-- any/c) f (-- any/c))))
+
+;; when we get blame, discard the context
+(define error-propagate
+  (reduction-relation 
+   λc~ #:domain E
+   (--> (in-hole 𝓔 (-- none/c)) (-- none/c)
+        (side-condition (not (equal? (term hole) (term 𝓔)))))
+   (--> (in-hole 𝓔 B) B
+        (side-condition (not (equal? (term hole) (term 𝓔)))))))
+
 (define (-->_vcΔ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (Δ Ms)) λc~ 𝓔)))
 
 (define (-->_vcc~Δ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
 
+(define-syntax-rule (test-->>p p e ...)
+  (test-->> (-->_vcc~Δ (all-but-last p)) (last p)
+            e ...))
+
+(test-->>p fit-example (term (-- string/c)))
+(test-->>p fit-example-keygen-string
+           (term (blame keygen prime? "Key" int/c "Key")))
+(test-->>p fit-example-rsa-7
+           (term (-- string/c))
+           (term (blame keygen keygen (λ x 7) (pred (prime? ^ keygen)) 7)))
+
+(test-->>p example-8 (term (blame h g #f (pred (λ x x)) #f)))
+(test-->>p example-8-opaque 
+           (term (-- any/c))
+           (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c)))
+           #;(term (blame h g #f (pred (λ x x)) #f)))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Evaluation functions
 
 (define (eval_vcΔ P)
   (apply-reduction-relation* (-->_vcΔ (all-but-last P))
@@ -581,44 +548,39 @@
   (apply-reduction-relation* (-->_vcc~Δ (all-but-last P))
                              (last P)))
 
+(test-predicate (redex-match λc 
+                  [(in-hole 𝓔 (blame h g #f (pred (λ x x)) #f))])
+                (eval_vcΔ example-8))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Trace and stepper
 
 (define-syntax-rule (trace-it R P)
   (traces (R (all-but-last P))
           (last P)
           #:pred colorize))
 
-(define (final-state? x)
-  (or (redex-match λc~ V x)
-      (redex-match λc~ B x)))
-
 (define (colorize x)
-  (if (final-state? x)
-      "red"
-      #t))
+  (cond [(redex-match λc~ V x) "green"]
+        [(redex-match λc~ (blame ★ f V_0 C V_1) x) "pink"]
+        [(redex-match λc~ B x) "red"]
+        [else #t]))
 
 (define-syntax-rule (step-it R P)
   (stepper (R (all-but-last P))
            (last P)))
 
-(trace-it -->_vcc~Δ fit-example)
-(step-it -->_vcc~Δ fit-example)
+;(trace-it -->_vcc~Δ fit-example)
+;(trace-it -->_vcc~Δ fit-example-rsa-7)
+;(trace-it -->_vcc~Δ fit-example-keygen-string)
+;(step-it -->_vcc~Δ fit-example)
 
 
-(test-predicate (redex-match λc 
-                  [(in-hole 𝓔 (blame h g (λ x 0) (pred (λ x x)) #f))])
-                (eval_vcΔ example-8))
 #;
 (traces (-->_vcΔ (all-but-last example-8))
         (last example-8))
 #;
 (traces (-->_vcc~Δ (all-but-last example-8-opaque))
         (last example-8-opaque))
-
-
-;; CEK machine
-
-(define-metafunction λc~ inj_CEK : E -> S
-  [(inj_CEK E) (E () mt)])
-
 
 
