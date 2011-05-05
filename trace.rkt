@@ -20,7 +20,7 @@
   (stepper (R (all-but-last P))
            (last P)))
 
-;(trace-it -->_vcc~Δ fit-example)
+(trace-it -->_vcc~Δ fit-example)
 ;(trace-it -->_vcc~Δ fit-example-rsa-7)
 ;(trace-it -->_vcc~Δ fit-example-keygen-string)
 ;(step-it -->_vcc~Δ fit-example)

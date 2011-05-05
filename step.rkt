@@ -9,14 +9,22 @@
 (define v
   (reduction-relation
    λc~ #:domain E
-   (--> ((λ x E) V f) (subst x V E) β)
-   (--> ((λ x_0 x_1 E) V f) (subst x_0 (λ x_0 x_1 E) (subst x_1 V E)) β-rec)
-   (--> (n V f) (blame f Λ n λ n) wrong)
-   (--> (if V E_1 E_2) E_1 
-        (side-condition (term V))
+   (--> PV (-- PV) wrap)
+   (--> ((-- (λ x E) C ...) V f) 
+        (subst x V E) 
+        β)
+   (--> ((-- (λ x_0 x_1 E) C ...) V f) 
+        (subst x_0 (-- (λ x_0 x_1 E) C ...) (subst x_1 V E)) 
+        β-rec)   
+   (--> (WFV V f) (blame f Λ WFV λ WFV) wrong)
+   
+   (--> (if V E_1 E_2) E_1
+        (where (-- PV C ...) V)
+        (side-condition (term PV))
         if-t)
    (--> (if V E_1 E_2) E_2 
-        (side-condition (not (term V)))
+        (where (-- PV C ...) V)
+        (side-condition (not (term PV)))
         if-f)   
    (--> (o V ... f)
         (δ (o V ... f))
@@ -24,17 +32,31 @@
    (--> (begin V E) E begin)
    (--> (let x V E)
         (subst x V E) let)))
-   
-(test--> v (term ((λ x 0) 1 †)) (term 0))
+  
+(test--> v (term ((-- (λ x 0)) (-- 1) †)) (term 0))
 (test--> v 
-         (term ((λ f x (f x †)) 0 †))
-         (term ((λ f x (f x †)) 0 †)))                 
-(test--> v (term (0 1 †)) (term (blame † Λ 0 λ 0)))
-(test--> v (term (if 0 1 2)) (term 1))
-(test--> v (term (if #t 1 2)) (term 1))
-(test--> v (term (if #f 1 2)) (term 2))
-(test--> v (term (add1 0 †)) 1)
-(test--> v (term (proc? #f †)) #f)
+         (term ((-- (λ f x (f x †))) (-- 0) †))
+         (term ((-- (λ f x (f x †))) (-- 0) †)))                 
+(test--> v (term ((-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
+(test--> v (term (if (-- 0) 1 2)) (term 1))
+(test--> v (term (if (-- #t) 1 2)) (term 1))
+(test--> v (term (if (-- #f) 1 2)) (term 2))
+(test--> v (term (add1 (-- 0) †)) (term (-- 1)))
+(test--> v (term (proc? (-- #f) †)) (term (-- #f)))
+(test--> v (term (proc? (-- (λ x x)) †)) (term (-- #t)))
+(test--> v (term (proc? (-- (λ f x x)) †)) (term (-- #t)))
+(test--> v (term (proc? (-- (any/c -> any/c)) †)) (term (-- #t)))
+
+
+(define -->_v (context-closure v λc~ 𝓔))
+
+(test-->> -->_v (term ((λ x 0) 1 †)) (term (-- 0)))                
+(test-->> -->_v (term (0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
+(test-->> -->_v (term (if 0 1 2)) (term (-- 1)))
+(test-->> -->_v (term (if #t 1 2)) (term (-- 1)))
+(test-->> -->_v (term (if #f 1 2)) (term (-- 2)))
+(test-->> -->_v (term (add1 0 †))  (term (-- 1)))
+(test-->> -->_v (term (proc? #f †)) (term (-- #f)))
 
 (define c
   (reduction-relation
@@ -68,11 +90,18 @@
         chk-bool-fail)   
    (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W)
         ((C_1 --> C_2) <= f_1 f_2 V f_3 W)
-        chk-fun-pass)
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 n)
-        (blame f_1 f_3 V (C_1 -> C_2) n)
-        chk-fun-fail)
-      
+        chk-fun-pass-proc)
+   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 WFV)
+        (blame f_1 f_3 V (C_1 -> C_2) WFV)
+        chk-fun-fail-flat)   
+   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
+        ((C_1 --> C_2) <= f_1 f_2 V f_3 (remember-contract W? (none/c -> any/c)))
+        (side-condition (not (redex-match λc~ W (term W?))))
+        chk-fun-pass-maybe-proc)
+   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
+        (blame f_1 f_3 V (C_1 -> C_2) W?)
+        (side-condition (not (redex-match λc~ W (term W?))))
+        chk-fun-fail-maybe-proc)      
    (--> ((pred SV) <= f_1 f_2 V_1 f_3 V_2)
         (if (SV V_2 Λ) 
             (remember-contract V_2 (pred SV))
@@ -88,26 +117,26 @@
    (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
 
 (test--> c 
-         (term (((any/c --> any/c) <= f g 7 f (λ x 5)) 8 †))
-         (term (any/c <= f g 7 f ((λ x 5) (any/c <= g f 8 f 8) †))))
-(test--> c (term (int/c <= f g 0 f 5)) (term 5))
+         (term (((any/c --> any/c) <= f g (-- 7) f (-- (λ x 5))) (-- 8) †))
+         (term (any/c <= f g (-- 7) f ((-- (λ x 5)) (any/c <= g f (-- 8) f (-- 8)) †))))
+(test--> c (term (int/c <= f g (-- 0) f (-- 5))) (term (-- 5 int/c)))
 (test--> c 
-         (term (int/c <= f g 0 f (λ x x))) 
-         (term (blame f f 0 int/c (λ x x))))
+         (term (int/c <= f g (-- 0) f (-- (λ x x))))
+         (term (blame f f (-- 0) int/c (-- (λ x x)))))
 (test--> c 
-         (term (int/c <= f g 0 f #t)) 
-         (term (blame f f 0 int/c #t)))
+         (term (int/c <= f g (-- 0) f (-- #t))) 
+         (term (blame f f (-- 0) int/c (-- #t))))
 (test--> c
-         (term ((any/c  -> any/c) <= f g 0 f (λ x x)))
-         (term ((any/c --> any/c) <= f g 0 f (λ x x))))
+         (term ((any/c  -> any/c) <= f g (-- 0) f (-- (λ x x))))
+         (term ((any/c --> any/c) <= f g (-- 0) f (-- (λ x x)))))
 (test--> c 
-         (term ((any/c  -> any/c) <= f g 0 f 5))
-         (term (blame f f 0 (any/c -> any/c) 5)))
+         (term ((any/c  -> any/c) <= f g (-- 0) f (-- 5)))
+         (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
 (test--> c
-         (term ((pred (λ x 0)) <= f g 0 f 5))
-         (term (if ((λ x 0) 5 Λ)
-                   5
-                   (blame f f 0 (pred (λ x 0)) 5))))
+         (term ((pred (λ x 0)) <= f g (-- 0) f (-- 5)))
+         (term (if ((λ x 0) (-- 5) Λ)
+                   (-- 5 (pred (λ x 0)))
+                   (blame f f (-- 0) (pred (λ x 0)) (-- 5)))))
 
 (define c~
   (reduction-relation
@@ -130,8 +159,7 @@
         #;(begin (C_1 <= f ★ (-- C_0 ...) f (-- C_0 ...))
                  (-- C_2))
         (-- C_2)
-        apply-abs-func-abs)
-   
+        apply-abs-func-abs)   
    (--> ((-- int/c) V)
         (blame f Λ (-- int/c) λ (-- int/c))
         apply-abs-int)
@@ -204,21 +232,21 @@
   (reduction-relation
    λc~ #:domain E
    (--> (f ^ f)
-        V
-        (where (M_1 ... (module f C V) M_2 ...) ,Ms)
+        (-- PV)
+        (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
         Δ-self)
    (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 V f_1 V)
-        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
+        (C <= f_1 f_2 (-- PV) f_1 (-- PV))
+        (where (M_1 ... (module f_1 C PV) M_2 ...) ,Ms)
         (side-condition (not (eq? (term f_1) (term f_2))))
         Δ-other)))
 
 (test--> (Δ (term [(module f any/c 0)]))
          (term (f ^ f))
-         (term 0))
+         (term (-- 0)))
 (test--> (Δ (term [(module f any/c 0)]))
          (term (f ^ g))
-         (term (any/c <= f g 0 f 0)))
+         (term (any/c <= f g (-- 0) f (-- 0))))
 
 (define (Δ~ Ms)
   (reduction-relation
@@ -228,8 +256,8 @@
         (where (M_1 ... (module f C V) M_2 ...) ,Ms)
         self-mod-ref)
    (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 V f_1 V)
-        (where (M_1 ... (module f_1 C V) M_2 ...) ,Ms)
+        (C <= f_1 f_2 PV f_1 PV)
+        (where (M_1 ... (module f_1 C PV) M_2 ...) ,Ms)
         (side-condition (not (eq? (term f_1) (term f_2))))
         concrete-mod-ref)
    (--> (f_1 ^ f_2)
@@ -263,10 +291,15 @@
 (define error-propagate
   (reduction-relation 
    λc~ #:domain E
-   (--> (in-hole 𝓔 (-- none/c)) (-- none/c)
-        (side-condition (not (equal? (term hole) (term 𝓔)))))
+   (--> (in-hole 𝓔 (-- any_0 ... none/c any_1 ...))
+        (-- any_0 ... none/c any_1 ...)
+        (side-condition (not (equal? (term hole) (term 𝓔))))
+        halt-none/c)
    (--> (in-hole 𝓔 B) B
-        (side-condition (not (equal? (term hole) (term 𝓔)))))))
+        (side-condition (not (equal? (term hole) (term 𝓔))))
+        halt-blame)
+   (--> (-- any C_0 C ...) (-- any) forget))) ;; Maybe you want to not forget
+
 
 (define (-->_vcΔ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (Δ Ms)) λc~ 𝓔)))
@@ -280,12 +313,12 @@
 
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string
-           (term (blame keygen prime? "Key" int/c "Key")))
+           (term (blame keygen prime? (-- "Key") int/c (-- "Key"))))
 (test-->>p fit-example-rsa-7
            (term (-- string/c))
-           (term (blame keygen keygen (λ x 7) (pred (prime? ^ keygen)) 7)))
+           (term (blame keygen keygen (-- (λ x 7)) (pred (prime? ^ keygen)) (-- 7))))
 
-(test-->>p example-8 (term (blame h g #f (pred (λ x x)) #f)))
+(test-->>p example-8 (term (blame h g (-- #f) (pred (λ x x)) (-- #f))))
 (test-->>p example-8-opaque 
            (term (-- any/c))
            (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c)))

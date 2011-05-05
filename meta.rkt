@@ -26,44 +26,54 @@
 
 ;; FIXME: Don't handle abstract values
 (define-metafunction λc~
-  [(δ (add1 n f)) ,(add1 (term n))]
-  [(δ (sub1 0 f)) 0]
-  [(δ (sub1 n f)) ,(sub1 (term n))]
-  [(δ (zero? n f)) ,(zero? (term n))]  
-  [(δ (+ n_1 n_2 f)) ,(+ (term n_1) (term n_2))]
-  [(δ (- n_1 n_2 f)) ,(max 0 (- (term n_1) (term n_2)))]
-  [(δ (* n_1 n_2 f)) ,(* (term n_1) (term n_2))]
-  [(δ (expt n_1 n_2 f)) ,(expt (term n_1) (term n_2))]
-  [(δ (= n_1 n_2 f)) ,(= (term n_1) (term n_2))]
-  [(δ (< n_1 n_2 f)) ,(< (term n_1) (term n_2))]
-  [(δ (<= n_1 n_2 f)) ,(<= (term n_1) (term n_2))]
-  [(δ (> n_1 n_2 f)) ,(> (term n_1) (term n_2))]  
-  [(δ (>= n_1 n_2 f)) ,(>= (term n_1) (term n_2))]
+  prim-δ : (o V ... f) -> AV or PV or B
+  [(prim-δ (add1 (-- n C ...) f)) ,(add1 (term n))]
+  [(prim-δ (sub1 (-- 0 C ...) f)) 0]
+  [(prim-δ (sub1 (-- n C ...) f)) ,(sub1 (term n))]
+  [(prim-δ (zero? (-- n C ...) f)) ,(zero? (term n))]  
+  [(prim-δ (+ (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(+ (term n_1) (term n_2))]
+  [(prim-δ (- (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(max 0 (- (term n_1) (term n_2)))]
+  [(prim-δ (* (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(* (term n_1) (term n_2))]
+  [(prim-δ (expt  (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(expt (term n_1) (term n_2))]
+  [(prim-δ (= (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(= (term n_1) (term n_2))]
+  [(prim-δ (< (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(< (term n_1) (term n_2))]
+  [(prim-δ (<= (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(<= (term n_1) (term n_2))]
+  [(prim-δ (> (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(> (term n_1) (term n_2))]  
+  [(prim-δ (>= (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(>= (term n_1) (term n_2))]
 
-  [(δ (proc? aproc f)) #t]
-  [(δ (proc? (-- int/c C ...) f)) #f]
-  [(δ (proc? (-- string/c C ...) f)) #f]
-  [(δ (proc? (-- bool/c  C ...) f)) #f]
-  ;[(δ (proc? (-- none/c  C ...) f)) ,(error "Really?")]
-  [(δ (proc? (-- C C_0 ...) f)) (-- bool/c)]
-  [(δ (proc? V f)) #f]
+  [(prim-δ (proc? W f)) #t]
+  [(prim-δ (proc? WFV f)) #f]
+  [(prim-δ (proc? W? f)) (-- bool/c)]
   
-  [(δ (o1 V f)) (blame f o1 V λ V)]
+  [(prim-δ (o1 V f)) (blame f o1 V λ V)]
   ;; FIXME: should refer to V_1 and V_2.
-  [(δ (o2 V_1 V_2 f)) (blame f o2 V_1 λ V_1)])
+  [(prim-δ (o2 V_1 V_2 f)) (blame f o2 V_1 λ V_1)])
 
-(test-equal (term (δ (proc? #f f))) #f)
-(test-equal (term (δ (add1 0 f))) 1)
-(test-equal (term (δ (sub1 0 f))) 0)
-(test-equal (term (δ (zero? 0 f))) #t)
-(test-equal (term (δ (zero? 1 f))) #f)
-(test-equal (term (δ (add1 #t f))) (term (blame f add1 #t λ #t)))
+(test-equal (term (prim-δ (proc? (-- #f) f))) #f)
+(test-equal (term (prim-δ (add1 (-- 0) f))) 1)
+(test-equal (term (prim-δ (sub1 (-- 0) f))) 0)
+(test-equal (term (prim-δ (zero? (-- 0) f))) #t)
+(test-equal (term (prim-δ (zero? (-- 1) f))) #f)
+(test-equal (term (prim-δ (add1 (-- #t) f))) (term (blame f add1 (-- #t) λ (-- #t))))
+
+(define-metafunction λc~
+  wrap-δ : any -> V or B
+  [(wrap-δ AV) AV]
+  [(wrap-δ PV) (-- PV)]
+  [(wrap-δ B) B])
+
+(define-metafunction λc~
+  δ : (o V ... f) -> V or B
+  [(δ (o V ... f)) (wrap-δ (prim-δ (o V ... f)))])
+
+(test-equal (term (δ (proc? (-- (any/c -> any/c)) †)))
+            (term (-- #t)))
 
 ;; Test for δ totalness.
 (redex-check λc~ (o1 V)
              (or (redex-match λc~ V (term (δ (o1 V f))))
                  (equal? (term (blame f o1 V λ V))
-                         (term (δ (o1 V f))))))
+                         (term (prim-δ (o1 V f))))))
 (redex-check λc~ (o2 V_1 V_2)
              (or (redex-match λc~ V (term (δ (o2 V_1 V_2 f))))
                  (redex-match λc~ B (term (δ (o2 V_1 V_2 f))))))
@@ -123,14 +133,20 @@
 
 (define-metafunction λc~
   remember-contract : V C ... -> V
-  [(remember-contract (-- C_0 ... C C_1 ...) C C_2 ...)
-   (remember-contract (-- C_0 ... C C_1 ...) C_2 ...)]
-  [(remember-contract (-- C_0 C_1 ...) C_2 ...)
-   (-- C_0 C_2 ... C_1 ...)]
-  [(remember-contract V C ...) V])
+  [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
+   (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
+  [(remember-contract (-- any_0 C_1 ...) C_2 ...)
+   (-- any_0 C_2 ... C_1 ...)])
 
 (define-metafunction λc~
   dom-contract : f (M ...) -> C
   [(dom-contract f (any_0 ... (module f (C_0 -> C_1) any) any_1 ...))
    C_0]
   [(dom-contract f any) any/c])
+
+(define-metafunction λc~
+  strip-concrete-contracts : V -> AV or PV
+  [(strip-concrete-contracts (-- PV C ...)) PV]
+  [(strip-concrete-contracts AV) AV])
+
+   
