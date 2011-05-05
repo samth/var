@@ -1,0 +1,6 @@
+- ordered reduction rules
+- `or' in contract domains
+- heuristic for finding cycles
+- `where-not'
+- `fresh' in metafunctions
+- 
