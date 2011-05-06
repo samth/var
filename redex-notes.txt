@@ -3,5 +3,6 @@
 - heuristic for finding cycles
 - `where-not'
 - `fresh' in metafunctions
-- 
+- specify which reduction rules can participate in non-determinism
+- or/and patterns
 - syntax-parse style pattern match failure explanations
