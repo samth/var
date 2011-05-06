@@ -150,3 +150,10 @@
   [(strip-concrete-contracts AV) AV])
 
    
+(define-metafunction λc~
+  contract-in : C V -> #t or #f
+  [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
+  [(contract-in C (-- C_0 ... C C_1 ...)) #t]
+  [(contract-in (pred (f_a ^ f_b)) (-- PV C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
+  [(contract-in (pred (f_a ^ f_b)) (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
+  [(contract-in C V) #f])

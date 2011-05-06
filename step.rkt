@@ -106,12 +106,9 @@
         (if (SV V_2 Λ) 
             (remember-contract V_2 (pred SV))
             (blame f_1 f_3 V_1 (pred SV) V_2))
-        ;; Only want smart to fire when condition holds
-        (side-condition 
-         (not (redex-match λc~ 
-                           ((pred (f_a ^ f_b)) <= f_1* f_2* V_* f_3* (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...))
-                           (term ((pred SV) <= f_1 f_2 V_1 f_3 V_2)))))
-        chk-pred-c)   
+        ;; Only want smart to fire when this is true
+        (where #f (contract-in (pred SV) V_2))
+        chk-pred-c)
    
    ;; sugar
    (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
@@ -188,16 +185,11 @@
         (blame f_1 f_3 V (C_1 -> C_2) (-- int/c C ...))
         check-func-abs-int-fail)
    
-   (--> (C <= f_1 f_2 V f_3 (-- C_0 ... C C_1 ...))
-        (-- C_0 ... C C_1 ...)
+   (--> (C <= f_1 f_2 V_0 f_3 V)
+        V        
         (side-condition (not (redex-match λc~ (C_a -> C_b) (term C))))
+        (where #t (contract-in C V))
         smart*)
-   
-   ;; Possible overlapping
-   (--> ((pred (f_a ^ f_b)) <= f_1 f_2 V f_3 (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...))
-        (-- C_0 ... (pred (f_a ^ f_b)) C_1 ...)
-        (side-condition (not (eq? (term f_b) (term f_c))))
-        smart*-pred-mod)
    
    ;; sugar
    #;
