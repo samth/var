@@ -61,47 +61,46 @@
 (define c
   (reduction-relation
    λc~ #:domain E
+   
+   ;; BLESSED PROCEDURE CONTRACTS
+   
    (--> (((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
         (C_2 <= f_1 f_2 V_1 f_3 (W (C_1 <= f_2 f_1 V_2 f_3 V_2) f_4))
         split)   
-   (--> (int/c <= f_1 f_2 V f_3 aint) 
-        (remember-contract aint int/c) 
-        chk-int-pass)
+   
+   ;; FLAT CONTRACTS
+   
+   (--> (FC <= f_1 f_2 V f_3 (-- FV C ...)) 
+        (remember-contract (-- FV C ...) FC)
+        (where #t (flat-pass FC FV))
+        chk-flat-pass)
+   
    (--> (int/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 int/c V_2)
         (side-condition (not (aint? (term V_2))))
-        chk-int-fail)
-   (--> (none/c <= f_1 f_2 V_1 f_3 V_2) 
-        (blame f_1 f_3 V_1 none/c V_2)
-        chk-none-fail)
-   (--> (string/c <= f_1 f_2 V f_3 astring) 
-        (remember-contract astring string/c)
-        chk-string-pass)   ;; new
+        chk-int-fail)   ;; new
    (--> (string/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 string/c V_2)
         (side-condition (not (astring? (term V_2))))
-        chk-string-fail)   
-   (--> (bool/c <= f_1 f_2 V f_3 abool)
-        (remember-contract abool bool/c)
-        chk-bool-pass)   ;; new
+        chk-string-fail)   ;; new
    (--> (bool/c <= f_1 f_2 V_1 f_3 V_2) 
         (blame f_1 f_3 V_1 bool/c V_2)
         (side-condition (not (abool? (term V_2))))
         chk-bool-fail)   
+   
+   ;; PROCEDURE CONTRACTS   
+   
+   ;; definite procedures
    (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W)
         ((C_1 --> C_2) <= f_1 f_2 V f_3 W)
         chk-fun-pass-proc)
+   ;; flat values
    (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 WFV)
         (blame f_1 f_3 V (C_1 -> C_2) WFV)
-        chk-fun-fail-flat)   
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
-        ((C_1 --> C_2) <= f_1 f_2 V f_3 (remember-contract W? (none/c -> any/c)))
-        (side-condition (not (redex-match λc~ W (term W?))))
-        chk-fun-pass-maybe-proc)
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
-        (blame f_1 f_3 V (C_1 -> C_2) W?)
-        (side-condition (not (redex-match λc~ W (term W?))))
-        chk-fun-fail-maybe-proc)      
+        chk-fun-fail-flat)
+   
+   ;; PREDICATE CONTRACTS
+         
    (--> ((pred SV) <= f_1 f_2 V_1 f_3 V_2)
         (if (SV V_2 Λ) 
             (remember-contract V_2 (pred SV))
@@ -110,8 +109,12 @@
         (where #f (contract-in (pred SV) V_2))
         chk-pred-c)
    
-   ;; sugar
-   (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 any-pass)))
+   ;; TRIVIAL CONTRACTS
+   
+   (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 chk-any-pass)
+   (--> (none/c <= f_1 f_2 V_1 f_3 V_2) 
+        (blame f_1 f_3 V_1 none/c V_2)
+        chk-none-fail)))
 
 (test--> c 
          (term (((any/c --> any/c) <= f g (-- 7) f (-- (λ x 5))) (-- 8) †))
@@ -138,89 +141,96 @@
 (define c~
   (reduction-relation
    λc~ #:domain E
-   ;; IMPROVE ME: for all (C_1 -> C_2) in C ..., you know C_2 of result.
-   (--> ((-- (pred SV) C ...) V f)
-        (begin ((demonic (pred SV)) V ★) (-- any/c))
+   
+   ;; APPLYING ABSTRACT VALUES   
+   
+   ;; applying abstract values to concrete values
+   (--> (AV V f)
+        ;; do bad things to the concrete value
+        (begin ((demonic C_demon) V ★)
+               ;; produce an abstract value constrainted by all the possible domains
+               (remember-contract (-- any/c) C_0 ...))
+        (where (-- C ...) AV)
+        (where C_demon (most-specific-domain C ...))
+        (where (C_0 ...) (range-contracts (C ...)))
+        ;; abstract values as arguments go in the next case
         (side-condition (not (abstract-value? (term V))))
-        apply-abs-pred-concrete)
-   (--> ((-- (pred SV) C ...) (-- C_0 ...) f)
-        (-- any/c)
-        apply-abs-pred-abs)
-        
-   ;; IMPROVE ME: for all (C_1 -> C_2) in C ..., you know C_2 of result.
-   (--> ((-- (C_1 -> C_2) C ...) V f)
-        (begin ((demonic C_1) V #;(C_1 <= f ★ V f V) ★) (-- C_2))
-        (side-condition (not (abstract-value? (term V))))
-        apply-abs-func-concrete) 
-   (--> ((-- (C_1 -> C_2) C ...) (-- C_0 ...) f)  
-        #;(begin (C_1 <= f ★ (-- C_0 ...) f (-- C_0 ...))
-                 (-- C_2))
-        (-- C_2)
-        apply-abs-func-abs)   
-   (--> ((-- int/c) V)
-        (blame f Λ (-- int/c) λ (-- int/c))
-        apply-abs-int)
-   (--> (if (-- C C_0 ...) E_1 E_2)
+        ;; if the abstract value is definetely flat, this case is handled by `wrong' from `v'
+        (side-condition (not (redex-match λc~ WFV (term AV))))
+        apply-abs-concrete) 
+   (--> (AV AV_0 f)
+        ;; we don't care what bad things happen to abstract values, so we don't simulate them
+        (remember-contract (-- any/c) C_0 ...)
+        (where (-- C ...) AV)
+        (where (C_0 ...) (range-contracts (C ...)))
+        ;; if the abstract value is definetely flat, this case is handled by `wrong' from `v'
+        (side-condition (not (redex-match λc~ WFV (term AV))))
+        apply-abs-abs)
+   
+   ;; applying abstract value that might be flat can fail
+   (--> (W? V f)
+        (blame f Λ W? λ W?)
+        ;; if it's not definitely a procedure, it might be flat
+        (side-condition (not (redex-match λc~ W (term W?))))
+        apply-abs-fail)
+   ;; applying definitely flat values (those not in W?) is handled by `wrong' from `v'
+   
+   
+   ;; CONDITIONALS ON ABSTRACT VALUES
+   
+   (--> (if AV E_1 E_2)
         E_2
+        ;; if AV is an int, string, or procedure, then it can't be #f
+        (side-condition (not (or (redex-match λc~ aint (term AV))
+                                 (redex-match λc~ astring (term AV))
+                                 (redex-match λc~ W (term AV)))))
         if-abs-false)
-   (--> (if (-- C C_0 ...) E_1 E_2)
+   (--> (if AV E_1 E_2)
         E_1
         if-abs-true)
-   (--> (int/c <= f_1 f_2 V f_3 (-- int/c))
-        (-- int/c)
-        check-int-abs-int)
-   (--> (int/c <= f_1 f_2 V f_3 (-- (pred SV) C ...))
-        (-- int/c (pred SV) C ...)
-        check-int-abs-pred-pass)
-   (--> (int/c <= f_1 f_2 V f_3 (-- (pred SV) C ...))
-        (blame f_1 f_3 V int/c (-- (pred SV) C ...))
-        check-int-abs-pred-fail)
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred SV) C ...))
-        (-- (C_1 -> C_2) (pred SV) C ...)
-        check-func-abs-pred-pass)
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- (pred SV) C ...))
-        (blame f_1 f_3 V (C_1 -> C_2) (-- (pred SV) C ...))
-        check-func-abs-pred-fail)
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- int/c C ...))
-        (blame f_1 f_3 V (C_1 -> C_2) (-- int/c C ...))
-        check-func-abs-int-fail)
    
+   ;; CONTRACT CHECKING OF ABSTRACT VALUES
+   
+   ;; skip first-order checks that we know this value to have already passed
+   ;; higher-order checks impose obligations on people we interact with, so they must be kept around
+   ;; also, higher-order checks could fail later even if they passed earlier
+   ;; FIXME: if we add state, then we can't remember stateful predicates or predicates on stateful values
    (--> (C <= f_1 f_2 V_0 f_3 V)
         V        
         (side-condition (not (redex-match λc~ (C_a -> C_b) (term C))))
         (where #t (contract-in C V))
         smart*)
    
-   ;; sugar
-   #;
-   (--> ((-- any/c) V f)
-        (begin ((demonic any/c) V ★) (-- any/c)))
-   
-   (--> ((-- any/c C ...) V f)
-        (begin ((demonic any/c) V ★) (-- any/c))
-        (side-condition (not (abstract-value? (term V))))
-        apply-abs-any-concrete)
-   (--> ((-- any/c C ...) (-- C_0 ...) f)
-        (-- any/c)
-        apply-abs-any-abs)      
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- any/c))
-        (blame f_1 f_3 V (C_1 -> C_2) (-- any/c)))   
-   (--> ((C_1 -> C_2) <= f_1 f_2 V f_3 (-- any/c))
-        (-- (C_1 -> C_2)))
-   (--> (int/c <= f_1 f_2 V f_3 (-- any/c C ...))
-        (-- int/c C ...))
-   (--> (int/c <= f_1 f_2 V f_3 (-- any/c C ...))
-        (blame f_1 f_3 V int/c (-- any/c C ...)))
-   (--> (bool/c <= f_1 f_2 V f_3 (-- any/c C ...))
-        (-- bool/c C ...))
-   (--> (bool/c <= f_1 f_2 V f_3 (-- any/c C ...))
-        (blame f_1 f_3 V bool/c (-- any/c C ...)))
-   (--> (string/c <= f_1 f_2 V f_3 (-- any/c C ...))
-        (-- string/c C ...))   
-   (--> (string/c <= f_1 f_2 V f_3 (-- any/c C ...))
-        (blame f_1 f_3 V string/c (-- any/c C ...)))))
+   ;; possible procedures
+   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
+        ((C_1 --> C_2) <= f_1 f_2 V f_3 (remember-contract W? (none/c -> any/c)))
+        ;; definite procedures/non-procedures are handled in `v'
+        (side-condition (not (redex-match λc~ W (term W?))))
+        (side-condition (not (redex-match λc~ WFV (term W?))))
+        chk-fun-pass-maybe-proc)
+   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
+        (blame f_1 f_3 V (C_1 -> C_2) W?)
+        ;; definite procedures/non-procedures are handled in `v'
+        (side-condition (not (redex-match λc~ W (term W?))))
+        (side-condition (not (redex-match λc~ WFV (term W?))))
+        chk-fun-fail-maybe-proc)
 
-(define (Δ Ms)
+   
+   ;; check flat contracts of abstract values   
+   (--> (FC <= f_1 f_2 V f_3 AV)
+        (remember-contract AV FC)
+        ;; avoid overlap with `smart*'
+        (where #f (contract-in FC AV))
+        ;; if AV is definitely not an FC, then there's no reason to pass
+        (where #t (contract-not-in FC AV))
+        chk-flat-abstract-pass)
+   (--> (FC <= f_1 f_2 V f_3 AV)
+        (blame f_1 f_3 V FC AV)
+        ;; avoid overlap with `smart*'
+        (where #f (contract-in FC AV))
+        chk-flat-abstract-fail)))
+
+(define (∆ Ms)
   (reduction-relation
    λc~ #:domain E
    (--> (f ^ f)
@@ -233,31 +243,23 @@
         (side-condition (not (eq? (term f_1) (term f_2))))
         Δ-other)))
 
-(test--> (Δ (term [(module f any/c 0)]))
+(test--> (∆ (term [(module f any/c 0)]))
          (term (f ^ f))
          (term (-- 0)))
-(test--> (Δ (term [(module f any/c 0)]))
+(test--> (∆ (term [(module f any/c 0)]))
          (term (f ^ g))
          (term (any/c <= f g (-- 0) f (-- 0))))
 
 (define (Δ~ Ms)
-  (reduction-relation
-   λc~ #:domain E
-   (--> (f ^ f)
-        V
-        (where (M_1 ... (module f C V) M_2 ...) ,Ms)
-        self-mod-ref)
-   (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 (-- PV) f_1 (-- PV))
-        (where (M_1 ... (module f_1 C PV) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2))))
-        concrete-mod-ref)
-   (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 (-- C) f_1 (-- C))
-        #;(-- C)
-        (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2))))
-        opaque-mod-ref)))
+  (union-reduction-relations
+   (∆ Ms)
+   (reduction-relation
+    λc~ #:domain E
+    (--> (f_1 ^ f_2)
+         (C <= f_1 f_2 (-- C) f_1 (-- C))
+         (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
+         (side-condition (not (eq? (term f_1) (term f_2))))
+         ∆-opaque))))
 
 (test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
          (term ((prime? ^ rsa)
@@ -283,18 +285,23 @@
 (define error-propagate
   (reduction-relation 
    λc~ #:domain E
-   (--> (in-hole 𝓔 (-- any_0 ... none/c any_1 ...))
-        (-- any_0 ... none/c any_1 ...)
-        (side-condition (not (equal? (term hole) (term 𝓔))))
-        halt-none/c)
+   ;; if we reduce to blame, we halt the program
    (--> (in-hole 𝓔 B) B
         (side-condition (not (equal? (term hole) (term 𝓔))))
         halt-blame)
-   (--> (-- any C_0 C ...) (-- any) forget))) ;; Maybe you want to not forget
+   ;; abstract none/c values are impossible
+   (--> (in-hole 𝓔 (-- any_0 ... none/c any_1 ...))
+        (-- any_0 ... none/c any_1 ...)
+        (side-condition (not (equal? (term hole) (term 𝓔))))
+        halt-none/c)   
+   ;; normalize abstract values at the end to make testing easier
+   (--> V V_norm normalize-abstract
+        (where V_norm (normalize V))
+        (side-condition (not (equal? (term V) (term V_norm)))))))
 
 
 (define (-->_vcΔ Ms)
-  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (Δ Ms)) λc~ 𝓔)))
+  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (∆ Ms)) λc~ 𝓔)))
 
 (define (-->_vcc~Δ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
@@ -303,7 +310,6 @@
   (test-->> (-->_vcc~Δ (all-but-last p)) (last p)
             e ...))
 
- 
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string
            (term (blame keygen prime? (-- "Key") int/c (-- "Key"))))

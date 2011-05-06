@@ -21,16 +21,12 @@
            (last P)))
 
 (trace-it -->_vcc~Δ fit-example)
-;(trace-it -->_vcc~Δ fit-example-rsa-7)
-;(trace-it -->_vcc~Δ fit-example-keygen-string)
+(trace-it -->_vcc~Δ fit-example-rsa-7)
+(trace-it -->_vcc~Δ fit-example-keygen-string)
+(trace-it -->_vcc~Δ example-8)
+(trace-it -->_vcc~Δ example-8-opaque)
 ;(step-it -->_vcc~Δ fit-example)
 
 
-#;
-(traces (-->_vcΔ (all-but-last example-8))
-        (last example-8))
-#;
-(traces (-->_vcc~Δ (all-but-last example-8-opaque))
-        (last example-8-opaque))
 
 

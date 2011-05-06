@@ -20,7 +20,8 @@
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f) (let x E E) (begin E E))
-  (C int/c any/c bool/c string/c none/c (C -> C) (pred SV))
+  (FC int/c bool/c string/c)
+  (C any/c none/c (C -> C) (pred SV) FC)
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned o † ★) ;; † is top-level
   (n natural)
@@ -35,24 +36,26 @@
   (W .... ((C --> C) <= f f V f W))  
   (B (blame f f V C V))
   (E .... (C <= f f V f E) B)
-  (C .... (C --> C) λ)
+  (C .... (C --> C))
   (f .... Λ)
   (𝓔 .... (C <= f f V f 𝓔)))
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
-  (AV (-- (side-condition C_0 (not (eq? 'λ (term C_0)))) C ...))
+  (AV (-- C C ...))
+  
+  (C-ext C λ)
       
   (WFV .... aint astring abool)
   (V .... AV)             ;; (-- X) is overline X.
-  (B .... (blame f? g? V1? C? V2?))
+  (B .... (blame f f V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
   
   ;; Definite procedure  
   (W .... (-- C ... (C -> C) C ...))
     
   ;; Maybe procedure
-  (W? W (-- any/c C ...) (-- (pred SV) C ...))
+  (W? W (-- any/c C ...) (-- (pred SV) C ...))    
   
   (aproc W*)
   (aint (-- int C ...) (-- C ... int/c C ...))

@@ -6,3 +6,4 @@
 - specify which reduction rules can participate in non-determinism
 - or/and patterns
 - syntax-parse style pattern match failure explanations
+- automatic totality checker for contracted metafunctions

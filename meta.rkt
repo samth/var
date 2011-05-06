@@ -133,10 +133,25 @@
 
 (define-metafunction λc~
   remember-contract : V C ... -> V
+  ;; drop any/c on the floor when possible
+  [(remember-contract (-- any/c C C_1 ...) C_2 ...)
+   (remember-contract (-- C C_1 ...) C_2 ...)]
+  [(remember-contract (-- any/c) C C_2 ...)
+   (remember-contract (-- C) C_2 ...)]
+  [(remember-contract V any/c C_2 ...)
+   (remember-contract V C_2 ...)]
+  ;; do the real work
   [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
    (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
   [(remember-contract (-- any_0 C_1 ...) C_2 ...)
-   (-- any_0 C_2 ... C_1 ...)])
+   (-- any_0 C_2 ... C_1 ...)]
+  ;; descend inside blessed arrow contracts
+  [(remember-contract ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 V_2) C ...)
+   ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 (remember-contract V_2 C ...))])
+
+;; check that remember-contract is total and produces the right type
+(redex-check λc~ (V C ...)              
+             (redex-match λc~ V (term (remember-contract V C ...))))
 
 (define-metafunction λc~
   dom-contract : f (M ...) -> C
@@ -151,9 +166,58 @@
 
    
 (define-metafunction λc~
+  flat-pass : FC FV -> #t or #f
+  [(flat-pass int/c int) #t]
+  [(flat-pass string/c string) #t]
+  [(flat-pass bool/c bool) #t]
+  [(flat-pass FC FV) #f])
+
+(redex-check λc~ (FC FV) (boolean? (term (flat-pass FC FV))))
+
+(define-metafunction λc~
+  range-contracts : (C ...) -> (C ...)
+  [(range-contracts ()) ()]
+  [(range-contracts ((C_1 -> C_2) C ...))
+   (C_2 C_0 ...)
+   (where (C_0 ...) (range-contracts (C ...)))]
+  [(range-contracts (C_0 C ...)) (range-contracts (C ...))])
+  
+   
+(define-metafunction λc~
   contract-in : C V -> #t or #f
   [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
   [(contract-in C (-- C_0 ... C C_1 ...)) #t]
   [(contract-in (pred (f_a ^ f_b)) (-- PV C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
   [(contract-in (pred (f_a ^ f_b)) (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
   [(contract-in C V) #f])
+
+;; does this abstract value *definitely* fail this contract
+(define-metafunction λc~
+  contract-not-in : C AV -> #t or #f
+  [(contract-not-in FC_1 (-- C_0 ... FC_2 C_1 ...)) #t
+   (side-condition (not (eq? (term FC_1) (term FC_2))))]
+  [(contract-not-in FC_1 (-- C_0 ... (C_a -> C_b) C_1 ...)) #t]
+  [(contract-not-in C AV) #f])
+
+(define-metafunction λc~
+  most-specific-domain : C ... -> C
+  [(most-specific-domain (C_1 -> C_2) C ...) C_1]
+  [(most-specific-domain C ...) any/c])
+
+(define-metafunction λc~
+  normalize : V -> V
+  [(normalize ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 V)) (normalize V)]
+  [(normalize (-- PV C ...)) (-- PV C_1 ...)
+   (where (C_1 ...)
+          ,(remove-duplicates (term (C ...))
+                              (match-lambda**
+                               [(`(,f ^ _) `(,f ^ _)) #t]
+                               [(a b) (equal? a b)])))]
+  [(normalize (-- C ...)) (-- C_1 ...)
+   (where (C_1 ...)
+          ,(remove-duplicates (term (C ...))
+                              (match-lambda**
+                               [(`(,f ^ _) `(,f ^ _)) #t]
+                               [(a b) (equal? a b)])))])
+
+(redex-check λc~ V  (redex-match λc~ V (term (normalize V))))
