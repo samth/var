@@ -256,7 +256,7 @@
         (where (M_1 ... (module f C V) M_2 ...) ,Ms)
         self-mod-ref)
    (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 PV f_1 PV)
+        (C <= f_1 f_2 (-- PV) f_1 (-- PV))
         (where (M_1 ... (module f_1 C PV) M_2 ...) ,Ms)
         (side-condition (not (eq? (term f_1) (term f_2))))
         concrete-mod-ref)
@@ -311,6 +311,7 @@
   (test-->> (-->_vcc~Δ (all-but-last p)) (last p)
             e ...))
 
+ 
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string
            (term (blame keygen prime? (-- "Key") int/c (-- "Key"))))
@@ -321,5 +322,4 @@
 (test-->>p example-8 (term (blame h g (-- #f) (pred (λ x x)) (-- #f))))
 (test-->>p example-8-opaque 
            (term (-- any/c))
-           (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c)))
-           #;(term (blame h g #f (pred (λ x x)) #f)))
+           (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c))))

@@ -4,3 +4,4 @@
 - `where-not'
 - `fresh' in metafunctions
 - 
+- syntax-parse style pattern match failure explanations
