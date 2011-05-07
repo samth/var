@@ -8,12 +8,20 @@
 (define-syntax-rule (trace-it R P)
   (traces (R (all-but-last P))
           (last P)
-          #:pred colorize))
+          #:pred (colorize (all-but-last P))))
 
-(define (colorize x)
+(define ((colorize Ms) x)
+  (define opaques (filter-map (λ (M) (match M
+                                       [`(module ,n ,c ☁) n]
+                                       [_ #f]))
+                              Ms))
   (cond [(redex-match λc~ V x) "green"]
-        [(redex-match λc~ (blame ★ f V_0 C V_1) x) "pink"]
-        [(redex-match λc~ B x) "red"]
+        [(redex-match λc~ B x)
+         (redex-let λc~
+                    ([(blame f f_0 V C V_0) x])
+                    (cond [(equal? (term f) '★) "pink"]
+                          [(member (term f) opaques) "pink"]
+                          [else "red"]))]
         [else #t]))
 
 (define-syntax-rule (step-it R P)
