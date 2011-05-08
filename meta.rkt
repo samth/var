@@ -11,8 +11,7 @@
   [(demonic any/c)
    (λ f x (if (proc? x ★) 
               (f (x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
-              0))
-   (where (f x) ,(list (gensym 'f) (gensym 'x)))]
+              0))]
   [(demonic (pred SV))
    (demonic any/c)]
   [(demonic int/c) (λ x 0)]

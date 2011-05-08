@@ -321,3 +321,7 @@
 (test-->>p example-8-opaque 
            (term (-- any/c))
            (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c))))
+
+(redex-check λc-user (M ... E)
+             (equal? (apply-reduction-relation (-->_vcΔ (term (M ...))) (term E))
+                     (apply-reduction-relation (-->_vcc~Δ (term (M ...))) (term E))))
