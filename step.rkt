@@ -301,7 +301,9 @@
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
 
 (define-syntax-rule (test-->>p p e ...)
-  (test-->> (-->_vcc~Δ (all-but-last p)) (last p)
+  (test-->> (-->_vcc~Δ (all-but-last p))
+            #:equiv (λ (e0 e1) (term (≡α ,e0 ,e1)))
+            (last p)
             e ...))
 
 (test-->>p fit-example (term (-- string/c)))
