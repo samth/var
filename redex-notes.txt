@@ -10,5 +10,5 @@
 - LHS generation should respect the domain of the metafunction
 - one term `where' clause should be interpreted as
   (where #t term)
-  
+- errors inside test cases shouldn't stop the program
   

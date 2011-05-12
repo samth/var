@@ -226,3 +226,79 @@
                                [(a b) (equal? a b)])))])
 
 (redex-check λc~ V  (redex-match λc~ V (term (normalize V))))
+
+
+;; Is E_0 ≡α E_1 by systematic renaming.
+(define-metafunction λc~
+  ≡α : any any -> #t or #f
+  [(≡α (λ x_0 any_0) (λ x_1 any_1))
+   (≡α (subst x_0 x_fresh any_0)
+       (subst x_1 x_fresh any_1))
+   (where x_fresh ,(variable-not-in (term (any_0 any_1)) (term x_0)))]       
+  [(≡α (λ x_f0 x_0 any_0) (λ x_f1 x_1 any_1))   
+   (≡α (subst x_0 x_fresh (subst x_f0 x_ffresh any_0))
+       (subst x_1 x_fresh (subst x_f1 x_ffresh any_1)))   
+   (where x_ffresh ,(variable-not-in (term (any_0 any_1)) (term x_f0)))
+   (where x_fresh  ,(variable-not-in (term (any_0 any_1 x_ffresh)) (term x_0)))]  
+  [(≡α (let x_0 any_0 any_b0) (let x_1 any_1 any_b1))
+   (≡α (subst x_0 x_fresh any_0)
+       (subst x_1 x_fresh any_1))
+   (where #t (≡α any_0 any_1))
+   (where x_fresh ,(variable-not-in (term (any_0 any_1)) (term x_0)))]    
+  [(≡α (any_0 ..._1) (any_1 ..._1))
+   #t
+   (where (#t ...) ((≡α any_0 any_1) ...))]
+  [(≡α any any) #t]
+  [(≡α any_0 any_1) #f])
+
+(test-equal (term (≡α (λ x x) (λ y y))) #t)
+(test-equal (term (≡α (λ x x) (λ y z))) #f)
+(test-equal (term (≡α 3 3)) #t)
+(test-equal (term (≡α 3 4)) #f)
+(test-equal (term (≡α ((λ x x) 3 f) ((λ y y) 3 f))) #t)
+(test-equal (term (≡α ((λ x x) (λ y y) f) ((λ y y) (λ x x) f))) #t)
+
+(redex-check λc~ E (term (≡α E E)))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
