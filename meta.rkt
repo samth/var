@@ -165,16 +165,16 @@
   [(strip-concrete-contracts (-- PV C ...)) PV]
   [(strip-concrete-contracts AV) AV])
 
-;; Given a flat contract and flat value, checks satisfaction.
+;; Given a flat contract and plain value, checks satisfaction.
 (define-metafunction λc~
-  flat-pass : FC FV -> #t or #f
+  flat-pass : FC PV -> #t or #f
   [(flat-pass int/c int) #t]
   [(flat-pass string/c string) #t]
   [(flat-pass bool/c bool) #t]
-  [(flat-pass FC FV) #f])
+  [(flat-pass FC PV) #f])
 
 ;; Totality check
-(redex-check λc~ (FC FV) (boolean? (term (flat-pass FC FV))))
+(redex-check λc~ (FC PV) (boolean? (term (flat-pass FC PV))))
 
 ;; All range contracts of all function contracts in given contracts.
 (define-metafunction λc~

@@ -70,23 +70,15 @@
    
    ;; FLAT CONTRACTS
    
-   (--> (FC <= f_1 f_2 V f_3 (-- FV C ...)) 
-        (remember-contract (-- FV C ...) FC)
-        (where #t (flat-pass FC FV))
+   (--> (FC <= f_1 f_2 V f_3 (-- PV C ...)) 
+        (remember-contract (-- PV C ...) FC)
+        (where #t (flat-pass FC PV))
         chk-flat-pass)
    
-   (--> (int/c <= f_1 f_2 V_1 f_3 V_2) 
-        (blame f_1 f_3 V_1 int/c V_2)
-        (side-condition (not (aint? (term V_2))))
-        chk-int-fail)   ;; new
-   (--> (string/c <= f_1 f_2 V_1 f_3 V_2) 
-        (blame f_1 f_3 V_1 string/c V_2)
-        (side-condition (not (astring? (term V_2))))
-        chk-string-fail)   ;; new
-   (--> (bool/c <= f_1 f_2 V_1 f_3 V_2) 
-        (blame f_1 f_3 V_1 bool/c V_2)
-        (side-condition (not (abool? (term V_2))))
-        chk-bool-fail)   
+   (--> (FC <= f_1 f_2 V f_3 (-- PV C ...)) 
+        (blame f_1 f_3 V FC (-- PV C ...))
+        (where #f (flat-pass FC PV))
+        chk-flat-fail)       
    
    ;; PROCEDURE CONTRACTS   
    
