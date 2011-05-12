@@ -57,7 +57,6 @@
   ;; Maybe procedure
   (W? W (-- any/c C ...) (-- (pred SV) C ...))    
   
-  (aproc W*)
   (aint (-- int C ...) (-- C ... int/c C ...))
   (astring (-- string C ...) (-- C ... string/c C ...))
   (abool (-- bool C ...) (-- C ... bool/c C ...)))

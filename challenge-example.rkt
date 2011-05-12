@@ -1,6 +1,14 @@
 #lang racket/load
 
 ;; An example from Degen, Thiemann, Wehr
+
+;; Aside: there's an interesting interaction between contracts and
+;; laziness in this example:
+;; the domain contract is strict in *both* its arguments, while
+;; the function is only strict in the first.
+
+;; So with in a lazy language, contract monitoring is semantics changing.
+
 (module m racket
   (define f (λ (p) (car p)))
   

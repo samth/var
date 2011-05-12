@@ -7,3 +7,8 @@
 - or/and patterns
 - syntax-parse style pattern match failure explanations
 - automatic totality checker for contracted metafunctions
+- LHS generation should respect the domain of the metafunction
+- one term `where' clause should be interpreted as
+  (where #t term)
+  
+  

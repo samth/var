@@ -152,6 +152,8 @@
 (redex-check λc~ (V C ...)              
              (redex-match λc~ V (term (remember-contract V C ...))))
 
+;; If f refers to a module contract with an arrow contract, get 
+;; domain contract; otherwise, any/c.
 (define-metafunction λc~
   dom-contract : f (M ...) -> C
   [(dom-contract f (any_0 ... (module f (C_0 -> C_1) any) any_1 ...))
@@ -163,7 +165,7 @@
   [(strip-concrete-contracts (-- PV C ...)) PV]
   [(strip-concrete-contracts AV) AV])
 
-   
+;; Given a flat contract and flat value, checks satisfaction.
 (define-metafunction λc~
   flat-pass : FC FV -> #t or #f
   [(flat-pass int/c int) #t]
@@ -171,8 +173,10 @@
   [(flat-pass bool/c bool) #t]
   [(flat-pass FC FV) #f])
 
+;; Totality check
 (redex-check λc~ (FC FV) (boolean? (term (flat-pass FC FV))))
 
+;; All range contracts of all function contracts in given contracts.
 (define-metafunction λc~
   range-contracts : (C ...) -> (C ...)
   [(range-contracts ()) ()]
@@ -181,7 +185,7 @@
    (where (C_0 ...) (range-contracts (C ...)))]
   [(range-contracts (C_0 C ...)) (range-contracts (C ...))])
   
-   
+;; Does this value definitely pass this contract?
 (define-metafunction λc~
   contract-in : C V -> #t or #f
   [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
@@ -190,7 +194,7 @@
   [(contract-in (pred (f_a ^ f_b)) (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
   [(contract-in C V) #f])
 
-;; does this abstract value *definitely* fail this contract
+;; Does this abstract value *definitely* fail this contract?
 (define-metafunction λc~
   contract-not-in : C AV -> #t or #f
   [(contract-not-in FC_1 (-- C_0 ... FC_2 C_1 ...)) #t
@@ -198,11 +202,13 @@
   [(contract-not-in FC_1 (-- C_0 ... (C_a -> C_b) C_1 ...)) #t]
   [(contract-not-in C AV) #f])
 
+;; FIXME returns first domain, should return most specific.
 (define-metafunction λc~
   most-specific-domain : C ... -> C
   [(most-specific-domain (C_1 -> C_2) C ...) C_1]
   [(most-specific-domain C ...) any/c])
 
+;; Removes duplicate remembered contracts.
 (define-metafunction λc~
   normalize : V -> V
   [(normalize ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 V)) (normalize V)]

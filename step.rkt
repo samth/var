@@ -170,7 +170,7 @@
    ;; applying abstract value that might be flat can fail
    (--> (W? V f)
         (blame f Λ W? λ W?)
-        ;; if it's not definitely a procedure, it might be flat
+        ;; if it's not definitely a procedure, it might be flat        
         (side-condition (not (redex-match λc~ W (term W?))))
         apply-abs-fail)
    ;; applying definitely flat values (those not in W?) is handled by `wrong' from `v'
@@ -190,6 +190,8 @@
         if-abs-true)
    
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
+   
+   ;; Predicate contracts are handled by concrete transition.
    
    ;; skip first-order checks that we know this value to have already passed
    ;; higher-order checks impose obligations on people we interact with, so they must be kept around
@@ -322,6 +324,7 @@
            (term (-- any/c))
            (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c))))
 
+;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)
              (equal? (apply-reduction-relation (-->_vcΔ (term (M ...))) (term E))
                      (apply-reduction-relation (-->_vcc~Δ (term (M ...))) (term E))))
