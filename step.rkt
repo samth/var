@@ -140,7 +140,7 @@
    (--> (AV V f)
         ;; do bad things to the concrete value
         (begin ((demonic C_demon) V ★)
-               ;; produce an abstract value constrainted by all the possible domains
+               ;; produce an abstract value constranated by all the possible domains
                (remember-contract (-- any/c) C_0 ...))
         (where (-- C ...) AV)
         (where C_demon (most-specific-domain C ...))
@@ -173,7 +173,7 @@
    (--> (if AV E_1 E_2)
         E_2
         ;; if AV is an int, string, or procedure, then it can't be #f
-        (side-condition (not (or (redex-match λc~ aint (term AV))
+        (side-condition (not (or (redex-match λc~ anat (term AV))
                                  (redex-match λc~ astring (term AV))
                                  (redex-match λc~ W (term AV)))))
         if-abs-false)

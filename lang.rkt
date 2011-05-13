@@ -45,7 +45,7 @@
   
   (C-ext C λ)
       
-  (WFV .... aint astring abool)
+  (WFV .... anat astring abool)
   (V .... AV)             ;; (-- X) is overline X.
   (B .... (blame f f V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
@@ -56,11 +56,11 @@
   ;; Maybe procedure
   (W? W (-- any/c C ...) (-- (pred SV) C ...))    
   
-  (aint (-- nat C ...) (-- C ... nat/c C ...))
+  (anat (-- nat C ...) (-- C ... nat/c C ...))
   (astring (-- string C ...) (-- C ... string/c C ...))
   (abool (-- bool C ...) (-- C ... bool/c C ...)))
 
-(define aint? (redex-match λc~ aint))
+(define anat? (redex-match λc~ anat))
 (define astring? (redex-match λc~ astring))
 (define abool? (redex-match λc~ abool))
 (define abstract-value? (redex-match λc~ (-- C ...)))
