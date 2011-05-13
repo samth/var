@@ -11,4 +11,4 @@
 - one term `where' clause should be interpreted as
   (where #t term)
 - errors inside test cases shouldn't stop the program
-  
+  test--> should check that the expected values is in the range of the relation
