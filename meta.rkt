@@ -77,7 +77,9 @@
              (or (redex-match λc~ V (term (δ (o2 V_1 V_2 f))))
                  (redex-match λc~ B (term (δ (o2 V_1 V_2 f))))))
 
-(define-metafunction λc~ subst : x any any -> any  
+(define-metafunction λc~ subst : x any any -> any 
+  ;; 0. Don't substitue for module references.
+  [(subst x any (f_1 ^ f_2)) (f_1 ^ f_2)]
   ;; 1. x bound, so don't continue in λ body  
   [(subst x any_1 (λ x any_2)) 
    (λ x any_2)] 

@@ -291,8 +291,8 @@
    ;; normalize abstract values at the end to make testing easier
    (--> V V_norm normalize-abstract
         (where V_norm (normalize V))
-        (side-condition (not (equal? (term V) (term V_norm)))))))
-
+        (side-condition (not (equal? (term V) (term V_norm))))
+        )))
 
 (define (-->_vcΔ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (∆ Ms)) λc~ 𝓔)))
@@ -306,6 +306,11 @@
             (last p)
             e ...))
 
+(test-->>p (term (((-- (λ o (b ^ o))) (-- "") sN)))
+           (term (b ^ o)))
+(test-->>p (term (((-- (λ o (4 5 o))) (-- "") sN)))
+           (term (blame o λ 4 Λ 4)))
+                
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string
            (term (blame keygen prime? (-- "Key") nat/c (-- "Key"))))
