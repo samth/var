@@ -111,13 +111,13 @@
 (test--> c 
          (term (((any/c --> any/c) <= f g (-- 7) f (-- (λ x 5))) (-- 8) †))
          (term (any/c <= f g (-- 7) f ((-- (λ x 5)) (any/c <= g f (-- 8) f (-- 8)) †))))
-(test--> c (term (int/c <= f g (-- 0) f (-- 5))) (term (-- 5 int/c)))
+(test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5 nat/c)))
 (test--> c 
-         (term (int/c <= f g (-- 0) f (-- (λ x x))))
-         (term (blame f f (-- 0) int/c (-- (λ x x)))))
+         (term (nat/c <= f g (-- 0) f (-- (λ x x))))
+         (term (blame f f (-- 0) nat/c (-- (λ x x)))))
 (test--> c 
-         (term (int/c <= f g (-- 0) f (-- #t))) 
-         (term (blame f f (-- 0) int/c (-- #t))))
+         (term (nat/c <= f g (-- 0) f (-- #t))) 
+         (term (blame f f (-- 0) nat/c (-- #t))))
 (test--> c
          (term ((any/c  -> any/c) <= f g (-- 0) f (-- (λ x x))))
          (term ((any/c --> any/c) <= f g (-- 0) f (-- (λ x x)))))
@@ -308,7 +308,7 @@
 
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string
-           (term (blame keygen prime? (-- "Key") int/c (-- "Key"))))
+           (term (blame keygen prime? (-- "Key") nat/c (-- "Key"))))
 (test-->>p fit-example-rsa-7
            (term (-- string/c))
            (term (blame keygen keygen (-- (λ x 7)) (pred (prime? ^ keygen)) (-- 7))))

@@ -14,7 +14,7 @@
               0))]
   [(demonic (pred SV))
    (demonic any/c)]
-  [(demonic int/c) (λ x 0)]
+  [(demonic nat/c) (λ x 0)]
   [(demonic string/c) (λ x 0)]
   [(demonic bool/c) (λ x 0)]
   [(demonic none/c) (λ x 0)]
@@ -26,19 +26,19 @@
 ;; FIXME: Don't handle abstract values
 (define-metafunction λc~
   prim-δ : (o V ... f) -> AV or PV or B
-  [(prim-δ (add1 (-- n C ...) f)) ,(add1 (term n))]
+  [(prim-δ (add1 (-- nat C ...) f)) ,(add1 (term nat))]
   [(prim-δ (sub1 (-- 0 C ...) f)) 0]
-  [(prim-δ (sub1 (-- n C ...) f)) ,(sub1 (term n))]
-  [(prim-δ (zero? (-- n C ...) f)) ,(zero? (term n))]  
-  [(prim-δ (+ (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(+ (term n_1) (term n_2))]
-  [(prim-δ (- (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(max 0 (- (term n_1) (term n_2)))]
-  [(prim-δ (* (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(* (term n_1) (term n_2))]
-  [(prim-δ (expt  (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(expt (term n_1) (term n_2))]
-  [(prim-δ (= (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(= (term n_1) (term n_2))]
-  [(prim-δ (< (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(< (term n_1) (term n_2))]
-  [(prim-δ (<= (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(<= (term n_1) (term n_2))]
-  [(prim-δ (> (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(> (term n_1) (term n_2))]  
-  [(prim-δ (>= (-- n_1 C_0 ...) (-- n_2 C_1 ...) f)) ,(>= (term n_1) (term n_2))]
+  [(prim-δ (sub1 (-- nat C ...) f)) ,(sub1 (term nat))]
+  [(prim-δ (zero? (-- nat C ...) f)) ,(zero? (term nat))]  
+  [(prim-δ (+ (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(+ (term nat_1) (term nat_2))]
+  [(prim-δ (- (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(max 0 (- (term nat_1) (term nat_2)))]
+  [(prim-δ (* (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(* (term nat_1) (term nat_2))]
+  [(prim-δ (expt  (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(expt (term nat_1) (term nat_2))]
+  [(prim-δ (= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(= (term nat_1) (term nat_2))]
+  [(prim-δ (< (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(< (term nat_1) (term nat_2))]
+  [(prim-δ (<= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(<= (term nat_1) (term nat_2))]
+  [(prim-δ (> (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(> (term nat_1) (term nat_2))]  
+  [(prim-δ (>= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(>= (term nat_1) (term nat_2))]
 
   [(prim-δ (proc? W f)) #t]
   [(prim-δ (proc? WFV f)) #f]
@@ -168,7 +168,7 @@
 ;; Given a flat contract and plain value, checks satisfaction.
 (define-metafunction λc~
   flat-pass : FC PV -> #t or #f
-  [(flat-pass int/c int) #t]
+  [(flat-pass nat/c nat) #t]
   [(flat-pass string/c string) #t]
   [(flat-pass bool/c bool) #t]
   [(flat-pass FC PV) #f])

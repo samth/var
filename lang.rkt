@@ -13,19 +13,18 @@
   (W (-- L C ...))
   (bool #t #f)
   (PV FV L)
-  (FV n bool string)
+  (FV nat bool string)
   
   (V WFV W)
   (WFV (-- FV C ...))
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f) (let x E E) (begin E E))
-  (FC int/c bool/c string/c)
+  (FC nat/c bool/c string/c)
   (C any/c none/c (C -> C) (pred SV) FC)
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned o † ★) ;; † is top-level
-  (n natural)
-  (int natural)
+  (nat natural)
   (o o1 o2)
   (o1 add1 sub1 zero? proc?)
   (o2 + - * expt = < <= > >=)
@@ -57,7 +56,7 @@
   ;; Maybe procedure
   (W? W (-- any/c C ...) (-- (pred SV) C ...))    
   
-  (aint (-- int C ...) (-- C ... int/c C ...))
+  (aint (-- nat C ...) (-- C ... nat/c C ...))
   (astring (-- string C ...) (-- C ... string/c C ...))
   (abool (-- bool C ...) (-- C ... bool/c C ...)))
 
