@@ -1,0 +1,14 @@
+cons and cons/c
+multiple argument functions and application
+get rid of any/c and none/c
+labels attached to predicates, e.g. (pred L f).
+state the main theorem and randomly test
+
+first class contracts
+state
+translator from Racket subset
+
+#lang language
+button for trace and step
+
+pony
