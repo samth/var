@@ -7,6 +7,8 @@
 
 ;; Figure 5.
 (define-language λc-user
+  
+  ;; Annotated language
   (P (M ... E))
   (M (module f C PV))
   (L (λ x E) (λ x x E))
@@ -58,7 +60,16 @@
   
   (anat (-- nat C ...) (-- C ... nat/c C ...))
   (astring (-- string C ...) (-- C ... string/c C ...))
-  (abool (-- bool C ...) (-- C ... bool/c C ...)))
+  (abool (-- bool C ...) (-- C ... bool/c C ...))
+  
+  ;; Raw, unannotated language
+  (RP (RM ... RE))
+  (RM (module f RC RPV) (module f RC ☁))
+  (RL (λ x RE) (λ x x RE))
+  (RPV FV RL)  
+  (RSV RL f) ; Syntactic values for pred.  [Different than paper]
+  (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
+  (RC any/c none/c (RC -> RC) (pred RSV) FC))
 
 (define anat? (redex-match λc~ anat))
 (define astring? (redex-match λc~ astring))

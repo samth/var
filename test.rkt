@@ -83,3 +83,13 @@
 
 (test-predicate (redex-match λc~ P) fit-example)
 (test-predicate (redex-match λc~ P) fit-example-alt)
+
+(test-predicate (redex-match λc~ RE) top-fit-raw)
+(test-predicate (redex-match λc~ RM) mod-prime-raw)
+(test-predicate (redex-match λc~ RM) mod-rsa-raw)
+(test-predicate (redex-match λc~ RM) mod-keygen-raw)
+(test-predicate (redex-match λc~ RM) mod-keygen-7-raw)
+(test-predicate (redex-match λc~ RM) mod-keygen-str-raw)
+
+(test-predicate (redex-match λc~ RP) fit-example-raw)
+
