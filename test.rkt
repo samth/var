@@ -7,17 +7,29 @@
 ;; Examples and tests
 
 ;; Modified from Figure 8 in paper (8 -> #f).
+(define example-8-raw
+  (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
+         (module g ((pred (λ x x)) -> nat/c) (λ x 0))
+         (module h any/c (λ z ((f g) #f)))
+         (h 0)]))
+
 (define example-8
   (term [(module f (any/c -> (any/c -> any/c)) (λ x x))
          (module g ((pred (λ x x)) -> nat/c) (λ x 0))
-         (module h any/c (λ z (((f ^ h) (g ^ h) h) #f h)))
-         ((h ^ †) 0 †)]))
+         (module h any/c (λ z (@ (@ (f ^ h) (g ^ h) h) #f h)))
+         (@ (h ^ †) 0 †)]))
+
+(define example-8-opaque-raw
+  (term [(module f (any/c -> (any/c -> any/c)) ☁)
+         (module g ((pred (λ x x)) -> nat/c) ☁)
+         (module h any/c (λ z ((f g) #f)))
+         (h 0)]))
 
 (define example-8-opaque
   (term [(module f (any/c -> (any/c -> any/c)) ☁)
          (module g ((pred (λ x x)) -> nat/c) ☁)
-         (module h any/c (λ z (((f ^ h) (g ^ h) h) #f h)))
-         ((h ^ †) 0 †)]))
+         (module h any/c (λ z (@ (@ (f ^ h) (g ^ h) h) #f h)))
+         (@ (h ^ †) 0 †)]))
 
 (test-predicate (redex-match λc-user M) (first example-8))
 (test-predicate (redex-match λc-user M) (second example-8))
@@ -30,30 +42,44 @@
 
 (test-predicate (redex-match λc-user C) (term ((pred (λ x x)) -> nat/c)))
 
+(define mod-prime-raw  (term (module prime? (nat/c -> any/c) ☁)))
+(define mod-rsa-raw    (term (module rsa ((pred prime?) -> (string/c -> string/c)) ☁)))
+(define mod-keygen-raw (term (module keygen (any/c -> (pred prime?)) ☁)))
+(define mod-keygen-7-raw (term (module keygen (any/c -> (pred prime?)) (λ x 7))))
+(define mod-keygen-str-raw (term (module keygen (any/c -> (pred prime?)) (λ x "Key"))))
+(define top-fit-raw (term ((rsa (keygen #f)) "Plain")))
+
+(define mod-prime  (term (module prime? (nat/c -> any/c) ☁)))
+(define mod-rsa    (term (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)))
+(define mod-keygen (term (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)))
+(define mod-keygen-7 (term (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x 7))))
+(define mod-keygen-str (term (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x "Key"))))
+(define top-fit (term (@ (@ (rsa ^ †) (@ (keygen ^ †) #f †) †) "Plain" †)))
+
+(define fit-example-raw
+  (term [,mod-prime-raw ,mod-rsa-raw ,mod-keygen-raw ,top-fit-raw]))
+
 (define fit-example
-  (term [(module prime? (nat/c -> any/c) ☁)
-         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
-         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+  (term [,mod-prime ,mod-rsa ,mod-keygen ,top-fit]))
+
+(define fit-example-rsa-7-raw
+  (term [,mod-prime-raw ,mod-rsa-raw ,mod-keygen-7-raw ,top-fit-raw]))
 
 (define fit-example-rsa-7
-  (term [(module prime? (nat/c -> any/c) ☁)
-         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x 7))
-         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+  (term [,mod-prime ,mod-rsa ,mod-keygen-7 ,top-fit]))
 
 ;; Should see keygen break contract with prime?.
+(define fit-example-keygen-string-raw
+  (term [,mod-prime-raw ,mod-rsa-raw ,mod-keygen-str-raw ,top-fit-raw]))
+
 (define fit-example-keygen-string
-  (term [(module prime? (nat/c -> any/c) ☁)
-         (module rsa ((pred (prime? ^ rsa)) -> (string/c -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) (λ x "Key"))
-         (((rsa ^ †) ((keygen ^ †) #f †) †) "Plain" †)]))
+  (term [,mod-prime ,mod-rsa ,mod-keygen-str ,top-fit]))
 
 (define fit-example-alt
-  (term [(module prime? (nat/c -> any/c) ☁)
-         (module rsa (string/c -> ((pred (prime? ^ rsa)) -> string/c)) ☁)
-         (module keygen (any/c -> (pred (prime? ^ keygen))) ☁)
-         (((rsa ^ †) "Plain" †) ((keygen ^ †) #f †) †)]))
+  (term [,mod-prime 
+         ,mod-rsa
+         ,mod-keygen 
+         (@ (@ (rsa ^ †) "Plain" †) (@ (keygen ^ †) #f †) †)]))
 
 (test-predicate (redex-match λc~ P) fit-example)
 (test-predicate (redex-match λc~ P) fit-example-alt)

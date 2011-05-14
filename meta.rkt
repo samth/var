@@ -9,8 +9,8 @@
 (define-metafunction λc~
   demonic : C -> L
   [(demonic any/c)
-   (λ f x (if (proc? x ★) 
-              (f (x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
+   (λ f x (if (@ proc? x ★) 
+              (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
               0))]
   [(demonic (pred SV))
    (demonic any/c)]
@@ -20,7 +20,7 @@
   [(demonic none/c) (λ x 0)]
   ;; Maybe add blessed arrow contracts
   [(demonic (C_0 -> C_1)) 
-   (λ f ((demonic C_1) (f (-- C_0) ★) ★))
+   (λ f (@ (demonic C_1) (@ f (-- C_0) ★) ★))
    (where f ,(gensym 'f))])
 
 ;; FIXME: Don't handle abstract values
@@ -62,24 +62,26 @@
   [(wrap-δ B) B])
 
 (define-metafunction λc~
-  δ : (o V ... f) -> V or B
-  [(δ (o V ... f)) (wrap-δ (prim-δ (o V ... f)))])
+  δ : (@ o V ... f) -> V or B
+  [(δ (@ o V ... f)) (wrap-δ (prim-δ (o V ... f)))])
 
-(test-equal (term (δ (proc? (-- (any/c -> any/c)) †)))
+(test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
             (term (-- #t)))
 
 ;; Test for δ totalness.
 (redex-check λc~ (o1 V)
-             (or (redex-match λc~ V (term (δ (o1 V f))))
+             (or (redex-match λc~ V (term (δ (@ o1 V f))))
                  (equal? (term (blame f o1 V λ V))
                          (term (prim-δ (o1 V f))))))
 (redex-check λc~ (o2 V_1 V_2)
-             (or (redex-match λc~ V (term (δ (o2 V_1 V_2 f))))
-                 (redex-match λc~ B (term (δ (o2 V_1 V_2 f))))))
+             (or (redex-match λc~ V (term (δ (@ o2 V_1 V_2 f))))
+                 (redex-match λc~ B (term (δ (@ o2 V_1 V_2 f))))))
 
 (define-metafunction λc~ subst : x any any -> any 
   ;; 0. Don't substitue for module references.
   [(subst x any (f_1 ^ f_2)) (f_1 ^ f_2)]
+  [(subst x any (@ any_1 ... f))
+   (@ (subst x any any_1) ... f)]   
   ;; 1. x bound, so don't continue in λ body  
   [(subst x any_1 (λ x any_2)) 
    (λ x any_2)] 
@@ -257,8 +259,8 @@
 (test-equal (term (≡α (λ x x) (λ y z))) #f)
 (test-equal (term (≡α 3 3)) #t)
 (test-equal (term (≡α 3 4)) #f)
-(test-equal (term (≡α ((λ x x) 3 f) ((λ y y) 3 f))) #t)
-(test-equal (term (≡α ((λ x x) (λ y y) f) ((λ y y) (λ x x) f))) #t)
+(test-equal (term (≡α (@ (λ x x) 3 f) (@ (λ y y) 3 f))) #t)
+(test-equal (term (≡α (@ (λ x x) (λ y y) f) (@ (λ y y) (λ x x) f))) #t)
 
 (redex-check λc~ E (term (≡α E E)))
 

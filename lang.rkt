@@ -19,7 +19,7 @@
   (WFV (-- FV C ...))
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
-  (E V PV x (f ^ f) (E E f) (if E E E) (o1 E f) (o2 E E f) (let x E E) (begin E E))
+  (E V PV x (f ^ f) (@ E E f) (if E E E) (@ o1 E f) (@ o2 E E f) (let x E E) (begin E E))
   (FC nat/c bool/c string/c)
   (C any/c none/c (C -> C) (pred SV) FC)
   (x variable-not-otherwise-mentioned)
@@ -28,7 +28,7 @@
   (o o1 o2)
   (o1 add1 sub1 zero? proc?)
   (o2 + - * expt = < <= > >=)
-  (𝓔 hole (𝓔 E f) (V 𝓔 f) (if 𝓔 E E) (o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
+  (𝓔 hole (@ 𝓔 E f) (@ V 𝓔 f) (if 𝓔 E E) (@ o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
   
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user

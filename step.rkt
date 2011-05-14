@@ -10,13 +10,13 @@
   (reduction-relation
    λc~ #:domain E
    (--> PV (-- PV) wrap)
-   (--> ((-- (λ x E) C ...) V f) 
+   (--> (@ (-- (λ x E) C ...) V f) 
         (subst x V E) 
         β)
-   (--> ((-- (λ x_0 x_1 E) C ...) V f) 
+   (--> (@ (-- (λ x_0 x_1 E) C ...) V f) 
         (subst x_0 (-- (λ x_0 x_1 E) C ...) (subst x_1 V E)) 
         β-rec)   
-   (--> (WFV V f) (blame f Λ WFV λ WFV) wrong)
+   (--> (@ WFV V f) (blame f Λ WFV λ WFV) wrong)
    
    (--> (if V E_1 E_2) E_1
         (where (-- PV C ...) V)
@@ -26,37 +26,37 @@
         (where (-- PV C ...) V)
         (side-condition (not (term PV)))
         if-f)   
-   (--> (o V ... f)
-        (δ (o V ... f))
+   (--> (@ o V ... f)
+        (δ (@ o V ... f))
         δ)   
    (--> (begin V E) E begin)
    (--> (let x V E)
         (subst x V E) let)))
   
-(test--> v (term ((-- (λ x 0)) (-- 1) †)) (term 0))
+(test--> v (term (@ (-- (λ x 0)) (-- 1) †)) (term 0))
 (test--> v 
-         (term ((-- (λ f x (f x †))) (-- 0) †))
-         (term ((-- (λ f x (f x †))) (-- 0) †)))                 
-(test--> v (term ((-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
+         (term (@ (-- (λ f x (@ f x †))) (-- 0) †))
+         (term (@ (-- (λ f x (@ f x †))) (-- 0) †)))                 
+(test--> v (term (@ (-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
 (test--> v (term (if (-- 0) 1 2)) (term 1))
 (test--> v (term (if (-- #t) 1 2)) (term 1))
 (test--> v (term (if (-- #f) 1 2)) (term 2))
-(test--> v (term (add1 (-- 0) †)) (term (-- 1)))
-(test--> v (term (proc? (-- #f) †)) (term (-- #f)))
-(test--> v (term (proc? (-- (λ x x)) †)) (term (-- #t)))
-(test--> v (term (proc? (-- (λ f x x)) †)) (term (-- #t)))
-(test--> v (term (proc? (-- (any/c -> any/c)) †)) (term (-- #t)))
+(test--> v (term (@ add1 (-- 0) †)) (term (-- 1)))
+(test--> v (term (@ proc? (-- #f) †)) (term (-- #f)))
+(test--> v (term (@ proc? (-- (λ x x)) †)) (term (-- #t)))
+(test--> v (term (@ proc? (-- (λ f x x)) †)) (term (-- #t)))
+(test--> v (term (@ proc? (-- (any/c -> any/c)) †)) (term (-- #t)))
 
 
 (define -->_v (context-closure v λc~ 𝓔))
 
-(test-->> -->_v (term ((λ x 0) 1 †)) (term (-- 0)))                
-(test-->> -->_v (term (0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
+(test-->> -->_v (term (@ (λ x 0) 1 †)) (term (-- 0)))                
+(test-->> -->_v (term (@ 0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
 (test-->> -->_v (term (if 0 1 2)) (term (-- 1)))
 (test-->> -->_v (term (if #t 1 2)) (term (-- 1)))
 (test-->> -->_v (term (if #f 1 2)) (term (-- 2)))
-(test-->> -->_v (term (add1 0 †))  (term (-- 1)))
-(test-->> -->_v (term (proc? #f †)) (term (-- #f)))
+(test-->> -->_v (term (@ add1 0 †))  (term (-- 1)))
+(test-->> -->_v (term (@ proc? #f †)) (term (-- #f)))
 
 (define c
   (reduction-relation
@@ -64,8 +64,8 @@
    
    ;; BLESSED PROCEDURE CONTRACTS
    
-   (--> (((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
-        (C_2 <= f_1 f_2 V_1 f_3 (W (C_1 <= f_2 f_1 V_2 f_3 V_2) f_4))
+   (--> (@ ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
+        (C_2 <= f_1 f_2 V_1 f_3 (@ W (C_1 <= f_2 f_1 V_2 f_3 V_2) f_4))
         split)   
    
    ;; FLAT CONTRACTS
@@ -94,7 +94,7 @@
    ;; PREDICATE CONTRACTS
          
    (--> ((pred SV) <= f_1 f_2 V_1 f_3 V_2)
-        (if (SV V_2 Λ) 
+        (if (@ SV V_2 Λ) 
             (remember-contract V_2 (pred SV))
             (blame f_1 f_3 V_1 (pred SV) V_2))
         ;; Only want smart to fire when this is true
@@ -109,8 +109,8 @@
         chk-none-fail)))
 
 (test--> c 
-         (term (((any/c --> any/c) <= f g (-- 7) f (-- (λ x 5))) (-- 8) †))
-         (term (any/c <= f g (-- 7) f ((-- (λ x 5)) (any/c <= g f (-- 8) f (-- 8)) †))))
+         (term (@ ((any/c --> any/c) <= f g (-- 7) f (-- (λ x 5))) (-- 8) †))
+         (term (any/c <= f g (-- 7) f (@ (-- (λ x 5)) (any/c <= g f (-- 8) f (-- 8)) †))))
 (test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5 nat/c)))
 (test--> c 
          (term (nat/c <= f g (-- 0) f (-- (λ x x))))
@@ -126,7 +126,7 @@
          (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
 (test--> c
          (term ((pred (λ x 0)) <= f g (-- 0) f (-- 5)))
-         (term (if ((λ x 0) (-- 5) Λ)
+         (term (if (@ (λ x 0) (-- 5) Λ)
                    (-- 5 (pred (λ x 0)))
                    (blame f f (-- 0) (pred (λ x 0)) (-- 5)))))
 
@@ -137,9 +137,9 @@
    ;; APPLYING ABSTRACT VALUES   
    
    ;; applying abstract values to concrete values
-   (--> (AV V f)
+   (--> (@ AV V f)
         ;; do bad things to the concrete value
-        (begin ((demonic C_demon) V ★)
+        (begin (@ (demonic C_demon) V ★)
                ;; produce an abstract value constranated by all the possible domains
                (remember-contract (-- any/c) C_0 ...))
         (where (-- C ...) AV)
@@ -150,7 +150,7 @@
         ;; if the abstract value is definetely flat, this case is handled by `wrong' from `v'
         (side-condition (not (redex-match λc~ WFV (term AV))))
         apply-abs-concrete) 
-   (--> (AV AV_0 f)
+   (--> (@ AV AV_0 f)
         ;; we don't care what bad things happen to abstract values, so we don't simulate them
         (remember-contract (-- any/c) C_0 ...)
         (where (-- C ...) AV)
@@ -160,7 +160,7 @@
         apply-abs-abs)
    
    ;; applying abstract value that might be flat can fail
-   (--> (W? V f)
+   (--> (@ W? V f)
         (blame f Λ W? λ W?)
         ;; if it's not definitely a procedure, it might be flat        
         (side-condition (not (redex-match λc~ W (term W?))))
@@ -256,16 +256,16 @@
          ∆-opaque))))
 
 (test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
-         (term ((prime? ^ rsa)
-                (--
-                 (pred
-                  (prime? ^ keygen)))
-                Λ))         
-         (term ((any/c <= prime? rsa (-- any/c) prime? (-- any/c))
-                (--
-                 (pred
-                  (prime? ^ keygen)))
-                 Λ)))
+         (term (@ (prime? ^ rsa)
+                  (--
+                   (pred
+                    (prime? ^ keygen)))
+                  Λ))         
+         (term (@ (any/c <= prime? rsa (-- any/c) prime? (-- any/c))
+                  (--
+                   (pred
+                    (prime? ^ keygen)))
+                  Λ)))
 
 (test--> (Δ~ (term [(module prime? any/c ☁)]))
          (term (prime? ^ rsa))
@@ -289,10 +289,10 @@
         (side-condition (not (equal? (term hole) (term 𝓔))))
         halt-none/c)   
    ;; normalize abstract values at the end to make testing easier
-   (--> V V_norm normalize-abstract
+   (--> V V_norm
         (where V_norm (normalize V))
         (side-condition (not (equal? (term V) (term V_norm))))
-        )))
+        normalize-abstract)))
 
 (define (-->_vcΔ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (∆ Ms)) λc~ 𝓔)))
@@ -306,10 +306,10 @@
             (last p)
             e ...))
 
-(test-->>p (term (((-- (λ o (b ^ o))) (-- "") sN)))
+(test-->>p (term ((@ (-- (λ o (b ^ o))) (-- "") sN)))
            (term (b ^ o)))
-(test-->>p (term (((-- (λ o (4 5 o))) (-- "") sN)))
-           (term (blame o λ 4 Λ 4)))
+(test-->>p (term ((@ (-- (λ o (@ 4 5 o))) (-- "") sN)))
+           (term (blame o Λ (-- 4) λ (-- 4))))
                 
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string
