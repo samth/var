@@ -21,25 +21,26 @@
   (WFV (-- FV C ...))
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
-  (E V PV x (f ^ f) (@ E E f) (if E E E) (@ o1 E f) (@ o2 E E f) (let x E E) (begin E E))
+  (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   (FC nat/c bool/c string/c empty/c (cons/c C C))
   (C any/c none/c (C -> C) (pred SV) FC)
   (x variable-not-otherwise-mentioned)
-  (f variable-not-otherwise-mentioned o † ★) ;; † is top-level
+  (f variable-not-otherwise-mentioned)
+  (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ language generated
   (nat natural)
   (o o1 o2)
   (o1 add1 sub1 zero? proc? empty? cons? first rest)
   (o2 + - * expt = < <= > >= cons)
-  (𝓔 hole (@ 𝓔 E f) (@ V 𝓔 f) (if 𝓔 E E) (@ o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
+  (𝓔 hole (@ 𝓔 E ℓ) (@ V 𝓔 ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
   
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
-  (W .... ((C --> C) <= f f V f W))  
-  (B (blame f f V C V))
-  (E .... (C <= f f V f E) B)
+  (W .... ((C --> C) <= ℓ ℓ V ℓ W))  
+  (B (blame ℓ ℓ V C V))
+  (E .... (C <= ℓ ℓ V ℓ E) B)
   (C .... (C --> C))
-  (f .... Λ)
-  (𝓔 .... (C <= f f V f 𝓔)))
+  ;(f .... Λ)
+  (𝓔 .... (C <= ℓ ℓ V ℓ 𝓔)))
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
@@ -48,7 +49,7 @@
       
   (WFV .... anat astring abool acons aempty)    
   (V .... AV)             ;; (-- X) is overline X.
-  (B .... (blame f f V λ V)) ;; broke the contract with the language
+  (B .... (blame ℓ ℓ V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
   
   ;; Definite procedure  

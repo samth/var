@@ -11,30 +11,30 @@
 
 ;; Annotate RE with context f, using (f ...) module variables.
 (define-metafunction λc~
-  ann-exp : RE f (f ...) -> E
+  ann-exp : RE ℓ (f ...) -> E
   [(ann-exp f f any) (f ^ f)]
-  [(ann-exp f f_2 (f_0 ... f f_1 ...)) (f ^ f_2)]
-  [(ann-exp x f any) x]
-  [(ann-exp (if RE_0 RE_1 RE_2) f (f_0 ...))
-   (if (ann-exp RE_0 f (f_0 ...))
-       (ann-exp RE_1 f (f_0 ...))
-       (ann-exp RE_2 f (f_0 ...)))]
-  [(ann-exp (o RE ...) f (f_0 ...))
-   (@ o (ann-exp RE f (f_0 ...)) ... f)]
-  [(ann-exp (let x RE_0 RE_1) f (f_0 ...))
-   (let x (ann-exp RE_0 f (f_0 ...))
-     (ann-exp RE_1 f (f_0 ...)))]
-  [(ann-exp (begin RE_0 RE_1) f (f_0 ...))
-   (begin (ann-exp RE_0 f (f_0 ...))
-          (ann-exp RE_1 f (f_0 ...)))]  
-  [(ann-exp (λ x ... RE) f (f_0 ...))
-   (λ x ... (ann-exp RE f (f_0 ...)))]
-  [(ann-exp FV f (f_0 ...)) FV]
-  [(ann-exp (RE_0 RE_1 ...) f (f_0 ...))
-   (@ (ann-exp RE_0 f (f_0 ...))
-      (ann-exp RE_1 f (f_0 ...))
+  [(ann-exp f ℓ (f_0 ... f f_1 ...)) (f ^ ℓ)]
+  [(ann-exp x ℓ any) x]
+  [(ann-exp (if RE_0 RE_1 RE_2) ℓ (f ...))
+   (if (ann-exp RE_0 ℓ (f ...))
+       (ann-exp RE_1 ℓ (f ...))
+       (ann-exp RE_2 ℓ (f ...)))]
+  [(ann-exp (o RE ...) ℓ (f ...))
+   (@ o (ann-exp RE ℓ (f ...)) ... ℓ)]
+  [(ann-exp (let x RE_0 RE_1) ℓ (f ...))
+   (let x (ann-exp RE_0 ℓ (f ...))
+     (ann-exp RE_1 ℓ (f ...)))]
+  [(ann-exp (begin RE_0 RE_1) ℓ (f ...))
+   (begin (ann-exp RE_0 ℓ (f ...))
+          (ann-exp RE_1 ℓ (f ...)))]  
+  [(ann-exp (λ x ... RE) ℓ (f ...))
+   (λ x ... (ann-exp RE ℓ (f ...)))]
+  [(ann-exp FV ℓ (f ...)) FV]
+  [(ann-exp (RE_0 RE_1 ...) ℓ (f ...))
+   (@ (ann-exp RE_0 ℓ (f ...))
+      (ann-exp RE_1 ℓ (f ...))
       ...
-      f)])
+      ℓ)])
 
 (define-metafunction λc~
   ann-mod : RM (f ...) -> M
@@ -44,15 +44,22 @@
    (module f (ann-con RC f (f_0 ...)) ☁)])
 
 (define-metafunction λc~
-  ann-con : RC f (f ...) -> C
-  [(ann-con (pred RSV) f (f_0 ...))
-   (pred (ann-exp RSV f (f_0 ...)))]
-  [(ann-con (RC_0 -> RC_1) f (f_0 ...))
-   ((ann-con RC_0 f (f_0 ...)) -> (ann-con RC_1 f (f_0 ...)))]
-  [(ann-con RC f (f_0 ...)) RC])
+  ann-con : RC ℓ (f ...) -> C  
+  [(ann-con (pred RL) ℓ (f ...))
+   (pred (ann-exp RL ℓ (f ...)))]  
+  [(ann-con (pred f) ℓ (f_0 ... f f_1 ...))
+   (pred (f ^ ℓ))]  
+  ;; ---
+  ;; For random testing only
+  [(ann-con (pred f) ℓ (f_0 ...))
+   (pred (f ^ f))]
+  ;; ---
+  [(ann-con (RC_0 -> RC_1) ℓ (f ...))
+   ((ann-con RC_0 ℓ (f ...)) -> (ann-con RC_1 ℓ (f ...)))]
+  [(ann-con RC ℓ (f ...)) RC])
   
 ;; Totality test
-;; (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
+(redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
   
 (test-equal (term (ann ,fit-example-raw)) fit-example)
 (test-equal (term (ann ,list-id-example-raw)) list-id-example)

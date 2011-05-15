@@ -10,13 +10,13 @@
   (reduction-relation
    λc~ #:domain E
    (--> PV (-- PV) wrap)
-   (--> (@ (-- (λ x E) C ...) V f) 
+   (--> (@ (-- (λ x E) C ...) V ℓ) 
         (subst x V E) 
         β)
-   (--> (@ (-- (λ x_0 x_1 E) C ...) V f) 
+   (--> (@ (-- (λ x_0 x_1 E) C ...) V ℓ) 
         (subst x_0 (-- (λ x_0 x_1 E) C ...) (subst x_1 V E)) 
         β-rec)   
-   (--> (@ WFV V f) (blame f Λ WFV λ WFV) wrong)
+   (--> (@ WFV V ℓ) (blame ℓ Λ WFV λ WFV) wrong)
    
    (--> (if V E_1 E_2) E_1
         (where (-- PV C ...) V)
@@ -26,8 +26,8 @@
         (where (-- PV C ...) V)
         (side-condition (not (term PV)))
         if-f)   
-   (--> (@ o V ... f)
-        (δ (@ o V ... f))
+   (--> (@ o V ... ℓ)
+        (δ (@ o V ... ℓ))
         δ)   
    (--> (begin V E) E begin)
    (--> (let x V E)
@@ -66,48 +66,48 @@
    
    ;; BLESSED PROCEDURE CONTRACTS
    
-   (--> (@ ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 W) V_2 f_4)
-        (C_2 <= f_1 f_2 V_1 f_3 (@ W (C_1 <= f_2 f_1 V_2 f_3 V_2) f_4))
-        split)   
+   (--> (@ ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 W) V_2 ℓ_4)
+        (C_2 <= ℓ_1 ℓ_2 V_1 ℓ_3 (@ W (C_1 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ℓ_4))
+        split)
    
    ;; FLAT CONTRACTS
    
-   (--> (FC <= f_1 f_2 V f_3 (-- PV C ...)) 
+   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 (-- PV C ...)) 
         (remember-contract (-- PV C ...) FC)
         (where #t (flat-pass FC PV))
         chk-flat-pass)
    
-   (--> (FC <= f_1 f_2 V f_3 (-- PV C ...)) 
-        (blame f_1 f_3 V FC (-- PV C ...))
+   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 (-- PV C ...)) 
+        (blame ℓ_1 ℓ_3 V FC (-- PV C ...))
         (where #f (flat-pass FC PV))
         chk-flat-fail)       
    
    ;; PROCEDURE CONTRACTS   
    
    ;; definite procedures
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W)
-        ((C_1 --> C_2) <= f_1 f_2 V f_3 W)
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W)
+        ((C_1 --> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W)
         chk-fun-pass-proc)
    ;; flat values
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 WFV)
-        (blame f_1 f_3 V (C_1 -> C_2) WFV)
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 WFV)
+        (blame ℓ_1 ℓ_3 V (C_1 -> C_2) WFV)
         chk-fun-fail-flat)
    
    ;; PREDICATE CONTRACTS
          
-   (--> ((pred SV) <= f_1 f_2 V_1 f_3 V_2)
+   (--> ((pred SV) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
         (if (@ SV V_2 Λ) 
             (remember-contract V_2 (pred SV))
-            (blame f_1 f_3 V_1 (pred SV) V_2))
+            (blame ℓ_1 ℓ_3 V_1 (pred SV) V_2))
         ;; Only want smart to fire when this is true
         (where #f (contract-in (pred SV) V_2))
         chk-pred-c)
    
    ;; TRIVIAL CONTRACTS
    
-   (--> (any/c <= f_1 f_2 V_1 f_3 V_2) V_2 chk-any-pass)
-   (--> (none/c <= f_1 f_2 V_1 f_3 V_2) 
-        (blame f_1 f_3 V_1 none/c V_2)
+   (--> (any/c <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) V_2 chk-any-pass)
+   (--> (none/c <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) 
+        (blame ℓ_1 ℓ_3 V_1 none/c V_2)
         chk-none-fail)))
 
 (test--> c 
@@ -139,7 +139,7 @@
    ;; APPLYING ABSTRACT VALUES   
    
    ;; applying abstract values to concrete values
-   (--> (@ AV V f)
+   (--> (@ AV V ℓ)
         ;; do bad things to the concrete value
         (begin (@ (demonic C_demon) V ★)
                ;; produce an abstract value constranated by all the possible domains
@@ -152,7 +152,7 @@
         ;; if the abstract value is definetely flat, this case is handled by `wrong' from `v'
         (side-condition (not (redex-match λc~ WFV (term AV))))
         apply-abs-concrete) 
-   (--> (@ AV AV_0 f)
+   (--> (@ AV AV_0 ℓ)
         ;; we don't care what bad things happen to abstract values, so we don't simulate them
         (remember-contract (-- any/c) C_0 ...)
         (where (-- C ...) AV)
@@ -162,8 +162,8 @@
         apply-abs-abs)
    
    ;; applying abstract value that might be flat can fail
-   (--> (@ W? V f)
-        (blame f Λ W? λ W?)
+   (--> (@ W? V ℓ)
+        (blame ℓ Λ W? λ W?)
         ;; if it's not definitely a procedure, it might be flat        
         (side-condition (not (redex-match λc~ W (term W?))))
         apply-abs-fail)
@@ -192,21 +192,21 @@
    ;; also, higher-order checks could fail later even if they passed earlier
    ;; FIXME: if we add state, then we can't remember stateful predicates or 
    ;; predicates on stateful values
-   (--> (C <= f_1 f_2 V_0 f_3 V)
+   (--> (C <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
         V        
         (side-condition (not (redex-match λc~ (C_a -> C_b) (term C))))
         (where #t (contract-in C V))
         smart*)
    
    ;; possible procedures
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
-        ((C_1 --> C_2) <= f_1 f_2 V f_3 (remember-contract W? (none/c -> any/c)))
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
+        ((C_1 --> C_2) <= ℓ_1 ℓ_2 V ℓ_3 (remember-contract W? (none/c -> any/c)))
         ;; definite procedures/non-procedures are handled in `v'
         (side-condition (not (redex-match λc~ W (term W?))))
         (side-condition (not (redex-match λc~ WFV (term W?))))
         chk-fun-pass-maybe-proc)
-   (--> ((C_1  -> C_2) <= f_1 f_2 V f_3 W?)
-        (blame f_1 f_3 V (C_1 -> C_2) W?)
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
+        (blame ℓ_1 ℓ_3 V (C_1 -> C_2) W?)
         ;; definite procedures/non-procedures are handled in `v'
         (side-condition (not (redex-match λc~ W (term W?))))
         (side-condition (not (redex-match λc~ WFV (term W?))))
@@ -214,15 +214,15 @@
 
    
    ;; check flat contracts of abstract values   
-   (--> (FC <= f_1 f_2 V f_3 AV)
+   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 AV)
         (remember-contract AV FC)
         ;; avoid overlap with `smart*'
         (where #f (contract-in FC AV))
         ;; if AV is definitely not an FC, then there's no reason to pass
         (where #t (contract-not-in FC AV))
         chk-flat-abstract-pass)
-   (--> (FC <= f_1 f_2 V f_3 AV)
-        (blame f_1 f_3 V FC AV)
+   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 AV)
+        (blame ℓ_1 ℓ_3 V FC AV)
         ;; avoid overlap with `smart*'
         (where #f (contract-in FC AV))
         chk-flat-abstract-fail)))
@@ -234,10 +234,10 @@
         (-- PV)
         (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
         Δ-self)
-   (--> (f_1 ^ f_2)
-        (C <= f_1 f_2 (-- PV) f_1 (-- PV))
-        (where (M_1 ... (module f_1 C PV) M_2 ...) ,Ms)
-        (side-condition (not (eq? (term f_1) (term f_2))))
+   (--> (f ^ ℓ)
+        (C <= f ℓ (-- PV) f (-- PV))
+        (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f) (term ℓ))))
         Δ-other)))
 
 (test--> (∆ (term [(module f any/c 0)]))
@@ -252,10 +252,10 @@
    (∆ Ms)
    (reduction-relation
     λc~ #:domain E
-    (--> (f_1 ^ f_2)
-         (C <= f_1 f_2 (-- C) f_1 (-- C))
-         (where (M_1 ... (module f_1 C ☁) M_2 ...) ,Ms)
-         (side-condition (not (eq? (term f_1) (term f_2))))
+    (--> (f ^ ℓ)
+         (C <= f ℓ (-- C) f (-- C))
+         (where (M_1 ... (module f C ☁) M_2 ...) ,Ms)
+         (side-condition (not (eq? (term f) (term ℓ))))
          ∆-opaque))))
 
 (test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)

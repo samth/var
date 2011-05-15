@@ -25,42 +25,43 @@
 
 ;; FIXME: Don't handle abstract values
 (define-metafunction λc~
-  prim-δ : (o V ... f) -> AV or PV or B or (-- PV C ...)
-  [(prim-δ (cons V_0 V_1 f)) (cons V_0 V_1)]
-  [(prim-δ (first (-- (cons V_0 V_1)) f)) V_0]
-  [(prim-δ (rest (-- (cons V_0 V_1)) f)) V_1]
-  [(prim-δ (empty? (-- empty) f)) #t]
-  [(prim-δ (empty? V f)) #f]
-  [(prim-δ (cons? (cons V V) f)) #t]
-  [(prim-δ (cons? V f)) #f]
-  [(prim-δ (add1 (-- nat C ...) f)) ,(add1 (term nat))]
-  [(prim-δ (sub1 (-- 0 C ...) f)) 0]
-  [(prim-δ (sub1 (-- nat C ...) f)) ,(sub1 (term nat))]
-  [(prim-δ (zero? (-- nat C ...) f)) ,(zero? (term nat))]  
-  [(prim-δ (+ (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(+ (term nat_1) (term nat_2))]
-  [(prim-δ (- (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(max 0 (- (term nat_1) (term nat_2)))]
-  [(prim-δ (* (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(* (term nat_1) (term nat_2))]
-  [(prim-δ (expt  (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(expt (term nat_1) (term nat_2))]
-  [(prim-δ (= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(= (term nat_1) (term nat_2))]
-  [(prim-δ (< (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(< (term nat_1) (term nat_2))]
-  [(prim-δ (<= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(<= (term nat_1) (term nat_2))]
-  [(prim-δ (> (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(> (term nat_1) (term nat_2))]  
-  [(prim-δ (>= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) f)) ,(>= (term nat_1) (term nat_2))]
+  prim-δ : (o V ... ℓ) -> AV or PV or B or (-- PV C ...)
+  [(prim-δ (cons V_0 V_1 ℓ)) (cons V_0 V_1)]
+  [(prim-δ (first (-- (cons V_0 V_1)) ℓ)) V_0]
+  [(prim-δ (rest (-- (cons V_0 V_1)) ℓ)) V_1]
+  [(prim-δ (empty? (-- empty) ℓ)) #t]
+  [(prim-δ (empty? V ℓ)) #f]
+  [(prim-δ (cons? (cons V V) ℓ)) #t]
+  [(prim-δ (cons? V ℓ)) #f]
+  [(prim-δ (add1 (-- nat C ...) ℓ)) ,(add1 (term nat))]
+  [(prim-δ (sub1 (-- 0 C ...) ℓ)) 0]
+  [(prim-δ (sub1 (-- nat C ...) ℓ)) ,(sub1 (term nat))]
+  [(prim-δ (zero? (-- nat C ...) ℓ)) ,(zero? (term nat))]  
+  [(prim-δ (+ (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(+ (term nat_1) (term nat_2))]
+  [(prim-δ (- (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(max 0 (- (term nat_1) (term nat_2)))]
+  [(prim-δ (* (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(* (term nat_1) (term nat_2))]
+  [(prim-δ (expt  (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(expt (term nat_1) (term nat_2))]
+  [(prim-δ (= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(= (term nat_1) (term nat_2))]
+  [(prim-δ (< (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(< (term nat_1) (term nat_2))]
+  [(prim-δ (<= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(<= (term nat_1) (term nat_2))]
+  [(prim-δ (> (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(> (term nat_1) (term nat_2))]  
+  [(prim-δ (>= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(>= (term nat_1) (term nat_2))]
 
-  [(prim-δ (proc? W f)) #t]
-  [(prim-δ (proc? WFV f)) #f]
-  [(prim-δ (proc? W? f)) (-- bool/c)]
+  [(prim-δ (proc? W ℓ)) #t]
+  [(prim-δ (proc? WFV ℓ)) #f]
+  [(prim-δ (proc? W? ℓ)) (-- bool/c)]
   
-  [(prim-δ (o1 V f)) (blame f o1 V λ V)]
+  [(prim-δ (o1 V ℓ)) (blame ℓ o1 V λ V)]
   ;; FIXME: should refer to V_1 and V_2.
-  [(prim-δ (o2 V_1 V_2 f)) (blame f o2 V_1 λ V_1)])
+  [(prim-δ (o2 V_1 V_2 ℓ)) (blame ℓ o2 V_1 λ V_1)])
 
 (test-equal (term (prim-δ (proc? (-- #f) f))) #f)
 (test-equal (term (prim-δ (add1 (-- 0) f))) 1)
 (test-equal (term (prim-δ (sub1 (-- 0) f))) 0)
 (test-equal (term (prim-δ (zero? (-- 0) f))) #t)
 (test-equal (term (prim-δ (zero? (-- 1) f))) #f)
-(test-equal (term (prim-δ (add1 (-- #t) f))) (term (blame f add1 (-- #t) λ (-- #t))))
+(test-equal (term (prim-δ (add1 (-- #t) f)))
+            (term (blame f add1 (-- #t) λ (-- #t))))
 
 (define-metafunction λc~
   wrap-δ : any -> V or B
@@ -70,8 +71,8 @@
   [(wrap-δ B) B])
 
 (define-metafunction λc~
-  δ : (@ o V ... f) -> V or B
-  [(δ (@ o V ... f)) (wrap-δ (prim-δ (o V ... f)))])
+  δ : (@ o V ... ℓ) -> V or B
+  [(δ (@ o V ... ℓ)) (wrap-δ (prim-δ (o V ... ℓ)))])
 
 (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
             (term (-- #t)))
@@ -90,9 +91,9 @@
 
 (define-metafunction λc~ subst : x any any -> any 
   ;; 0. Don't substitue for module references.
-  [(subst x any (f_1 ^ f_2)) (f_1 ^ f_2)]
-  [(subst x any (@ any_1 ... f))
-   (@ (subst x any any_1) ... f)]   
+  [(subst x any (f ^ ℓ)) (f ^ ℓ)]
+  [(subst x any (@ any_1 ... ℓ))
+   (@ (subst x any any_1) ... ℓ)]   
   ;; 1. x bound, so don't continue in λ body  
   [(subst x any_1 (λ x any_2)) 
    (λ x any_2)] 
@@ -117,7 +118,7 @@
                              (term x_2))
            ,(variable-not-in (term (x_1 x_2 any_1 any_2)) 
                              (term x_3))))]
-    [(subst x_1 any_1 (let x_2 any_2 any_3))
+  [(subst x_1 any_1 (let x_2 any_2 any_3))
    (let x_new
      (subst x_1 any_1 any_2)
      (subst x_1 any_1 (subst-var x_2 x_new any_2)))   
@@ -160,8 +161,8 @@
   [(remember-contract (-- any_0 C_1 ...) C_2 ...)
    (-- any_0 C_2 ... C_1 ...)]
   ;; descend inside blessed arrow contracts
-  [(remember-contract ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 V_2) C ...)
-   ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 (remember-contract V_2 C ...))])
+  [(remember-contract ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) C ...)
+   ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 (remember-contract V_2 C ...))])
 
 ;; check that remember-contract is total and produces the right type
 (redex-check λc~ (V C ...)              
@@ -205,8 +206,8 @@
   contract-in : C V -> #t or #f
   [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
   [(contract-in C (-- C_0 ... C C_1 ...)) #t]
-  [(contract-in (pred (f_a ^ f_b)) (-- PV C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
-  [(contract-in (pred (f_a ^ f_b)) (-- C_0 ... (pred (f_a ^ f_c)) C_1 ...)) #t]
+  [(contract-in (pred (f ^ ℓ_0)) (-- PV C_0 ... (pred (f ^ ℓ_1)) C_1 ...)) #t]
+  [(contract-in (pred (f ^ ℓ_0)) (-- C_0 ... (pred (f ^ ℓ_1)) C_1 ...)) #t]
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?
@@ -226,7 +227,7 @@
 ;; Removes duplicate remembered contracts.
 (define-metafunction λc~
   normalize : V -> V
-  [(normalize ((C_1 --> C_2) <= f_1 f_2 V_1 f_3 V)) (normalize V)]
+  [(normalize ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 V)) (normalize V)]
   [(normalize (-- PV C ...)) (-- PV C_1 ...)
    (where (C_1 ...)
           ,(remove-duplicates (term (C ...))
