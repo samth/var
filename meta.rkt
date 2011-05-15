@@ -25,7 +25,14 @@
 
 ;; FIXME: Don't handle abstract values
 (define-metafunction λc~
-  prim-δ : (o V ... f) -> AV or PV or B
+  prim-δ : (o V ... f) -> AV or PV or B or (-- PV C ...)
+  [(prim-δ (cons V_0 V_1 f)) (cons V_0 V_1)]
+  [(prim-δ (first (-- (cons V_0 V_1)) f)) V_0]
+  [(prim-δ (rest (-- (cons V_0 V_1)) f)) V_1]
+  [(prim-δ (empty? (-- empty) f)) #t]
+  [(prim-δ (empty? V f)) #f]
+  [(prim-δ (cons? (cons V V) f)) #t]
+  [(prim-δ (cons? V f)) #f]
   [(prim-δ (add1 (-- nat C ...) f)) ,(add1 (term nat))]
   [(prim-δ (sub1 (-- 0 C ...) f)) 0]
   [(prim-δ (sub1 (-- nat C ...) f)) ,(sub1 (term nat))]
@@ -57,6 +64,7 @@
 
 (define-metafunction λc~
   wrap-δ : any -> V or B
+  [(wrap-δ (-- PV C ...)) (-- PV C ...)]
   [(wrap-δ AV) AV]
   [(wrap-δ PV) (-- PV)]
   [(wrap-δ B) B])
@@ -67,6 +75,9 @@
 
 (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
             (term (-- #t)))
+
+(test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
+            (term (-- (cons (-- 1) (-- 2)))))
 
 ;; Test for δ totalness.
 (redex-check λc~ (o1 V)

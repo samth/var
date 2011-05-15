@@ -81,6 +81,31 @@
          ,mod-keygen 
          (@ (@ (rsa ^ †) "Plain" †) (@ (keygen ^ †) #f †) †)]))
 
+(define list-id-example-raw
+  (term [(module id 
+           any/c
+           (λ ls
+             (if (empty? ls) 
+                 ls 
+                 (cons (first ls) 
+                       (id (rest ls))))))
+         (id (cons 1 (cons 2 (cons 3 empty))))]))
+
+(define list-id-example
+  (term [(module id 
+           any/c
+           (λ ls
+             (if (@ empty? ls id)
+                 ls 
+                 (@ cons 
+                    (@ first ls id)
+                    (@ (id ^ id) (@ rest ls id) id)
+                    id))))
+         (@ (id ^ †) (@ cons 1 (@ cons 2 (@ cons 3 empty †) †) †) †)]))
+
+(test-predicate (redex-match λc~ RP) list-id-example-raw)
+(test-predicate (redex-match λc~ P) list-id-example)
+
 (test-predicate (redex-match λc~ P) fit-example)
 (test-predicate (redex-match λc~ P) fit-example-alt)
 

@@ -19,7 +19,7 @@
        (ann-exp RE_1 f (f_0 ...))
        (ann-exp RE_2 f (f_0 ...)))]
   [(ann-exp (o RE ...) f (f_0 ...))
-   (o (ann-exp RE f (f_0 ...)) ... f)]
+   (@ o (ann-exp RE f (f_0 ...)) ... f)]
   [(ann-exp (let x RE_0 RE_1) f (f_0 ...))
    (let x (ann-exp RE_0 f (f_0 ...))
      (ann-exp RE_1 f (f_0 ...)))]
@@ -52,6 +52,4 @@
   
   
 (test-equal (term (ann ,fit-example-raw)) fit-example)
-  
-  
-  
+(test-equal (term (ann ,list-id-example-raw)) list-id-example)

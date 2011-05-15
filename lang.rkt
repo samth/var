@@ -28,7 +28,7 @@
   (f variable-not-otherwise-mentioned o † ★) ;; † is top-level
   (nat natural)
   (o o1 o2)
-  (o1 add1 sub1 zero? proc?)
+  (o1 add1 sub1 zero? proc? empty? cons? first rest)
   (o2 + - * expt = < <= > >= cons)
   (𝓔 hole (@ 𝓔 E f) (@ V 𝓔 f) (if 𝓔 E E) (@ o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
   
@@ -44,10 +44,9 @@
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
   (AV (-- C C ...))
-  
   (C-ext C λ)
       
-  (WFV .... anat astring abool acons aempty)       
+  (WFV .... anat astring abool acons aempty)    
   (V .... AV)             ;; (-- X) is overline X.
   (B .... (blame f f V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))

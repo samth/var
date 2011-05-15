@@ -33,6 +33,7 @@
 (trace-it -->_vcc~Δ fit-example-keygen-string)
 (trace-it -->_vcc~Δ example-8)
 (trace-it -->_vcc~Δ example-8-opaque)
+(trace-it -->_vcc~Δ list-id-example)
 ;(step-it -->_vcc~Δ fit-example)
 
 

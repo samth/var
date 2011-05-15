@@ -46,6 +46,7 @@
 (test--> v (term (@ proc? (-- (λ x x)) †)) (term (-- #t)))
 (test--> v (term (@ proc? (-- (λ f x x)) †)) (term (-- #t)))
 (test--> v (term (@ proc? (-- (any/c -> any/c)) †)) (term (-- #t)))
+(test--> v (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
 
 
 (define -->_v (context-closure v λc~ 𝓔))
@@ -57,6 +58,7 @@
 (test-->> -->_v (term (if #f 1 2)) (term (-- 2)))
 (test-->> -->_v (term (@ add1 0 †))  (term (-- 1)))
 (test-->> -->_v (term (@ proc? #f †)) (term (-- #f)))
+(test-->> -->_v (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2)))))
 
 (define c
   (reduction-relation
@@ -188,7 +190,8 @@
    ;; skip first-order checks that we know this value to have already passed
    ;; higher-order checks impose obligations on people we interact with, so they must be kept around
    ;; also, higher-order checks could fail later even if they passed earlier
-   ;; FIXME: if we add state, then we can't remember stateful predicates or predicates on stateful values
+   ;; FIXME: if we add state, then we can't remember stateful predicates or 
+   ;; predicates on stateful values
    (--> (C <= f_1 f_2 V_0 f_3 V)
         V        
         (side-condition (not (redex-match λc~ (C_a -> C_b) (term C))))
@@ -300,6 +303,13 @@
 (define (-->_vcc~Δ Ms)
   (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
 
+;; A sometimes useful utility
+#;
+(define (step p)
+  (match (apply-reduction-relation (-->_vcc~Δ (all-but-last p))
+                                   (last p))
+    [(list e) (append (all-but-last p) (list e))]))
+
 (define-syntax-rule (test-->>p p e ...)
   (test-->> (-->_vcc~Δ (all-but-last p))
             #:equiv (λ (e0 e1) (term (≡α ,e0 ,e1)))
@@ -322,6 +332,10 @@
 (test-->>p example-8-opaque 
            (term (-- any/c))
            (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c))))
+
+(test-->>p list-id-example (term (-- (cons (-- 1) 
+                                           (-- (cons (-- 2) 
+                                                     (-- (cons (-- 3) (-- empty)))))))))
 
 ;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)
