@@ -15,21 +15,21 @@
   (W (-- L C ...))
   (bool #t #f)
   (PV FV L)
-  (FV nat bool string)
+  (FV nat bool string empty (cons V V))
   
   (V WFV W)
   (WFV (-- FV C ...))
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ f) (@ E E f) (if E E E) (@ o1 E f) (@ o2 E E f) (let x E E) (begin E E))
-  (FC nat/c bool/c string/c)
+  (FC nat/c bool/c string/c empty/c (cons/c C C))
   (C any/c none/c (C -> C) (pred SV) FC)
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned o † ★) ;; † is top-level
   (nat natural)
   (o o1 o2)
   (o1 add1 sub1 zero? proc?)
-  (o2 + - * expt = < <= > >=)
+  (o2 + - * expt = < <= > >= cons)
   (𝓔 hole (@ 𝓔 E f) (@ V 𝓔 f) (if 𝓔 E E) (@ o V ... 𝓔 E ... f) (let x 𝓔 E) (begin 𝓔 E)))
   
 ;; Figure 5, gray (cont).
@@ -47,7 +47,7 @@
   
   (C-ext C λ)
       
-  (WFV .... anat astring abool)
+  (WFV .... anat astring abool acons aempty)       
   (V .... AV)             ;; (-- X) is overline X.
   (B .... (blame f f V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
@@ -58,9 +58,12 @@
   ;; Maybe procedure
   (W? W (-- any/c C ...) (-- (pred SV) C ...))    
   
+  ;; Flat, wrapped concrete and abstract values
   (anat (-- nat C ...) (-- C ... nat/c C ...))
   (astring (-- string C ...) (-- C ... string/c C ...))
   (abool (-- bool C ...) (-- C ... bool/c C ...))
+  (aempty (-- empty C ...) (-- C ... empty/c C ...))
+  (acons (-- (cons V V) C ...) (-- C ... (cons/c C C) C ...))
   
   ;; Raw, unannotated language
   (RP (RM ... RE))
@@ -71,9 +74,6 @@
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   (RC any/c none/c (RC -> RC) (pred RSV) FC))
 
-(define anat? (redex-match λc~ anat))
-(define astring? (redex-match λc~ astring))
-(define abool? (redex-match λc~ abool))
 (define abstract-value? (redex-match λc~ (-- C ...)))
 (define (final-state? x)
   (or (redex-match λc~ V x)
