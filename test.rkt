@@ -103,8 +103,24 @@
                     id))))
          (@ (id ^ †) (@ cons 1 (@ cons 2 (@ cons 3 empty †) †) †) †)]))
 
+
+(define list-rev-example-raw
+  (term [(module rev
+           any/c
+           (λ ls
+             (((λ r ls
+                 (λ r*
+                   (if (empty? ls)
+                       r*
+                       ((r (rest ls)) (cons (first ls) r*)))))             
+               ls)
+              empty)))
+         (rev (cons 1 (cons 2 (cons 3 empty))))]))
+
 (test-predicate (redex-match λc~ RP) list-id-example-raw)
 (test-predicate (redex-match λc~ P) list-id-example)
+
+(test-predicate (redex-match λc~ RP) list-rev-example-raw)
 
 (test-predicate (redex-match λc~ P) fit-example)
 (test-predicate (redex-match λc~ P) fit-example-alt)

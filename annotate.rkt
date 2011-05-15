@@ -1,6 +1,7 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "test.rkt")                
+(require "lang.rkt" "test.rkt") 
+(provide (all-defined-out))
 
 (define-metafunction λc~
   ann : RP -> P
@@ -50,6 +51,8 @@
    ((ann-con RC_0 f (f_0 ...)) -> (ann-con RC_1 f (f_0 ...)))]
   [(ann-con RC f (f_0 ...)) RC])
   
+;; Totality test
+;; (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
   
 (test-equal (term (ann ,fit-example-raw)) fit-example)
 (test-equal (term (ann ,list-id-example-raw)) list-id-example)

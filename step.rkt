@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "test.rkt")
+(require "lang.rkt" "meta.rkt" "test.rkt" "annotate.rkt")
 (provide (all-defined-out))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -336,6 +336,12 @@
 (test-->>p list-id-example (term (-- (cons (-- 1) 
                                            (-- (cons (-- 2) 
                                                      (-- (cons (-- 3) (-- empty)))))))))
+
+(test-->>p (term (ann ,list-rev-example-raw))
+           (term (-- (cons (-- 3)
+                           (-- (cons (-- 2)
+                                     (-- (cons (-- 1)
+                                               (-- empty)))))))))
 
 ;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)
