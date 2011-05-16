@@ -23,7 +23,8 @@
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   (FC nat/c bool/c string/c empty/c)
-  (C any/c none/c (C -> C) (pred SV) (cons/c C C) FC)
+  (C* any/c none/c (C -> C) (pred SV) (cons/c C C) FC)
+  (C (and/c C C) C*)
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned)
   (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
@@ -38,13 +39,12 @@
   (W .... ((C --> C) <= ℓ ℓ V ℓ W))  
   (B (blame ℓ ℓ V C V))
   (E .... (C <= ℓ ℓ V ℓ E) B)
-  (C .... (C --> C))
-  ;(f .... Λ)
+  (C* .... (C --> C))
   (𝓔 .... (C <= ℓ ℓ V ℓ 𝓔)))
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
-  (AV (-- C C ...))
+  (AV (-- C* C* ...))
   (C-ext C λ)
       
   (WFV .... anat astring abool acons aempty)    
@@ -72,7 +72,11 @@
   (RPV FV RL)  
   (RSV RL f) ; Syntactic values for pred.  [Different than paper]
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
-  (RC any/c none/c (RC -> RC) (pred RSV) (cons/c RC RC) FC))
+  (RC any/c none/c (RC -> RC) (pred RSV) (cons/c RC RC) (and/c RC RC) FC))
+
+
+(test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
+            #f)
 
 (define abstract-value? (redex-match λc~ (-- C ...)))
 (define (final-state? x)
@@ -80,6 +84,7 @@
       (redex-match λc~ B x)
       (redex-match λc~ (-- C_0 ... none/c C_1 ...))))
 
+;; Completeness check for matching V with these patterns.
 (redex-check λc~ V  
              (or (redex-match λc~ W? (term V))
                  (redex-match λc~ WFV (term V))

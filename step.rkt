@@ -82,7 +82,14 @@
         (where #f (flat-pass FC PV))
         chk-flat-fail)       
    
+   ;; AND CONTRACTS
+   
+   (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        (C_1 <= ℓ_1 ℓ_2 V_0 ℓ_3 
+             (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V)))
+   
    ;; PAIR CONTRACTS
+   ;; FIXME: drops higher-order contracts on the floor (see failing test).
    
    (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V ℓ_3 (-- (cons V_0 V_1) C ...))
         (begin (C_0 <= ℓ_1 ℓ_2 V ℓ_3 V_0)
@@ -140,6 +147,11 @@
          (term (if (@ (λ x 0) (-- 5) Λ)
                    (-- 5 (pred (λ x 0)))
                    (blame f f (-- 0) (pred (λ x 0)) (-- 5)))))
+(test--> c
+         (term ((and/c nat/c empty/c) <= f g (-- 0) f (-- #t)))
+         (term (empty/c <= f g (-- 0) f
+                        (nat/c <= f g (-- 0) f (-- #t)))))
+               
 
 (define c~
   (reduction-relation
@@ -151,22 +163,23 @@
    (--> (@ AV V ℓ)
         ;; do bad things to the concrete value
         (begin (@ (demonic C_demon) V ★)
-               ;; produce an abstract value constranated by all the possible domains
+               ;; abstract value constranated by all possible domains
                (remember-contract (-- any/c) C_0 ...))
         (where (-- C ...) AV)
         (where C_demon (most-specific-domain C ...))
         (where (C_0 ...) (range-contracts (C ...)))
         ;; abstract values as arguments go in the next case
         (side-condition (not (abstract-value? (term V))))
-        ;; if the abstract value is definetely flat, this case is handled by `wrong' from `v'
+        ;; if definitely flat, case is handled by `wrong' from `v'
         (side-condition (not (redex-match λc~ WFV (term AV))))
         apply-abs-concrete) 
    (--> (@ AV AV_0 ℓ)
-        ;; we don't care what bad things happen to abstract values, so we don't simulate them
+        ;; don't care what bad things happen to abstract values, so we
+        ;; don't simulate them
         (remember-contract (-- any/c) C_0 ...)
         (where (-- C ...) AV)
         (where (C_0 ...) (range-contracts (C ...)))
-        ;; if the abstract value is definetely flat, this case is handled by `wrong' from `v'
+        ;; if definitely flat, case is handled by `wrong' from `v'
         (side-condition (not (redex-match λc~ WFV (term AV))))
         apply-abs-abs)
    
@@ -176,7 +189,8 @@
         ;; if it's not definitely a procedure, it might be flat        
         (side-condition (not (redex-match λc~ W (term W?))))
         apply-abs-fail)
-   ;; applying definitely flat values (those not in W?) is handled by `wrong' from `v'
+   ;; applying definitely flat values (those not in W?) is handled by
+   ;; `wrong' from `v'
    
    
    ;; CONDITIONALS ON ABSTRACT VALUES
@@ -196,9 +210,11 @@
    
    ;; Predicate contracts are handled by concrete transition.
    
-   ;; skip first-order checks that we know this value to have already passed
-   ;; higher-order checks impose obligations on people we interact with, so they must be kept around
-   ;; also, higher-order checks could fail later even if they passed earlier
+   ;; skip first-order checks that we know this value to have already
+   ;; passed higher-order checks impose obligations on people we
+   ;; interact with, so they must be kept around also, higher-order
+   ;; checks could fail later even if they passed earlier
+
    ;; FIXME: if we add state, then we can't remember stateful predicates or 
    ;; predicates on stateful values
    (--> (C <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
@@ -307,10 +323,12 @@
         normalize-abstract)))
 
 (define (-->_vcΔ Ms)
-  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c (∆ Ms)) λc~ 𝓔)))
+  (union-reduction-relations error-propagate 
+                             (context-closure (union-reduction-relations v c (∆ Ms)) λc~ 𝓔)))
 
 (define (-->_vcc~Δ Ms)
-  (union-reduction-relations error-propagate (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
+  (union-reduction-relations error-propagate 
+                             (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
 
 ;; A sometimes useful utility
 #;
@@ -325,10 +343,18 @@
             (last p)
             e ...))
 
-(test-->>p (term ((@ (-- (λ o (b ^ o))) (-- "") sN)))
+(test-->>p (term [(@ (-- (λ o (b ^ o))) (-- "") sN)])
            (term (b ^ o)))
-(test-->>p (term ((@ (-- (λ o (@ 4 5 o))) (-- "") sN)))
+(test-->>p (term [(@ (-- (λ o (@ 4 5 o))) (-- "") sN)])
            (term (blame o Λ (-- 4) λ (-- 4))))
+(test-->>p (term (ann [(module n (and/c nat/c nat/c) 1) n]))
+           (term (-- 1 nat/c)))
+(test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 7)))) 7) n]))
+           (term (-- 7 nat/c (pred (λ x (@ = x 7 n))))))
+(test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 8)))) 7) n]))
+           (term (blame n n (-- 7) (pred (λ x (@ = x 8 n))) (-- 7 nat/c))))
+(test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 8)))) "7") n]))
+           (term (blame n n (-- "7") nat/c (-- "7"))))
                 
 (test-->>p fit-example (term (-- string/c)))
 (test-->>p fit-example-keygen-string

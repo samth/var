@@ -1,4 +1,5 @@
 cons/c as abstract value
+or/c
 flat-rec-contract
 multiple argument functions and application
 get rid of any/c and none/c

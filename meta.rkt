@@ -148,6 +148,10 @@
 
 (define-metafunction λc~
   remember-contract : V C ... -> V
+  [(remember-contract V) V]
+  ;; Expand away and/c
+  [(remember-contract V (and/c C_1 C_2) C ...)
+   (remember-contract V C_1 C_2 C ...)]
   ;; drop any/c on the floor when possible
   [(remember-contract (-- any/c C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
@@ -158,8 +162,9 @@
   ;; do the real work
   [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
    (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
-  [(remember-contract (-- any_0 C_1 ...) C_2 ...)
-   (-- any_0 C_2 ... C_1 ...)]
+  [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
+   (remember-contract (-- any_0 C_1 ... C_2) C ...)]
+   ;(-- any_0 C_2 ... C_1 ...)]
   ;; descend inside blessed arrow contracts
   [(remember-contract ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) C ...)
    ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 (remember-contract V_2 C ...))])
@@ -167,6 +172,7 @@
 ;; check that remember-contract is total and produces the right type
 (redex-check λc~ (V C ...)              
              (redex-match λc~ V (term (remember-contract V C ...))))
+             
 
 ;; If f refers to a module contract with an arrow contract, get 
 ;; domain contract; otherwise, any/c.
