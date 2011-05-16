@@ -64,12 +64,6 @@
   (reduction-relation
    λc~ #:domain E
    
-   ;; BLESSED PROCEDURE CONTRACTS
-   
-   (--> (@ ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 W) V_2 ℓ_4)
-        (C_2 <= ℓ_1 ℓ_2 V_1 ℓ_3 (@ W (C_1 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ℓ_4))
-        split)
-   
    ;; FLAT CONTRACTS
    
    (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 (-- PV C ...)) 
@@ -99,13 +93,16 @@
         check-cons-pass)   
    
    ;; PROCEDURE CONTRACTS   
-   
+      
    ;; definite procedures
    (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W)
-        ((C_1 --> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W)
-        chk-fun-pass-proc)
+        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V ℓ_3 
+                      (@ W (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
+        (fresh y)
+        chk-fun-pass)
+   
    ;; flat values
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 WFV)
+   (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 WFV)
         (blame ℓ_1 ℓ_3 V (C_1 -> C_2) WFV)
         chk-fun-fail-flat)
    
@@ -126,9 +123,6 @@
         (blame ℓ_1 ℓ_3 V_1 none/c V_2)
         chk-none-fail)))
 
-(test--> c 
-         (term (@ ((any/c --> any/c) <= f g (-- 7) f (-- (λ x 5))) (-- 8) †))
-         (term (any/c <= f g (-- 7) f (@ (-- (λ x 5)) (any/c <= g f (-- 8) f (-- 8)) †))))
 (test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5 nat/c)))
 (test--> c 
          (term (nat/c <= f g (-- 0) f (-- (λ x x))))
@@ -138,7 +132,8 @@
          (term (blame f f (-- 0) nat/c (-- #t))))
 (test--> c
          (term ((any/c  -> any/c) <= f g (-- 0) f (-- (λ x x))))
-         (term ((any/c --> any/c) <= f g (-- 0) f (-- (λ x x)))))
+         (term (-- (λ y (any/c <= f g (-- 0) f 
+                               (@ (-- (λ x x)) (any/c <= g f y f y) Λ))))))
 (test--> c 
          (term ((any/c  -> any/c) <= f g (-- 0) f (-- 5)))
          (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
@@ -225,11 +220,14 @@
    
    ;; possible procedures
    (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
-        ((C_1 --> C_2) <= ℓ_1 ℓ_2 V ℓ_3 (remember-contract W? (none/c -> any/c)))
-        ;; definite procedures/non-procedures are handled in `v'
+        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V ℓ_3 
+                      (@ (remember-contract W? (none/c -> any/c))
+                         (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
+        (fresh y)
         (side-condition (not (redex-match λc~ W (term W?))))
         (side-condition (not (redex-match λc~ WFV (term W?))))
         chk-fun-pass-maybe-proc)
+
    (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
         (blame ℓ_1 ℓ_3 V (C_1 -> C_2) W?)
         ;; definite procedures/non-procedures are handled in `v'

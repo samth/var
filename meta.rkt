@@ -163,11 +163,7 @@
   [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
    (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
-   (remember-contract (-- any_0 C_1 ... C_2) C ...)]
-   ;(-- any_0 C_2 ... C_1 ...)]
-  ;; descend inside blessed arrow contracts
-  [(remember-contract ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) C ...)
-   ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 (remember-contract V_2 C ...))])
+   (remember-contract (-- any_0 C_1 ... C_2) C ...)])
 
 ;; check that remember-contract is total and produces the right type
 (redex-check λc~ (V C ...)              
@@ -234,7 +230,6 @@
 ;; Removes duplicate remembered contracts.
 (define-metafunction λc~
   normalize : V -> V
-  [(normalize ((C_1 --> C_2) <= ℓ_1 ℓ_2 V_1 ℓ_3 V)) (normalize V)]
   [(normalize (-- PV C ...)) (-- PV C_1 ...)
    (where (C_1 ...)
           ,(remove-duplicates (term (C ...))

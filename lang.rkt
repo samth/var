@@ -17,6 +17,8 @@
   (PV FV L)
   (FV nat bool string empty (cons V V))
   
+  (V-or-x V x)
+  
   (V WFV W)
   (WFV (-- FV C ...))
   
@@ -36,10 +38,8 @@
   
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
-  (W .... ((C --> C) <= ℓ ℓ V ℓ W))  
   (B (blame ℓ ℓ V C V))
-  (E .... (C <= ℓ ℓ V ℓ E) B)
-  (C* .... (C --> C))
+  (E .... (C <= ℓ ℓ V-or-x ℓ E) B)
   (𝓔 .... (C <= ℓ ℓ V ℓ 𝓔)))
 
 ;; Figure 5, gray (cont).
@@ -88,7 +88,6 @@
 (redex-check λc~ V  
              (or (redex-match λc~ W? (term V))
                  (redex-match λc~ WFV (term V))
-                 (redex-match λc~ (-- any_0 ... (C_0 --> C_1) any_1 ...) (term V))
                  (redex-match λc~ (-- C_0 ... none/c C_1 ...) (term V)))
              #:attempts 1000)             
 
