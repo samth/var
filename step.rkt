@@ -372,6 +372,16 @@
                        (first p)]))
            (term (blame p p (-- (cons (-- "hi") (-- 2))) nat/c (-- "hi"))))
 
+(test-->>p (term (ann [(module p
+                         (cons/c (any/c -> nat/c) any/c)
+                         (cons (-- (λ x "Hi"))
+                               (-- 7)))
+                       ((first p) 7)]))
+           (term (blame p p (-- (cons (-- (λ x "hi"))
+                                      (-- 7)))
+                        nat/c
+                        (-- "hi"))))           
+
 ;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)
              (equal? (apply-reduction-relation (-->_vcΔ (term (M ...))) (term E))
