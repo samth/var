@@ -51,6 +51,7 @@
    (pred (f ^ ℓ))]  
   ;; ---
   ;; For random testing only
+  ;; Well-formed programs do not have unbound module references.
   [(ann-con (pred f) ℓ (f_0 ...))
    (pred (f ^ f))]
   ;; ---
