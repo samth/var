@@ -27,9 +27,9 @@
 (define-metafunction λc~
   prim-δ : (o V ... ℓ) -> AV or PV or B or (-- PV C ...)
   [(prim-δ (cons V_0 V_1 ℓ)) (cons V_0 V_1)]
-  [(prim-δ (first (-- (cons V_0 V_1)) ℓ)) V_0]
-  [(prim-δ (rest (-- (cons V_0 V_1)) ℓ)) V_1]
-  [(prim-δ (empty? (-- empty) ℓ)) #t]
+  [(prim-δ (first (-- (cons V_0 V_1) C ...) ℓ)) V_0]
+  [(prim-δ (rest (-- (cons V_0 V_1) C ...) ℓ)) V_1]
+  [(prim-δ (empty? (-- empty C ...) ℓ)) #t]
   [(prim-δ (empty? V ℓ)) #f]
   [(prim-δ (cons? (cons V V) ℓ)) #t]
   [(prim-δ (cons? V ℓ)) #f]
@@ -187,6 +187,7 @@
   [(flat-pass nat/c nat) #t]
   [(flat-pass string/c string) #t]
   [(flat-pass bool/c bool) #t]
+  [(flat-pass empty/c empty) #t]
   [(flat-pass FC PV) #f])
 
 ;; Totality check

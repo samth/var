@@ -1,6 +1,6 @@
 #lang racket
 (require redex)
-(require "lang.rkt" "test.rkt" "step.rkt")
+(require "lang.rkt" "test.rkt" "step.rkt" "annotate.rkt")
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trace and stepper
@@ -18,9 +18,9 @@
   (cond [(redex-match λc~ V x) "green"]
         [(redex-match λc~ B x)
          (redex-let λc~
-                    ([(blame f f_0 V C V_0) x])
-                    (cond [(equal? (term f) '★) "pink"]
-                          [(member (term f) opaques) "pink"]
+                    ([(blame ℓ ℓ_0 V C V_0) x])
+                    (cond [(equal? (term ℓ) '★) "pink"]
+                          [(member (term ℓ) opaques) "pink"]
                           [else "red"]))]
         [else #t]))
 
@@ -34,6 +34,7 @@
 (trace-it -->_vcc~Δ example-8)
 (trace-it -->_vcc~Δ example-8-opaque)
 (trace-it -->_vcc~Δ list-id-example)
+(trace-it -->_vcc~Δ (term (ann ,cons/c-example-raw)))
 ;(step-it -->_vcc~Δ fit-example)
 
 

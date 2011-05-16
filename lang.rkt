@@ -22,11 +22,11 @@
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
-  (FC nat/c bool/c string/c empty/c (cons/c C C))
-  (C any/c none/c (C -> C) (pred SV) FC)
+  (FC nat/c bool/c string/c empty/c)
+  (C any/c none/c (C -> C) (pred SV) (cons/c C C) FC)
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned)
-  (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ language generated
+  (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
   (nat natural)
   (o o1 o2)
   (o1 add1 sub1 zero? proc? empty? cons? first rest)
@@ -72,7 +72,7 @@
   (RPV FV RL)  
   (RSV RL f) ; Syntactic values for pred.  [Different than paper]
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
-  (RC any/c none/c (RC -> RC) (pred RSV) FC))
+  (RC any/c none/c (RC -> RC) (pred RSV) (cons/c RC RC) FC))
 
 (define abstract-value? (redex-match λc~ (-- C ...)))
 (define (final-state? x)

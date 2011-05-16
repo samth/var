@@ -117,10 +117,22 @@
               empty)))
          (rev (cons 1 (cons 2 (cons 3 empty))))]))
 
+(define cons/c-example-raw
+  (term [(module p
+           (cons/c nat/c nat/c)
+           (cons (-- 1) (-- 2)))
+         (first p)]))
+
+(define nat/c-example-raw
+  (term [(module n nat/c 5) n]))
+
+(test-predicate (redex-match λc~ RP) nat/c-example-raw) 
+
 (test-predicate (redex-match λc~ RP) list-id-example-raw)
 (test-predicate (redex-match λc~ P) list-id-example)
 
 (test-predicate (redex-match λc~ RP) list-rev-example-raw)
+(test-predicate (redex-match λc~ RP) cons/c-example-raw)
 
 (test-predicate (redex-match λc~ P) fit-example)
 (test-predicate (redex-match λc~ P) fit-example-alt)

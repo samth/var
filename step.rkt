@@ -82,6 +82,15 @@
         (where #f (flat-pass FC PV))
         chk-flat-fail)       
    
+   ;; PAIR CONTRACTS
+   
+   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V ℓ_3 (-- (cons V_0 V_1) C ...))
+        (begin (C_0 <= ℓ_1 ℓ_2 V ℓ_3 V_0)
+               (begin (C_1 <= ℓ_1 ℓ_2 V ℓ_3 V_1)
+                      (remember-contract (-- (cons V_0 V_1) C ...)
+                                         (cons/c C_0 C_1))))
+        check-cons-pass)   
+   
    ;; PROCEDURE CONTRACTS   
    
    ;; definite procedures
@@ -342,6 +351,26 @@
                            (-- (cons (-- 2)
                                      (-- (cons (-- 1)
                                                (-- empty)))))))))
+
+;; Not sure about the remembered contracts in these examples.
+(test-->>p (term (ann [(module n nat/c 5) n]))
+           (term (-- 5 nat/c)))
+(test-->>p (term (ann [(module p
+                         (cons/c nat/c nat/c)
+                         (cons (-- 1) (-- 2)))
+                       p]))
+           (term (-- (cons (-- 1) (-- 2))
+                     (cons/c nat/c nat/c)))) 
+(test-->>p (term (ann [(module p
+                         (cons/c nat/c nat/c)
+                         (cons (-- 1) (-- 2)))
+                       (first p)]))
+           (term (-- 1)))
+(test-->>p (term (ann [(module p
+                         (cons/c nat/c nat/c)
+                         (cons (-- "hi") (-- 2)))
+                       (first p)]))
+           (term (blame p p (-- (cons (-- "hi") (-- 2))) nat/c (-- "hi"))))
 
 ;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)

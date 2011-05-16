@@ -54,12 +54,15 @@
   [(ann-con (pred f) ℓ (f_0 ...))
    (pred (f ^ f))]
   ;; ---
+  [(ann-con (cons/c RC_0 RC_1) ℓ (f ...))
+   (cons/c (ann-con RC_0 ℓ (f ...))
+           (ann-con RC_1 ℓ (f ...)))]
   [(ann-con (RC_0 -> RC_1) ℓ (f ...))
    ((ann-con RC_0 ℓ (f ...)) -> (ann-con RC_1 ℓ (f ...)))]
   [(ann-con RC ℓ (f ...)) RC])
   
 ;; Totality test
 (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
-  
+       
 (test-equal (term (ann ,fit-example-raw)) fit-example)
 (test-equal (term (ann ,list-id-example-raw)) list-id-example)

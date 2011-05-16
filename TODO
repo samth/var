@@ -1,4 +1,5 @@
-cons and cons/c
+cons/c as abstract value
+flat-rec-contract
 multiple argument functions and application
 get rid of any/c and none/c
 labels attached to predicates, e.g. (pred L f).
