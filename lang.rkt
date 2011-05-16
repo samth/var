@@ -20,7 +20,7 @@
   (V WFV W)
   (WFV (-- FV C ...))
   
-  (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
+  (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper] --STH-- FIXME:  should be ℓ
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   (FC nat/c bool/c string/c empty/c)
   (C any/c none/c (C -> C) (pred SV) (cons/c C C) FC)

@@ -31,7 +31,7 @@
   [(prim-δ (rest (-- (cons V_0 V_1) C ...) ℓ)) V_1]
   [(prim-δ (empty? (-- empty C ...) ℓ)) #t]
   [(prim-δ (empty? V ℓ)) #f]
-  [(prim-δ (cons? (cons V V) ℓ)) #t]
+  [(prim-δ (cons? (-- (cons V V) C ...) ℓ)) #t] --STH
   [(prim-δ (cons? V ℓ)) #f]
   [(prim-δ (add1 (-- nat C ...) ℓ)) ,(add1 (term nat))]
   [(prim-δ (sub1 (-- 0 C ...) ℓ)) 0]
