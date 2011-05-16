@@ -64,7 +64,7 @@
   (reduction-relation
    λc~ #:domain E
    
-   ;; FLAT CONTRACTS
+   ;; BASE CONTRACTS
    
    (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 (-- PV C ...)) 
         (remember-contract (-- PV C ...) FC)
@@ -76,6 +76,34 @@
         (where #f (flat-pass FC PV))
         chk-flat-fail)       
    
+   ;; OR CONTRACTS
+   
+   (--> ((or/c FC FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
+        (remember-contract (-- PV C ...) FC)
+        (where #t (flat-pass FC PV))
+        or/c-fc-pass)
+   (--> ((or/c FC FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
+        (FLAT <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
+        (where #f (flat-pass FC PV))
+        or/c-fc-fail)   
+   (--> ((or/c none/c FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        (blame ℓ_1 ℓ_3 V_0 none/c V))
+   (--> ((or/c any/c FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        (FLAT <= ℓ_1 ℓ_2 V_0 ℓ_3 V))
+   (--> ((or/c (pred SV) FLAT) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
+        (if (@ SV V_2 Λ) 
+            (remember-contract V_2 (pred SV))
+            (FLAT <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
+        chk-or/c-pred)
+   (--> ((or/c (cons/c FLAT_0 FLAT_1) FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        ;; FIXME
+        (error "Not implemented"))
+   (--> ((or/c (or/c FLAT_0 FLAT_1) FLAT_2) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        ((or/c FLAT_0 (or/c FLAT_1 FLAT_2)) <= ℓ_1 ℓ_2 V_0 ℓ_3 V))
+   (--> ((or/c (and/c FLAT_0 FLAT_1) FLAT_2) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        ;; FIXME
+        (error "Not implemented"))
+   
    ;; AND CONTRACTS
    
    (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
@@ -83,14 +111,14 @@
              (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V)))
    
    ;; PAIR CONTRACTS
-   ;; FIXME: drops higher-order contracts on the floor (see failing test).
+   ;; FIXME: forgets what's known about the pair.
    
    (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V ℓ_3 (-- (cons V_0 V_1) C ...))
-        (begin (C_0 <= ℓ_1 ℓ_2 V ℓ_3 V_0)
-               (begin (C_1 <= ℓ_1 ℓ_2 V ℓ_3 V_1)
-                      (remember-contract (-- (cons V_0 V_1) C ...)
-                                         (cons/c C_0 C_1))))
-        check-cons-pass)   
+        (@ cons 
+           (C_0 <= ℓ_1 ℓ_2 V ℓ_3 V_0)
+           (C_1 <= ℓ_1 ℓ_2 V ℓ_3 V_1)
+           Λ)
+        check-cons-pass)
    
    ;; PROCEDURE CONTRACTS   
       
@@ -123,7 +151,7 @@
         (blame ℓ_1 ℓ_3 V_1 none/c V_2)
         chk-none-fail)))
 
-(test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5 nat/c)))
+(test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5)))
 (test--> c 
          (term (nat/c <= f g (-- 0) f (-- (λ x x))))
          (term (blame f f (-- 0) nat/c (-- (λ x x)))))
@@ -346,11 +374,11 @@
 (test-->>p (term [(@ (-- (λ o (@ 4 5 o))) (-- "") sN)])
            (term (blame o Λ (-- 4) λ (-- 4))))
 (test-->>p (term (ann [(module n (and/c nat/c nat/c) 1) n]))
-           (term (-- 1 nat/c)))
+           (term (-- 1)))
 (test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 7)))) 7) n]))
-           (term (-- 7 nat/c (pred (λ x (@ = x 7 n))))))
+           (term (-- 7 (pred (λ x (@ = x 7 n))))))
 (test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 8)))) 7) n]))
-           (term (blame n n (-- 7) (pred (λ x (@ = x 8 n))) (-- 7 nat/c))))
+           (term (blame n n (-- 7) (pred (λ x (@ = x 8 n))) (-- 7))))
 (test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 8)))) "7") n]))
            (term (blame n n (-- "7") nat/c (-- "7"))))
                 
@@ -378,13 +406,46 @@
 
 ;; Not sure about the remembered contracts in these examples.
 (test-->>p (term (ann [(module n nat/c 5) n]))
-           (term (-- 5 nat/c)))
+           (term (-- 5)))
 (test-->>p (term (ann [(module p
                          (cons/c nat/c nat/c)
                          (cons (-- 1) (-- 2)))
                        p]))
-           (term (-- (cons (-- 1) (-- 2))
-                     (cons/c nat/c nat/c)))) 
+           (term (-- (cons (-- 1) (-- 2)))))
+
+(test-->>p (term (ann [(module p
+                         (pred (λ x (if (cons? x)
+                                        (= (first x)
+                                           (rest x))
+                                        #f)))
+                         (cons (-- 1) (-- 1)))
+                       p]))
+           (term (-- (cons (-- 1) (-- 1))
+                     (pred (λ x (if (@ cons? x p)
+                                    (@ = 
+                                       (@ first x p)
+                                       (@ rest x p)
+                                       p)
+                                    #f))))))
+
+(test-->>p (term (ann [(module p
+                         (and/c (cons/c nat/c nat/c)
+                                (pred (λ x (= (first x) (rest x)))))
+                         (cons (-- 1) (-- 1)))
+                       p]))
+           (term (-- (cons (-- 1) (-- 1))
+                     (pred (λ x (@ = (@ first x p) (@ rest x p) p))))))
+
+;; Swap of and/c arguments above
+;; FIXME: fails to remember predicate on pair
+(test-->>p (term (ann [(module p
+                         (and/c (pred (λ x (= (first x) (rest x))))
+                                (cons/c nat/c nat/c))                                
+                         (cons (-- 1) (-- 1)))
+                       p]))
+           (term (-- (cons (-- 1) (-- 1))
+                     (pred (λ x (@ = (@ first x p) (@ rest x p) p))))))
+
 (test-->>p (term (ann [(module p
                          (cons/c nat/c nat/c)
                          (cons (-- 1) (-- 2)))
@@ -398,7 +459,7 @@
 
 (test-->>p (term (ann [(module p
                          (cons/c (any/c -> nat/c) any/c)
-                         (cons (-- (λ x "Hi"))
+                         (cons (-- (λ x "hi"))
                                (-- 7)))
                        ((first p) 7)]))
            (term (blame p p (-- (cons (-- (λ x "hi"))

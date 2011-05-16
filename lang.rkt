@@ -24,9 +24,22 @@
   
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
+  
+  (FLAT FC any/c none/c (pred SV) (cons/c FLAT FLAT) (or/c FLAT FLAT) (and/c FLAT FLAT))
+  (HOC (C -> C)
+       (or/c FLAT HOC)
+       (cons/c HOC C) (cons/c C HOC)
+       (and/c HOC C)  (and/c C HOC))
+  
+  (FLAT* FC any/c none/c (pred SV) (cons/c FLAT FLAT) (or/c FLAT FLAT))
+  (HOC* (C -> C)
+        (or/c FLAT HOC)
+        (cons/c HOC C) (cons/c C HOC))
+    
   (FC nat/c bool/c string/c empty/c)
-  (C* any/c none/c (C -> C) (pred SV) (cons/c C C) FC)
-  (C (and/c C C) C*)
+  (C* FLAT* HOC*)  
+  (C FLAT HOC)
+  
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned)
   (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
@@ -47,7 +60,7 @@
   (AV (-- C* C* ...))
   (C-ext C λ)
       
-  (WFV .... anat astring abool acons aempty)    
+  (WFV .... anat astring abool acons aempty)
   (V .... AV)             ;; (-- X) is overline X.
   (B .... (blame ℓ ℓ V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
@@ -55,8 +68,25 @@
   ;; Definite procedure  
   (W .... (-- C ... (C -> C) C ...))
     
+  ;; Maybe procedure contract
+  (WC? any/c
+       (pred SV)
+       (or/c WC? C)
+       (or/c C WC?)
+       (or/c C (C -> C))
+       (or/c C (and/c (C -> C) C))
+       (or/c C (and/c C (C -> C)))
+       (and/c WC? WC?))
+  
   ;; Maybe procedure
-  (W? W (-- any/c C ...) (-- (pred SV) C ...))    
+  (W? W (-- WC? C ...))
+  
+  ;; Contracts that always fail
+  (NC none/c
+      (or/c NC NC)
+      (and/c NC C)
+      (and/c C NC))
+  
   
   ;; Flat, wrapped concrete and abstract values
   (anat (-- nat C ...) (-- C ... nat/c C ...))
@@ -88,8 +118,8 @@
 (redex-check λc~ V  
              (or (redex-match λc~ W? (term V))
                  (redex-match λc~ WFV (term V))
-                 (redex-match λc~ (-- C_0 ... none/c C_1 ...) (term V)))
-             #:attempts 1000)             
+                 (redex-match λc~ (-- C_0 ... NC C_1 ...) (term V)))
+             #:attempts 10000)             
 
 (define (all-but-last ls)
   (drop-right ls 1))

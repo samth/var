@@ -149,6 +149,9 @@
 (define-metafunction λc~
   remember-contract : V C ... -> V
   [(remember-contract V) V]
+  [(remember-contract (-- FV C_1 ...) C_0 C ...)
+   (remember-contract (-- FV C_1 ...) C ...)
+   (side-condition (not (redex-match λc~ (pred any) (term C_0))))]
   ;; Expand away and/c
   [(remember-contract V (and/c C_1 C_2) C ...)
    (remember-contract V C_1 C_2 C ...)]
