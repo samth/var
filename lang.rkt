@@ -102,8 +102,16 @@
   (RPV FV RL)  
   (RSV RL f) ; Syntactic values for pred.  [Different than paper]
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
-  (RC any/c none/c (RC -> RC) (pred RSV) (cons/c RC RC) (and/c RC RC) FC))
-
+  
+  
+  (RCFLAT FC any/c none/c (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT))
+  (RCHOC (RC -> RC)
+         (or/c RCFLAT RCHOC)
+         (cons/c RCHOC RC) (cons/c RC RCHOC)
+         (and/c RCHOC RC)  (and/c RC RCHOC))
+  
+  (RC RCFLAT RCHOC))
+  
 
 (test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
             #f)

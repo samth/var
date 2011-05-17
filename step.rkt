@@ -78,29 +78,32 @@
    
    ;; OR CONTRACTS
    
-   (--> ((or/c FC FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
+   (--> ((or/c FC C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
         (remember-contract (-- PV C ...) FC)
         (where #t (flat-pass FC PV))
         or/c-fc-pass)
-   (--> ((or/c FC FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
-        (FLAT <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
+   (--> ((or/c FC C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
+        (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
         (where #f (flat-pass FC PV))
-        or/c-fc-fail)   
-   (--> ((or/c none/c FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        (blame ℓ_1 ℓ_3 V_0 none/c V))
-   (--> ((or/c any/c FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        (FLAT <= ℓ_1 ℓ_2 V_0 ℓ_3 V))
-   (--> ((or/c (pred SV) FLAT) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
+        or/c-fc-cont)   
+   (--> ((or/c none/c C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        or/c-none/c-cont)
+   (--> ((or/c any/c C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        V
+        or/c-any/c-pass)
+   (--> ((or/c (pred SV) C) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
         (if (@ SV V_2 Λ) 
             (remember-contract V_2 (pred SV))
-            (FLAT <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
-        chk-or/c-pred)
-   (--> ((or/c (cons/c FLAT_0 FLAT_1) FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+            (C <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
+        or/c-pred)
+   (--> ((or/c (cons/c FLAT C) FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
         ;; FIXME
         (error "Not implemented"))
-   (--> ((or/c (or/c FLAT_0 FLAT_1) FLAT_2) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        ((or/c FLAT_0 (or/c FLAT_1 FLAT_2)) <= ℓ_1 ℓ_2 V_0 ℓ_3 V))
-   (--> ((or/c (and/c FLAT_0 FLAT_1) FLAT_2) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+   (--> ((or/c (or/c FLAT_0 FLAT_1) C) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        ((or/c FLAT_0 (or/c FLAT_1 C)) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        or/c-assoc)
+   (--> ((or/c (and/c FLAT_0 FLAT_1) C) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
         ;; FIXME
         (error "Not implemented"))
    
@@ -465,7 +468,14 @@
            (term (blame p p (-- (cons (-- (λ x "hi"))
                                       (-- 7)))
                         nat/c
-                        (-- "hi"))))           
+                        (-- "hi"))))
+
+(test-->>p (term (ann [(module n (or/c none/c nat/c) 5) n]))
+           (term (-- 5)))
+(test-->>p (term (ann [(module n (or/c nat/c none/c) 5) n]))
+           (term (-- 5)))
+(test-->>p (term (ann [(module n (or/c nat/c (none/c -> none/c)) 5) n]))
+           (term (-- 5)))
 
 ;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)
