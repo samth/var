@@ -1,7 +1,8 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "test.rkt") 
-(provide (all-defined-out))
+(require "lang.rkt" "examples.rkt" "util.rkt") 
+(provide (except-out (all-defined-out) test))
+(test-suite test annotate)
 
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~

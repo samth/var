@@ -1,7 +1,8 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt")
-(provide (all-defined-out))
+(require "lang.rkt" "util.rkt")
+(provide (except-out (all-defined-out) test))
+(test-suite test meta)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Metafunctions
@@ -55,13 +56,14 @@
   ;; FIXME: should refer to V_1 and V_2.
   [(prim-δ (o2 V_1 V_2 ℓ)) (blame ℓ o2 V_1 λ V_1)])
 
-(test-equal (term (prim-δ (proc? (-- #f) f))) #f)
-(test-equal (term (prim-δ (add1 (-- 0) f))) 1)
-(test-equal (term (prim-δ (sub1 (-- 0) f))) 0)
-(test-equal (term (prim-δ (zero? (-- 0) f))) #t)
-(test-equal (term (prim-δ (zero? (-- 1) f))) #f)
-(test-equal (term (prim-δ (add1 (-- #t) f)))
-            (term (blame f add1 (-- #t) λ (-- #t))))
+(test
+ (test-equal (term (prim-δ (proc? (-- #f) f))) #f)
+ (test-equal (term (prim-δ (add1 (-- 0) f))) 1)
+ (test-equal (term (prim-δ (sub1 (-- 0) f))) 0)
+ (test-equal (term (prim-δ (zero? (-- 0) f))) #t)
+ (test-equal (term (prim-δ (zero? (-- 1) f))) #f)
+ (test-equal (term (prim-δ (add1 (-- #t) f)))
+             (term (blame f add1 (-- #t) λ (-- #t)))))
 
 (define-metafunction λc~
   wrap-δ : any -> V or B
@@ -74,20 +76,21 @@
   δ : (@ o V ... ℓ) -> V or B
   [(δ (@ o V ... ℓ)) (wrap-δ (prim-δ (o V ... ℓ)))])
 
-(test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
-            (term (-- #t)))
-
-(test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
-            (term (-- (cons (-- 1) (-- 2)))))
-
-;; Test for δ totalness.
-(redex-check λc~ (o1 V)
-             (or (redex-match λc~ V (term (δ (@ o1 V f))))
-                 (equal? (term (blame f o1 V λ V))
-                         (term (prim-δ (o1 V f))))))
-(redex-check λc~ (o2 V_1 V_2)
-             (or (redex-match λc~ V (term (δ (@ o2 V_1 V_2 f))))
-                 (redex-match λc~ B (term (δ (@ o2 V_1 V_2 f))))))
+(test
+ (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
+             (term (-- #t)))
+ 
+ (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
+             (term (-- (cons (-- 1) (-- 2)))))
+ 
+ ;; Test for δ totalness.
+ (redex-check λc~ (o1 V)
+              (or (redex-match λc~ V (term (δ (@ o1 V f))))
+                  (equal? (term (blame f o1 V λ V))
+                          (term (prim-δ (o1 V f))))))
+ (redex-check λc~ (o2 V_1 V_2)
+              (or (redex-match λc~ V (term (δ (@ o2 V_1 V_2 f))))
+                  (redex-match λc~ B (term (δ (@ o2 V_1 V_2 f)))))))
 
 (define-metafunction λc~ subst : x any any -> any 
   ;; 0. Don't substitue for module references.
@@ -142,10 +145,11 @@
    ((subst-var x_1 any_1 any_2) ...)] 
   [(subst-var x_1 any_1 any_2) any_2])
 
-(test-equal (term (subst x 0 x)) (term 0))
-(test-equal (term (subst x 0 y)) (term y))
-(test-equal (term (subst x 0 (λ x x))) (term (λ x x)))
-
+(test
+ (test-equal (term (subst x 0 x)) (term 0))
+ (test-equal (term (subst x 0 y)) (term y))
+ (test-equal (term (subst x 0 (λ x x))) (term (λ x x))))
+ 
 (define-metafunction λc~
   remember-contract : V C ... -> V
   [(remember-contract V) V]
@@ -168,9 +172,10 @@
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
    (remember-contract (-- any_0 C_1 ... C_2) C ...)])
 
-;; check that remember-contract is total and produces the right type
-(redex-check λc~ (V C ...)              
-             (redex-match λc~ V (term (remember-contract V C ...))))
+(test
+ ;; check that remember-contract is total and produces the right type
+ (redex-check λc~ (V C ...)              
+              (redex-match λc~ V (term (remember-contract V C ...)))))
              
 
 ;; If f refers to a module contract with an arrow contract, get 
@@ -195,8 +200,9 @@
   [(flat-pass empty/c empty) #t]
   [(flat-pass FC PV) #f])
 
-;; Totality check
-(redex-check λc~ (FC PV) (boolean? (term (flat-pass FC PV))))
+(test
+ ;; Totality check
+ (redex-check λc~ (FC PV) (boolean? (term (flat-pass FC PV)))))
 
 ;; All range contracts of all function contracts in given contracts.
 (define-metafunction λc~
@@ -246,7 +252,8 @@
                                [(`(,f ^ _) `(,f ^ _)) #t]
                                [(a b) (equal? a b)])))])
 
-(redex-check λc~ V  (redex-match λc~ V (term (normalize V))))
+(test
+ (redex-check λc~ V  (redex-match λc~ V (term (normalize V)))))
 
 
 ;; Is E_0 ≡α E_1 by systematic renaming.
@@ -272,11 +279,12 @@
   [(≡α any any) #t]
   [(≡α any_0 any_1) #f])
 
-(test-equal (term (≡α (λ x x) (λ y y))) #t)
-(test-equal (term (≡α (λ x x) (λ y z))) #f)
-(test-equal (term (≡α 3 3)) #t)
-(test-equal (term (≡α 3 4)) #f)
-(test-equal (term (≡α (@ (λ x x) 3 f) (@ (λ y y) 3 f))) #t)
-(test-equal (term (≡α (@ (λ x x) (λ y y) f) (@ (λ y y) (λ x x) f))) #t)
-
-(redex-check λc~ E (term (≡α E E)))
+(test
+ (test-equal (term (≡α (λ x x) (λ y y))) #t)
+ (test-equal (term (≡α (λ x x) (λ y z))) #f)
+ (test-equal (term (≡α 3 3)) #t)
+ (test-equal (term (≡α 3 4)) #f)
+ (test-equal (term (≡α (@ (λ x x) 3 f) (@ (λ y y) 3 f))) #t)
+ (test-equal (term (≡α (@ (λ x x) (λ y y) f) (@ (λ y y) (λ x x) f))) #t)
+ 
+ (redex-check λc~ E (term (≡α E E))))

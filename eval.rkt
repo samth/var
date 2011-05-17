@@ -1,7 +1,8 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "step.rkt" "test.rkt")
-(provide (all-defined-out))
+(require "lang.rkt" "step.rkt" "examples.rkt" "util.rkt")
+(provide (except-out (all-defined-out) test))
+(test-suite test eval)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Evaluation functions

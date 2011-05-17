@@ -1,7 +1,8 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt")
-(provide (all-defined-out))
+(require "lang.rkt" "util.rkt")
+(provide (except-out (all-defined-out) test))
+(test-suite test examples)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Examples and tests
@@ -31,16 +32,17 @@
          (module h any/c (λ z (@ (@ (f ^ h) (g ^ h) h) #f h)))
          (@ (h ^ †) 0 †)]))
 
-(test-predicate (redex-match λc-user M) (first example-8))
-(test-predicate (redex-match λc-user M) (second example-8))
-(test-predicate (redex-match λc-user M) (third example-8))
-(test-predicate (redex-match λc-user E) (last example-8))
-(test-predicate (redex-match λc~ P) example-8-opaque)
-(test-predicate (redex-match λc-user P) example-8)
-(test-predicate (redex-match λc P) example-8)
-(test-predicate (redex-match λc~ P) example-8)
+(test
+ (test-predicate (redex-match λc-user M) (first example-8))
+ (test-predicate (redex-match λc-user M) (second example-8))
+ (test-predicate (redex-match λc-user M) (third example-8))
+ (test-predicate (redex-match λc-user E) (last example-8))
+ (test-predicate (redex-match λc~ P) example-8-opaque)
+ (test-predicate (redex-match λc-user P) example-8)
+ (test-predicate (redex-match λc P) example-8)
+ (test-predicate (redex-match λc~ P) example-8)
 
-(test-predicate (redex-match λc-user C) (term ((pred (λ x x)) -> nat/c)))
+ (test-predicate (redex-match λc-user C) (term ((pred (λ x x)) -> nat/c))))
 
 (define mod-prime-raw  (term (module prime? (nat/c -> any/c) ☁)))
 (define mod-rsa-raw    (term (module rsa ((pred prime?) -> (string/c -> string/c)) ☁)))
@@ -126,23 +128,24 @@
 (define nat/c-example-raw
   (term [(module n nat/c 5) n]))
 
-(test-predicate (redex-match λc~ RP) nat/c-example-raw) 
-
-(test-predicate (redex-match λc~ RP) list-id-example-raw)
-(test-predicate (redex-match λc~ P) list-id-example)
-
-(test-predicate (redex-match λc~ RP) list-rev-example-raw)
-(test-predicate (redex-match λc~ RP) cons/c-example-raw)
-
-(test-predicate (redex-match λc~ P) fit-example)
-(test-predicate (redex-match λc~ P) fit-example-alt)
-
-(test-predicate (redex-match λc~ RE) top-fit-raw)
-(test-predicate (redex-match λc~ RM) mod-prime-raw)
-(test-predicate (redex-match λc~ RM) mod-rsa-raw)
-(test-predicate (redex-match λc~ RM) mod-keygen-raw)
-(test-predicate (redex-match λc~ RM) mod-keygen-7-raw)
-(test-predicate (redex-match λc~ RM) mod-keygen-str-raw)
-
-(test-predicate (redex-match λc~ RP) fit-example-raw)
+(test
+ (test-predicate (redex-match λc~ RP) nat/c-example-raw) 
+ 
+ (test-predicate (redex-match λc~ RP) list-id-example-raw)
+ (test-predicate (redex-match λc~ P) list-id-example)
+ 
+ (test-predicate (redex-match λc~ RP) list-rev-example-raw)
+ (test-predicate (redex-match λc~ RP) cons/c-example-raw)
+ 
+ (test-predicate (redex-match λc~ P) fit-example)
+ (test-predicate (redex-match λc~ P) fit-example-alt)
+ 
+ (test-predicate (redex-match λc~ RE) top-fit-raw)
+ (test-predicate (redex-match λc~ RM) mod-prime-raw)
+ (test-predicate (redex-match λc~ RM) mod-rsa-raw)
+ (test-predicate (redex-match λc~ RM) mod-keygen-raw)
+ (test-predicate (redex-match λc~ RM) mod-keygen-7-raw)
+ (test-predicate (redex-match λc~ RM) mod-keygen-str-raw)
+ 
+ (test-predicate (redex-match λc~ RP) fit-example-raw))
 

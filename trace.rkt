@@ -1,6 +1,10 @@
 #lang racket
 (require redex)
-(require "lang.rkt" "test.rkt" "step.rkt" "annotate.rkt")
+(require "lang.rkt" "examples.rkt" "step.rkt" "annotate.rkt" "util.rkt")
+(provide (except-out (all-defined-out) test))
+(test-suite test trace)
+
+(provide -->_vcc~Δ)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trace and stepper
@@ -27,7 +31,7 @@
 (define-syntax-rule (step-it R P)
   (stepper (R (all-but-last P))
            (last P)))
-
+#|
 (trace-it -->_vcc~Δ fit-example)
 (trace-it -->_vcc~Δ fit-example-rsa-7)
 (trace-it -->_vcc~Δ fit-example-keygen-string)
@@ -35,6 +39,7 @@
 (trace-it -->_vcc~Δ example-8-opaque)
 (trace-it -->_vcc~Δ list-id-example)
 (trace-it -->_vcc~Δ (term (ann ,cons/c-example-raw)))
+|#
 ;(step-it -->_vcc~Δ fit-example)
 
 

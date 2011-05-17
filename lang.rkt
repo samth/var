@@ -1,6 +1,7 @@
 #lang racket
-(require redex)
-(provide (all-defined-out))
+(require redex "util.rkt")
+(provide (except-out (all-defined-out) test))
+(test-suite test lang)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Languages
@@ -112,9 +113,9 @@
   
   (RC RCFLAT RCHOC))
   
-
-(test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
-            #f)
+(test
+ (test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
+             #f))
 
 (define abstract-value? (redex-match λc~ (-- C ...)))
 (define (final-state? x)
@@ -122,12 +123,13 @@
       (redex-match λc~ B x)
       (redex-match λc~ (-- C_0 ... none/c C_1 ...))))
 
-;; Completeness check for matching V with these patterns.
-(redex-check λc~ V  
-             (or (redex-match λc~ W? (term V))
-                 (redex-match λc~ WFV (term V))
-                 (redex-match λc~ (-- C_0 ... NC C_1 ...) (term V)))
-             #:attempts 10000)             
+(test
+ ;; Completeness check for matching V with these patterns.
+ (redex-check λc~ V  
+              (or (redex-match λc~ W? (term V))
+                  (redex-match λc~ WFV (term V))
+                  (redex-match λc~ (-- C_0 ... NC C_1 ...) (term V)))
+              #:attempts 10000))
 
 (define (all-but-last ls)
   (drop-right ls 1))
