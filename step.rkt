@@ -476,6 +476,9 @@
            (term (-- 5)))
 (test-->>p (term (ann [(module n (or/c nat/c (none/c -> none/c)) 5) n]))
            (term (-- 5)))
+(test-->>p (term (ann [(module f (or/c nat/c (none/c -> none/c)) (λ x x)) f]))
+           (term (-- (λ y (none/c <= f † (-- (λ x x)) f 
+                                  (@ (-- (λ x x)) (none/c <= † f y f y) Λ))))))
 
 ;; Run a concrete program in concrete and abstract semantics, get same thing.
 (redex-check λc-user (M ... E)
