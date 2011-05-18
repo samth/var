@@ -38,11 +38,12 @@
       ...
       ℓ)])
 
-(test-equal (term (ann-exp f f ())) (term (f ^ f)))
-(test-equal (term (ann-exp f † (f))) (term (f ^ †)))
-(test-equal (term (ann-exp f † ())) (term f))
-(test-equal (term (ann-exp (zero? x) † ())) (term (@ zero? x †)))
-(test-equal (term (ann-exp (f x) † ())) (term (@ f x †)))
+(test
+ (test-equal (term (ann-exp f f ())) (term (f ^ f)))
+ (test-equal (term (ann-exp f † (f))) (term (f ^ †)))
+ (test-equal (term (ann-exp f † ())) (term f))
+ (test-equal (term (ann-exp (zero? x) † ())) (term (@ zero? x †)))
+ (test-equal (term (ann-exp (f x) † ())) (term (@ f x †))))
 
 (define-metafunction λc~
   ann-mod : RM (f ...) -> M
@@ -73,11 +74,59 @@
    ((ann-con RC_0 ℓ (f ...)) -> (ann-con RC_1 ℓ (f ...)))]
   [(ann-con RC ℓ (f ...)) RC])
 
-(test-equal (term (ann-con (pred f) g (f)))
-            (term (pred (f ^ g))))
+(test
+ (test-equal (term (ann-con (pred f) g (f)))
+             (term (pred (f ^ g))))
+ 
+ ;; Totality test
+ (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
+ 
+ (test-equal (term (ann ,fit-example-raw)) fit-example)
+ (test-equal (term (ann ,list-id-example-raw)) list-id-example))
+
+#;
+(define-metafunction λc~
+  unann : P -> RP
+  [(unann (M ... E))
+   ((unann-mod M) ... (unann-exp E))])
+
+(define-metafunction λc~
+  unann-exp : E -> any
+  [(unann-exp (@ o any ... ℓ))
+   (o (unann-exp any) ...)]
+  [(unann-exp (@ any ... ℓ))
+   ((unann-exp any) ...)]
+  [(unann-exp (f ^ ℓ)) f]
+  [(unann-exp (-- C_0 C ...))
+   (-- (unann-con C_0))]
+  [(unann-exp (-- PV C ...))
+   (unann-exp PV)]
+  [(unann-exp (C <= ℓ_0 ℓ_1 V-or-x ℓ_2 E))
+   ((unann-con C) ⇐ (unann-exp E))]
+  [(unann-exp (blame ℓ_0 ℓ_1 V_0 C V))
+   (blame ℓ_0 ℓ_1 (unann-exp V_0) (unann-con C) (unann-exp V))]
+  ;; if, begin, let
+  [(unann-exp (any E ...))
+   (any (unann-exp E) ...)]
+  [(unann-exp E) E])
+
+(define-metafunction λc~
+  unann-con : C -> any
+  [(unann-con (pred E))
+   (pred (unann-exp E))]
+  [(unann-con (C_0 -> C_1))
+   ((unann-con C_0) -> (unann-con C_1))]
+  ;; or/c, and/c, cons/c
+  [(unann-con (any C_0 C_1))
+   (any (unann-con C_0) (unann-con C_1))]
+  [(unann-con C) C])
   
-;; Totality test
-(redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
-       
-(test-equal (term (ann ,fit-example-raw)) fit-example)
-(test-equal (term (ann ,list-id-example-raw)) list-id-example)
+  
+  
+  
+  
+  
+  
+  
+
+

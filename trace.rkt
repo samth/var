@@ -9,10 +9,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trace and stepper
 
-(define-syntax-rule (trace-it R P)
+(define-syntax-rule (trace-it R P . rest)
   (traces (R (all-but-last P))
           (last P)
-          #:pred (colorize (all-but-last P))))
+          #:pred (colorize (all-but-last P))
+          . rest))
 
 (define ((colorize Ms) x)
   (define opaques (filter-map (λ (M) (match M
