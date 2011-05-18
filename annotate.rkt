@@ -55,14 +55,14 @@
 (define-metafunction λc~
   ann-con : RC ℓ (f ...) -> C  
   [(ann-con (pred RL) ℓ (f ...))
-   (pred (ann-exp RL ℓ (f ...)))]  
+   (pred (ann-exp RL ℓ (f ...)) ℓ)]
   [(ann-con (pred f) ℓ (f_0 ... f f_1 ...))
-   (pred (f ^ ℓ))]  
+   (pred (f ^ ℓ) ℓ)] 
   ;; ---
   ;; For random testing only
   ;; Well-formed programs do not have unbound module references.
   [(ann-con (pred f) ℓ (f_0 ...))
-   (pred (f ^ f))]
+   (pred (f ^ f) ℓ)]
   ;; ---
   [(ann-con (cons/c RC_0 RC_1) ℓ (f ...))
    (cons/c (ann-con RC_0 ℓ (f ...))
@@ -76,7 +76,7 @@
 
 (test
  (test-equal (term (ann-con (pred f) g (f)))
-             (term (pred (f ^ g))))
+             (term (pred (f ^ g) g)))
  
  ;; Totality test
  (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
@@ -112,7 +112,7 @@
 
 (define-metafunction λc~
   unann-con : C -> any
-  [(unann-con (pred E))
+  [(unann-con (pred E ℓ))
    (pred (unann-exp E))]
   [(unann-con (C_0 -> C_1))
    ((unann-con C_0) -> (unann-con C_1))]

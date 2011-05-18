@@ -5,7 +5,6 @@ flat-rec-contract
 fix cons/c remembering contracts
 multiple argument functions and application
 get rid of any/c and none/c
-labels attached to predicates, e.g. (pred L f).
 state the main theorem and randomly test
 
 first class contracts

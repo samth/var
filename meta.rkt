@@ -13,7 +13,7 @@
    (λ f x (if (@ proc? x ★) 
               (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
               0))]
-  [(demonic (pred SV))
+  [(demonic (pred SV ℓ))
    (demonic any/c)]
   [(demonic nat/c) (λ x 0)]
   [(demonic string/c) (λ x 0)]
@@ -155,7 +155,7 @@
   [(remember-contract V) V]
   [(remember-contract (-- FV C_1 ...) C_0 C ...)
    (remember-contract (-- FV C_1 ...) C ...)
-   (side-condition (not (redex-match λc~ (pred any) (term C_0))))]
+   (side-condition (not (redex-match λc~ (pred any ℓ) (term C_0))))]
   ;; Expand away and/c
   [(remember-contract V (and/c C_1 C_2) C ...)
    (remember-contract V C_1 C_2 C ...)]
@@ -218,8 +218,12 @@
   contract-in : C V -> #t or #f
   [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
   [(contract-in C (-- C_0 ... C C_1 ...)) #t]
-  [(contract-in (pred (f ^ ℓ_0)) (-- PV C_0 ... (pred (f ^ ℓ_1)) C_1 ...)) #t]
-  [(contract-in (pred (f ^ ℓ_0)) (-- C_0 ... (pred (f ^ ℓ_1)) C_1 ...)) #t]
+  [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
+                (-- PV C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
+   #t]
+  [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
+                (-- C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
+   #t]
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?

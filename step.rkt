@@ -92,9 +92,9 @@
    (--> ((or/c any/c C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
         V
         or/c-any/c-pass)
-   (--> ((or/c (pred SV) C) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
+   (--> ((or/c (pred SV ℓ) C) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
         (if (@ SV V_2 Λ) 
-            (remember-contract V_2 (pred SV))
+            (remember-contract V_2 (pred SV ℓ))
             (C <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
         or/c-pred)
    (--> ((or/c (cons/c FLAT C) FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
@@ -139,12 +139,12 @@
    
    ;; PREDICATE CONTRACTS
          
-   (--> ((pred SV) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
-        (if (@ SV V_2 Λ) 
-            (remember-contract V_2 (pred SV))
-            (blame ℓ_1 ℓ_3 V_1 (pred SV) V_2))
+   (--> ((pred SV ℓ) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
+        (if (@ SV V_2 ℓ) ; FIXME: ℓ or Λ?
+            (remember-contract V_2 (pred SV ℓ))
+            (blame ℓ_1 ℓ_3 V_1 (pred SV ℓ) V_2))
         ;; Only want smart to fire when this is true
-        (where #f (contract-in (pred SV) V_2))
+        (where #f (contract-in (pred SV ℓ) V_2))
         chk-pred-c)
    
    ;; TRIVIAL CONTRACTS
@@ -170,10 +170,10 @@
           (term ((any/c  -> any/c) <= f g (-- 0) f (-- 5)))
           (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
  (test--> c
-          (term ((pred (λ x 0)) <= f g (-- 0) f (-- 5)))
-          (term (if (@ (λ x 0) (-- 5) Λ)
-                    (-- 5 (pred (λ x 0)))
-                    (blame f f (-- 0) (pred (λ x 0)) (-- 5)))))
+          (term ((pred (λ x 0) ℓ) <= f g (-- 0) f (-- 5)))
+          (term (if (@ (λ x 0) (-- 5) ℓ)
+                    (-- 5 (pred (λ x 0) ℓ))
+                    (blame f f (-- 0) (pred (λ x 0) ℓ) (-- 5)))))
  (test--> c
           (term ((and/c nat/c empty/c) <= f g (-- 0) f (-- #t)))
           (term (empty/c <= f g (-- 0) f
@@ -317,15 +317,9 @@
 (test
  (test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
           (term (@ (prime? ^ rsa)
-                   (--
-                    (pred
-                     (prime? ^ keygen)))
-                   Λ))         
+                   (-- (pred (prime? ^ keygen) keygen)) Λ))         
           (term (@ (any/c <= prime? rsa (-- any/c) prime? (-- any/c))
-                   (--
-                    (pred
-                     (prime? ^ keygen)))
-                   Λ)))
+                   (-- (pred (prime? ^ keygen) keygen)) Λ)))
  
  (test--> (Δ~ (term [(module prime? any/c ☁)]))
           (term (prime? ^ rsa))
@@ -383,9 +377,9 @@
  (test-->>p (term (ann [(module n (and/c nat/c nat/c) 1) n]))
             (term (-- 1)))
  (test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 7)))) 7) n]))
-            (term (-- 7 (pred (λ x (@ = x 7 n))))))
+            (term (-- 7 (pred (λ x (@ = x 7 n)) n))))
  (test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 8)))) 7) n]))
-            (term (blame n n (-- 7) (pred (λ x (@ = x 8 n))) (-- 7))))
+            (term (blame n n (-- 7) (pred (λ x (@ = x 8 n)) n) (-- 7))))
  (test-->>p (term (ann [(module n (and/c nat/c (pred (λ x (= x 8)))) "7") n]))
             (term (blame n n (-- "7") nat/c (-- "7"))))
  
@@ -394,12 +388,12 @@
             (term (blame keygen prime? (-- "Key") nat/c (-- "Key"))))
  (test-->>p fit-example-rsa-7
             (term (-- string/c))
-            (term (blame keygen keygen (-- (λ x 7)) (pred (prime? ^ keygen)) (-- 7))))
+            (term (blame keygen keygen (-- (λ x 7)) (pred (prime? ^ keygen) keygen) (-- 7))))
  
- (test-->>p example-8 (term (blame h g (-- #f) (pred (λ x x)) (-- #f))))
+ (test-->>p example-8 (term (blame h g (-- #f) (pred (λ x x) g) (-- #f))))
  (test-->>p example-8-opaque 
             (term (-- any/c))
-            (term (blame h g (-- any/c) (pred (λ x x)) (-- any/c))))
+            (term (blame h g (-- any/c) (pred (λ x x) g) (-- any/c))))
  
  (test-->>p list-id-example (term (-- (cons (-- 1) 
                                             (-- (cons (-- 2) 
@@ -433,7 +427,8 @@
                                         (@ first x p)
                                         (@ rest x p)
                                         p)
-                                     #f))))))
+                                     #f))
+                            p))))
  
  (test-->>p (term (ann [(module p
                           (and/c (cons/c nat/c nat/c)
@@ -441,7 +436,7 @@
                           (cons (-- 1) (-- 1)))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
-                      (pred (λ x (@ = (@ first x p) (@ rest x p) p))))))
+                      (pred (λ x (@ = (@ first x p) (@ rest x p) p)) p))))
  
  ;; Swap of and/c arguments above
  ;; FIXME: fails to remember predicate on pair
