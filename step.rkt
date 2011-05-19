@@ -60,58 +60,30 @@
  (test-->> -->_v (term (@ proc? #f †)) (term (-- #f)))
  (test-->> -->_v (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
 
+(define flat? (redex-match λc~ FLAT))
+
 (define c
   (reduction-relation
    λc~ #:domain E
    
-   ;; BASE CONTRACTS
+   ;; FLAT CONTRACTS
    
-   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 (-- PV C ...)) 
-        (remember-contract (-- PV C ...) FC)
-        (where #t (flat-pass FC PV))
-        chk-flat-pass)
+   (--> (FLAT <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        (flat-check FLAT V
+                    (remember-contract V FLAT)
+                    ,(λ (f v) (term (blame ℓ_1 ℓ_3 V_0 ,f ,v))))
+        flat-check)
    
-   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 (-- PV C ...)) 
-        (blame ℓ_1 ℓ_3 V FC (-- PV C ...))
-        (where #f (flat-pass FC PV))
-        chk-flat-fail)       
+   ;; HIGHER-ORDER CONTRACTS
    
-   ;; OR CONTRACTS
-   
-   (--> ((or/c FC C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
-        (remember-contract (-- PV C ...) FC)
-        (where #t (flat-pass FC PV))
-        or/c-fc-pass)
-   (--> ((or/c FC C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
-        (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 (-- PV C ...))
-        (where #f (flat-pass FC PV))
-        or/c-fc-cont)   
-   (--> ((or/c none/c C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        or/c-none/c-cont)
-   (--> ((or/c any/c C_0) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        V
-        or/c-any/c-pass)
-   (--> ((or/c (pred SV ℓ) C) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
-        (if (@ SV V_2 Λ) 
-            (remember-contract V_2 (pred SV ℓ))
-            (C <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
-        or/c-pred)
-   (--> ((or/c (cons/c FLAT C) FLAT) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        ;; FIXME
-        (error "Not implemented"))
-   (--> ((or/c (or/c FLAT_0 FLAT_1) C) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        ((or/c FLAT_0 (or/c FLAT_1 C)) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        or/c-assoc)
-   (--> ((or/c (and/c FLAT_0 FLAT_1) C) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        ;; FIXME
-        (error "Not implemented"))
-   
-   ;; AND CONTRACTS
-   
+   (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+        (flat-check FLAT V
+                    (remember-contract V FLAT)
+                    ,(λ (f v) (term (HOC <= ℓ_1 ℓ_2 V_0 ℓ_3 V)))))
    (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
         (C_1 <= ℓ_1 ℓ_2 V_0 ℓ_3 
-             (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V)))
+             (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V))
+        (where HOC (and/c C_0 C_1)))
    
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.
@@ -121,6 +93,7 @@
            (C_0 <= ℓ_1 ℓ_2 V ℓ_3 V_0)
            (C_1 <= ℓ_1 ℓ_2 V ℓ_3 V_1)
            Λ)
+        (where HOC (cons/c C_0 C_1))
         check-cons-pass)
    
    ;; PROCEDURE CONTRACTS   
@@ -135,24 +108,8 @@
    ;; flat values
    (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 WFV)
         (blame ℓ_1 ℓ_3 V (C_1 -> C_2) WFV)
-        chk-fun-fail-flat)
-   
-   ;; PREDICATE CONTRACTS
-         
-   (--> ((pred SV ℓ) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
-        (if (@ SV V_2 ℓ) ; FIXME: ℓ or Λ?
-            (remember-contract V_2 (pred SV ℓ))
-            (blame ℓ_1 ℓ_3 V_1 (pred SV ℓ) V_2))
-        ;; Only want smart to fire when this is true
-        (where #f (contract-in (pred SV ℓ) V_2))
-        chk-pred-c)
-   
-   ;; TRIVIAL CONTRACTS
-   
-   (--> (any/c <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) V_2 chk-any-pass)
-   (--> (none/c <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2) 
-        (blame ℓ_1 ℓ_3 V_1 none/c V_2)
-        chk-none-fail)))
+        chk-fun-fail-flat)))
+
 
 (test
  (test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5)))
@@ -176,8 +133,7 @@
                     (blame f f (-- 0) (pred (λ x 0) ℓ) (-- 5)))))
  (test--> c
           (term ((and/c nat/c empty/c) <= f g (-- 0) f (-- #t)))
-          (term (empty/c <= f g (-- 0) f
-                         (nat/c <= f g (-- 0) f (-- #t))))))
+          (term (blame f f (-- 0) nat/c (-- #t)))))
                
 
 (define c~
@@ -244,11 +200,6 @@
 
    ;; FIXME: if we add state, then we can't remember stateful predicates or 
    ;; predicates on stateful values
-   (--> (C <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        V        
-        (side-condition (not (redex-match λc~ (C_a -> C_b) (term C))))
-        (where #t (contract-in C V))
-        smart*)
    
    ;; possible procedures
    (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
@@ -265,23 +216,8 @@
         ;; definite procedures/non-procedures are handled in `v'
         (side-condition (not (redex-match λc~ W (term W?))))
         (side-condition (not (redex-match λc~ WFV (term W?))))
-        chk-fun-fail-maybe-proc)
-
-   
-   ;; check flat contracts of abstract values   
-   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 AV)
-        (remember-contract AV FC)
-        ;; avoid overlap with `smart*'
-        (where #f (contract-in FC AV))
-        ;; if AV is definitely not an FC, then there's no reason to pass
-        (where #t (contract-not-in FC AV))
-        chk-flat-abstract-pass)
-   (--> (FC <= ℓ_1 ℓ_2 V ℓ_3 AV)
-        (blame ℓ_1 ℓ_3 V FC AV)
-        ;; avoid overlap with `smart*'
-        (where #f (contract-in FC AV))
-        chk-flat-abstract-fail)))
-
+        chk-fun-fail-maybe-proc)))
+  
 (define (∆ Ms)
   (reduction-relation
    λc~ #:domain E
@@ -446,7 +382,7 @@
                           (cons (-- 1) (-- 1)))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
-                      (pred (λ x (@ = (@ first x p) (@ rest x p) p))))))
+                      (pred (λ x (@ = (@ first x p) (@ rest x p) p)) p))))
  
  (test-->>p (term (ann [(module p
                           (cons/c nat/c nat/c)

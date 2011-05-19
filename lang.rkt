@@ -26,7 +26,11 @@
   (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
-  (FLAT FC any/c none/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (and/c FLAT FLAT))
+  (FLAT FC any/c none/c 
+        (pred SV ℓ) 
+        (cons/c FLAT FLAT)
+        (or/c FLAT FLAT)
+        (and/c FLAT FLAT))
   (HOC (C -> C)
        (or/c FLAT HOC)
        (cons/c HOC C) (cons/c C HOC)
@@ -36,7 +40,7 @@
   (HOC* (C -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC))
-    
+     
   (FC nat/c bool/c string/c empty/c)
   (C* FLAT* HOC*)  
   (C FLAT HOC)

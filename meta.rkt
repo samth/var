@@ -153,12 +153,13 @@
 (define-metafunction λc~
   remember-contract : V C ... -> V
   [(remember-contract V) V]
-  [(remember-contract (-- FV C_1 ...) C_0 C ...)
-   (remember-contract (-- FV C_1 ...) C ...)
-   (side-condition (not (redex-match λc~ (pred any ℓ) (term C_0))))]
   ;; Expand away and/c
   [(remember-contract V (and/c C_1 C_2) C ...)
    (remember-contract V C_1 C_2 C ...)]
+  ;; drop non-predicates on concrete flat values
+  [(remember-contract (-- FV C_1 ...) C_0 C ...)
+   (remember-contract (-- FV C_1 ...) C ...)
+   (side-condition (not (redex-match λc~ (pred any ℓ) (term C_0))))]
   ;; drop any/c on the floor when possible
   [(remember-contract (-- any/c C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
@@ -191,19 +192,6 @@
   [(strip-concrete-contracts (-- PV C ...)) PV]
   [(strip-concrete-contracts AV) AV])
 
-;; Given a flat contract and plain value, checks satisfaction.
-(define-metafunction λc~
-  flat-pass : FC PV -> #t or #f
-  [(flat-pass nat/c nat) #t]
-  [(flat-pass string/c string) #t]
-  [(flat-pass bool/c bool) #t]
-  [(flat-pass empty/c empty) #t]
-  [(flat-pass FC PV) #f])
-
-(test
- ;; Totality check
- (redex-check λc~ (FC PV) (boolean? (term (flat-pass FC PV)))))
-
 ;; All range contracts of all function contracts in given contracts.
 (define-metafunction λc~
   range-contracts : (C ...) -> (C ...)
@@ -228,7 +216,7 @@
 
 ;; Does this abstract value *definitely* fail this contract?
 (define-metafunction λc~
-  contract-not-in : C AV -> #t or #f
+  contract-not-in : C AV -> #t or #f  
   [(contract-not-in FC_1 (-- C_0 ... FC_2 C_1 ...)) #t
    (side-condition (not (eq? (term FC_1) (term FC_2))))]
   [(contract-not-in FC_1 (-- C_0 ... (C_a -> C_b) C_1 ...)) #t]
@@ -292,3 +280,74 @@
  (test-equal (term (≡α (@ (λ x x) (λ y y) f) (@ (λ y y) (λ x x) f))) #t)
  
  (redex-check λc~ E (term (≡α E E))))
+
+(define-metafunction λc~
+  meta-apply : any any ... -> any
+  [(meta-apply any_f any ...)
+   ,(apply (term any_f) (term (any ...)))])
+
+(define-metafunction λc~
+  flat-check : FLAT V E any -> E
+  [(flat-check any/c V E any) E]
+  [(flat-check none/c V E any) 
+   (meta-apply any none/c V)]
+  [(flat-check C V E any)
+   E 
+   (where #t (contract-in C V))]
+  [(flat-check C AV E any)
+   (meta-apply any C AV)
+   (where #t (contract-not-in C AV))]
+  [(flat-check (pred SV ℓ) V E any)
+   (if (@ SV V ℓ) 
+       E 
+       (meta-apply any (pred SV ℓ) V))]
+  [(flat-check (cons/c FLAT_0 FLAT_1)
+               (-- (cons V_0 V_1) C ...)
+               E any)
+   (flat-check FLAT_0
+               V_0
+               (flat-check FLAT_1 V_1 E 
+                           ,(λ (f v) (term (meta-apply any FLAT_1 V_1))))
+               ,(λ (f v) (term (meta-apply any FLAT_0 V_0))))]
+  [(flat-check (cons/c C_0 C_1) V E any) 
+   (meta-apply any (cons/c C_0 C_1) V)]
+  
+  [(flat-check (or/c FLAT_0 FLAT_1) V E any)
+   (flat-check FLAT_0 V
+               E
+               ,(λ (f v) (term (flat-check FLAT_1 V E 
+                                           ,(λ (f v) (term (meta-apply any FLAT_1 V)))))))]
+  [(flat-check (and/c FLAT_0 FLAT_1) V E any)
+   (flat-check FLAT_0 V
+               (flat-check FLAT_1 V E ,(λ (f v) (term (meta-apply any FLAT_1 V))))
+               ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
+
+  [(flat-check nat/c anat E any) E]
+  [(flat-check string/c astring E any) E]
+  [(flat-check bool/c abool E any) E]
+  [(flat-check empty/c aempty E any) E]
+  
+  [(flat-check FLAT V E any) (meta-apply any FLAT V)])
+  
+
+(test
+ (test-equal (term (flat-check none/c (-- 0) #t ,(λ (f v) #f))) #f)
+ (test-equal (term (flat-check any/c (-- 0) #t ,(λ (f v) #f))) #t)
+ (test-equal (term (flat-check (cons/c nat/c nat/c)
+                               (-- (cons (-- 0) (-- 1)))
+                               #t
+                               ,(λ (f v) #f)))
+             #t)
+ (test-equal (term (flat-check (and/c nat/c none/c) (-- 0) #t ,(λ (f v) #f)))
+             #f)
+ (test-equal (term (flat-check (and/c none/c nat/c) (-- 0) #t ,(λ (f v) #f)))
+             #f)
+ (test-equal (term (flat-check (or/c nat/c none/c) (-- 0) #t ,(λ (f v) #f)))
+             #t)
+ (test-equal (term (flat-check (or/c none/c nat/c) (-- 0) #t ,(λ (f v) #f)))
+             #t)
+ (test-equal (term (flat-check (pred (λ x x) ℓ) (-- 0) #t ,(λ (f v) #f)))
+             (term (if (@ (λ x x) (-- 0) ℓ)
+                       #t
+                       #f))))
+ 
