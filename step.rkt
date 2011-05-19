@@ -1,6 +1,7 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "examples.rkt" "annotate.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "name.rkt" 
+         "examples.rkt" "annotate.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test step)
 
