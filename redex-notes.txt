@@ -14,3 +14,15 @@
   test--> should check that the expected values is in the range of the relation
 - sexp -> sexp optional argument to traces to transform terms
   before printing.
+- domain contract failures should additionally report
+  which (sub)contract of the domain failed on which (sub)expression 
+  of the input, eg:
+
+#lang racket
+(require redex/reduction-semantics)
+(define-language L)
+(define-metafunction L f : natural natural -> any)
+
+(term (f 6 fred))
+f: (f 6 fred) is not in my domain
+***because fred is not a natural.***
