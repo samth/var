@@ -23,7 +23,7 @@
   (V WFV W)
   (WFV (-- FV C ...))
   
-  (SV L (f ^ f)) ; Syntactic values for pred.  [Different than paper]
+  (SV L (f ^ f) o1) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
   (FLAT FC any/c none/c 
@@ -105,7 +105,7 @@
   (RM (module f RC RPV) (module f RC ☁))
   (RL (λ x RE) (λ x x RE))
   (RPV FV RL)  
-  (RSV RL f) ; Syntactic values for pred.  [Different than paper]
+  (RSV RL f o1) ; Syntactic values for pred.  [Different than paper]
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   

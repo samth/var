@@ -416,6 +416,9 @@
                                    (@ (-- (λ x x)) 
                                       (none/c <= † f y f y) Λ))))))
  
+ (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
+            (term (-- empty (pred empty? mt))))
+ 
  ;; Run a concrete program in concrete and abstract semantics, get same thing.
  (redex-check λc-user (M ... E)
               (equal? (apply-reduction-relation (-->_vcΔ (term (M ...))) (term E))

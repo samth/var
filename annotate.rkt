@@ -58,6 +58,8 @@
    (pred (ann-exp RL ℓ (f ...)) ℓ)]
   [(ann-con (pred f) ℓ (f_0 ... f f_1 ...))
    (pred (f ^ ℓ) ℓ)] 
+  [(ann-con (pred o1) ℓ (f ...))
+   (pred o1 ℓ)]
   ;; ---
   ;; For random testing only
   ;; Well-formed programs do not have unbound module references.
@@ -120,13 +122,3 @@
   [(unann-con (any C_0 C_1))
    (any (unann-con C_0) (unann-con C_1))]
   [(unann-con C) C])
-  
-  
-  
-  
-  
-  
-  
-  
-
-
