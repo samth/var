@@ -24,73 +24,116 @@
    (λ f (@ (demonic C_1) (@ f (-- C_0) ★) ★))
    (where f ,(gensym 'f))])
 
-;; FIXME: Don't handle abstract values
+;; Does o? hold on all values abstracted by AV
+;; [Gives an approximate answer: #f means "failed to prove"]
 (define-metafunction λc~
-  prim-δ : (o V ... ℓ) -> AV or PV or B or (-- PV C ...)
-  [(prim-δ (cons V_0 V_1 ℓ)) (cons V_0 V_1)]
-  [(prim-δ (first (-- (cons V_0 V_1) C ...) ℓ)) V_0]
-  [(prim-δ (rest (-- (cons V_0 V_1) C ...) ℓ)) V_1]
-  [(prim-δ (empty? (-- empty C ...) ℓ)) #t]
-  [(prim-δ (empty? V ℓ)) #f]
-  [(prim-δ (cons? (-- (cons V V) C ...) ℓ)) #t]
-  [(prim-δ (cons? V ℓ)) #f]
-  [(prim-δ (add1 (-- nat C ...) ℓ)) ,(add1 (term nat))]
-  [(prim-δ (sub1 (-- 0 C ...) ℓ)) 0]
-  [(prim-δ (sub1 (-- nat C ...) ℓ)) ,(sub1 (term nat))]
-  [(prim-δ (zero? (-- nat C ...) ℓ)) ,(zero? (term nat))]  
-  [(prim-δ (+ (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(+ (term nat_1) (term nat_2))]
-  [(prim-δ (- (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(max 0 (- (term nat_1) (term nat_2)))]
-  [(prim-δ (* (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(* (term nat_1) (term nat_2))]
-  [(prim-δ (expt  (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(expt (term nat_1) (term nat_2))]
-  [(prim-δ (= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(= (term nat_1) (term nat_2))]
-  [(prim-δ (< (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(< (term nat_1) (term nat_2))]
-  [(prim-δ (<= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(<= (term nat_1) (term nat_2))]
-  [(prim-δ (> (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(> (term nat_1) (term nat_2))]  
-  [(prim-δ (>= (-- nat_1 C_0 ...) (-- nat_2 C_1 ...) ℓ)) ,(>= (term nat_1) (term nat_2))]
+  proves : V o? -> #t or #f
+  [(proves (-- PV C ...) o?)
+   #t
+   (where (-- #t)
+          (δ (@ o? (-- PV C ...) Λ)))]
+  [(proves (-- C_0 ... C C_1 ...) o?) 
+   #t
+   (where #t (proves-con C o?))]
+  [(proves V o?) #f])
 
-  [(prim-δ (proc? W ℓ)) #t]
-  [(prim-δ (proc? WFV ℓ)) #f]
-  [(prim-δ (proc? W? ℓ)) (-- bool/c)]
+;; Does (negate o?) hold on all values abstracted by AV
+(define-metafunction λc~
+  refutes : V o? -> #t or #f
+  [(refutes (-- C_0 ... C C_1 ...) o?) 
+   #t
+   (where #t (refutes-con C o?))]
+  [(refutes V o?) #f])
+
+;; Does satisfying C imply o?
+(define-metafunction λc~
+  proves-con : C o? -> #t or #f
+  [(proves-con (pred o?_0 ℓ) o?_1) 
+   (proves-predicate o?_0 o?_1)]
+  [(proves-con (or/c C_0 C_1) o?)
+   ,(and (term (proves-con C_0 o?))
+         (term (proves-con C_1 o?)))]
+  [(proves-con (and/c C_0 C_1) o?)
+   ,(or (term (proves-con C_0 o?))
+        (term (proves-con C_1 o?)))]
+  [(proves-con (cons/c C_0 C_1) cons?) #t]
+  [(proves-con (C_0 -> C_1) proc?) #t]
+  [(proves-con C o?) #f])
+
+(define-metafunction λc~
+  proves-predicate : o? o? -> #t or #f
+  [(proves-predicate o? o?) #t]
+  [(proves-predicate zero? nat?) #t]
+  [(proves-predicate o?_0 o?_1) #f])
+
+;; Does satisfying C imply (negate o?)
+(define-metafunction λc~
+  refutes-con : C o? -> #t or #f
+  [(refutes-con (C_0 -> C_1) proc?) #f]
+  [(refutes-con (C_0 -> C_1) o?) #t]
+  [(refutes-con (pred o?_0 ℓ) o?_1) 
+   (refutes-predicate o?_0 o?_1)]
+  [(refutes-con (or/c C_0 C_1) o?)
+   ,(and (term (refutes-con C_0 o?))
+         (term (refutes-con C_1 o?)))]
+  [(refutes-con (and/c C_0 C_1) o?)
+   ,(or (term (refutes-con C_0 o?))
+        (term (refutes-con C_1 o?)))]
+  [(refutes-con (cons/c C_0 C_1) o?) 
+   #t
+   (side-condition (not (eq? (term o?) 'cons)))]   
+  [(refutes-con C o?) #f])
+
+(define-metafunction λc~
+  refutes-predicate : o? o? -> #t or #f
+  [(refutes-predicate o? o?) #f]
+  [(refutes-predicate empty? o?) #t]
+  [(refutes-predicate cons? o?) #t]
+  [(refutes-predicate nat? zero?) #f]
+  [(refutes-predicate zero? nat?) #f]
+  [(refutes-predicate nat? o?) #t]
+  [(refutes-predicate zero? o?) #t]
+  [(refutes-predicate proc? o?) #t])
+
+;; Totality tests
+(test
+ (redex-check λc~ (AV o?)
+              (boolean? (term (proves AV o?))))
+ (redex-check λc~ (AV o?)
+              (boolean? (term (refutes AV o?))))
+ (redex-check λc~ (C o?)
+              (boolean? (term (proves-con C o?))))
+ (redex-check λc~ (C o?)
+              (boolean? (term (refutes-con C o?)))))
+
   
-  [(prim-δ (o1 V ℓ)) (blame ℓ o1 V λ V)]
-  ;; FIXME: should refer to V_1 and V_2.
-  [(prim-δ (o2 V_1 V_2 ℓ)) (blame ℓ o2 V_1 λ V_1)])
+;; Note: (proves-con C o?) and (refutes-con C o?) *both* hold
+;; when C is inconsistent, e.g. (and/c nat? cons?).
 
 (test
- (test-equal (term (prim-δ (proc? (-- #f) f))) #f)
- (test-equal (term (prim-δ (add1 (-- 0) f))) 1)
- (test-equal (term (prim-δ (sub1 (-- 0) f))) 0)
- (test-equal (term (prim-δ (zero? (-- 0) f))) #t)
- (test-equal (term (prim-δ (zero? (-- 1) f))) #f)
- (test-equal (term (prim-δ (add1 (-- #t) f)))
-             (term (blame f add1 (-- #t) λ (-- #t)))))
-
-(define-metafunction λc~
-  wrap-δ : any -> V or B
-  [(wrap-δ (-- PV C ...)) (-- PV C ...)]
-  [(wrap-δ AV) AV]
-  [(wrap-δ PV) (-- PV)]
-  [(wrap-δ B) B])
-
-(define-metafunction λc~
-  δ : (@ o V ... ℓ) -> V or B
-  [(δ (@ o V ... ℓ)) (wrap-δ (prim-δ (o V ... ℓ)))])
-
-(test
- (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
-             (term (-- #t)))
+ (test-equal (term (proves-con (pred empty? ℓ) empty?)) #t)
+ (test-equal (term (proves-con (pred cons? ℓ) empty?)) #f)
+ (test-equal (term (proves-con (or/c (pred empty? ℓ)
+                                     (pred cons? ℓ))
+                               empty?))
+             #f)
+ (test-equal (term (proves-con (and/c (pred empty? ℓ)
+                                      (pred cons? ℓ))
+                               empty?))
+             #t)
+ (test-equal (term (proves-con ((pred empty? ℓ) -> (pred cons? ℓ))
+                               empty?))
+             #f)
  
- (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
-             (term (-- (cons (-- 1) (-- 2)))))
- 
- ;; Test for δ totalness.
- (redex-check λc~ (o1 V)
-              (or (redex-match λc~ V (term (δ (@ o1 V f))))
-                  (equal? (term (blame f o1 V λ V))
-                          (term (prim-δ (o1 V f))))))
- (redex-check λc~ (o2 V_1 V_2)
-              (or (redex-match λc~ V (term (δ (@ o2 V_1 V_2 f))))
-                  (redex-match λc~ B (term (δ (@ o2 V_1 V_2 f)))))))
+ (test-equal (term (refutes-con (pred empty? ℓ) empty?)) #f)
+ (test-equal (term (refutes-con (pred cons? ℓ) empty?)) #t)
+ (test-equal (term (refutes-con (and/c (pred empty? ℓ)
+                                       (pred cons? ℓ))
+                                empty?))
+             #t))             
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; subst
 
 (define-metafunction λc~ subst : x any any -> any 
   ;; 0. Don't substitue for module references.
@@ -149,7 +192,10 @@
  (test-equal (term (subst x 0 x)) (term 0))
  (test-equal (term (subst x 0 y)) (term y))
  (test-equal (term (subst x 0 (λ x x))) (term (λ x x))))
- 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; remember-contract
+
 (define-metafunction λc~
   remember-contract : V C ... -> V
   [(remember-contract V) V]
@@ -281,10 +327,7 @@
  
  (redex-check λc~ E (term (≡α E E))))
 
-(define-metafunction λc~
-  meta-apply : any any ... -> any
-  [(meta-apply any_f any ...)
-   ,(apply (term any_f) (term (any ...)))])
+
 
 (define-metafunction λc~
   flat-check : FLAT V E any -> E
@@ -328,7 +371,11 @@
   [(flat-check empty/c aempty E any) E]
   
   [(flat-check FLAT V E any) (meta-apply any FLAT V)])
-  
+
+(define-metafunction λc~
+  meta-apply : any any ... -> any
+  [(meta-apply any_f any ...)
+   ,(apply (term any_f) (term (any ...)))])
 
 (test
  (test-equal (term (flat-check none/c (-- 0) #t ,(λ (f v) #f))) #f)
@@ -350,4 +397,215 @@
              (term (if (@ (λ x x) (-- 0) ℓ)
                        #t
                        #f))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; δ
+
+(define-metafunction λc~
+  δ : (@ o V ... ℓ) -> V or B or (if (-- bool/c) E E)
+  [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
+  [(δ (@ o V ... ℓ))  (wrap (abstract-δ o V ... ℓ))])
+
+(define-metafunction λc~
+  wrap : any -> E
+  [(wrap PV) (-- PV)]
+  [(wrap E) E])
+
+(define-metafunction λc~
+  plain-δ : o PV ... ℓ -> V or PV or B  
+  [(plain-δ zero? 0 ℓ) #t]
+  [(plain-δ zero? nat ℓ) #f]
+  [(plain-δ proc? L ℓ) #t]
+  [(plain-δ proc? PV ℓ) #f]
+  [(plain-δ empty? empty ℓ) #t]
+  [(plain-δ empty? PV ℓ) #f]
+  [(plain-δ cons? (cons V_0 V_1) ℓ) #t]
+  [(plain-δ cons? PV ℓ) #f]
+  [(plain-δ nat? nat ℓ) #t]
+  [(plain-δ nat? PV ℓ) #f]
+  [(plain-δ add1 nat ℓ) ,(add1 (term nat))]
+  [(plain-δ sub1 0 ℓ) 0]
+  [(plain-δ sub1 nat ℓ) ,(sub1 (term nat))]
+  [(plain-δ first (cons V_0 V_1) ℓ) V_0]
+  [(plain-δ rest (cons V_0 V_1) ℓ) V_1]  
+  [(plain-δ + nat_0 nat_1 ℓ) ,(+ (term nat_0) (term nat_1))]
+  [(plain-δ - nat_0 nat_1 ℓ) ,(max 0 (- (term nat_0) (term nat_1)))]
+  [(plain-δ * nat_0 nat_1 ℓ) ,(* (term nat_0) (term nat_1))]
+  [(plain-δ expt nat_0 nat_1 ℓ) ,(expt (term nat_0) (term nat_1))]
+  [(plain-δ = nat_0 nat_1 ℓ) ,(= (term nat_0) (term nat_1))]
+  [(plain-δ < nat_0 nat_1 ℓ) ,(< (term nat_0) (term nat_1))]
+  [(plain-δ <= nat_0 nat_1 ℓ) ,(<= (term nat_0) (term nat_1))]
+  [(plain-δ > nat_0 nat_1 ℓ) ,(> (term nat_0) (term nat_1))]
+  [(plain-δ >= nat_0 nat_1 ℓ) ,(>= (term nat_0) (term nat_1))]
+  [(plain-δ cons PV_0 PV_1 ℓ) (cons (-- PV_0) (-- PV_1))]
+  [(plain-δ o PV PV_0 ... ℓ)
+   (blame ℓ o (-- PV) λ (-- PV))]) ;; FIXME: Not right value
+
+(define-metafunction λc~
+  impossible? : V -> #t or #f
+  [(impossible? CV) #f]
+  [(impossible? (-- C))
+   (impossible-con? C)]
+  [(impossible? (-- C_0 C_1 C ...))
+   ,(or (term (impossible? (-- C_0 C ...)))
+        (term (impossible-con? C_1)))])
+
+(define-metafunction λc~
+  impossible-con? : C -> #t or #f
+  [(impossible-con? none/c) #t]
+  [(impossible-con? (or/c C_0 C_1))
+   ,(and (term (impossible-con? C_0))
+         (term (impossible-con? C_1)))]  
+  [(impossible-con? (and/c C_0 C_1))
+   ,(or (term (impossible-con? C_0))
+        (term (impossible-con? C_1)))]
+  [(impossible-con? (cons/c C_0 C_1))
+   ,(or (term (impossible-con? C_0))
+        (term (impossible-con? C_1)))]
+  [(impossible-con? C) #f])
+
+(define-metafunction λc~
+  abstract-δ : o V ... ℓ -> PV or V or B or (if (-- bool/c) E E)
+  [(abstract-δ o V_0 ... V V_1 ... ℓ)
+   (-- none/c)
+   (where #t (impossible? V))]
+  ;; o?
+  [(abstract-δ o? V ℓ) #t (where #t (proves V o?))]
+  [(abstract-δ o? V ℓ) #f (where #t (refutes V o?))]
+  [(abstract-δ o? V ℓ) (-- bool/c)]
+  
+  ;; nat->nat
+  [(abstract-δ nat->nat V ℓ)
+   (-- (pred nat? Λ))
+   (where #t (proves V nat?))]
+  [(abstract-δ nat->nat V ℓ)
+   (blame ℓ nat->nat V λ V)
+   (where #t (refutes V nat?))]
+  [(abstract-δ nat->nat V ℓ)
+   (if (-- bool/c)
+       (-- (pred nat? Λ))
+       (blame ℓ nat->nat V λ V))]
+  
+  ;; first
+  [(abstract-δ first V ℓ)
+   (proj-left V)
+   (where #t (proves V cons?))]
+  [(abstract-δ first V ℓ)
+   (blame ℓ first V λ V) 
+   (where #t (refutes V cons?))]
+  [(abstract-δ first V ℓ)
+   (if (-- bool/c)
+       (proj-left V)
+       (blame ℓ first V λ V))]
+  
+  ;; rest
+  [(abstract-δ rest V ℓ)
+   (proj-right V)
+   (where #t (proves V cons?))]
+  [(abstract-δ rest V ℓ)
+   (blame ℓ rest V λ V) 
+   (where #t (refutes V cons?))]
+  [(abstract-δ rest V ℓ)
+   (if (-- bool/c)
+       (proj-right V)
+       (blame ℓ rest V λ V))]
+  
+  ;; nat*nat->nat
+  [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
+   (-- nat/c)
+   (where #t (proves V_0 nat?))
+   (where #t (proves V_1 nat?))]
+  [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
+   (blame ℓ nat*nat->nat V_0 λ V_0)   
+   (where #t (refutes V_0 nat?))]
+  [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
+   (blame ℓ nat*nat->nat V_1 λ V_1)   
+   (where #t (refutes V_1 nat?))]
+  [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
+   (if (-- bool/c)
+       (-- nat/c)
+       (blame ℓ nat*nat->nat V_1 λ V_1))
+   (where #t (proves V_0 nat?))]  
+  [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
+   (if (-- bool/c)
+       (-- nat/c)
+       (blame ℓ nat*nat->nat V_0 λ V_0))
+   (where #t (proves V_1 nat?))]
+  [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
+   (if (-- bool/c)
+       (-- nat/c)
+       (if (-- bool/c)
+           (blame ℓ nat*nat->nat V_0 λ V_0)
+           (blame ℓ nat*nat->nat V_1 λ V_1)))]
+  
+  ;; nat*nat->bool
+  [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
+   (-- bool/c)
+   (where #t (proves V_0 nat?))
+   (where #t (proves V_1 nat?))]
+  [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
+   (blame ℓ nat*nat->bool V_0 λ V_0)   
+   (where #t (refutes V_0 nat?))]
+  [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
+   (blame ℓ nat*nat->bool V_1 λ V_1)   
+   (where #t (refutes V_1 nat?))]    
+  [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
+   (if (-- bool/c)
+       (-- bool/c)
+       (blame ℓ nat*nat->bool V_1 λ V_1))
+   (where #t (proves V_0 nat?))]  
+  [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
+   (if (-- bool/c)
+       (-- bool/c)
+       (blame ℓ nat*nat->bool V_0 λ V_0))
+   (where #t (proves V_1 nat?))]
+  [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
+   (if (-- bool/c)
+       (-- bool/c)
+       (if (-- bool/c)
+           (blame ℓ nat*nat->bool V_0 λ V_0)
+           (blame ℓ nat*nat->bool V_1 λ V_1)))]
+  
+  ;; cons
+  [(abstract-δ cons V_0 V_1 ℓ)
+   (-- (cons V_0 V_1))])
+
+;; Project an AV to the left
+;; (proj-left (-- (cons/c nat? string?) (cons/c zero? string?)))
+;; ≡ (-- nat? zero?)
+(define-metafunction λc~
+  proj-left : AV -> AV
+  [(proj-left (-- C_0 C ...))
+   (proj-left/a (-- any/c) C_0 C ...)])
+
+(define-metafunction λc~
+  proj-right : AV -> AV
+  [(proj-right (-- C_0 C ...))
+   (proj-right/a (-- any/c) C_0 C ...)])
+
+(define-metafunction λc~
+  proj-left/a : (-- C ...) C ... -> AV
+  [(proj-left/a AV) AV]
+  [(proj-left/a (-- C ...) (cons/c C_0 C_1) C_2 ...)
+   (proj-left/a (remember-contract (-- C ...) C_0) C_2 ...)]
+  [(proj-left/a (-- C ...) C_0 C_1 ...)
+   (proj-left/a (-- C ...) C_1 ...)])
+
+(define-metafunction λc~
+  proj-right/a : (-- C ...) C ... -> AV
+  [(proj-right/a AV) AV]
+  [(proj-right/a (-- C ...) (cons/c C_0 C_1) C_2 ...)
+   (proj-right/a (remember-contract (-- C ...) C_1) C_2 ...)]
+  [(proj-right/a (-- C ...) C_0 C_1 ...)
+   (proj-right/a (-- C ...) C_1 ...)])
+
+(test
+ (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
+             (term (-- #t)))
  
+ (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
+             (term (-- (cons (-- 1) (-- 2)))))
+ 
+ ;; Test for δ totalness.
+ (redex-check λc~ (o1 V) (term (δ (@ o1 V f))))
+ (redex-check λc~ (o2 V_1 V_2) (term (δ (@ o2 V_1 V_2 f)))))

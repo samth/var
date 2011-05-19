@@ -13,15 +13,18 @@
   (P (M ... E))
   (M (module f C PV))
   (L (λ x E) (λ x x E))
-  (W (-- L C ...))
+  (W (-- L C* ...))
   (bool #t #f)
+  ;; Plain value
   (PV FV L)
   (FV nat bool string empty (cons V V))
   
   (V-or-x V x)
   
+  ;; Values
   (V WFV W)
-  (WFV (-- FV C ...))
+  
+  (WFV (-- FV C* ...))
   
   (SV L (f ^ f) o1) ; Syntactic values for pred.  [Different than paper]
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
@@ -50,8 +53,14 @@
   (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
   (nat natural)
   (o o1 o2)
-  (o1 add1 sub1 zero? proc? empty? cons? first rest)
-  (o2 + - * expt = < <= > >= cons)
+  (o1 o? nat->nat first rest)
+  (nat->nat add1 sub1)
+  ;; Built-in predicates
+  (o? zero? proc? empty? cons? nat?)
+  (o2 nat*nat->nat nat*nat->bool cons)
+  (nat*nat->nat + - * expt)
+  (nat*nat->bool = < <= > >=)
+  
   (𝓔 hole (@ 𝓔 E ℓ) (@ V 𝓔 ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
   
 ;; Figure 5, gray (cont).
@@ -62,7 +71,8 @@
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
-  (AV (-- C* C* ...))
+  (AV (-- C* C* ...))  ;; Abstract values
+  (CV (-- PV C* ...))  ;; Concrete values
   (C-ext C λ)
       
   (WFV .... anat astring abool acons aempty)
@@ -71,7 +81,7 @@
   (M .... (module f C ☁))
   
   ;; Definite procedure  
-  (W .... (-- C ... (C -> C) C ...))
+  (W .... (-- C* ... (C -> C) C* ...))
     
   ;; Maybe procedure contract
   (WC? any/c
@@ -84,7 +94,7 @@
        (and/c WC? WC?))
   
   ;; Maybe procedure
-  (W? W (-- WC? C ...))
+  (W? W (-- WC? C* ...))
   
   ;; Contracts that always fail
   (NC none/c
@@ -94,11 +104,11 @@
   
   
   ;; Flat, wrapped concrete and abstract values
-  (anat (-- nat C ...) (-- C ... nat/c C ...))
-  (astring (-- string C ...) (-- C ... string/c C ...))
-  (abool (-- bool C ...) (-- C ... bool/c C ...))
-  (aempty (-- empty C ...) (-- C ... empty/c C ...))
-  (acons (-- (cons V V) C ...) (-- C ... (cons/c C C) C ...))
+  (anat (-- nat C* ...) (-- C* ... nat/c C* ...))
+  (astring (-- string C* ...) (-- C* ... string/c C* ...))
+  (abool (-- bool C* ...) (-- C* ... bool/c C* ...))
+  (aempty (-- empty C* ...) (-- C* ... empty/c C* ...))
+  (acons (-- (cons V V) C* ...) (-- C* ... (cons/c C C) C* ...))
   
   ;; Raw, unannotated language
   (RP (RM ... RE))
@@ -121,7 +131,7 @@
  (test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
              #f))
 
-(define abstract-value? (redex-match λc~ (-- C ...)))
+(define abstract-value? (redex-match λc~ (-- C* ...)))
 (define (final-state? x)
   (or (redex-match λc~ V x)
       (redex-match λc~ B x)
@@ -129,6 +139,7 @@
 
 (test
  ;; Completeness check for matching V with these patterns.
+ ;; Used for case analysis in application rule.
  (redex-check λc~ V  
               (or (redex-match λc~ W? (term V))
                   (redex-match λc~ WFV (term V))
