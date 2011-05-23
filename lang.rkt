@@ -40,7 +40,7 @@
        (cons/c HOC C) (cons/c C HOC)
        (and/c HOC C)  (and/c C HOC))
   
-  (FLAT* FC any/c none/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (flat-rec/c x FLAT*) x)
+  (FLAT* FC any/c none/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (flat-rec/c x FLAT) x)
   (HOC* (C -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC))

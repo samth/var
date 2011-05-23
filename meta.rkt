@@ -142,10 +142,10 @@
   ;; Expand away and/c
   [(remember-contract V (and/c C_1 C_2) C ...)
    (remember-contract V C_1 C_2 C ...)]
-  ;; drop non-predicates on concrete flat values
+  ;; drop boring contracts on concrete flat values
   [(remember-contract (-- FV C_1 ...) C_0 C ...)
    (remember-contract (-- FV C_1 ...) C ...)
-   (side-condition (not (redex-match λc~ (pred any ℓ) (term C_0))))]
+   (side-condition (not (redex-match λc~ FC (term C_0))))]
   ;; drop any/c on the floor when possible
   [(remember-contract (-- any/c C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
@@ -319,7 +319,10 @@
              #t)
  (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
                                (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t ,(λ (f v) #f)))
-             #t))
+             #t)
+ (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+                               (-- (cons (-- "0") (-- empty))) #t ,(λ (f v) #f)))
+             #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; δ

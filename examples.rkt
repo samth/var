@@ -128,6 +128,12 @@
 (define nat/c-example-raw
   (term [(module n nat/c 5) n]))
 
+(define rec/c-example-raw
+  (term [(module n nat/c 5)
+         (module l (flat-rec/c X (or/c empty/c (cons/c nat/c X)))
+           (cons 1 (cons n empty)))
+         l]))
+
 (test
  (test-predicate (redex-match λc~ RP) nat/c-example-raw) 
  
