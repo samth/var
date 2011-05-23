@@ -30,16 +30,17 @@
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
   (FLAT FC any/c none/c 
-        (pred SV ℓ) 
+        (pred SV ℓ)
         (cons/c FLAT FLAT)
         (or/c FLAT FLAT)
+        (flat-rec/c x FLAT) x
         (and/c FLAT FLAT))
   (HOC (C -> C)
        (or/c FLAT HOC)
        (cons/c HOC C) (cons/c C HOC)
        (and/c HOC C)  (and/c C HOC))
   
-  (FLAT* FC any/c none/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT))
+  (FLAT* FC any/c none/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (flat-rec/c x FLAT*) x)
   (HOC* (C -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC))
@@ -91,7 +92,8 @@
        (or/c C (C -> C))
        (or/c C (and/c (C -> C) C))
        (or/c C (and/c C (C -> C)))
-       (and/c WC? WC?))
+       (and/c WC? WC?)
+       (flat-rec/c x WC?))
   
   ;; Maybe procedure
   (W? W (-- WC? C* ...))
@@ -100,7 +102,8 @@
   (NC none/c
       (or/c NC NC)
       (and/c NC C)
-      (and/c C NC))
+      (and/c C NC)
+      (flat-rec/c x NC))
   
   
   ;; Flat, wrapped concrete and abstract values

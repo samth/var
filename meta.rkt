@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt")
+(require "lang.rkt" "util.rkt" "name.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test meta)
 
@@ -82,6 +82,7 @@
    #t
    (side-condition (not (eq? (term o?) 'cons)))]
   [(refutes-con FC proc?) #t]
+  [(refutes-con (flat-rec/c x C)) #f] ;; fixme
   [(refutes-con C o?) #f])
 
 (define-metafunction λc~
@@ -274,7 +275,12 @@
   [(flat-check bool/c abool E any) E]
   [(flat-check empty/c aempty E any) E]
   
-  [(flat-check FLAT V E any) (meta-apply any FLAT V)])
+  [(flat-check (flat-rec/c x C) V E any)
+   (flat-check (subst x (flat-rec/c x C) C) V E any)]
+  
+  [(flat-check FLAT V E any) 
+   (meta-apply any FLAT V)
+   (side-condition (procedure? (term any)))])
 
 (define-metafunction λc~
   meta-apply : any any ... -> any
@@ -300,7 +306,20 @@
  (test-equal (term (flat-check (pred (λ x x) ℓ) (-- 0) #t ,(λ (f v) #f)))
              (term (if (@ (λ x x) (-- 0) ℓ)
                        #t
-                       #f))))
+                       #f)))
+ ;; recursive contracts
+ (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+                               (-- 0) #t ,(λ (f v) #f)))
+             #f)
+ (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+                               (-- empty) #t ,(λ (f v) #f)))
+             #t)
+ (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+                               (-- (cons (-- 0) (-- empty))) #t ,(λ (f v) #f)))
+             #t)
+ (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+                               (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t ,(λ (f v) #f)))
+             #t))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; δ
