@@ -80,7 +80,8 @@
         (term (refutes-con C_1 o?)))]
   [(refutes-con (cons/c C_0 C_1) o?) 
    #t
-   (side-condition (not (eq? (term o?) 'cons)))]   
+   (side-condition (not (eq? (term o?) 'cons)))]
+  [(refutes-con FC proc?) #t]
   [(refutes-con C o?) #f])
 
 (define-metafunction λc~
@@ -502,12 +503,21 @@
   [(proj-right/a (-- C ...) C_0 C_1 ...)
    (proj-right/a (-- C ...) C_1 ...)])
 
-(test
+(test 
  (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
              (term (-- #t)))
  
  (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
              (term (-- (cons (-- 1) (-- 2)))))
+ 
+ (test-equal (term (δ (@ proc? (-- nat/c) ★)))
+             (term (-- #f)))
+ 
+ (test-equal (term (refutes (-- nat/c) proc?))
+             #t)
+             
+ (test-equal (term (refutes-con nat/c proc?))
+             #t)
  
  ;; Test for δ totalness.
  (redex-check λc~ (o1 V) (term (δ (@ o1 V f))))
