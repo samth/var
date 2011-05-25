@@ -23,7 +23,7 @@
   (cond [(redex-match λc~ V x) "green"]
         [(redex-match λc~ B x)
          (redex-let λc~
-                    ([(blame ℓ ℓ_0 V C V_0) x])
+                    ([(blame ℓ ℓ_0 V C-ext V_0) x])
                     (cond [(equal? (term ℓ) '★) "pink"]
                           [(member (term ℓ) opaques) "pink"]
                           [else "red"]))]
