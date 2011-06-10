@@ -14,12 +14,11 @@
           #,(if (attribute tr)
                  #'(trace-it -->_vcc~Δ (term (ann [m ... e]))
                     #:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
-                 #'(void)))
-        (apply values
-               (filter-not
-                (λ (p)
-                  (match p
-                    [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                (map (λ (x) (term (unann-exp ,x)))   
-                     (eval_vcc~Δ  (term (ann [m ... e])))))))]))
+                 #'(apply values
+                          (filter-not
+                           (λ (p)
+                             (match p
+                               [(list 'blame '★ _ (... ...)) #t] [_ #f]))
+                           (map (λ (x) (term (unann-exp ,x)))   
+                                (eval_vcc~Δ  (term (ann [m ... e])))))))))]))
         

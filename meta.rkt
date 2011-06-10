@@ -57,6 +57,7 @@
         (term (proves-con C_1 o?)))]
   [(proves-con (cons/c C_0 C_1) cons?) #t]
   [(proves-con (C_0 -> C_1) proc?) #t]
+  [(proves-con nat/c nat?) #t]
   [(proves-con C o?) #f])
 
 (define-metafunction λc~
@@ -270,6 +271,7 @@
                ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
 
   [(flat-check nat/c anat E any) E]
+  [(flat-check nat/c (-- C_1 ... (pred nat? any_l) C_2 ...) E any) E]
   [(flat-check string/c astring E any) E]
   [(flat-check bool/c abool E any) E]
   [(flat-check empty/c aempty E any) E]
