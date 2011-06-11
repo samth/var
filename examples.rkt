@@ -105,6 +105,22 @@
                     id))))
          (@ (id ^ †) (@ cons 1 (@ cons 2 (@ cons 3 empty †) †) †) †)]))
 
+(define list-of-nat/c
+  (term (rec/c x (or/c empty/c
+                       (cons/c nat/c x)))))               
+
+(define list-id-example-contract
+  (term [(module id 
+           (,list-of-nat/c -> ,list-of-nat/c)
+           (λ ls
+             (if (@ empty? ls id)
+                 ls 
+                 (@ cons 
+                    (@ first ls id)
+                    (@ (id ^ id) (@ rest ls id) id)
+                    id))))
+         (@ (id ^ †) (@ cons 1 (@ cons 2 (@ cons 3 empty †) †) †) †)]))
+
 
 (define list-rev-example-raw
   (term [(module rev

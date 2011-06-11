@@ -29,4 +29,5 @@ f: (f 6 fred) is not in my domain
 
 - there should be better support for the intersection of two non-terminals
   (see FCV! production in lang.rkt)
+- add a #:title argument to traces to control the title of the window.
 - run FASTER!

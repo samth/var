@@ -426,6 +426,13 @@
  (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
             (term (-- empty (pred empty? mt))))
  
+ (test-->>p list-id-example-contract
+            (term (-- (cons (-- 1)
+                            (-- (cons (-- 2)
+                                      (-- (cons (-- 3)
+                                                (-- empty))))))
+                      ,list-of-nat/c)))
+ 
  ;; Run a concrete program in concrete and abstract semantics, get same thing.
  (redex-check λc-user (M ... E)
               (equal? (apply-reduction-relation (-->_vcΔ (term (M ...))) (term E))
