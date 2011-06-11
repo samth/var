@@ -34,7 +34,7 @@
   (SV L (f ^ f) o1) ; Syntactic values for pred.
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
-  (FLAT FC any/c none/c 
+  (FLAT FC any/c
         (pred SV ℓ)
         (cons/c FLAT FLAT)
         (or/c FLAT FLAT)
@@ -45,7 +45,7 @@
        (cons/c HOC C) (cons/c C HOC)
        (and/c HOC C)  (and/c C HOC))
   
-  (FLAT* FC any/c none/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (flat-rec/c x FLAT) x)
+  (FLAT* FC any/c  (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (flat-rec/c x FLAT) x)
   (HOC* (C -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC))
@@ -102,7 +102,8 @@
        (or/c WC! WC!)
        (and/c C WC!)
        (and/c WC! C)
-       (pred proc? ℓ))  
+       (pred proc? ℓ)
+       (flat-rec/c x WC!))
   
   ;; Definite procedure  
   (W .... (-- C* ... WC! C* ...))
@@ -111,7 +112,7 @@
   
   ;; Maybe procedure contract
   (WC? any/c
-       (pred SV ℓ)
+       (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ)
        (or/c WC? C)
        (or/c C WC?)       
        (or/c FVC! WC!)
@@ -121,14 +122,6 @@
   
   ;; Maybe procedure
   (W? W (-- C* ... WC? C* ...))
-  
-  ;; Contracts that always fail
-  (NC none/c
-      (or/c NC NC)
-      (and/c NC C)
-      (and/c C NC)
-      (flat-rec/c x NC))
-  
   
   ;; Flat, wrapped concrete and abstract values
   (anat (-- nat C* ...) (-- C* ... nat/c C* ...))
@@ -146,7 +139,7 @@
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   
-  (RCFLAT FC any/c none/c (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT))
+  (RCFLAT FC any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT))
   (RCHOC (RC -> RC)
          (or/c RCFLAT RCHOC)
          (cons/c RCHOC RC) (cons/c RC RCHOC)
@@ -154,6 +147,35 @@
   
   (RC RCFLAT RCHOC))
   
+
+(define-metafunction λc~
+  productive? : C x ... -> #t or #f
+  [(productive? x x_0 ... x x_1 ...) #f]
+  [(productive? x x_0 ...) #t]
+  [(productive? (flat-rec/c x C) x_0 ...)
+   (productive? C x x_0 ...)]
+  [(productive? (cons/c C_1 C_2) x_0 ...)
+   ,(and (term (productive? C_1))
+         (term (productive? C_2)))]
+  [(productive? (C_1 -> C_2) x_0 ...)
+   ,(and (term (productive? C_1))
+         (term (productive? C_2)))]
+  [(productive? (or/c C_1 C_2) x_0 ...)
+   ,(and (term (productive? C_1 x_0 ...))
+         (term (productive? C_2 x_0 ...)))]
+  [(productive? (and/c C_1 C_2) x_0 ...)
+   ,(and (term (productive? C_1 x_0 ...))
+         (term (productive? C_2 x_0 ...)))]
+  [(productive? C x ...) #t])
+
+(test
+ (test-equal (term (productive? any/c)) #t)
+ (test-equal (term (productive? (flat-rec/c x x))) #f)
+ (test-equal (term (productive? (or/c any/c (flat-rec/c x x)))) #f)
+ (test-equal (term (productive? (flat-rec/c x (or/c empty/c (cons/c any/c x))))) #t)
+ (test-equal (term (productive? (any/c -> any/c))) #t)
+ (test-equal (term (productive? (or/c (flat-rec/c a a) (any/c -> any/c)))) #f))
+
 (test
  (test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
              #f))
@@ -162,7 +184,7 @@
 (define (final-state? x)
   (or (redex-match λc~ V x)
       (redex-match λc~ B x)
-      (redex-match λc~ (-- C_0 ... none/c C_1 ...))))
+      (redex-match λc~ (-- C_0 ...  C_1 ...))))
 
 (define-metafunction λc~
   FV/C : C -> (x ...)
@@ -212,26 +234,39 @@
   [(FAKE-closed-value? V) #t])
   
 
-
+(define-metafunction λc~
+  valid? : C -> #t or #f
+  [(valid? C) 
+   ,(and (term (closed? C))
+         (term (productive? C)))])
 
 (test
  
- ;; Every closed contract is one of:
+ ;; Every valid contract is one of:
  ;; - WC?
  ;; - WC!
  ;; - FVC!
+ (redex-check λc~ (side-condition C_1 (term (valid? C_1)))
+              (or (redex-match λc~ WC? (term C_1))
+                  (redex-match λc~ WC! (term C_1))
+                  (redex-match λc~ FVC! (term C_1)))              
+              #:attempts 10000)
  
- ;; No contract is in both of:
+ ;; No inhabited contract is in both of:
  ;; - WC?
  ;; - WC!
- 
+ ;; FIXME: need an inhabited? metafunction to make this work.
+ #;
+ (redex-check λc~ (side-condition C_1 (term (closed? C_1)))
+              (not (and (redex-match λc~ WC? (term C_1))
+                        (redex-match λc~ WC! (term C_1))))
+              #:attempts 10000)
  
  ;; Completeness check for matching V with these patterns.
  ;; Used for case analysis in application rule.
  (redex-check λc~ (side-condition V_1 (term (FAKE-closed-value? V_1)))
               (or (redex-match λc~ W? (term V_1))
-                  (redex-match λc~ WFV (term V_1))
-                  (redex-match λc~ (-- C_0 ... NC C_1 ...) (term V_1)))
+                  (redex-match λc~ WFV (term V_1)))                  
               #:attempts 10000))
 
 (define (all-but-last ls)

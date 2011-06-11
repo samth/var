@@ -21,6 +21,8 @@
    (λ x_0 x any_2)]
   [(subst x any_1 (let x any_2 any_3))
    (let x (subst x any_1 any_2) any_3)]
+  [(subst x any_1 (flat-rec/c x any_2))
+   (flat-rec/c x any_2)]
   ;; 2. general purpose capture avoiding case  
   [(subst x_1 any_1 (λ x_2 any_2)) 
    (λ x_new
@@ -40,6 +42,12 @@
    (let x_new
      (subst x_1 any_1 any_2)
      (subst x_1 any_1 (subst-var x_2 x_new any_2)))   
+   (where x_new 
+          ,(variable-not-in (term (x_1 any_1 any_2)) 
+                            (term x_2)))]
+  [(subst x_1 any_1 (flat-rec/c x_2 any_2))
+   (flat-rec/c x_new
+               (subst x_1 any_1 (subst-var x_2 x_new any_2)))
    (where x_new 
           ,(variable-not-in (term (x_1 any_1 any_2)) 
                             (term x_2)))]
@@ -74,7 +82,11 @@
   [(≡α (λ x_0 any_0) (λ x_1 any_1))
    (≡α (subst x_0 x_fresh any_0)
        (subst x_1 x_fresh any_1))
-   (where x_fresh ,(variable-not-in (term (any_0 any_1)) (term x_0)))]       
+   (where x_fresh ,(variable-not-in (term (any_0 any_1)) (term x_0)))] 
+  [(≡α (flat-rec/c x_0 any_0) (flat-rec/c x_1 any_1))
+   (≡α (subst x_0 x_fresh any_0)
+       (subst x_1 x_fresh any_1))
+   (where x_fresh ,(variable-not-in (term (any_0 any_1)) (term x_0)))]
   [(≡α (λ x_f0 x_0 any_0) (λ x_f1 x_1 any_1))   
    (≡α (subst x_0 x_fresh (subst x_f0 x_ffresh any_0))
        (subst x_1 x_fresh (subst x_f1 x_ffresh any_1)))   
