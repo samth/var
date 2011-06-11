@@ -205,7 +205,7 @@
    ;; possible procedures
    (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
         (-- (λ y (C_2 <= ℓ_1 ℓ_2 V ℓ_3 
-                      (@ (remember-contract W? (none/c -> any/c))
+                      (@ (remember-contract W? (,none/c -> any/c))
                          (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
         (fresh y)
         (side-condition (not (redex-match λc~ W (term W?))))
@@ -274,11 +274,7 @@
    (--> (in-hole 𝓔 B) B
         (side-condition (not (equal? (term hole) (term 𝓔))))
         halt-blame)
-   ;; abstract none/c values are impossible
-   (--> (in-hole 𝓔 (-- any_0 ... none/c any_1 ...))
-        (-- any_0 ... none/c any_1 ...)
-        (side-condition (not (equal? (term hole) (term 𝓔))))
-        halt-none/c)   
+     
    ;; normalize abstract values at the end to make testing easier
    (--> V V_norm
         (where V_norm (normalize V))
@@ -306,7 +302,13 @@
             (last p)
             e ...))
 
+(define none/c (term (pred (λ x #f) Λ)))
+
 (test
+ 
+ (test-->>p (term [(string/c <= |†| rsa (-- "Plain") rsa (-- "Plain"))])
+             (term (-- "Plain")))
+ 
  (test-->>p (term [(@ (-- (λ o (b ^ o))) (-- "") sN)])
             (term (b ^ o)))
  (test-->>p (term [(@ (-- (λ o (@ 4 5 o))) (-- "") sN)])
@@ -349,7 +351,8 @@
                           (cons/c nat/c nat/c)
                           (cons (-- 1) (-- 2)))
                         p]))
-            (term (-- (cons (-- 1) (-- 2)))))
+            (term (-- (cons (-- 1) (-- 2)) 
+                      (cons/c nat/c nat/c))))
  
  (test-->>p (term (ann [(module p
                           (pred (λ x (if (cons? x)
@@ -373,17 +376,18 @@
                           (cons (-- 1) (-- 1)))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
+                      (cons/c nat/c nat/c) 
                       (pred (λ x (@ = (@ first x p) (@ rest x p) p)) p))))
  
  ;; Swap of and/c arguments above
- ;; FIXME: fails to remember predicate on pair
  (test-->>p (term (ann [(module p
                           (and/c (pred (λ x (= (first x) (rest x))))
                                  (cons/c nat/c nat/c))                                
                           (cons (-- 1) (-- 1)))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
-                      (pred (λ x (@ = (@ first x p) (@ rest x p) p)) p))))
+                      (pred (λ x (@ = (@ first x p) (@ rest x p) p)) p)
+                      (cons/c nat/c nat/c))))
  
  (test-->>p (term (ann [(module p
                           (cons/c nat/c nat/c)
@@ -406,16 +410,18 @@
                          nat/c
                          (-- "hi"))))
  
- (test-->>p (term (ann [(module n (or/c none/c nat/c) 5) n]))
+ #|
+ (test-->>p (term (ann [(module n (or/c  nat/c) 5) n]))
+            (term (-- 5  (or/c ,none/c nat/c))))
+ (test-->>p (term (ann [(module n (or/c nat/c ,none/c-raw) 5) n]))
             (term (-- 5)))
- (test-->>p (term (ann [(module n (or/c nat/c none/c) 5) n]))
+ (test-->>p (term (ann [(module n (or/c nat/c (,none/c -> ,none/c)) 5) n]))
             (term (-- 5)))
- (test-->>p (term (ann [(module n (or/c nat/c (none/c -> none/c)) 5) n]))
-            (term (-- 5)))
- (test-->>p (term (ann [(module f (or/c nat/c (none/c -> none/c)) (λ x x)) f]))
-            (term (-- (λ y (none/c <= f † (-- (λ x x)) f 
+ (test-->>p (term (ann [(module f (or/c nat/c (,none/c -> ,none/c)) (λ x x)) f]))
+            (term (-- (λ y (,none/c <= f † (-- (λ x x)) f 
                                    (@ (-- (λ x x)) 
-                                      (none/c <= † f y f y) Λ))))))
+                                      (,none/c <= † f y f y) Λ))))))
+|#
  
  (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
             (term (-- empty (pred empty? mt))))

@@ -34,6 +34,9 @@
    (where #t (proves-con C o?))]
   [(proves V o?) #f])
 
+(test
+ (test-equal (term (proves (-- "Hi") string?)) #t))
+
 ;; Does (negate o?) hold on all values abstracted by AV
 (define-metafunction λc~
   refutes : V o? -> #t or #f
@@ -93,7 +96,8 @@
   [(refutes-predicate zero? nat?) #f]
   [(refutes-predicate nat? o?) #t]
   [(refutes-predicate zero? o?) #t]
-  [(refutes-predicate proc? o?) #t])
+  [(refutes-predicate proc? o?) #t]
+  [(refutes-predicate string? o?) #t])
 
 ;; Totality tests
 (test
@@ -144,7 +148,7 @@
   ;; drop boring contracts on concrete flat values
   [(remember-contract (-- FV C_1 ...) C_0 C ...)
    (remember-contract (-- FV C_1 ...) C ...)
-   (side-condition (not (redex-match λc~ FC (term C_0))))]
+   (side-condition (redex-match λc~ FC (term C_0)))]
   ;; drop any/c on the floor when possible
   [(remember-contract (-- any/c C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
@@ -159,6 +163,9 @@
    (remember-contract (-- any_0 C_1 ... C_2) C ...)])
 
 (test
+ (test-equal (term (remember-contract (-- 1) nat/c))
+             (term (-- 1)))
+ 
  ;; check that remember-contract is total and produces the right type
  (redex-check λc~ (V C ...)              
               (or (not (term (valid-value? V)))
@@ -287,6 +294,7 @@
    ,(apply (term any_f) (term (any ...)))])
 
 (test
+ (test-equal (term (flat-check string/c (-- "Plain") #t ,(λ (f v) #f))) #t)
  (test-equal (term (flat-check any/c (-- 0) #t ,(λ (f v) #f))) #t)
  (test-equal (term (flat-check (cons/c nat/c nat/c)
                                (-- (cons (-- 0) (-- 1)))
@@ -329,6 +337,8 @@
 
 (define-metafunction λc~
   plain-δ : o PV ... ℓ -> V or PV or B  
+  [(plain-δ string? string ℓ) #t]
+  [(plain-δ string? PV ℓ) #f]
   [(plain-δ zero? 0 ℓ) #t]
   [(plain-δ zero? nat ℓ) #f]
   [(plain-δ proc? L ℓ) #t]
