@@ -81,7 +81,7 @@
    #t
    (side-condition (not (eq? (term o?) 'cons)))]
   [(refutes-con FC proc?) #t]
-  [(refutes-con (flat-rec/c x C)) #f] ;; fixme
+  [(refutes-con (rec/c x C)) #f] ;; fixme
   [(refutes-con C o?) #f])
 
 (define-metafunction λc~
@@ -161,7 +161,9 @@
 (test
  ;; check that remember-contract is total and produces the right type
  (redex-check λc~ (V C ...)              
-              (redex-match λc~ V (term (remember-contract V C ...)))))
+              (or (not (term (valid-value? V)))
+                  (ormap not (term ((valid? C) ...)))
+                  (redex-match λc~ V (term (remember-contract V C ...))))))
              
 
 ;; If f refers to a module contract with an arrow contract, get 
@@ -272,8 +274,8 @@
   [(flat-check bool/c V E any) E (where #t (proves V bool?))]
   [(flat-check empty/c V E any) E (where #t (proves V empty?))]   
   
-  [(flat-check (flat-rec/c x C) V E any)
-   (flat-check (subst x (flat-rec/c x C) C) V E any)]
+  [(flat-check (rec/c x C) V E any)
+   (flat-check (subst x (rec/c x C) C) V E any)]
   
   [(flat-check FLAT V E any) 
    (meta-apply any FLAT V)
@@ -296,19 +298,19 @@
                        #t
                        #f)))
  ;; recursive contracts
- (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
                                (-- 0) #t ,(λ (f v) #f)))
              #f)
- (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
                                (-- empty) #t ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
                                (-- (cons (-- 0) (-- empty))) #t ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
                                (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (flat-rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
                                (-- (cons (-- "0") (-- empty))) #t ,(λ (f v) #f)))
              #f))
 
@@ -357,7 +359,7 @@
 
 (define-metafunction λc~
   impossible? : V -> #t or #f
-  [(impossible? PV) #f]
+  [(impossible? (-- PV C ...)) #f]
   [(impossible? (-- C))
    (impossible-con? C)]
   [(impossible? (-- C_0 C_1 C ...))
@@ -533,5 +535,8 @@
              #t)
  
  ;; Test for δ totalness.
- (redex-check λc~ (o1 V) (term (δ (@ o1 V f))))
- (redex-check λc~ (o2 V_1 V_2) (term (δ (@ o2 V_1 V_2 f)))))
+ (redex-check λc~ (o1 V) (or (not (term (valid-value? V)))
+                             (term (δ (@ o1 V f)))))
+ (redex-check λc~ (o2 V_1 V_2) (or (not (term (valid-value? V_1)))
+                                   (not (term (valid-value? V_2)))
+                                   (term (δ (@ o2 V_1 V_2 f))))))
