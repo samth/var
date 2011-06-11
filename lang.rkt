@@ -2,6 +2,9 @@
 (require redex "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test lang)
+  
+;; TODO: Eliminate anat and friends.
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Languages
@@ -17,6 +20,8 @@
   (bool #t #f)
   ;; Plain value
   (PV FV L)
+  
+  ;; A flat value is definitely not a procedure
   (FV nat bool string empty (cons V V))
   
   (V-or-x V x)
@@ -26,7 +31,7 @@
   
   (WFV (-- FV C* ...))
   
-  (SV L (f ^ f) o1) ; Syntactic values for pred.  [Different than paper]
+  (SV L (f ^ f) o1) ; Syntactic values for pred.
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
   (FLAT FC any/c none/c 
@@ -63,7 +68,7 @@
   (nat*nat->bool = < <= > >=)
   
   (𝓔 hole (@ 𝓔 E ℓ) (@ V 𝓔 ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
-  
+
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
   (B (blame ℓ ℓ V C V))
@@ -76,27 +81,46 @@
   (CV (-- PV C* ...))  ;; Concrete values
   (C-ext C λ)
       
-  (WFV .... anat astring abool acons aempty)
+  (WFV .... (-- C* ... FVC! C* ...))
+  
+  ;; Definite flat value contract
+  ;; Contract variables are not needed: to be productive,
+  ;; contract variables must occur with C occurrences.
+  (FVC! FC 
+        (or/c FVC! FVC!)
+        (and/c C FVC!)
+        (and/c FVC! C)
+        (cons/c C C)
+        (flat-rec/c x FVC!))
+  
   (V .... AV)             ;; (-- X) is overline X.
   (B .... (blame ℓ ℓ V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
+
+  ;; Definite procedure contract
+  (WC! (C -> C)
+       (or/c WC! WC!)
+       (and/c C WC!)
+       (and/c WC! C)
+       (pred proc? ℓ))  
   
   ;; Definite procedure  
-  (W .... (-- C* ... (C -> C) C* ...))
+  (W .... (-- C* ... WC! C* ...))
     
+  ;; Note: uninhabited contracts may be both definitely flat and procedures.
+  
   ;; Maybe procedure contract
   (WC? any/c
        (pred SV ℓ)
        (or/c WC? C)
-       (or/c C WC?)
-       (or/c C (C -> C))
-       (or/c C (and/c (C -> C) C))
-       (or/c C (and/c C (C -> C)))
-       (and/c WC? WC?)
+       (or/c C WC?)       
+       (or/c FVC! WC!)
+       (or/c WC! FVC!)       
+       (and/c WC? WC?)       
        (flat-rec/c x WC?))
   
   ;; Maybe procedure
-  (W? W (-- WC? C* ...))
+  (W? W (-- C* ... WC? C* ...))
   
   ;; Contracts that always fail
   (NC none/c
@@ -140,13 +164,74 @@
       (redex-match λc~ B x)
       (redex-match λc~ (-- C_0 ... none/c C_1 ...))))
 
+(define-metafunction λc~
+  FV/C : C -> (x ...)
+  [(FV/C x) (x)]
+  [(FV/C (flat-rec/c x C))
+   (set-minus (FV/C C) x)]
+  [(FV/C (cons/c C_1 C_2))
+   ,(append (term (FV/C C_1))
+            (term (FV/C C_2)))]
+  [(FV/C (or/c C_1 C_2))
+   ,(append (term (FV/C C_1))
+            (term (FV/C C_2)))]
+  [(FV/C (and/c C_1 C_2))
+   ,(append (term (FV/C C_1))
+         (term (FV/C C_2)))]
+  [(FV/C (C_1 -> C_2))
+   ,(append (term (FV/C C_1))
+            (term (FV/C C_2)))]  
+  [(FV/C C) ()])
+
+(define-metafunction λc~
+  set-minus : (any ...) any -> (any ...)
+  [(set-minus (any_0 ...) any_1)
+   ,(filter-not (λ (x) (equal? x (term any_1))) (term (any_0 ...)))])
+
+(define-metafunction λc~
+  closed? : C -> #t or #f
+  [(closed? C) ,(empty? (term (FV/C C)))])
+  
 (test
+ (test-equal (term (FV/C a)) (term (a)))
+ (test-equal (term (FV/C any/c)) (term ()))
+ (test-equal (term (closed? any/c)) #t)
+ (test-equal (term (closed? a)) #f)
+ (test-equal (term (closed? (flat-rec/c a a))) #t)
+ (test-equal (term (closed? (flat-rec/c a b))) #f)
+ (test-equal (term (closed? (flat-rec/c a (flat-rec/c b a)))) #t))
+
+;; This is not a correct closed value, but just enough to make the
+;; test generation work out.
+(define-metafunction λc~
+  FAKE-closed-value? : V -> #t or #f
+  [(FAKE-closed-value? (-- C_0 C_1 ...)) 
+   ,(andmap values (term ((closed? C_0) (closed? C_1) ...)))]
+  [(FAKE-closed-value? (-- PV C ...))
+   ,(andmap values (term ((closed? C) ...)))]
+  [(FAKE-closed-value? V) #t])
+  
+
+
+
+(test
+ 
+ ;; Every closed contract is one of:
+ ;; - WC?
+ ;; - WC!
+ ;; - FVC!
+ 
+ ;; No contract is in both of:
+ ;; - WC?
+ ;; - WC!
+ 
+ 
  ;; Completeness check for matching V with these patterns.
  ;; Used for case analysis in application rule.
- (redex-check λc~ V  
-              (or (redex-match λc~ W? (term V))
-                  (redex-match λc~ WFV (term V))
-                  (redex-match λc~ (-- C_0 ... NC C_1 ...) (term V)))
+ (redex-check λc~ (side-condition V_1 (term (FAKE-closed-value? V_1)))
+              (or (redex-match λc~ W? (term V_1))
+                  (redex-match λc~ WFV (term V_1))
+                  (redex-match λc~ (-- C_0 ... NC C_1 ...) (term V_1)))
               #:attempts 10000))
 
 (define (all-but-last ls)

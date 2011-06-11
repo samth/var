@@ -270,6 +270,7 @@
                (flat-check FLAT_1 V E ,(λ (f v) (term (meta-apply any FLAT_1 V))))
                ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
 
+  ;; FIXME: Rewrite with proves.
   [(flat-check nat/c anat E any) E]
   [(flat-check string/c astring E any) E]
   [(flat-check bool/c abool E any) E]
