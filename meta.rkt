@@ -17,9 +17,7 @@
    (demonic any/c)]
   [(demonic nat/c) (λ x 0)]
   [(demonic string/c) (λ x 0)]
-  [(demonic bool/c) (λ x 0)]
-  [(demonic none/c) (λ x 0)]
-  ;; Maybe add blessed arrow contracts
+  [(demonic bool/c) (λ x 0)]    
   [(demonic (C_0 -> C_1)) 
    (λ f (@ (demonic C_1) (@ f (-- C_0) ★) ★))
    (where f ,(gensym 'f))])
@@ -237,9 +235,7 @@
 
 (define-metafunction λc~
   flat-check : FLAT V E any -> E
-  [(flat-check any/c V E any) E]
-  [(flat-check none/c V E any) 
-   (meta-apply any none/c V)]
+  [(flat-check any/c V E any) E]  
   [(flat-check C V E any)
    E 
    (where #t (contract-in C V))]
@@ -271,12 +267,10 @@
                (flat-check FLAT_1 V E ,(λ (f v) (term (meta-apply any FLAT_1 V))))
                ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
 
-  ;; FIXME: Rewrite with proves.
-  [(flat-check nat/c anat E any) E]
-  [(flat-check nat/c (-- C_1 ... (pred nat? any_l) C_2 ...) E any) E]
-  [(flat-check string/c astring E any) E]
-  [(flat-check bool/c abool E any) E]
-  [(flat-check empty/c aempty E any) E]
+  [(flat-check nat/c V E any) E (where #t (proves V nat?))]
+  [(flat-check string/c V E any) E (where #t (proves V string?))]
+  [(flat-check bool/c V E any) E (where #t (proves V bool?))]
+  [(flat-check empty/c V E any) E (where #t (proves V empty?))]   
   
   [(flat-check (flat-rec/c x C) V E any)
    (flat-check (subst x (flat-rec/c x C) C) V E any)]
@@ -291,20 +285,11 @@
    ,(apply (term any_f) (term (any ...)))])
 
 (test
- (test-equal (term (flat-check none/c (-- 0) #t ,(λ (f v) #f))) #f)
  (test-equal (term (flat-check any/c (-- 0) #t ,(λ (f v) #f))) #t)
  (test-equal (term (flat-check (cons/c nat/c nat/c)
                                (-- (cons (-- 0) (-- 1)))
                                #t
                                ,(λ (f v) #f)))
-             #t)
- (test-equal (term (flat-check (and/c nat/c none/c) (-- 0) #t ,(λ (f v) #f)))
-             #f)
- (test-equal (term (flat-check (and/c none/c nat/c) (-- 0) #t ,(λ (f v) #f)))
-             #f)
- (test-equal (term (flat-check (or/c nat/c none/c) (-- 0) #t ,(λ (f v) #f)))
-             #t)
- (test-equal (term (flat-check (or/c none/c nat/c) (-- 0) #t ,(λ (f v) #f)))
              #t)
  (test-equal (term (flat-check (pred (λ x x) ℓ) (-- 0) #t ,(λ (f v) #f)))
              (term (if (@ (λ x x) (-- 0) ℓ)
@@ -372,7 +357,7 @@
 
 (define-metafunction λc~
   impossible? : V -> #t or #f
-  [(impossible? CV) #f]
+  [(impossible? PV) #f]
   [(impossible? (-- C))
    (impossible-con? C)]
   [(impossible? (-- C_0 C_1 C ...))
@@ -381,7 +366,10 @@
 
 (define-metafunction λc~
   impossible-con? : C -> #t or #f
-  [(impossible-con? none/c) #t]
+  [(impossible-con? C)   ;; Relies on theorem in lang:
+   #t                    ;; WC! /\ FVC! = uninhabited
+   (where WC! C)
+   (where FVC! C)]
   [(impossible-con? (or/c C_0 C_1))
    ,(and (term (impossible-con? C_0))
          (term (impossible-con? C_1)))]  
@@ -396,7 +384,7 @@
 (define-metafunction λc~
   abstract-δ : o V ... ℓ -> PV or V or B or (if (-- bool/c) E E)
   [(abstract-δ o V_0 ... V V_1 ... ℓ)
-   (-- none/c)
+   V ;; V is impossible, so why not?
    (where #t (impossible? V))]
   ;; o?
   [(abstract-δ o? V ℓ) #t (where #t (proves V o?))]

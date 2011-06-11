@@ -26,3 +26,7 @@
 (term (f 6 fred))
 f: (f 6 fred) is not in my domain
 ***because fred is not a natural.***
+
+- there should be better support for the intersection of two non-terminals
+  (see FCV! production in lang.rkt)
+- run FASTER!

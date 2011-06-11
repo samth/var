@@ -38,17 +38,20 @@
         (pred SV ℓ)
         (cons/c FLAT FLAT)
         (or/c FLAT FLAT)
-        (flat-rec/c x FLAT) x
+        (rec/c x FLAT) x
         (and/c FLAT FLAT))
   (HOC (C -> C)
        (or/c FLAT HOC)
        (cons/c HOC C) (cons/c C HOC)
-       (and/c HOC C)  (and/c C HOC))
+       (and/c HOC C)  (and/c C HOC)
+       (rec/c x HOC) x)
   
-  (FLAT* FC any/c  (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (flat-rec/c x FLAT) x)
+  
+  (FLAT* FC any/c  (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
   (HOC* (C -> C)
         (or/c FLAT HOC)
-        (cons/c HOC C) (cons/c C HOC))
+        (cons/c HOC C) (cons/c C HOC)
+        (rec/c x HOC))
      
   (FC nat/c bool/c string/c empty/c)
   (C* FLAT* HOC*)  
@@ -81,17 +84,24 @@
   (CV (-- PV C* ...))  ;; Concrete values
   (C-ext C λ)
       
-  (WFV .... (-- C* ... FVC! C* ...))
+  (WFV .... (-- C* ... FVC!* C* ...))
   
   ;; Definite flat value contract
   ;; Contract variables are not needed: to be productive,
   ;; contract variables must occur with C occurrences.
+  
+  (FLAT-FVC! (side-condition FVC!_1 (redex-match λc~ FLAT (term FVC!_1))))
+  
   (FVC! FC 
-        (or/c FVC! FVC!)
+        (or/c FLAT-FVC! FVC!)
         (and/c C FVC!)
         (and/c FVC! C)
         (cons/c C C)
-        (flat-rec/c x FVC!))
+        (rec/c x FVC!))
+  (FVC!* FC 
+         (or/c FLAT-FVC! FVC!)
+         (cons/c C C)
+         (rec/c x FVC!))
   
   (V .... AV)             ;; (-- X) is overline X.
   (B .... (blame ℓ ℓ V λ V)) ;; broke the contract with the language
@@ -99,14 +109,18 @@
 
   ;; Definite procedure contract
   (WC! (C -> C)
-       (or/c WC! WC!)
+       ;(or/c WC! WC!)
        (and/c C WC!)
        (and/c WC! C)
        (pred proc? ℓ)
-       (flat-rec/c x WC!))
+       (rec/c x WC!))
+  (WC!* (C -> C)
+        ;(or/c WC! WC!)
+        (pred proc? ℓ)
+        (rec/c x WC!))
   
   ;; Definite procedure  
-  (W .... (-- C* ... WC! C* ...))
+  (W .... (-- C* ... WC!* C* ...))
     
   ;; Note: uninhabited contracts may be both definitely flat and procedures.
   
@@ -118,17 +132,10 @@
        (or/c FVC! WC!)
        (or/c WC! FVC!)       
        (and/c WC? WC?)       
-       (flat-rec/c x WC?))
+       (rec/c x WC?))
   
   ;; Maybe procedure
-  (W? W (-- C* ... WC? C* ...))
-  
-  ;; Flat, wrapped concrete and abstract values
-  (anat (-- nat C* ...) (-- C* ... nat/c C* ...))
-  (astring (-- string C* ...) (-- C* ... string/c C* ...))
-  (abool (-- bool C* ...) (-- C* ... bool/c C* ...))
-  (aempty (-- empty C* ...) (-- C* ... empty/c C* ...))
-  (acons (-- (cons V V) C* ...) (-- C* ... (cons/c C C) C* ...))
+  (W? W (-- C* ... WC? C* ...))  
   
   ;; Raw, unannotated language
   (RP (RM ... RE))
@@ -152,7 +159,7 @@
   productive? : C x ... -> #t or #f
   [(productive? x x_0 ... x x_1 ...) #f]
   [(productive? x x_0 ...) #t]
-  [(productive? (flat-rec/c x C) x_0 ...)
+  [(productive? (rec/c x C) x_0 ...)
    (productive? C x x_0 ...)]
   [(productive? (cons/c C_1 C_2) x_0 ...)
    ,(and (term (productive? C_1))
@@ -170,11 +177,11 @@
 
 (test
  (test-equal (term (productive? any/c)) #t)
- (test-equal (term (productive? (flat-rec/c x x))) #f)
- (test-equal (term (productive? (or/c any/c (flat-rec/c x x)))) #f)
- (test-equal (term (productive? (flat-rec/c x (or/c empty/c (cons/c any/c x))))) #t)
+ (test-equal (term (productive? (rec/c x x))) #f)
+ (test-equal (term (productive? (or/c any/c (rec/c x x)))) #f)
+ (test-equal (term (productive? (rec/c x (or/c empty/c (cons/c any/c x))))) #t)
  (test-equal (term (productive? (any/c -> any/c))) #t)
- (test-equal (term (productive? (or/c (flat-rec/c a a) (any/c -> any/c)))) #f))
+ (test-equal (term (productive? (or/c (rec/c a a) (any/c -> any/c)))) #f))
 
 (test
  (test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
@@ -189,7 +196,7 @@
 (define-metafunction λc~
   FV/C : C -> (x ...)
   [(FV/C x) (x)]
-  [(FV/C (flat-rec/c x C))
+  [(FV/C (rec/c x C))
    (set-minus (FV/C C) x)]
   [(FV/C (cons/c C_1 C_2))
    ,(append (term (FV/C C_1))
@@ -219,9 +226,9 @@
  (test-equal (term (FV/C any/c)) (term ()))
  (test-equal (term (closed? any/c)) #t)
  (test-equal (term (closed? a)) #f)
- (test-equal (term (closed? (flat-rec/c a a))) #t)
- (test-equal (term (closed? (flat-rec/c a b))) #f)
- (test-equal (term (closed? (flat-rec/c a (flat-rec/c b a)))) #t))
+ (test-equal (term (closed? (rec/c a a))) #t)
+ (test-equal (term (closed? (rec/c a b))) #f)
+ (test-equal (term (closed? (rec/c a (rec/c b a)))) #t))
 
 ;; This is not a correct closed value, but just enough to make the
 ;; test generation work out.
@@ -240,7 +247,20 @@
    ,(and (term (closed? C))
          (term (productive? C)))])
 
+;; Ignores abstract values embeded in λs.
+(define-metafunction λc~
+  valid-value? : V -> #t or #f
+  [(valid-value? (-- PV C ...))
+   ,(andmap values (term ((valid? C) ...)))]
+  [(valid-value? (-- C ...))
+   ,(andmap values (term ((valid? C) ...)))])
+  
+
 (test
+ 
+ (redex-check λc~ C* (redex-match λc~ C (term C*)))
+ (redex-check λc~ WC!* (redex-match λc~ C (term WC!*)))
+ (redex-check λc~ FVC!* (redex-match λc~ C (term FVC!*)))
  
  ;; Every valid contract is one of:
  ;; - WC?
@@ -264,7 +284,8 @@
  
  ;; Completeness check for matching V with these patterns.
  ;; Used for case analysis in application rule.
- (redex-check λc~ (side-condition V_1 (term (FAKE-closed-value? V_1)))
+ (redex-check λc~ (side-condition V_1 (and (term (FAKE-closed-value? V_1))
+                                           (term (valid-value? V_1))))
               (or (redex-match λc~ W? (term V_1))
                   (redex-match λc~ WFV (term V_1)))                  
               #:attempts 10000))
