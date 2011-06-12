@@ -3,9 +3,6 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test lang)
   
-;; TODO: Eliminate anat and friends.
-
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Languages
 
