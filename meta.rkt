@@ -140,8 +140,8 @@
 ;; remember-contract
 
 (define-metafunction λc~
-  remember-contract : V C ... -> V
-  [(remember-contract V) V]
+  remember-contract : V-or-AE C ... -> V or AE
+  [(remember-contract V-or-AE) V-or-AE]
   ;; Expand away and/c
   [(remember-contract V (and/c C_1 C_2) C ...)
    (remember-contract V C_1 C_2 C ...)]
@@ -159,6 +159,8 @@
   ;; do the real work
   [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
    (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
+  [(remember-contract (-- C_0 ... C C_1 ...) C C_2 ...)
+   (remember-contract (-- C_0 ... C C_1 ...) C_2 ...)]
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
    (remember-contract (-- any_0 C_1 ... C_2) C ...)])
 
@@ -170,7 +172,7 @@
  (redex-check λc~ (V C ...)              
               (or (not (term (valid-value? V)))
                   (ormap not (term ((valid? C) ...)))
-                  (redex-match λc~ V (term (remember-contract V C ...))))))
+                  (redex-match λc~ V-or-AE (term (remember-contract V C ...))))))
              
 
 ;; If f refers to a module contract with an arrow contract, get 
@@ -231,7 +233,7 @@
                               (match-lambda**
                                [(`(,f ^ _) `(,f ^ _)) #t]
                                [(a b) (equal? a b)])))]
-  [(normalize (-- C ...)) (-- C_1 ...)
+  [(normalize (-- C_0 C ...)) (-- C_0 C_1 ...)
    (where (C_1 ...)
           ,(remove-duplicates (term (C ...))
                               (match-lambda**
@@ -503,26 +505,26 @@
 ;; (proj-left (-- (cons/c nat? string?) (cons/c zero? string?)))
 ;; ≡ (-- nat? zero?)
 (define-metafunction λc~
-  proj-left : AV -> AV
+  proj-left : AV -> AE
   [(proj-left (-- C_0 C ...))
    (proj-left/a (-- any/c) C_0 C ...)])
 
 (define-metafunction λc~
-  proj-right : AV -> AV
+  proj-right : AV -> AE
   [(proj-right (-- C_0 C ...))
    (proj-right/a (-- any/c) C_0 C ...)])
 
 (define-metafunction λc~
-  proj-left/a : (-- C ...) C ... -> AV
-  [(proj-left/a AV) AV]
+  proj-left/a : (-- C ...) C ... -> AE
+  [(proj-left/a AE) AE]
   [(proj-left/a (-- C ...) (cons/c C_0 C_1) C_2 ...)
    (proj-left/a (remember-contract (-- C ...) C_0) C_2 ...)]
   [(proj-left/a (-- C ...) C_0 C_1 ...)
    (proj-left/a (-- C ...) C_1 ...)])
 
 (define-metafunction λc~
-  proj-right/a : (-- C ...) C ... -> AV
-  [(proj-right/a AV) AV]
+  proj-right/a : (-- C ...) C ... -> AE
+  [(proj-right/a AE) AE]
   [(proj-right/a (-- C ...) (cons/c C_0 C_1) C_2 ...)
    (proj-right/a (remember-contract (-- C ...) C_1) C_2 ...)]
   [(proj-right/a (-- C ...) C_0 C_1 ...)

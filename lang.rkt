@@ -77,11 +77,29 @@
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
-  (AV (-- C* C* ...))  ;; Abstract values
-  (CV (-- PV C* ...))  ;; Concrete values
+  (AE (-- C* C* ...))      ;; Abstract expressions
+  (AV (-- C*-top C* ...))  ;; Abstract values
+  (CV (-- PV C* ...))      ;; Concrete values
   (C-ext C λ)
       
-  (WFV .... (-- C* ... FVC!* C* ...))
+  (V-or-AE V AE)
+  (E .... AE (C <= ℓ ℓ AE ℓ E))
+  (𝓔 .... (C <= ℓ ℓ AE ℓ 𝓔))
+  (B ....
+     (blame ℓ ℓ AE C V) 
+     (blame ℓ ℓ V λ V)) ;; broke the contract with the language
+  
+  (WFV .... 
+       (-- C*-top C* ... FVC!* C* ...)
+       (-- FVC!*-top C* ...))
+  
+  ;; Representations of abstract values
+  ;; no or/c or rec/c at top-level
+  (C*-top FC 
+          any/c 
+          (pred SV ℓ)
+          (C -> C)
+          (cons/c C C))
   
   ;; Definite flat value contract
   ;; Contract variables are not needed: to be productive,
@@ -89,50 +107,45 @@
   
   (FLAT-FVC! (side-condition FVC!_1 (redex-match λc~ FLAT (term FVC!_1))))
   
-  (FVC! FC 
-        (or/c FLAT-FVC! FVC!)
+  (FVC! FVC!*
         (and/c C FVC!)
-        (and/c FVC! C)
-        (cons/c C C)
-        (rec/c x FVC!))
-  (FVC!* FC 
-         (or/c FLAT-FVC! FVC!)
-         (cons/c C C)
+        (and/c FVC! C))
+  (FVC!* FVC!*-top
+         (or/c FLAT-FVC! FVC!)         
          (rec/c x FVC!))
+  (FVC!*-top FC (cons/c C C))
   
   (V .... AV)             ;; (-- X) is overline X.
-  (B .... (blame ℓ ℓ V λ V)) ;; broke the contract with the language
   (M .... (module f C ☁))
 
   ;; Definite procedure contract
-  (WC! (C -> C)
-       ;(or/c WC! WC!)
-       (and/c C WC!)
-       (and/c WC! C)
-       (pred proc? ℓ)
-       (rec/c x WC!))
-  (WC!* (C -> C)
-        ;(or/c WC! WC!)
-        (pred proc? ℓ)
-        (rec/c x WC!))
+  (WC! WC!* (and/c C WC!) (and/c WC! C))
+  (WC!* WC!*-top (rec/c x WC!))
+  (WC!*-top (C -> C) (pred proc? ℓ))
   
   ;; Definite procedure  
-  (W .... (-- C* ... WC!* C* ...))
+  (W .... 
+     (-- C*-top C* ... WC!* C* ...)
+     (-- WC!*-top C* ...))
+  
     
   ;; Note: uninhabited contracts may be both definitely flat and procedures.
   
   ;; Maybe procedure contract
-  (WC? any/c
-       (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ)
-       (or/c WC? C)
-       (or/c C WC?)       
-       (or/c FVC! WC!)
-       (or/c WC! FVC!)       
-       (and/c WC? WC?)       
-       (rec/c x WC?))
-  
+  (WC? WC?* (and/c WC? WC?))  
+  (WC?* WC?*-top
+        (or/c WC? C)
+        (or/c C WC?)       
+        (or/c FVC! WC!)
+        (or/c WC! FVC!)       
+        (rec/c x WC?))  
+  (WC?*-top any/c
+            (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ))
+
   ;; Maybe procedure
-  (W? W (-- C* ... WC? C* ...))  
+  (W? W 
+      (-- C*-top C* ... WC?* C* ...)
+      (-- WC?*-top C* ...))
   
   ;; Raw, unannotated language
   (RP (RM ... RE))

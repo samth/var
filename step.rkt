@@ -69,30 +69,30 @@
    
    ;; FLAT CONTRACTS
    
-   (--> (FLAT <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+   (--> (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (flat-check FLAT V
                     (remember-contract V FLAT)
-                    ,(λ (f v) (term (blame ℓ_1 ℓ_3 V_0 ,f ,v))))
+                    ,(λ (f v) (term (blame ℓ_1 ℓ_3 V-or-AE ,f ,v))))
         flat-check)
    
    ;; HIGHER-ORDER CONTRACTS
    
-   (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
+   (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (flat-check FLAT V
                     (remember-contract V FLAT)
-                    ,(λ (f v) (term (HOC <= ℓ_1 ℓ_2 V_0 ℓ_3 V)))))
-   (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V_0 ℓ_3 V)
-        (C_1 <= ℓ_1 ℓ_2 V_0 ℓ_3 
-             (C_0 <= ℓ_1 ℓ_2 V_0 ℓ_3 V))
+                    ,(λ (f v) (term (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)))))
+   (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+             (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
         (where HOC (and/c C_0 C_1)))
    
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.
    
-   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V ℓ_3 (-- (cons V_0 V_1) C ...))
+   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (-- (cons V_0 V_1) C ...))
         (@ cons 
-           (C_0 <= ℓ_1 ℓ_2 V ℓ_3 V_0)
-           (C_1 <= ℓ_1 ℓ_2 V ℓ_3 V_1)
+           (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
+           (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
            Λ)
         (where HOC (cons/c C_0 C_1))
         check-cons-pass)
@@ -100,15 +100,15 @@
    ;; PROCEDURE CONTRACTS   
       
    ;; definite procedures
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W)
-        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V ℓ_3 
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 W)
+        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
                       (@ W (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
         (fresh y)
         chk-fun-pass)
    
    ;; flat values
-   (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 WFV)
-        (blame ℓ_1 ℓ_3 V (C_1 -> C_2) WFV)
+   (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 WFV)
+        (blame ℓ_1 ℓ_3 V-or-AE (C_1 -> C_2) WFV)
         chk-fun-fail-flat)))
 
 
@@ -203,8 +203,8 @@
    ;; predicates on stateful values
    
    ;; possible procedures
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
-        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V ℓ_3 
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 W?)
+        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
                       (@ (remember-contract W? (,none/c -> any/c))
                          (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
         (fresh y)
@@ -212,12 +212,23 @@
         (side-condition (not (redex-match λc~ WFV (term W?))))
         chk-fun-pass-maybe-proc)
 
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V ℓ_3 W?)
-        (blame ℓ_1 ℓ_3 V (C_1 -> C_2) W?)
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 W?)
+        (blame ℓ_1 ℓ_3 V-or-AE (C_1 -> C_2) W?)
         ;; definite procedures/non-procedures are handled in `v'
         (side-condition (not (redex-match λc~ W (term W?))))
         (side-condition (not (redex-match λc~ WFV (term W?))))
-        chk-fun-fail-maybe-proc)))
+        chk-fun-fail-maybe-proc)
+   
+   ;; SPLITTING OR/C ABSTRACT VALUES
+   (--> (-- (or/c C_1 ... C_2 C_3 ...) C ...)
+        (-- C_2 C ...)
+        abs-or/c-split)
+   
+   (--> (-- (rec/c x C_1) C ...)
+        (-- (subst x (rec/c x C_1) C_1) C ...)
+        abs-rec/c-unroll)))
+   
+   
   
 (define (∆ Ms)
   (reduction-relation

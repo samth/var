@@ -29,5 +29,7 @@ f: (f 6 fred) is not in my domain
 
 - there should be better support for the intersection of two non-terminals
   (see FCV! production in lang.rkt)
+- something like set-minus for non-terminals
 - add a #:title argument to traces to control the title of the window.
+- check syntax arrows for define-extended-language
 - run FASTER!

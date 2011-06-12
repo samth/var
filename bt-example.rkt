@@ -1,16 +1,13 @@
-#lang s-exp "verified.rkt" ;trace
+#lang s-exp "verified.rkt" trace
 ;; Binary trees
 
-(define-contract node/c
-  (rec/c node
-         (cons/c nat/c 
-                 (cons/c (or/c nat/c node)
-                         (or/c nat/c node)))))
-
 (define-contract bt/c
-  (rec/c bt 
-         (or/c nat/c 
-               (cons/c nat/c (cons/c bt bt)))))
+  (rec/c X 
+         (or/c nat/c
+               (cons/c nat/c (cons/c X X)))))
+
+(define-contract node/c
+  (cons/c nat/c (cons/c bt/c bt/c)))
 
 ;; Accessors
 (module num (node/c -> nat/c)
@@ -44,10 +41,6 @@
                 (cons ((map f) (left t))
                       ((map f) (right t))))))))
 
-;; doesn't work because we haven't got (-- rec/c) yet.
-;(module bt bt/c ☁)
-;(sum bt)
-
 (module n nat/c ☁)
 ;(sum (cons n (cons n n)))
 ;=> (-- nat/c)
@@ -61,5 +54,13 @@
 ;((map (λ x n)) (cons 1 (cons 2 3)))
 ;=> (cons (-- nat/c) (cons (-- nat/c) (-- nat/c)))
 
-(sum ((map (λ x n)) (cons 1 (cons 2 3))))
+;(sum ((map (λ x n)) (cons 1 (cons 2 3))))
 ;=> (-- nat/c)
+
+;; doesn't work because we haven't got (-- rec/c) yet.
+;(module bt bt/c ☁)
+;(sum bt)
+
+
+(module c (cons/c nat/c (rec/c X (cons/c X X))) ☁)
+(rest c)
