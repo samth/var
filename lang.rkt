@@ -139,15 +139,17 @@
   (RM (module f RC RPV) (module f RC ☁))
   (RL (λ x RE) (λ x x RE))
   (RPV FV RL)  
-  (RSV RL f o1) ; Syntactic values for pred.  [Different than paper]
+  (RSV RL f o1) ; Syntactic values for pred.
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   
-  (RCFLAT FC any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT))
+  (RCFLAT FC any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
+          (rec/c x RCFLAT) x)
   (RCHOC (RC -> RC)
          (or/c RCFLAT RCHOC)
          (cons/c RCHOC RC) (cons/c RC RCHOC)
-         (and/c RCHOC RC)  (and/c RC RCHOC))
+         (and/c RCHOC RC)  (and/c RC RCHOC)
+         (rec/c x RCHOC))
   
   (RC RCFLAT RCHOC))
   

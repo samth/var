@@ -4,6 +4,13 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test annotate)
 
+(define-metafunction λc~
+  ann/define-contract : (any ...) -> P
+  [(ann/define-contract ((define-contract x C) any ...))
+   (ann/define-contract (subst x C (any ...)))]
+  [(ann/define-contract (any ...))
+   (ann (any ...))])
+           
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~
   ann : RP -> P

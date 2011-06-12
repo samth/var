@@ -12,7 +12,7 @@
         (parameterize ([reduction-steps-cutoff 100]) 
           ;(step-it -->_vcc~Δ (term (ann [m ... e])))
           #,(if (attribute tr)
-                 #'(trace-it -->_vcc~Δ (term (ann [m ... e]))
+                 #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e]))
                     #:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
                  #'(apply values
                           (filter-not
@@ -20,5 +20,5 @@
                              (match p
                                [(list 'blame '★ _ (... ...)) #t] [_ #f]))
                            (map (λ (x) (term (unann-exp ,x)))   
-                                (eval_vcc~Δ  (term (ann [m ... e])))))))))]))
+                                (eval_vcc~Δ  (term (ann/define-contract [m ... e])))))))))]))
         
