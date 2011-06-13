@@ -1,6 +1,6 @@
 #lang s-exp "verified.rkt" trace
 ;; This program runs forever.
-#|
+
 #;#;
 (module mul (nat/c -> (nat/c -> nat/c)) ☁)
 (module 1- (nat/c -> nat/c) ☁)
@@ -19,7 +19,7 @@
 
 (fact input)
 
-|#
+#|
 
 ;(module mul (nat/c -> (nat/c -> nat/c)) ☁)
 ;(module 1- (nat/c -> nat/c) ☁)
@@ -33,3 +33,4 @@
 (module input nat/c ☁)
 
 (fact input)
+|#

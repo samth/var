@@ -97,6 +97,7 @@
   [(refutes-predicate nat? o?) #t]
   [(refutes-predicate zero? o?) #t]
   [(refutes-predicate proc? o?) #t]
+  [(refutes-predicate bool? o?) #t]
   [(refutes-predicate string? o?) #t])
 
 ;; Totality tests
@@ -316,7 +317,9 @@
    ,(apply (term any_f) (term (any ...)))])
 
 (test
+ (test-equal (term (proves (-- #t) bool?)) #t)
  (test-equal (term (flat-check string/c (-- "Plain") #t ,(λ (f v) #f))) #t)
+ (test-equal (term (flat-check bool/c (-- #t) #t ,(λ _ #f))) #t)
  (test-equal (term (flat-check any/c (-- 0) #t ,(λ (f v) #f))) #t)
  (test-equal (term (flat-check (cons/c nat/c nat/c)
                                (-- (cons (-- 0) (-- 1)))
@@ -362,6 +365,8 @@
   plain-δ : o PV ... ℓ -> V or PV or B  
   [(plain-δ string? string ℓ) #t]
   [(plain-δ string? PV ℓ) #f]
+  [(plain-δ bool? bool ℓ) #t]
+  [(plain-δ bool? PV ℓ) #f]
   [(plain-δ zero? 0 ℓ) #t]
   [(plain-δ zero? nat ℓ) #f]
   [(plain-δ proc? L ℓ) #t]

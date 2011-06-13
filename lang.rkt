@@ -52,7 +52,7 @@
   (o1 o? nat->nat first rest)
   (nat->nat add1 sub1)
   ;; Built-in predicates
-  (o? zero? proc? empty? cons? nat? string?)
+  (o? zero? proc? empty? cons? nat? string? bool?)
   (o2 nat*nat->nat nat*nat->bool cons)
   (nat*nat->nat + - * expt)
   (nat*nat->bool = < <= > >=)
