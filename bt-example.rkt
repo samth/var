@@ -42,6 +42,7 @@
                       ((map f) (right t))))))))
 
 (module n nat/c ☁)
+;(left (cons n (cons n n)))
 ;(sum (cons n (cons n n)))
 ;=> (-- nat/c)
 
@@ -58,9 +59,9 @@
 ;=> (-- nat/c)
 
 ;; doesn't work because we haven't got (-- rec/c) yet.
-;(module bt bt/c ☁)
-;(sum bt)
+(module bt bt/c ☁)
+(sum bt)
 
 
-(module c (cons/c nat/c (rec/c X (cons/c X X))) ☁)
-(rest c)
+;(module c (cons/c nat/c (rec/c X (cons/c X X))) ☁)
+;(rest c)

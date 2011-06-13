@@ -29,7 +29,9 @@
         (side-condition (not (term PV)))
         if-f)   
    (--> (@ o V ... ℓ)
-        (δ (@ o V ... ℓ))
+        V-or-B
+        (where (V-or-B_1 ... V-or-B V-or-B_2 ...)
+               (δ (@ o V ... ℓ)))
         δ)   
    (--> (begin V E) E begin)
    (--> (let x V E)
@@ -110,7 +112,6 @@
    (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 WFV)
         (blame ℓ_1 ℓ_3 V-or-AE (C_1 -> C_2) WFV)
         chk-fun-fail-flat)))
-
 
 (test
  (test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5)))
@@ -219,13 +220,16 @@
         (side-condition (not (redex-match λc~ WFV (term W?))))
         chk-fun-fail-maybe-proc)
    
-   ;; SPLITTING OR/C ABSTRACT VALUES
-   (--> (-- (or/c C_1 ... C_2 C_3 ...) C ...)
-        (-- C_2 C ...)
+   ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
+   ;; Some introduced values are infeasible, which is still sound.
+   (--> (-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...)
+        (remember-contract (-- any/c C_0 ... C ...) C_2)
+        (side-condition (term (valid? C_2)))
         abs-or/c-split)
    
-   (--> (-- (rec/c x C_1) C ...)
-        (-- (subst x (rec/c x C_1) C_1) C ...)
+   (--> (-- C_0 ... (rec/c x C_1) C ...)
+        (remember-contract (-- any/c C_0 ... C ...)  (unroll (rec/c x C_1)))
+        (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)))
    
    

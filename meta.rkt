@@ -136,6 +136,18 @@
                                 empty?))
              #t))             
 
+;; Is C_1 /\ C_2 inhabited
+(define-metafunction λc~
+  feasible : C C -> #t or #f
+  [(feasible FC (cons/c C_1 C_2)) #f]
+  [(feasible (cons/c C_1 C_2) FC) #f]
+  [(feasible FC (C_1 -> C_2)) #f]
+  [(feasible (C_1 -> C_2) FC) #f]
+  [(feasible (cons/c C_a C_b) (C_1 -> C_2)) #f]
+  [(feasible (C_1 -> C_2) (cons/c C_a C_b)) #f]
+  [(feasible FC_1 FC_2) ,(equal? (term FC_1) (term FC_2))]
+  [(feasible C_1 C_2) #t])
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; remember-contract
 
@@ -146,9 +158,8 @@
   [(remember-contract V (and/c C_1 C_2) C ...)
    (remember-contract V C_1 C_2 C ...)]
   ;; drop boring contracts on concrete flat values
-  [(remember-contract (-- FV C_1 ...) C_0 C ...)
-   (remember-contract (-- FV C_1 ...) C ...)
-   (side-condition (redex-match λc~ FC (term C_0)))]
+  [(remember-contract (-- FV C_1 ...) FC C ...)
+   (remember-contract (-- FV C_1 ...) C ...)]
   ;; drop any/c on the floor when possible
   [(remember-contract (-- any/c C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
@@ -157,12 +168,21 @@
   [(remember-contract V any/c C_2 ...)
    (remember-contract V C_2 ...)]
   ;; do the real work
+  ;; forget duplicates
   [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
    (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
   [(remember-contract (-- C_0 ... C C_1 ...) C C_2 ...)
    (remember-contract (-- C_0 ... C C_1 ...) C_2 ...)]
+  ;; add feasible non-duplicates
+  [(remember-contract (-- C_1 ...) C_2 C ...)
+   (remember-contract (-- C_1 ... C_2) C ...)
+   (where (#t ...) ((feasible C_2 C_1) ...))] 
+  [(remember-contract (-- PV C_1 ...) C_2 C ...)
+   (remember-contract (-- PV C_1 ... C_2) C ...)
+   (where (#t ...) ((feasible C_2 C_1) ...))]
+  ;; drop infeasible contracts
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
-   (remember-contract (-- any_0 C_1 ... C_2) C ...)])
+   (remember-contract (-- any_0 C_1 ...) C ...)])
 
 (test
  (test-equal (term (remember-contract (-- 1) nat/c))
@@ -284,7 +304,7 @@
   [(flat-check empty/c V E any) E (where #t (proves V empty?))]   
   
   [(flat-check (rec/c x C) V E any)
-   (flat-check (subst x (rec/c x C) C) V E any)]
+   (flat-check (unroll (rec/c x C)) V E any)]
   
   [(flat-check FLAT V E any) 
    (meta-apply any FLAT V)
@@ -328,14 +348,15 @@
 ;; δ
 
 (define-metafunction λc~
-  δ : (@ o V ... ℓ) -> V or B or (if (-- bool/c) E E)
+  δ : (@ o V ... ℓ) -> (V-or-B V-or-B ...)
   [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
-  [(δ (@ o V ... ℓ))  (wrap (abstract-δ o V ... ℓ))])
+  [(δ (@ o V ... ℓ)) (abstract-δ o V ... ℓ)])
 
 (define-metafunction λc~
-  wrap : any -> E
-  [(wrap PV) (-- PV)]
-  [(wrap E) E])
+  wrap : any -> (V-or-B)
+  [(wrap PV) [(-- PV)]]
+  [(wrap B) [B]]
+  [(wrap V) [V]])
 
 (define-metafunction λc~
   plain-δ : o PV ... ℓ -> V or PV or B  
@@ -382,7 +403,7 @@
   impossible-con? : C -> #t or #f
   [(impossible-con? C)   ;; Relies on theorem in lang:
    #t                    ;; WC! /\ FVC! = uninhabited
-   (where WC! C)
+   (where WC! C)         ;; FIXME: Combine this with feasible
    (where FVC! C)]
   [(impossible-con? (or/c C_0 C_1))
    ,(and (term (impossible-con? C_0))
@@ -396,149 +417,174 @@
   [(impossible-con? C) #f])
 
 (define-metafunction λc~
-  abstract-δ : o V ... ℓ -> PV or V or B or (if (-- bool/c) E E)
+  abstract-δ : o V ... ℓ -> (V-or-B V-or-B ...)
   [(abstract-δ o V_0 ... V V_1 ... ℓ)
-   V ;; V is impossible, so why not?
+   (V) ;; V is impossible, so why not?
    (where #t (impossible? V))]
   ;; o?
-  [(abstract-δ o? V ℓ) #t (where #t (proves V o?))]
-  [(abstract-δ o? V ℓ) #f (where #t (refutes V o?))]
-  [(abstract-δ o? V ℓ) (-- bool/c)]
+  [(abstract-δ o? V ℓ) ((-- #t)) (where #t (proves V o?))]
+  [(abstract-δ o? V ℓ) ((-- #f)) (where #t (refutes V o?))]
+  [(abstract-δ o? V ℓ) ((-- #t) (-- #f))]
   
   ;; nat->nat
   [(abstract-δ nat->nat V ℓ)
-   (-- (pred nat? Λ))
+   ((-- (pred nat? Λ)))
    (where #t (proves V nat?))]
   [(abstract-δ nat->nat V ℓ)
-   (blame ℓ nat->nat V λ V)
+   ((blame ℓ nat->nat V λ V))
    (where #t (refutes V nat?))]
   [(abstract-δ nat->nat V ℓ)
-   (if (-- bool/c)
-       (-- (pred nat? Λ))
-       (blame ℓ nat->nat V λ V))]
+   ((-- (pred nat? Λ))
+    (blame ℓ nat->nat V λ V))]
   
   ;; first
   [(abstract-δ first V ℓ)
    (proj-left V)
    (where #t (proves V cons?))]
   [(abstract-δ first V ℓ)
-   (blame ℓ first V λ V) 
+   ((blame ℓ first V λ V))
    (where #t (refutes V cons?))]
   [(abstract-δ first V ℓ)
-   (if (-- bool/c)
-       (proj-left V)
-       (blame ℓ first V λ V))]
+   (V-or-B ... (blame ℓ first V λ V))
+   (where (V-or-B ...) (proj-left V))]
   
   ;; rest
   [(abstract-δ rest V ℓ)
    (proj-right V)
    (where #t (proves V cons?))]
   [(abstract-δ rest V ℓ)
-   (blame ℓ rest V λ V) 
+   ((blame ℓ rest V λ V) )
    (where #t (refutes V cons?))]
   [(abstract-δ rest V ℓ)
-   (if (-- bool/c)
-       (proj-right V)
-       (blame ℓ rest V λ V))]
+   (V-or-B ... (blame ℓ rest V λ V))
+   (where (V-or-B ...) (proj-right V))]
   
   ;; nat*nat->nat
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   (-- nat/c)
+   ((-- nat/c))
    (where #t (proves V_0 nat?))
    (where #t (proves V_1 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   (blame ℓ nat*nat->nat V_0 λ V_0)   
+   ((blame ℓ nat*nat->nat V_0 λ V_0))
    (where #t (refutes V_0 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   (blame ℓ nat*nat->nat V_1 λ V_1)   
+   ((blame ℓ nat*nat->nat V_1 λ V_1))
    (where #t (refutes V_1 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   (if (-- bool/c)
-       (-- nat/c)
-       (blame ℓ nat*nat->nat V_1 λ V_1))
+   ((-- nat/c)
+    (blame ℓ nat*nat->nat V_1 λ V_1))
    (where #t (proves V_0 nat?))]  
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   (if (-- bool/c)
-       (-- nat/c)
-       (blame ℓ nat*nat->nat V_0 λ V_0))
+   ((-- nat/c)
+    (blame ℓ nat*nat->nat V_0 λ V_0))
    (where #t (proves V_1 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   (if (-- bool/c)
-       (-- nat/c)
-       (if (-- bool/c)
-           (blame ℓ nat*nat->nat V_0 λ V_0)
-           (blame ℓ nat*nat->nat V_1 λ V_1)))]
+   ((-- nat/c)
+    (blame ℓ nat*nat->nat V_0 λ V_0)
+    (blame ℓ nat*nat->nat V_1 λ V_1))]
   
   ;; nat*nat->bool
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
-   (-- bool/c)
+   ((-- #t) (-- #f))
    (where #t (proves V_0 nat?))
    (where #t (proves V_1 nat?))]
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
-   (blame ℓ nat*nat->bool V_0 λ V_0)   
+   ((blame ℓ nat*nat->bool V_0 λ V_0))
    (where #t (refutes V_0 nat?))]
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
-   (blame ℓ nat*nat->bool V_1 λ V_1)   
+   ((blame ℓ nat*nat->bool V_1 λ V_1))
    (where #t (refutes V_1 nat?))]    
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
-   (if (-- bool/c)
-       (-- bool/c)
-       (blame ℓ nat*nat->bool V_1 λ V_1))
+   ((-- #t) 
+    (-- #f)
+    (blame ℓ nat*nat->bool V_1 λ V_1))
    (where #t (proves V_0 nat?))]  
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
-   (if (-- bool/c)
-       (-- bool/c)
-       (blame ℓ nat*nat->bool V_0 λ V_0))
+   ((-- #t) 
+    (-- #f)
+    (blame ℓ nat*nat->bool V_0 λ V_0))
    (where #t (proves V_1 nat?))]
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
-   (if (-- bool/c)
-       (-- bool/c)
-       (if (-- bool/c)
-           (blame ℓ nat*nat->bool V_0 λ V_0)
-           (blame ℓ nat*nat->bool V_1 λ V_1)))]
+   ((-- #t) 
+    (-- #f)
+    (blame ℓ nat*nat->bool V_0 λ V_0)
+    (blame ℓ nat*nat->bool V_1 λ V_1))]
   
   ;; cons
   [(abstract-δ cons V_0 V_1 ℓ)
-   (-- (cons V_0 V_1))])
+   ((-- (cons V_0 V_1)))])
 
 ;; Project an AV to the left
 ;; (proj-left (-- (cons/c nat? string?) (cons/c zero? string?)))
 ;; ≡ (-- nat? zero?)
 (define-metafunction λc~
-  proj-left : AV -> AE
+  proj-left : AV -> (V ...)
   [(proj-left (-- C_0 C ...))
-   (proj-left/a (-- any/c) C_0 C ...)])
+   (proj-left/a ((-- any/c)) C_0 C ...)])
 
 (define-metafunction λc~
-  proj-right : AV -> AE
+  proj-right : AV -> (V ...)
   [(proj-right (-- C_0 C ...))
-   (proj-right/a (-- any/c) C_0 C ...)])
+   (proj-right/a ((-- any/c)) C_0 C ...)])
 
 (define-metafunction λc~
-  proj-left/a : (-- C ...) C ... -> AE
-  [(proj-left/a AE) AE]
-  [(proj-left/a (-- C ...) (cons/c C_0 C_1) C_2 ...)
-   (proj-left/a (remember-contract (-- C ...) C_0) C_2 ...)]
-  [(proj-left/a (-- C ...) C_0 C_1 ...)
-   (proj-left/a (-- C ...) C_1 ...)])
+  proj-left/a : ((-- C ...) ...) C ... -> (V ...)
+  [(proj-left/a (AV ...)) (AV ...)]  
+  [(proj-left/a (AV ...) (cons/c C_0 C_1) C_2 ...)
+   (proj-left/a (AV_R ...) C_2 ...)
+   (where (AV_R ...) 
+          ,(for*/list ([av (in-list (term (AV ...)))]
+                       [cnew (in-list (term (explode C_0)))])
+             (term (remember-contract ,av ,cnew))))]
+  [(proj-left/a (AV ...) C_0 C_1 ...)
+   (proj-left/a (AV ...) C_1 ...)])
 
 (define-metafunction λc~
-  proj-right/a : (-- C ...) C ... -> AE
-  [(proj-right/a AE) AE]
-  [(proj-right/a (-- C ...) (cons/c C_0 C_1) C_2 ...)
-   (proj-right/a (remember-contract (-- C ...) C_1) C_2 ...)]
-  [(proj-right/a (-- C ...) C_0 C_1 ...)
-   (proj-right/a (-- C ...) C_1 ...)])
+  proj-right/a : ((-- C ...) ...) C ... -> (V ...)
+  [(proj-right/a (AV ...)) (AV ...)]  
+  [(proj-right/a (AV ...) (cons/c C_0 C_1) C_2 ...)
+   (proj-right/a (AV_R ...) C_2 ...)
+   (where (AV_R ...) 
+          ,(for*/list ([av (in-list (term (AV ...)))]
+                       [cnew (in-list (term (explode C_1)))])
+             (term (remember-contract ,av ,cnew))))]
+  [(proj-right/a (AV ...) C_0 C_1 ...)
+   (proj-right/a (AV ...) C_1 ...)])
+
+(define-metafunction λc~
+  explode : C -> (C ...)
+  [(explode (or/c C_1 C_2))
+   (C_1e ... C_2e ...)
+   (where ((C_1e ...) (C_2e ...)) ((explode C_1) (explode C_2)))]  
+  [(explode (rec/c x C))
+   (explode (unroll (rec/c x C)))]  
+  [(explode C) (C)])
+
+(define-metafunction λc~
+  unroll : (rec/c x C) -> C
+  [(unroll (rec/c x C))
+   (subst x (rec/c x C) C)])
 
 (test 
  (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
-             (term (-- #t)))
+             (term ((-- #t))))
  
  (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
-             (term (-- (cons (-- 1) (-- 2)))))
+             (term ((-- (cons (-- 1) (-- 2))))))
  
  (test-equal (term (δ (@ proc? (-- nat/c) ★)))
-             (term (-- #f)))
+             (term ((-- #f))))
+ 
+ (test-equal (term (δ (@ rest (-- (cons/c any/c any/c)) f))) 
+             (term ((-- any/c))))
+ (test-equal (term (δ (@ rest (-- (cons/c any/c (or/c nat/c string/c))) f)))
+             (term ((-- nat/c) (-- string/c))))
+ 
+ (test-equal (term (explode (or/c nat/c string/c)))
+             (term (nat/c string/c)))
+ 
+ (test-equal (term (proj-right (-- (cons/c any/c (or/c nat/c string/c)))))
+             (term ((-- nat/c) (-- string/c))))
  
  (test-equal (term (refutes (-- nat/c) proc?))
              #t)

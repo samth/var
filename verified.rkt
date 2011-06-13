@@ -13,12 +13,12 @@
           ;(step-it -->_vcc~Δ (term (ann [m ... e])))
           #,(if (attribute tr)
                  #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e]))
-                    #:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
+                    #;#;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
                  #'(apply values
                           (filter-not
                            (λ (p)
                              (match p
                                [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                           (map (λ (x) (term (unann-exp ,x)))   
+                           (map (λ (x) x #;(term (unann-exp ,x)))   
                                 (eval_vcc~Δ  (term (ann/define-contract [m ... e])))))))))]))
         

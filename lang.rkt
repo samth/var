@@ -31,20 +31,10 @@
   (SV L (f ^ f) o1) ; Syntactic values for pred.
   (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
-  (FLAT FC any/c
-        (pred SV ℓ)
-        (cons/c FLAT FLAT)
-        (or/c FLAT FLAT)
-        (rec/c x FLAT) x
-        (and/c FLAT FLAT))
-  (HOC (C -> C)
-       (or/c FLAT HOC)
-       (cons/c HOC C) (cons/c C HOC)
-       (and/c HOC C)  (and/c C HOC)
-       (rec/c x HOC) x)
+  (FLAT FLAT* x (and/c FLAT FLAT))
+  (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
   
-  
-  (FLAT* FC any/c  (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
+  (FLAT* FC any/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
   (HOC* (C -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC)
@@ -78,8 +68,8 @@
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
   (AE (-- C* C* ...))      ;; Abstract expressions
-  (AV (-- C*-top C* ...))  ;; Abstract values
-  (CV (-- PV C* ...))      ;; Concrete values
+  (AV (-- C*-top C*-top ...))  ;; Abstract values
+  (CV (-- PV C*-top ...))      ;; Concrete values
   (C-ext C λ)
       
   (V-or-AE V AE)
@@ -89,9 +79,7 @@
      (blame ℓ ℓ AE C V) 
      (blame ℓ ℓ V λ V)) ;; broke the contract with the language
   
-  (WFV .... 
-       (-- C*-top C* ... FVC!* C* ...)
-       (-- FVC!*-top C* ...))
+  (WFV .... (-- C*-top ... FVC!*-top C*-top ...))
   
   ;; Representations of abstract values
   ;; no or/c or rec/c at top-level
@@ -118,15 +106,15 @@
   (V .... AV)             ;; (-- X) is overline X.
   (M .... (module f C ☁))
 
+  (V-or-B V B)
+  
   ;; Definite procedure contract
   (WC! WC!* (and/c C WC!) (and/c WC! C))
   (WC!* WC!*-top (rec/c x WC!))
   (WC!*-top (C -> C) (pred proc? ℓ))
   
   ;; Definite procedure  
-  (W .... 
-     (-- C*-top C* ... WC!* C* ...)
-     (-- WC!*-top C* ...))
+  (W .... (-- C*-top ... WC!*-top C*-top ...))
   
     
   ;; Note: uninhabited contracts may be both definitely flat and procedures.
@@ -143,9 +131,7 @@
             (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ))
 
   ;; Maybe procedure
-  (W? W 
-      (-- C*-top C* ... WC?* C* ...)
-      (-- WC?*-top C* ...))
+  (W? W (-- C*-top ... WC?*-top C*-top ...))
   
   ;; Raw, unannotated language
   (RP (RM ... RE))
@@ -270,9 +256,37 @@
 
 (test
  
+ (test-equal
+  (redex-match λc~ HOC (term (cons/c
+                              nat/c
+                              (cons/c
+                               (rec/c
+                                X
+                                (or/c
+                                 nat/c
+                                 (cons/c
+                                  nat/c
+                                  (cons/c X X))))
+                               (rec/c
+                                X
+                                (or/c
+                                 nat/c
+                                 (cons/c
+                                  nat/c
+                                  (cons/c X X))))))))
+  #f)
+ 
  (redex-check λc~ C* (redex-match λc~ C (term C*)))
  (redex-check λc~ WC!* (redex-match λc~ C (term WC!*)))
  (redex-check λc~ FVC!* (redex-match λc~ C (term FVC!*)))
+ 
+ ;; Every contract is FLAT xor HOC.
+ (redex-check λc~ (side-condition C_1 (term (valid? C_1)))
+              (or (and (redex-match λc~ FLAT (term C_1))
+                       (not (redex-match λc~ HOC (term C_1))))
+                  (and (redex-match λc~ HOC (term C_1))
+                       (not (redex-match λc~ FLAT (term C_1)))))
+              #:attempts 10000)
  
  ;; Every valid contract is one of:
  ;; - WC?
