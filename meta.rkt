@@ -264,50 +264,56 @@
 (test
  (redex-check λc~ V  (redex-match λc~ V (term (normalize V)))))
 
-
 (define-metafunction λc~
-  flat-check : FLAT V E any -> E
-  [(flat-check any/c V E any) E]  
-  [(flat-check C V E any)
+  flat-check : (FLAT <= ℓ ℓ V-or-AE ℓ V) -> E
+  [(flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))  
+   (flat-check/cps FLAT V
+                   (remember-contract V FLAT)
+                   ,(λ (f v) (term (blame ℓ_1 ℓ_3 V-or-AE ,f ,v))))])
+  
+(define-metafunction λc~
+  flat-check/cps : FLAT V E any -> E
+  [(flat-check/cps any/c V E any) E]  
+  [(flat-check/cps C V E any)
    E 
    (where #t (contract-in C V))]
-  [(flat-check C AV E any)
+  [(flat-check/cps C AV E any)
    (meta-apply any C AV)
    (where #t (contract-not-in C AV))]
-  [(flat-check (pred SV ℓ) V E any)
+  [(flat-check/cps (pred SV ℓ) V E any)
    (if (@ SV V ℓ) 
        E 
        (meta-apply any (pred SV ℓ) V))]
-  [(flat-check (cons/c FLAT_0 FLAT_1)
-               (-- (cons V_0 V_1) C ...)
-               E any)
-   (flat-check FLAT_0
-               V_0
-               (flat-check FLAT_1 V_1 E 
-                           ,(λ (f v) (term (meta-apply any FLAT_1 V_1))))
-               ,(λ (f v) (term (meta-apply any FLAT_0 V_0))))]
-  [(flat-check (cons/c C_0 C_1) V E any) 
+  [(flat-check/cps (cons/c FLAT_0 FLAT_1)
+                   (-- (cons V_0 V_1) C ...)
+                   E any)
+   (flat-check/cps FLAT_0
+                   V_0
+                   (flat-check/cps FLAT_1 V_1 E 
+                                   ,(λ (f v) (term (meta-apply any FLAT_1 V_1))))
+                   ,(λ (f v) (term (meta-apply any FLAT_0 V_0))))]
+  [(flat-check/cps (cons/c C_0 C_1) V E any) 
    (meta-apply any (cons/c C_0 C_1) V)]
   
-  [(flat-check (or/c FLAT_0 FLAT_1) V E any)
-   (flat-check FLAT_0 V
-               E
-               ,(λ (f v) (term (flat-check FLAT_1 V E 
-                                           ,(λ (f v) (term (meta-apply any FLAT_1 V)))))))]
-  [(flat-check (and/c FLAT_0 FLAT_1) V E any)
-   (flat-check FLAT_0 V
-               (flat-check FLAT_1 V E ,(λ (f v) (term (meta-apply any FLAT_1 V))))
-               ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
-
-  [(flat-check nat/c V E any) E (where #t (proves V nat?))]
-  [(flat-check string/c V E any) E (where #t (proves V string?))]
-  [(flat-check bool/c V E any) E (where #t (proves V bool?))]
-  [(flat-check empty/c V E any) E (where #t (proves V empty?))]   
+  [(flat-check/cps (or/c FLAT_0 FLAT_1) V E any)
+   (flat-check/cps FLAT_0 V
+                   E
+                   ,(λ (f v) (term (flat-check/cps FLAT_1 V E 
+                                                   ,(λ (f v) (term (meta-apply any FLAT_1 V)))))))]
+  [(flat-check/cps (and/c FLAT_0 FLAT_1) V E any)
+   (flat-check/cps FLAT_0 V
+                   (flat-check/cps FLAT_1 V E ,(λ (f v) (term (meta-apply any FLAT_1 V))))
+                   ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
   
-  [(flat-check (rec/c x C) V E any)
-   (flat-check (unroll (rec/c x C)) V E any)]
+  [(flat-check/cps nat/c V E any) E (where #t (proves V nat?))]
+  [(flat-check/cps string/c V E any) E (where #t (proves V string?))]
+  [(flat-check/cps bool/c V E any) E (where #t (proves V bool?))]
+  [(flat-check/cps empty/c V E any) E (where #t (proves V empty?))]   
   
-  [(flat-check FLAT V E any) 
+  [(flat-check/cps (rec/c x C) V E any)
+   (flat-check/cps (unroll (rec/c x C)) V E any)]
+  
+  [(flat-check/cps FLAT V E any) 
    (meta-apply any FLAT V)
    (side-condition (procedure? (term any)))])
 
@@ -318,33 +324,33 @@
 
 (test
  (test-equal (term (proves (-- #t) bool?)) #t)
- (test-equal (term (flat-check string/c (-- "Plain") #t ,(λ (f v) #f))) #t)
- (test-equal (term (flat-check bool/c (-- #t) #t ,(λ _ #f))) #t)
- (test-equal (term (flat-check any/c (-- 0) #t ,(λ (f v) #f))) #t)
- (test-equal (term (flat-check (cons/c nat/c nat/c)
-                               (-- (cons (-- 0) (-- 1)))
-                               #t
-                               ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps string/c (-- "Plain") #t ,(λ (f v) #f))) #t)
+ (test-equal (term (flat-check/cps bool/c (-- #t) #t ,(λ _ #f))) #t)
+ (test-equal (term (flat-check/cps any/c (-- 0) #t ,(λ (f v) #f))) #t)
+ (test-equal (term (flat-check/cps (cons/c nat/c nat/c)
+                                   (-- (cons (-- 0) (-- 1)))
+                                   #t
+                                   ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (pred (λ x x) ℓ) (-- 0) #t ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps (pred (λ x x) ℓ) (-- 0) #t ,(λ (f v) #f)))
              (term (if (@ (λ x x) (-- 0) ℓ)
                        #t
                        #f)))
  ;; recursive contracts
- (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
-                               (-- 0) #t ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps (rec/c x (or/c empty/c (cons/c nat/c x)))
+                                   (-- 0) #t ,(λ (f v) #f)))
              #f)
- (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
-                               (-- empty) #t ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps (rec/c x (or/c empty/c (cons/c nat/c x)))
+                                   (-- empty) #t ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
-                               (-- (cons (-- 0) (-- empty))) #t ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps (rec/c x (or/c empty/c (cons/c nat/c x)))
+                                   (-- (cons (-- 0) (-- empty))) #t ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
-                               (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps (rec/c x (or/c empty/c (cons/c nat/c x)))
+                                   (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t ,(λ (f v) #f)))
              #t)
- (test-equal (term (flat-check (rec/c x (or/c empty/c (cons/c nat/c x)))
-                               (-- (cons (-- "0") (-- empty))) #t ,(λ (f v) #f)))
+ (test-equal (term (flat-check/cps (rec/c x (or/c empty/c (cons/c nat/c x)))
+                                   (-- (cons (-- "0") (-- empty))) #t ,(λ (f v) #f)))
              #f))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

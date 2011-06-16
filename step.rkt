@@ -72,17 +72,15 @@
    ;; FLAT CONTRACTS
    
    (--> (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (flat-check FLAT V
-                    (remember-contract V FLAT)
-                    ,(λ (f v) (term (blame ℓ_1 ℓ_3 V-or-AE ,f ,v))))
+        (flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))        
         flat-check)
    
    ;; HIGHER-ORDER CONTRACTS
    
    (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (flat-check FLAT V
-                    (remember-contract V FLAT)
-                    ,(λ (f v) (term (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)))))
+        (flat-check/cps FLAT V
+                        (remember-contract V FLAT)
+                        ,(λ (f v) (term (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)))))
    (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
              (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
