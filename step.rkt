@@ -139,7 +139,6 @@
           (term ((and/c nat/c empty/c) <= f g (-- 0) f (-- #t)))
           (term (blame f f (-- 0) nat/c (-- #t)))))
                
-
 (define c~
   (reduction-relation
    λc~ #:domain E
@@ -148,26 +147,16 @@
    
    ;; applying abstract values to concrete values
    (--> (@ AV V ℓ)
-        ;; do bad things to the concrete value
-        (begin (@ (demonic C_demon) V ★)
+        ;; do bad things in case of a concrete value
+        (begin (demonic* C_demon V)
                ;; abstract value constranated by all possible domains
                (remember-contract (-- any/c) C_0 ...))
         (where (-- C ...) AV)
-        (where C_demon (most-specific-domain C ...))
-        (where (C_0 ...) (range-contracts (C ...)))
-        ;; abstract values as arguments go in the next case
-        (side-condition (not (abstract-value? (term V))))
-        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
-        apply-abs-concrete)
-   
-   (--> (@ AV AV_0 ℓ)
-        ;; don't care what bad things happen to abstract values, so we
-        ;; don't simulate them
-        (remember-contract (-- any/c) C_0 ...)
-        (where (-- C ...) AV)
+        ;; TODO: implement \wedge and dom-contracts, kill most-specific
+        (where C_demon #;(∧ (dom-contracts (C ...))) (most-specific-domain C ...))
         (where (C_0 ...) (range-contracts (C ...)))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
-        apply-abs-abs) 
+        apply-abs)
    
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
    
@@ -280,10 +269,20 @@
 
 (define none/c (term (pred (λ x #f) Λ)))
 
-(test
+(test 
+ ;; testing demonic
+ (test-->>p (term (ann [(module p ((cons/c nat/c nat/c) -> nat/c) ☁)
+                        (p (cons 1 2))]))
+            (term (-- nat/c))) 
+ (test-->>p (term (ann [(module p ((and/c nat/c nat/c) -> nat/c) ☁)
+                        (p 1)]))
+            (term (-- nat/c)))
+ (test-->>p (term (ann [(module p ((orc/c nat/c nat/c) -> nat/c) ☁)
+                        (p 1)]))
+            (term (-- nat/c))) 
  
  (test-->>p (term [(string/c <= |†| rsa (-- "Plain") rsa (-- "Plain"))])
-             (term (-- "Plain")))
+            (term (-- "Plain")))
  
  (test-->>p (term [(@ (-- (λ o (b ^ o))) (-- "") sN)])
             (term (b ^ o)))

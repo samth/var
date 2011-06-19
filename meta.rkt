@@ -13,16 +13,42 @@
   [(∈ any_0 any_1) #f])
 
 (define-metafunction λc~
+  demonic* : C V -> E
+  [(demonic* C (-- PV C_0 ...))
+   (@ (demonic C) (-- PV C_0 ...) ★)]
+  [(demonic* C V) ;; produces trivial expression
+   (-- 0)])
+
+;; Produce a function that will do "everything" it can
+;; to its argument while treating it as a C.
+;; The only important part is that functions are applied
+;; to all possible values.
+(define-metafunction λc~
   demonic : C -> L
   [(demonic any/c)
    (λ f x (if (@ proc? x ★) 
               (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
               0))]
-  [(demonic (pred SV ℓ))
+  [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
    (demonic any/c)]
   [(demonic nat/c) (λ x 0)]
   [(demonic string/c) (λ x 0)]
-  [(demonic bool/c) (λ x 0)]    
+  [(demonic bool/c) (λ x 0)]
+  
+  [(demonic (and/c C_0 C_1))
+   (λ x (begin (@ (demonic C_0) x ★)
+               (@ (demonic C_1) x ★)))]
+  
+  [(demonic (cons/c C_0 C_1))
+   (λ x (begin (@ (demonic C_0) (@ first x ★) ★)
+               (@ (demonic C_1) (@ rest x ★) ★)))]
+  
+  [(demonic (or/c C_0 C_1))
+   (demonic any/c)]  ;; Always safe, hard to do better.
+   
+  [(demonic (rec/c x C))
+   (demonic any/c)]  ;; Safe.  What else could you do?
+  
   [(demonic (C_0 -> C_1)) 
    (λ f (@ (demonic C_1) (@ f (-- C_0) ★) ★))
    (where f ,(gensym 'f))])
