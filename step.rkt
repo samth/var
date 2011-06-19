@@ -101,15 +101,18 @@
    ;; PROCEDURE CONTRACTS   
       
    ;; definite procedures
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 W)
+   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (-- (λ y (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                      (@ W (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
+                      (@ (remember-contract V (pred proc? Λ))
+                         (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
         (fresh y)
+        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
         chk-fun-pass)
    
    ;; flat values
-   (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 WFV)
-        (blame ℓ_1 ℓ_3 V-or-AE (C_1 -> C_2) WFV)
+   (--> ((C_1 -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        (blame ℓ_1 ℓ_3 V-or-AE (C_1 -> C_2) V)
+        (side-condition (term (∈ #f (δ (@ proc? V ★)))))
         chk-fun-fail-flat)))
 
 (test
@@ -176,24 +179,7 @@
    ;; checks could fail later even if they passed earlier
 
    ;; FIXME: if we add state, then we can't remember stateful predicates or 
-   ;; predicates on stateful values
-   
-   ;; possible procedures
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 W?)
-        (-- (λ y (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                      (@ (remember-contract W? (,none/c -> any/c))
-                         (C_1 <= ℓ_2 ℓ_1 y ℓ_3 y) Λ))))
-        (fresh y)
-        (side-condition (not (redex-match λc~ W (term W?))))
-        (side-condition (not (redex-match λc~ WFV (term W?))))
-        chk-fun-pass-maybe-proc)
-
-   (--> ((C_1  -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 W?)
-        (blame ℓ_1 ℓ_3 V-or-AE (C_1 -> C_2) W?)
-        ;; definite procedures/non-procedures are handled in `v'
-        (side-condition (not (redex-match λc~ W (term W?))))
-        (side-condition (not (redex-match λc~ WFV (term W?))))
-        chk-fun-fail-maybe-proc)
+   ;; predicates on stateful values   
    
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
@@ -414,7 +400,7 @@
 |#
  
  (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
-            (term (-- empty (pred empty? mt))))
+            (term (-- empty)))
  
  (test-->>p list-id-example-contract
             (term (-- (cons (-- 1)

@@ -175,6 +175,8 @@
   ;; drop boring contracts on concrete flat values
   [(remember-contract (-- FV C_1 ...) FC C ...)
    (remember-contract (-- FV C_1 ...) C ...)]
+  [(remember-contract (-- PV C_0 ...) (pred o? ℓ) C ...)
+   (remember-contract (-- PV C_0 ...) C ...)]
   ;; drop any/c on the floor when possible
   [(remember-contract (-- any/c C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
@@ -200,6 +202,8 @@
    (remember-contract (-- any_0 C_1 ...) C ...)])
 
 (test
+ (test-equal (term (remember-contract (-- (λ x x)) (pred proc? Λ)))
+             (term (-- (λ x x))))
  (test-equal (term (remember-contract (-- 1) nat/c))
              (term (-- 1)))
  
