@@ -32,4 +32,5 @@ f: (f 6 fred) is not in my domain
 - something like set-minus for non-terminals
 - add a #:title argument to traces to control the title of the window.
 - check syntax arrows for define-extended-language
+- mechanism for making whole reduction paths disappear
 - run FASTER!

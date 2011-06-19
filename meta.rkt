@@ -7,6 +7,11 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Metafunctions
 
+(define-metafunction λc~ 
+  ∈ : any (any ...) -> #t or #f
+  [(∈ any (any_0 ... (-- any) any_1 ...)) #t]
+  [(∈ any_0 any_1) #f])
+
 (define-metafunction λc~
   demonic : C -> L
   [(demonic any/c)
@@ -65,6 +70,7 @@
   proves-predicate : o? o? -> #t or #f
   [(proves-predicate o? o?) #t]
   [(proves-predicate zero? nat?) #t]
+  [(proves-predicate false? bool?) #t]
   [(proves-predicate o?_0 o?_1) #f])
 
 ;; Does satisfying C imply (negate o?)
@@ -84,7 +90,11 @@
    #t
    (side-condition (not (eq? (term o?) 'cons)))]
   [(refutes-con FC proc?) #t]
-  [(refutes-con (rec/c x C)) #f] ;; fixme
+  ;; missing nat/c refutes false? etc. 
+  ;; [holding off since we may elim base/c].
+  [(refutes-con (rec/c x C) o?) 
+   #f ;; fixme
+   #;(refutes-con (unroll (rec/c x C)) o?)]
   [(refutes-con C o?) #f])
 
 (define-metafunction λc~
@@ -97,8 +107,12 @@
   [(refutes-predicate nat? o?) #t]
   [(refutes-predicate zero? o?) #t]
   [(refutes-predicate proc? o?) #t]
+  [(refutes-predicate bool? false?) #f]
   [(refutes-predicate bool? o?) #t]
-  [(refutes-predicate string? o?) #t])
+  [(refutes-predicate string? o?) #t]
+  [(refutes-predicate false? bool?) #f]
+  [(refutes-predicate false? o?) #t])
+  
 
 ;; Totality tests
 (test
@@ -108,8 +122,8 @@
               (boolean? (term (refutes AV o?))))
  (redex-check λc~ (C o?)
               (boolean? (term (proves-con C o?))))
- (redex-check λc~ (C o?)
-              (boolean? (term (refutes-con C o?)))))
+ (redex-check λc~ (C_1 o?) ;; maybe restrict C_1 to valid?
+              (boolean? (term (refutes-con C_1 o?)))))
 
   
 ;; Note: (proves-con C o?) and (refutes-con C o?) *both* hold
@@ -383,6 +397,8 @@
   [(plain-δ cons? PV ℓ) #f]
   [(plain-δ nat? nat ℓ) #t]
   [(plain-δ nat? PV ℓ) #f]
+  [(plain-δ false? #f ℓ) #t]
+  [(plain-δ false? PV ℓ) #f]
   [(plain-δ add1 nat ℓ) ,(add1 (term nat))]
   [(plain-δ sub1 0 ℓ) 0]
   [(plain-δ sub1 nat ℓ) ,(sub1 (term nat))]
@@ -432,10 +448,16 @@
   [(abstract-δ o V_0 ... V V_1 ... ℓ)
    (V) ;; V is impossible, so why not?
    (where #t (impossible? V))]
+  
   ;; o?
+  [(abstract-δ o? V ℓ) 
+   ((-- #t) (-- #f))
+   (where #t (proves V o?))
+   (where #t (refutes V o?))]
   [(abstract-δ o? V ℓ) ((-- #t)) (where #t (proves V o?))]
   [(abstract-δ o? V ℓ) ((-- #f)) (where #t (refutes V o?))]
-  [(abstract-δ o? V ℓ) ((-- #t) (-- #f))]
+  [(abstract-δ o? V ℓ) 
+   ((-- #t) (-- #f))]
   
   ;; nat->nat
   [(abstract-δ nat->nat V ℓ)
@@ -602,6 +624,8 @@
              
  (test-equal (term (refutes-con nat/c proc?))
              #t)
+ 
+ (redex-check λc~ WFV (term (∈ #f (δ (@ proc? WFV ℓ)))))
  
  ;; Test for δ totalness.
  (redex-check λc~ (o1 V) (or (not (term (valid-value? V)))

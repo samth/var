@@ -24,7 +24,7 @@
   (V-or-x V x)
   
   ;; Values
-  (V WFV W)
+  ((U V) WFV W)
   
   (WFV (-- FV C* ...))
   
@@ -52,7 +52,7 @@
   (o1 o? nat->nat first rest)
   (nat->nat add1 sub1)
   ;; Built-in predicates
-  (o? zero? proc? empty? cons? nat? string? bool?)
+  (o? zero? proc? empty? cons? nat? string? bool? false?)
   (o2 nat*nat->nat nat*nat->bool cons)
   (nat*nat->nat + - * expt)
   (nat*nat->bool = < <= > >=)

@@ -17,17 +17,18 @@
         β)
    (--> (@ (-- (λ x_0 x_1 E) C ...) V ℓ) 
         (subst x_0 (-- (λ x_0 x_1 E) C ...) (subst x_1 V E)) 
-        β-rec)   
-   (--> (@ WFV V ℓ) (blame ℓ Λ WFV λ WFV) wrong)
+        β-rec)
    
+   (--> (@ V U ℓ)
+        (blame ℓ Λ V λ V)
+        (side-condition (term (∈ #f (δ (@ proc? V ★))))))      
    (--> (if V E_1 E_2) E_1
-        (where (-- PV C ...) V)
-        (side-condition (term PV))
+        (side-condition (term (∈ #f (δ (@ false? V ★)))))
         if-t)
-   (--> (if V E_1 E_2) E_2 
-        (where (-- PV C ...) V)
-        (side-condition (not (term PV)))
-        if-f)   
+   (--> (if V E_1 E_2) E_2
+        (side-condition (term (∈ #t (δ (@ false? V ★)))))
+        if-f)
+   
    (--> (@ o V ... ℓ)
         V-or-B
         (where (V-or-B_1 ... V-or-B V-or-B_2 ...)
@@ -153,41 +154,17 @@
         (where (C_0 ...) (range-contracts (C ...)))
         ;; abstract values as arguments go in the next case
         (side-condition (not (abstract-value? (term V))))
-        ;; if definitely flat, case is handled by `wrong' from `v'
-        (side-condition (not (redex-match λc~ WFV (term AV))))
-        apply-abs-concrete) 
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        apply-abs-concrete)
+   
    (--> (@ AV AV_0 ℓ)
         ;; don't care what bad things happen to abstract values, so we
         ;; don't simulate them
         (remember-contract (-- any/c) C_0 ...)
         (where (-- C ...) AV)
         (where (C_0 ...) (range-contracts (C ...)))
-        ;; if definitely flat, case is handled by `wrong' from `v'
-        (side-condition (not (redex-match λc~ WFV (term AV))))
-        apply-abs-abs)
-   
-   ;; applying abstract value that might be flat can fail
-   (--> (@ W? V ℓ)
-        (blame ℓ Λ W? λ W?)
-        ;; if it's not definitely a procedure, it might be flat        
-        (side-condition (not (redex-match λc~ W (term W?))))
-        apply-abs-fail)
-   ;; applying definitely flat values (those not in W?) is handled by
-   ;; `wrong' from `v'
-   
-   
-   ;; CONDITIONALS ON ABSTRACT VALUES
-   
-   (--> (if AV E_1 E_2)
-        E_2
-        ;; if AV is an int, string, or procedure, then it can't be #f
-        (side-condition (not (or (redex-match λc~ anat (term AV))
-                                 (redex-match λc~ astring (term AV))
-                                 (redex-match λc~ W (term AV)))))
-        if-abs-false)
-   (--> (if AV E_1 E_2)
-        E_1
-        if-abs-true)
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        apply-abs-abs) 
    
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
    

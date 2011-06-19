@@ -12,8 +12,8 @@
         (parameterize ([reduction-steps-cutoff 100]) 
           ;(step-it -->_vcc~Δ (term (ann [m ... e])))
           #,(if (attribute tr)
-                 #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e]))
-                    #;#;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
+                 #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e])))    
+                   ;;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
                  #'(apply values
                           (filter-not
                            (λ (p)
