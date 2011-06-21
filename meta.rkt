@@ -341,9 +341,6 @@
                      (-- (cons V_0 V_1) C ...)
                      E E_k)
    (flat-check/defun FLAT_0 V_0 (flat-check/defun FLAT_1 V_1 E E_k) E_k)]
-  [(flat-check/defun (cons/c C_0 C_1) V E E_k) 
-   (meta-defun-apply E_k (cons/c C_0 C_1) V)]
-  
   [(flat-check/defun (or/c FLAT_0 FLAT_1) V E E_k)
    (flat-check/defun FLAT_0 V
                    E
@@ -352,6 +349,7 @@
   [(flat-check/defun (and/c FLAT_0 FLAT_1) V E E_k)
    (flat-check/defun FLAT_0 V (flat-check/defun FLAT_1 V E E_k) E_k)]
   
+  ;; Eventually, these should go away when base/c goes away.
   [(flat-check/defun nat/c V E E_k) E (where #t (proves V nat?))]
   [(flat-check/defun string/c V E E_k) E (where #t (proves V string?))]
   [(flat-check/defun bool/c V E E_k) E (where #t (proves V bool?))]
