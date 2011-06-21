@@ -277,7 +277,7 @@
  (test-->>p (term (ann [(module p ((and/c nat/c nat/c) -> nat/c) ☁)
                         (p 1)]))
             (term (-- nat/c)))
- (test-->>p (term (ann [(module p ((orc/c nat/c nat/c) -> nat/c) ☁)
+ (test-->>p (term (ann [(module p ((or/c nat/c nat/c) -> nat/c) ☁)
                         (p 1)]))
             (term (-- nat/c))) 
  
