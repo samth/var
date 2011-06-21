@@ -315,6 +315,10 @@
                    (remember-contract V FLAT)
                    ,(λ (f v) (term (blame ℓ_1 ℓ_3 V-or-AE ,f ,v))))])
   
+;; the continuation ranges over (where f, v are the cont args, k the current cont):
+;; (blm l l v) => (blame l l v f v)
+;; (const E) => E
+
 (define-metafunction λc~
   flat-check/cps : FLAT V E any -> E
   [(flat-check/cps any/c V E any) E]  
@@ -331,11 +335,7 @@
   [(flat-check/cps (cons/c FLAT_0 FLAT_1)
                    (-- (cons V_0 V_1) C ...)
                    E any)
-   (flat-check/cps FLAT_0
-                   V_0
-                   (flat-check/cps FLAT_1 V_1 E 
-                                   ,(λ (f v) (term (meta-apply any ,f ,v))))
-                   ,(λ (f v) (term (meta-apply any ,f ,v))))]
+   (flat-check/cps FLAT_0 V_0 (flat-check/cps FLAT_1 V_1 E any) any)]
   [(flat-check/cps (cons/c C_0 C_1) V E any) 
    (meta-apply any (cons/c C_0 C_1) V)]
   
@@ -345,9 +345,7 @@
                    ,(λ (f v) (term (flat-check/cps FLAT_1 V E 
                                                    ,(λ (f v) (term (meta-apply any (or/c FLAT_0 FLAT_1) V)))))))]
   [(flat-check/cps (and/c FLAT_0 FLAT_1) V E any)
-   (flat-check/cps FLAT_0 V
-                   (flat-check/cps FLAT_1 V E ,(λ (f v) (term (meta-apply any ,f ,v))))
-                   ,(λ (f v) (term (meta-apply any ,f ,v))))]
+   (flat-check/cps FLAT_0 V (flat-check/cps FLAT_1 V E any) any)]
   
   [(flat-check/cps nat/c V E any) E (where #t (proves V nat?))]
   [(flat-check/cps string/c V E any) E (where #t (proves V string?))]
@@ -363,6 +361,8 @@
 
 (define-metafunction λc~
   meta-apply : any any ... -> any
+  [(meta-apply (ℓ_1 ℓ_2 V-or-AE) any_f any_v)
+   (blame ℓ_1 ℓ_2 V-or-AE any_f any_v)]
   [(meta-apply any_f any ...)
    ,(apply (term any_f) (term (any ...)))])
 
