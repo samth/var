@@ -334,8 +334,8 @@
    (flat-check/cps FLAT_0
                    V_0
                    (flat-check/cps FLAT_1 V_1 E 
-                                   ,(λ (f v) (term (meta-apply any FLAT_1 V_1))))
-                   ,(λ (f v) (term (meta-apply any FLAT_0 V_0))))]
+                                   ,(λ (f v) (term (meta-apply any ,f ,v))))
+                   ,(λ (f v) (term (meta-apply any ,f ,v))))]
   [(flat-check/cps (cons/c C_0 C_1) V E any) 
    (meta-apply any (cons/c C_0 C_1) V)]
   
@@ -343,11 +343,11 @@
    (flat-check/cps FLAT_0 V
                    E
                    ,(λ (f v) (term (flat-check/cps FLAT_1 V E 
-                                                   ,(λ (f v) (term (meta-apply any FLAT_1 V)))))))]
+                                                   ,(λ (f v) (term (meta-apply any (or/c FLAT_0 FLAT_1) V)))))))]
   [(flat-check/cps (and/c FLAT_0 FLAT_1) V E any)
    (flat-check/cps FLAT_0 V
-                   (flat-check/cps FLAT_1 V E ,(λ (f v) (term (meta-apply any FLAT_1 V))))
-                   ,(λ (f v) (term (meta-apply any FLAT_0 V))))]
+                   (flat-check/cps FLAT_1 V E ,(λ (f v) (term (meta-apply any ,f ,v))))
+                   ,(λ (f v) (term (meta-apply any ,f ,v))))]
   
   [(flat-check/cps nat/c V E any) E (where #t (proves V nat?))]
   [(flat-check/cps string/c V E any) E (where #t (proves V string?))]
@@ -395,7 +395,13 @@
              #t)
  (test-equal (term (flat-check/cps (rec/c x (or/c empty/c (cons/c nat/c x)))
                                    (-- (cons (-- "0") (-- empty))) #t ,(λ (f v) #f)))
-             #f))
+             #f)
+ 
+ (test-equal (term (flat-check ((cons/c (cons/c nat/c nat/c) nat/c) <= f1 f2 (-- 0) f1
+                                                                    (-- (cons (-- (cons (-- "s") (-- "t"))) (-- "u"))))))
+             (term (blame f1 f1 (-- 0) nat/c (-- "s"))))
+ 
+ )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; δ
