@@ -238,20 +238,21 @@
               (or (not (term (valid-value? V)))
                   (ormap not (term ((valid? C) ...)))
                   (redex-match λc~ V-or-AE (term (remember-contract V C ...))))))
-             
-
-;; If f refers to a module contract with an arrow contract, get 
-;; domain contract; otherwise, any/c.
-(define-metafunction λc~
-  dom-contract : f (M ...) -> C
-  [(dom-contract f (any_0 ... (module f (C_0 -> C_1) any) any_1 ...))
-   C_0]
-  [(dom-contract f any) any/c])
 
 (define-metafunction λc~
   strip-concrete-contracts : V -> AV or PV
   [(strip-concrete-contracts (-- PV C ...)) PV]
   [(strip-concrete-contracts AV) AV])
+
+;; All domain contracts of all function contracts in given contracts.
+(define-metafunction λc~
+  domain-contracts : (C ...) -> (C ...)
+  [(domain-contracts ()) ()]
+  [(domain-contracts ((C_1 -> C_2) C ...))
+   (C_1 C_0 ...)
+   (where (C_0 ...) (domain-contracts (C ...)))]
+  [(domain-contracts (C_0 C ...))
+   (domain-contracts (C ...))])
 
 ;; All range contracts of all function contracts in given contracts.
 (define-metafunction λc~
@@ -260,7 +261,24 @@
   [(range-contracts ((C_1 -> C_2) C ...))
    (C_2 C_0 ...)
    (where (C_0 ...) (range-contracts (C ...)))]
-  [(range-contracts (C_0 C ...)) (range-contracts (C ...))])
+  [(range-contracts (C_0 C ...)) 
+   (range-contracts (C ...))])
+
+(define-metafunction λc~
+  ∧ : (C ...) -> C
+  [(∧ ())  any/c]
+  [(∧ (C)) C]
+  [(∧ (C_0 C_1  ...))
+   (and/c C_0 (∧ (C_1 ...)))])
+
+(test
+ (test-equal (term (∧ ())) (term any/c))
+ (test-equal (term (∧ (nat/c))) (term nat/c))
+ (test-equal (term (∧ (nat/c string/c)))
+             (term (and/c nat/c string/c)))
+ (test-equal (term (∧ (nat/c string/c empty/c)))
+             (term (and/c nat/c (and/c string/c empty/c)))))
+ 
   
 ;; Does this value definitely pass this contract?
 (define-metafunction λc~
@@ -282,12 +300,6 @@
    (side-condition (not (eq? (term FC_1) (term FC_2))))]
   [(contract-not-in FC_1 (-- C_0 ... (C_a -> C_b) C_1 ...)) #t]
   [(contract-not-in C AV) #f])
-
-;; FIXME returns first domain, should return most specific.
-(define-metafunction λc~
-  most-specific-domain : C ... -> C
-  [(most-specific-domain (C_1 -> C_2) C ...) C_1]
-  [(most-specific-domain C ...) any/c])
 
 ;; Removes duplicate remembered contracts.
 (define-metafunction λc~

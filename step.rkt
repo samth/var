@@ -152,8 +152,7 @@
                ;; abstract value constranated by all possible domains
                (remember-contract (-- any/c) C_0 ...))
         (where (-- C ...) AV)
-        ;; TODO: implement \wedge and dom-contracts, kill most-specific
-        (where C_demon #;(∧ (dom-contracts (C ...))) (most-specific-domain C ...))
+        (where C_demon (∧ (domain-contracts (C ...))))
         (where (C_0 ...) (range-contracts (C ...)))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         apply-abs)
