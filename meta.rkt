@@ -22,13 +22,17 @@
 ;; Produce a function that will do "everything" it can
 ;; to its argument while treating it as a C.
 ;; The only important part is that functions are applied
-;; to all possible values.
+;; to all possible values.  Note that this requires traversing
+;; pairs.
 (define-metafunction λc~
   demonic : C -> L
   [(demonic any/c)
    (λ f x (if (@ proc? x ★) 
               (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
-              0))]
+              (if (@ cons? x ★)
+                  (begin (@ f (@ first x ★) ★)
+                         (@ f (@ rest x ★) ★))
+                  #t)))]
   [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
    (demonic any/c)]
   [(demonic nat/c) (λ x 0)]
