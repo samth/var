@@ -83,7 +83,7 @@
    (λ (f) (@ (demonic C_1) (@ f (-- C_0) ... ★) ★))
    (where f ,(gensym 'f))])
 
-;; Does o? hold on all values abstracted by AV
+;; Does o? hold on all values abstracted by V
 ;; [Gives an approximate answer: #f means "failed to prove"]
 (define-metafunction λc~
   proves : V o? -> #t or #f
@@ -322,6 +322,8 @@
   [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
                 (-- C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
    #t]
+  [(contract-in (pred o? ℓ) V)
+   (proves V o?)]  
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?
