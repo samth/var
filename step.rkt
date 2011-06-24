@@ -111,7 +111,7 @@
                    (@ (remember-contract V (pred proc? Λ))
                       (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
                       ...
-                      Λ))))       
+                      Λ))))
         (fresh ((x ...) (C_1 ...)))
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
         chk-fun-pass)
@@ -132,8 +132,8 @@
           (term (blame f f (-- 0) nat/c (-- #t))))
  (test--> c
           (term ((any/c  -> any/c) <= f g (-- 0) f (-- (λ (x) x))))
-          (term (-- (λ (y) (any/c <= f g (-- 0) f 
-                                  (@ (-- (λ (x) x)) (any/c <= g f y f y) Λ))))))
+          (term (-- (λ (x1) (any/c <= f g (-- 0) f 
+                                   (@ (-- (λ (x) x)) (any/c <= g f x1 f x1) Λ))))))
  (test--> c 
           (term ((any/c  -> any/c) <= f g (-- 0) f (-- 5)))
           (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
