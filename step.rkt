@@ -130,10 +130,10 @@
  (test--> c 
           (term (nat/c <= f g (-- 0) f (-- #t))) 
           (term (blame f f (-- 0) nat/c (-- #t))))
- (test--> c
+ (test--> c #:equiv (λ (t1 t2) (term (≡α ,t1 ,t2)))
           (term ((any/c  -> any/c) <= f g (-- 0) f (-- (λ (x) x))))
-          (term (-- (λ (x1) (any/c <= f g (-- 0) f 
-                                   (@ (-- (λ (x) x)) (any/c <= g f x1 f x1) Λ))))))
+          (term (-- (λ (z) (any/c <= f g (-- 0) f 
+                                  (@ (-- (λ (x) x)) (any/c <= g f z f z) Λ))))))
  (test--> c 
           (term ((any/c  -> any/c) <= f g (-- 0) f (-- 5)))
           (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
