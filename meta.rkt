@@ -40,6 +40,11 @@
   [(demonic* C V) ;; produces trivial expression
    (-- 0)])
 
+(define-metafunction λc~
+  amb : E E ... -> E
+  [(amb E) E]
+  [(amb E_1 E_2 ...) (if (-- any/c) E_1 (amb E_2 ...))])
+
 ;; Produce a function that will do "everything" it can
 ;; to its argument while treating it as a C.
 ;; The only important part is that functions are applied
@@ -51,8 +56,8 @@
    (λ f (x) (if (@ proc? x ★) 
                 (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
                 (if (@ cons? x ★)
-                    (begin (@ f (@ first x ★) ★)
-                           (@ f (@ rest x ★) ★))
+                    (amb (@ f (@ first x ★) ★)
+                         (@ f (@ rest x ★) ★))
                     #t)))]
   [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
    (demonic any/c)]
