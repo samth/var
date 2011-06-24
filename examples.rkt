@@ -10,7 +10,7 @@
 ;; Modified from Figure 8 in paper (8 -> #f).
 (define example-8-raw
   (term [(module f (any/c -> (any/c -> any/c)) (λ (x) x))
-         (module g ((pred (λ x x)) -> nat/c) (λ (x) 0))
+         (module g ((pred (λ (x) x)) -> nat/c) (λ (x) 0))
          (module h any/c (λ (z) ((f g) #f)))
          (h 0)]))
 
@@ -126,13 +126,11 @@
   (term [(module rev
            any/c
            (λ (ls)
-             (((λ r (ls)
-                 (λ (r*)
+             ((λ rev* (ls r*)
                    (if (empty? ls)
                        r*
-                       ((r (rest ls)) (cons (first ls) r*)))))             
-               ls)
-              empty)))
+                       (rev* (rest ls) (cons (first ls) r*))))
+               ls empty)))
          (rev (cons 1 (cons 2 (cons 3 empty))))]))
 
 (define cons/c-example-raw

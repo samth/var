@@ -17,5 +17,5 @@
 
 (test
  (test-predicate (redex-match λc 
-                              [(in-hole 𝓔 (blame h g (-- #f) (pred (λ x x) g) (-- #f)))])
+                              [(in-hole 𝓔 (blame h g (-- #f) (pred (λ (x) x) g) (-- #f)))])
                  (eval_vcΔ example-8)))
