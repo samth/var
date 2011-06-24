@@ -4,6 +4,27 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test meta)
 
+;; If there are multiple arrows, we (arbitrarily) take the first arity.
+(define-metafunction λc~
+  arity : V -> number or #f
+  [(arity (-- (λ x (x_0 ...) E) C ...))
+   ,(length (term (x_0 ...)))]
+  [(arity (-- (λ (x_0 ...) E) C ...))
+   ,(length (term (x_0 ...)))]
+  [(arity (-- (C_0 ... -> C_1) C ...))
+   ,(length (term (C_0 ...)))]
+  [(arity (-- C)) #f]
+  [(arity (-- C_0 C ...))
+   (arity (-- C ...))])
+  
+(test
+ (test-equal (term (arity (-- (λ () x)))) 0)
+ (test-equal (term (arity (-- (λ (x y z) x)))) 3)
+ (test-equal (term (arity (-- (nat/c nat/c -> nat/c)))) 2)
+ (test-equal (term (arity (-- string/c (nat/c nat/c -> nat/c)))) 2)
+ (test-equal (term (arity (-- (pred proc? f)))) #f))
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Metafunctions
 
@@ -26,22 +47,22 @@
 (define-metafunction λc~
   demonic : C -> L
   [(demonic any/c)
-   (λ f x (if (@ proc? x ★) 
-              (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
-              0))]
+   (λ f (x) (if (@ proc? x ★) 
+                (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
+                0))]
   [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
    (demonic any/c)]
-  [(demonic nat/c) (λ x 0)]
-  [(demonic string/c) (λ x 0)]
-  [(demonic bool/c) (λ x 0)]
+  [(demonic nat/c) (λ (x) 0)]
+  [(demonic string/c) (λ (x) 0)]
+  [(demonic bool/c) (λ (x) 0)]
   
   [(demonic (and/c C_0 C_1))
-   (λ x (begin (@ (demonic C_0) x ★)
-               (@ (demonic C_1) x ★)))]
+   (λ (x) (begin (@ (demonic C_0) x ★)
+                 (@ (demonic C_1) x ★)))]
   
   [(demonic (cons/c C_0 C_1))
-   (λ x (begin (@ (demonic C_0) (@ first x ★) ★)
-               (@ (demonic C_1) (@ rest x ★) ★)))]
+   (λ (x) (begin (@ (demonic C_0) (@ first x ★) ★)
+                 (@ (demonic C_1) (@ rest x ★) ★)))]
   
   [(demonic (or/c C_0 C_1))
    (demonic any/c)]  ;; Always safe, hard to do better.
@@ -49,8 +70,8 @@
   [(demonic (rec/c x C))
    (demonic any/c)]  ;; Safe.  What else could you do?
   
-  [(demonic (C_0 -> C_1)) 
-   (λ f (@ (demonic C_1) (@ f (-- C_0) ★) ★))
+  [(demonic (C_0 ... -> C_1)) 
+   (λ (f) (@ (demonic C_1) (@ f (-- C_0) ... ★) ★))
    (where f ,(gensym 'f))])
 
 ;; Does o? hold on all values abstracted by AV
@@ -88,7 +109,7 @@
    ,(or (term (proves-con C_0 o?))
         (term (proves-con C_1 o?)))]
   [(proves-con (cons/c C_0 C_1) cons?) #t]
-  [(proves-con (C_0 -> C_1) proc?) #t]
+  [(proves-con (C_0 ... -> C_1) proc?) #t]
   [(proves-con nat/c nat?) #t]
   [(proves-con C o?) #f])
 
@@ -102,8 +123,8 @@
 ;; Does satisfying C imply (negate o?)
 (define-metafunction λc~
   refutes-con : C o? -> #t or #f
-  [(refutes-con (C_0 -> C_1) proc?) #f]
-  [(refutes-con (C_0 -> C_1) o?) #t]
+  [(refutes-con (C_0 ... -> C_1) proc?) #f]
+  [(refutes-con (C_0 ... -> C_1) o?) #t]
   [(refutes-con (pred o?_0 ℓ) o?_1) 
    (refutes-predicate o?_0 o?_1)]
   [(refutes-con (or/c C_0 C_1) o?)
@@ -182,10 +203,10 @@
   feasible : C C -> #t or #f
   [(feasible FC (cons/c C_1 C_2)) #f]
   [(feasible (cons/c C_1 C_2) FC) #f]
-  [(feasible FC (C_1 -> C_2)) #f]
-  [(feasible (C_1 -> C_2) FC) #f]
-  [(feasible (cons/c C_a C_b) (C_1 -> C_2)) #f]
-  [(feasible (C_1 -> C_2) (cons/c C_a C_b)) #f]
+  [(feasible FC (C_1 ... -> C_2)) #f]
+  [(feasible (C_1 ... -> C_2) FC) #f]
+  [(feasible (cons/c C_a C_b) (C_1 ... -> C_2)) #f]
+  [(feasible (C_1 ... -> C_2) (cons/c C_a C_b)) #f]
   [(feasible FC_1 FC_2) ,(equal? (term FC_1) (term FC_2))]
   [(feasible C_1 C_2) #t])
   
@@ -228,8 +249,8 @@
    (remember-contract (-- any_0 C_1 ...) C ...)])
 
 (test
- (test-equal (term (remember-contract (-- (λ x x)) (pred proc? Λ)))
-             (term (-- (λ x x))))
+ (test-equal (term (remember-contract (-- (λ (x) x)) (pred proc? Λ)))
+             (term (-- (λ (x) x))))
  (test-equal (term (remember-contract (-- 1) nat/c))
              (term (-- 1)))
  
@@ -258,7 +279,7 @@
 (define-metafunction λc~
   range-contracts : (C ...) -> (C ...)
   [(range-contracts ()) ()]
-  [(range-contracts ((C_1 -> C_2) C ...))
+  [(range-contracts ((C_1 ... -> C_2) C ...))
    (C_2 C_0 ...)
    (where (C_0 ...) (range-contracts (C ...)))]
   [(range-contracts (C_0 C ...)) 
@@ -298,7 +319,7 @@
   contract-not-in : C AV -> #t or #f  
   [(contract-not-in FC_1 (-- C_0 ... FC_2 C_1 ...)) #t
    (side-condition (not (eq? (term FC_1) (term FC_2))))]
-  [(contract-not-in FC_1 (-- C_0 ... (C_a -> C_b) C_1 ...)) #t]
+  [(contract-not-in FC_1 (-- C_0 ... (C_a ... -> C_b) C_1 ...)) #t]
   [(contract-not-in C AV) #f])
 
 ;; Removes duplicate remembered contracts.
@@ -383,8 +404,8 @@
                                      #t
                                      #f))
              #t)
- (test-equal (term (flat-check/defun (pred (λ x x) ℓ) (-- 0) #t #f))
-             (term (if (@ (λ x x) (-- 0) ℓ)
+ (test-equal (term (flat-check/defun (pred (λ (x) x) ℓ) (-- 0) #t #f))
+             (term (if (@ (λ (x) x) (-- 0) ℓ)
                        #t
                        #f)))
  ;; recursive contracts

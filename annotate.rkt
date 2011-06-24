@@ -36,8 +36,10 @@
   [(ann-exp (begin RE_0 RE_1) ℓ (f ...))
    (begin (ann-exp RE_0 ℓ (f ...))
           (ann-exp RE_1 ℓ (f ...)))]  
-  [(ann-exp (λ x ... RE) ℓ (f ...))
-   (λ x ... (ann-exp RE ℓ (f ...)))]
+  [(ann-exp (λ (x ...) RE) ℓ (f ...))
+   (λ (x ...) (ann-exp RE ℓ (f ...)))]
+  [(ann-exp (λ x_f (x ...) RE) ℓ (f ...))
+   (λ x_f (x ...) (ann-exp RE ℓ (f ...)))]
   [(ann-exp FV ℓ (f ...)) FV]
   [(ann-exp (RE_0 RE_1 ...) ℓ (f ...))
    (@ (ann-exp RE_0 ℓ (f ...))

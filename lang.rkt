@@ -12,7 +12,7 @@
   ;; Annotated language
   (P (M ... E))
   (M (module f C PV))
-  (L (λ x E) (λ x x E))
+  (L (λ (x ...) E) (λ x (x ...) E)) 
   (W (-- L C* ...))
   (bool #t #f)
   ;; Plain value
@@ -29,13 +29,13 @@
   (WFV (-- FV C* ...))
   
   (SV L (f ^ f) o1) ; Syntactic values for pred.
-  (E V PV x (f ^ ℓ) (@ E E ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
+  (E V PV x (f ^ ℓ) (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
   (FLAT FLAT* x (and/c FLAT FLAT))
   (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
   
   (FLAT* FC any/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
-  (HOC* (C -> C)
+  (HOC* (C ... -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC)
         (rec/c x HOC))
@@ -86,7 +86,7 @@
   (C*-top FC 
           any/c 
           (pred SV ℓ)
-          (C -> C)
+          (C ... -> C)
           (cons/c C C))
   
   ;; Definite flat value contract
@@ -111,7 +111,7 @@
   ;; Definite procedure contract
   (WC! WC!* (and/c C WC!) (and/c WC! C))
   (WC!* WC!*-top (rec/c x WC!))
-  (WC!*-top (C -> C) (pred proc? ℓ))
+  (WC!*-top (C ... -> C) (pred proc? ℓ))
   
   ;; Definite procedure  
   (W .... (-- C*-top ... WC!*-top C*-top ...))
@@ -136,7 +136,7 @@
   ;; Raw, unannotated language
   (RP (RM ... RE))
   (RM (module f RC RPV) (module f RC ☁))
-  (RL (λ x RE) (λ x x RE))
+  (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
   (RSV RL f o1) ; Syntactic values for pred.
   (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
@@ -144,7 +144,7 @@
   
   (RCFLAT FC any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
-  (RCHOC (RC -> RC)
+  (RCHOC (RC ... -> RC)
          (or/c RCFLAT RCHOC)
          (cons/c RCHOC RC) (cons/c RC RCHOC)
          (and/c RCHOC RC)  (and/c RC RCHOC)
@@ -162,8 +162,8 @@
   [(productive? (cons/c C_1 C_2) x_0 ...)
    ,(and (term (productive? C_1))
          (term (productive? C_2)))]
-  [(productive? (C_1 -> C_2) x_0 ...)
-   ,(and (term (productive? C_1))
+  [(productive? (C_1 ... -> C_2) x_0 ...)
+   ,(and (andmap (λ (c) (term (productive? ,c))) (term (C_1 ...)))
          (term (productive? C_2)))]
   [(productive? (or/c C_1 C_2) x_0 ...)
    ,(and (term (productive? C_1 x_0 ...))
@@ -205,8 +205,8 @@
   [(FV/C (and/c C_1 C_2))
    ,(append (term (FV/C C_1))
          (term (FV/C C_2)))]
-  [(FV/C (C_1 -> C_2))
-   ,(append (term (FV/C C_1))
+  [(FV/C (C_1 ... -> C_2))
+   ,(append (apply append (map (λ (c) (term (FV/C ,c))) (term (C_1 ...))))
             (term (FV/C C_2)))]  
   [(FV/C C) ()])
 
