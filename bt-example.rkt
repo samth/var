@@ -11,20 +11,20 @@
 
 ;; Accessors
 (module num (node/c -> nat/c)
-  (λ nd
+  (λ (nd)
     (first nd)))
 
 (module left (node/c -> bt/c)
-  (λ nd
+  (λ (nd)
     (first (rest nd))))
 
 (module right (node/c -> bt/c)
-  (λ nd
+  (λ (nd)
     (rest (rest nd))))
 
 ;; First-order
 (module sum (bt/c -> nat/c)
-  (λ t
+  (λ (t)
     (if (nat? t)
         t
         (+ (num t)
@@ -33,8 +33,8 @@
 
 ;; Higher-order
 (module map ((nat/c -> nat/c) -> (bt/c -> bt/c))
-  (λ f
-    (λ t
+  (λ (f)
+    (λ (t)
       (if (nat? t)
           (f t)
           (cons (f (num t))
