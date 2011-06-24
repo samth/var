@@ -57,7 +57,7 @@
   (nat*nat->nat + - * expt)
   (nat*nat->bool = < <= > >=)
   
-  (𝓔 hole (@ 𝓔 E ℓ) (@ V 𝓔 ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
+  (𝓔 hole (@ V ... 𝓔 E ... ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
@@ -139,7 +139,7 @@
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
   (RSV RL f o1) ; Syntactic values for pred.
-  (RE RPV x f (RE RE) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
+  (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   
   (RCFLAT FC any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)

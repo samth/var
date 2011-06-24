@@ -32,14 +32,13 @@
               (sum (right t)))))))
 
 ;; Higher-order
-(module map ((nat/c -> nat/c) -> (bt/c -> bt/c))
-  (λ (f)
-    (λ (t)
-      (if (nat? t)
-          (f t)
-          (cons (f (num t))
-                (cons ((map f) (left t))
-                      ((map f) (right t))))))))
+(module map ((nat/c -> nat/c) bt/c -> bt/c)
+  (λ (f t)
+    (if (nat? t)
+        (f t)
+        (cons (f (num t))
+              (cons (map f (left t))
+                    (map f (right t)))))))
 
 (module n nat/c ☁)
 ;(left (cons n (cons n n)))
@@ -49,7 +48,7 @@
 ;(sum (cons 1 (cons 2 3)))
 ;=> 6
 
-;((map (λ x (+ 1 x))) (cons 1 (cons 2 3)))
+(map (λ (x) (+ 1 x)) (cons 1 (cons 2 3)))
 ;=> (cons 2 (cons 3 4))
  
 ;((map (λ x n)) (cons 1 (cons 2 3)))
@@ -59,8 +58,8 @@
 ;=> (-- nat/c)
 
 ;; doesn't work because we haven't got (-- rec/c) yet.
-(module bt bt/c ☁)
-(sum bt)
+;(module bt bt/c ☁)
+;(sum bt)
 
 
 ;(module c (cons/c nat/c (rec/c X (cons/c X X))) ☁)
