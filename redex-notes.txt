@@ -35,4 +35,6 @@ f: (f 6 fred) is not in my domain
 - mechanism for making whole reduction paths disappear
 - define-meta-shortcut (or define-metavariable, ie define-metafunction, 
   but makes an "identifier" metafunction)
+- test generation is strongly affected by production nesting;
+  moving bases case up (redundantly) helps and could be automated.
 - run FASTER!

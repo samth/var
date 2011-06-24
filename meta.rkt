@@ -20,8 +20,8 @@
 (test
  (test-equal (term (arity (-- (λ () x)))) 0)
  (test-equal (term (arity (-- (λ (x y z) x)))) 3)
- (test-equal (term (arity (-- (nat/c nat/c -> nat/c)))) 2)
- (test-equal (term (arity (-- string/c (nat/c nat/c -> nat/c)))) 2)
+ (test-equal (term (arity (-- ((nat/c) (nat/c) -> (nat/c))))) 2)
+ (test-equal (term (arity (-- (string/c) ((nat/c) (nat/c) -> (nat/c))))) 2)
  (test-equal (term (arity (-- (pred proc? f)))) #f))
 
 
@@ -43,7 +43,7 @@
 (define-metafunction λc~
   amb : E E ... -> E
   [(amb E) E]
-  [(amb E_1 E_2 ...) (if (-- any/c) E_1 (amb E_2 ...))])
+  [(amb E_1 E_2 ...) (if (-- (any/c)) E_1 (amb E_2 ...))])
 
 ;; Produce a function that will do "everything" it can
 ;; to its argument while treating it as a C.
@@ -52,18 +52,14 @@
 ;; pairs.
 (define-metafunction λc~
   demonic : C -> L
-  [(demonic any/c)
+  [(demonic FC) (λ (x) #t)]
+  [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
    (λ f (x) (if (@ proc? x ★) 
-                (@ f (@ x (-- any/c) ★) ★)  ;; want to add fact that x is a proc.
+                (@ f (@ x (-- (any/c)) ★) ★)  ;; want to add fact that x is a proc.
                 (if (@ cons? x ★)
                     (amb (@ f (@ first x ★) ★)
                          (@ f (@ rest x ★) ★))
-                    #t)))]
-  [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
-   (demonic any/c)]
-  [(demonic nat/c) (λ (x) 0)]
-  [(demonic string/c) (λ (x) 0)]
-  [(demonic bool/c) (λ (x) 0)]
+                    #t)))]  
   
   [(demonic (and/c C_0 C_1))
    (λ (x) (begin (@ (demonic C_0) x ★)
@@ -74,10 +70,10 @@
                  (@ (demonic C_1) (@ rest x ★) ★)))]
   
   [(demonic (or/c C_0 C_1))
-   (demonic any/c)]  ;; Always safe, hard to do better.
+   (demonic (any/c))]  ;; Always safe, hard to do better.
    
   [(demonic (rec/c x C))
-   (demonic any/c)]  ;; Safe.  What else could you do?
+   (demonic (any/c))]  ;; Safe.  What else could you do?
   
   [(demonic (C_0 ... -> C_1)) 
    (λ (f) (@ (demonic C_1) (@ f (-- C_0) ... ★) ★))
@@ -104,7 +100,13 @@
   [(refutes (-- C_0 ... C C_1 ...) o?) 
    #t
    (where #t (refutes-con C o?))]
+  [(refutes (-- PV C ...) o?)
+   #f
+   (where #f (plain-δ o? PV Λ))]   
   [(refutes V o?) #f])
+
+(test
+ (test-equal (term (refutes (-- 0) empty?)) #t))
 
 ;; Does satisfying C imply o?
 (define-metafunction λc~
@@ -119,7 +121,6 @@
         (term (proves-con C_1 o?)))]
   [(proves-con (cons/c C_0 C_1) cons?) #t]
   [(proves-con (C_0 ... -> C_1) proc?) #t]
-  [(proves-con nat/c nat?) #t]
   [(proves-con C o?) #f])
 
 (define-metafunction λc~
@@ -145,12 +146,8 @@
   [(refutes-con (cons/c C_0 C_1) o?) 
    #t
    (side-condition (not (eq? (term o?) 'cons)))]
-  [(refutes-con FC proc?) #t]
-  [(refutes-con nat/c cons?) #t]
-  ;; missing nat/c refutes false? etc. 
-  ;; [holding off since we may elim base/c].
   [(refutes-con (rec/c x C) o?) 
-   #f ;; fixme
+   #f ;; FIXME
    #;(refutes-con (unroll (rec/c x C)) o?)]
   [(refutes-con C o?) #f])
 
@@ -235,11 +232,11 @@
   [(remember-contract (-- PV C_0 ...) (pred o? ℓ) C ...)
    (remember-contract (-- PV C_0 ...) C ...)]
   ;; drop any/c on the floor when possible
-  [(remember-contract (-- any/c C C_1 ...) C_2 ...)
+  [(remember-contract (-- anyc C C_1 ...) C_2 ...)
    (remember-contract (-- C C_1 ...) C_2 ...)]
-  [(remember-contract (-- any/c) C C_2 ...)
+  [(remember-contract (-- anyc) C C_2 ...)
    (remember-contract (-- C) C_2 ...)]
-  [(remember-contract V any/c C_2 ...)
+  [(remember-contract V anyc C_2 ...)
    (remember-contract V C_2 ...)]
   ;; do the real work
   ;; forget duplicates
@@ -261,7 +258,7 @@
 (test
  (test-equal (term (remember-contract (-- (λ (x) x)) (pred proc? Λ)))
              (term (-- (λ (x) x))))
- (test-equal (term (remember-contract (-- 1) nat/c))
+ (test-equal (term (remember-contract (-- 1) (nat/c)))
              (term (-- 1)))
  
  ;; check that remember-contract is total and produces the right type
@@ -297,18 +294,18 @@
 
 (define-metafunction λc~
   ∧ : (C ...) -> C
-  [(∧ ())  any/c]
+  [(∧ ())  (any/c)]
   [(∧ (C)) C]
   [(∧ (C_0 C_1  ...))
    (and/c C_0 (∧ (C_1 ...)))])
 
 (test
- (test-equal (term (∧ ())) (term any/c))
- (test-equal (term (∧ (nat/c))) (term nat/c))
- (test-equal (term (∧ (nat/c string/c)))
-             (term (and/c nat/c string/c)))
- (test-equal (term (∧ (nat/c string/c empty/c)))
-             (term (and/c nat/c (and/c string/c empty/c)))))
+ (test-equal (term (∧ ())) (term (any/c)))
+ (test-equal (term (∧ ((nat/c)))) (term (nat/c)))
+ (test-equal (term (∧ ((nat/c) (string/c))))
+             (term (and/c (nat/c) (string/c))))
+ (test-equal (term (∧ ((nat/c) (string/c) (empty/c))))
+             (term (and/c (nat/c) (and/c (string/c) (empty/c))))))
  
   
 ;; Does this value definitely pass this contract?
@@ -328,11 +325,13 @@
 
 ;; Does this abstract value *definitely* fail this contract?
 (define-metafunction λc~
-  contract-not-in : C AV -> #t or #f  
-  [(contract-not-in FC_1 (-- C_0 ... FC_2 C_1 ...)) #t
-   (side-condition (not (eq? (term FC_1) (term FC_2))))]
-  [(contract-not-in FC_1 (-- C_0 ... (C_a ... -> C_b) C_1 ...)) #t]
-  [(contract-not-in C AV) #f])
+  contract-not-in : C V -> #t or #f  
+  [(contract-not-in (pred o? ℓ) V)
+   (refutes V o?)]
+  [(contract-not-in FC V)
+   #t
+   (where #t (proves V proc?))]
+  [(contract-not-in C V) #f])
 
 ;; Removes duplicate remembered contracts.
 (define-metafunction λc~
@@ -370,13 +369,13 @@
 
 (define-metafunction λc~
   flat-check/defun : FLAT V E E_k -> E
-  [(flat-check/defun any/c V E E_k) E]
+  [(flat-check/defun anyc V E E_k) E]
   [(flat-check/defun C V E E_k)
    E 
    (where #t (contract-in C V))]
-  [(flat-check/defun C AV E E_k)
-   (meta-defun-apply E_k C AV)
-   (where #t (contract-not-in C AV))]
+  [(flat-check/defun C V E E_k)
+   (meta-defun-apply E_k C V)
+   (where #t (contract-not-in C V))]
   [(flat-check/defun (pred SV ℓ) V E E_k)
    (if (@ SV V ℓ) 
        E 
@@ -394,12 +393,6 @@
   [(flat-check/defun (and/c FLAT_0 FLAT_1) V E E_k)
    (flat-check/defun FLAT_0 V (flat-check/defun FLAT_1 V E E_k) E_k)]
   
-  ;; Eventually, these should go away when base/c goes away.
-  [(flat-check/defun nat/c V E E_k) E (where #t (proves V nat?))]
-  [(flat-check/defun string/c V E E_k) E (where #t (proves V string?))]
-  [(flat-check/defun bool/c V E E_k) E (where #t (proves V bool?))]
-  [(flat-check/defun empty/c V E E_k) E (where #t (proves V empty?))]   
-  
   [(flat-check/defun (rec/c x C) V E E_k)
    (flat-check/defun (unroll (rec/c x C)) V E E_k)]
   
@@ -408,10 +401,10 @@
  
 (test
  (test-equal (term (proves (-- #t) bool?)) #t)
- (test-equal (term (flat-check/defun string/c (-- "Plain") #t #f)) #t)
- (test-equal (term (flat-check/defun bool/c (-- #t) #t #f)) #t)
- (test-equal (term (flat-check/defun any/c (-- 0) #t #f)) #t)
- (test-equal (term (flat-check/defun (cons/c nat/c nat/c)
+ (test-equal (term (flat-check/defun (string/c) (-- "Plain") #t #f)) #t)
+ (test-equal (term (flat-check/defun (bool/c) (-- #t) #t #f)) #t)
+ (test-equal (term (flat-check/defun (any/c) (-- 0) #t #f)) #t)
+ (test-equal (term (flat-check/defun (cons/c (nat/c) (nat/c))
                                      (-- (cons (-- 0) (-- 1)))
                                      #t
                                      #f))
@@ -421,25 +414,25 @@
                        #t
                        #f)))
  ;; recursive contracts
- (test-equal (term (flat-check/defun (rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
                                      (-- 0) #t #f))
              #f)
- (test-equal (term (flat-check/defun (rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
                                      (-- empty) #t #f))
              #t)
- (test-equal (term (flat-check/defun (rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
                                      (-- (cons (-- 0) (-- empty))) #t #f))
              #t)
- (test-equal (term (flat-check/defun (rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
                                      (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t #f))
              #t)
- (test-equal (term (flat-check/defun (rec/c x (or/c empty/c (cons/c nat/c x)))
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
                                      (-- (cons (-- "0") (-- empty))) #t #f))
              #f)
  
- (test-equal (term (flat-check ((cons/c (cons/c nat/c nat/c) nat/c) <= f1 f2 (-- 0) f1
+ (test-equal (term (flat-check ((cons/c (cons/c (nat/c) (nat/c)) (nat/c)) <= f1 f2 (-- 0) f1
                                                                     (-- (cons (-- (cons (-- "s") (-- "t"))) (-- "u"))))))
-             (term (blame f1 f1 (-- 0) nat/c (-- "s"))))
+             (term (blame f1 f1 (-- 0) (nat/c) (-- "s"))))
  
  )
 
@@ -570,7 +563,7 @@
   
   ;; nat*nat->nat
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   ((-- nat/c))
+   ((-- (nat/c)))
    (where #t (proves V_0 nat?))
    (where #t (proves V_1 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
@@ -580,15 +573,15 @@
    ((blame ℓ nat*nat->nat V_1 λ V_1))
    (where #t (refutes V_1 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   ((-- nat/c)
+   ((-- (nat/c))
     (blame ℓ nat*nat->nat V_1 λ V_1))
    (where #t (proves V_0 nat?))]  
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   ((-- nat/c)
+   ((-- (nat/c))
     (blame ℓ nat*nat->nat V_0 λ V_0))
    (where #t (proves V_1 nat?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
-   ((-- nat/c)
+   ((-- (nat/c))
     (blame ℓ nat*nat->nat V_0 λ V_0)
     (blame ℓ nat*nat->nat V_1 λ V_1))]
   
@@ -629,12 +622,12 @@
 (define-metafunction λc~
   proj-left : AV -> (V ...)
   [(proj-left (-- C_0 C ...))
-   (proj-left/a ((-- any/c)) C_0 C ...)])
+   (proj-left/a ((-- (any/c))) C_0 C ...)])
 
 (define-metafunction λc~
   proj-right : AV -> (V ...)
   [(proj-right (-- C_0 C ...))
-   (proj-right/a ((-- any/c)) C_0 C ...)])
+   (proj-right/a ((-- (any/c))) C_0 C ...)])
 
 (define-metafunction λc~
   proj-left/a : ((-- C ...) ...) C ... -> (V ...)
@@ -675,30 +668,30 @@
    (subst x (rec/c x C) C)])
 
 (test 
- (test-equal (term (δ (@ proc? (-- (any/c -> any/c)) †)))
+ (test-equal (term (δ (@ proc? (-- ((any/c) -> (any/c))) †)))
              (term ((-- #t))))
  
  (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
              (term ((-- (cons (-- 1) (-- 2))))))
  
- (test-equal (term (δ (@ proc? (-- nat/c) ★)))
+ (test-equal (term (δ (@ proc? (-- (nat/c)) ★)))
              (term ((-- #f))))
  
- (test-equal (term (δ (@ rest (-- (cons/c any/c any/c)) f))) 
-             (term ((-- any/c))))
- (test-equal (term (δ (@ rest (-- (cons/c any/c (or/c nat/c string/c))) f)))
-             (term ((-- nat/c) (-- string/c))))
+ (test-equal (term (δ (@ rest (-- (cons/c (any/c) (any/c))) f))) 
+             (term ((-- (any/c)))))
+ (test-equal (term (δ (@ rest (-- (cons/c (any/c) (or/c (nat/c) (string/c)))) f)))
+             (term ((-- (nat/c)) (-- (string/c)))))
  
- (test-equal (term (explode (or/c nat/c string/c)))
-             (term (nat/c string/c)))
+ (test-equal (term (explode (or/c (nat/c) (string/c))))
+             (term ((nat/c) (string/c))))
  
- (test-equal (term (proj-right (-- (cons/c any/c (or/c nat/c string/c)))))
-             (term ((-- nat/c) (-- string/c))))
+ (test-equal (term (proj-right (-- (cons/c (any/c) (or/c (nat/c) (string/c))))))
+             (term ((-- (nat/c)) (-- (string/c)))))
  
- (test-equal (term (refutes (-- nat/c) proc?))
+ (test-equal (term (refutes (-- (nat/c)) proc?))
              #t)
              
- (test-equal (term (refutes-con nat/c proc?))
+ (test-equal (term (refutes-con (nat/c) proc?))
              #t)
  
  (redex-check λc~ WFV (term (∈ #f (δ (@ proc? WFV ℓ)))))

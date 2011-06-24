@@ -34,15 +34,28 @@
   (FLAT FLAT* x (and/c FLAT FLAT))
   (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
   
-  (FLAT* FC any/c (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
+  (FLAT* FC (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
   (HOC* (C ... -> C)
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC)
         (rec/c x HOC))
      
-  (FC nat/c bool/c string/c empty/c)
+  (FC (pred nat? ℓ)
+      (pred bool? ℓ)
+      (pred string? ℓ)
+      (pred empty? ℓ)
+      (pred false? ℓ))
+  
   (C* FLAT* HOC*)  
-  (C FLAT HOC)
+  (C FLAT HOC
+     ;; Redundant [for random dist only]
+     (pred nat? ℓ)
+     (pred bool? ℓ)
+     (pred string? ℓ)
+     (pred empty? ℓ)
+     (pred false? ℓ))
+  
+  (anyc (pred (λ (x) #t) ℓ))  ;; Could improve by any constant that is not #f.
   
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned)
@@ -83,9 +96,7 @@
   
   ;; Representations of abstract values
   ;; no or/c or rec/c at top-level
-  (C*-top FC 
-          any/c 
-          (pred SV ℓ)
+  (C*-top (pred SV ℓ)
           (C ... -> C)
           (cons/c C C))
   
@@ -127,8 +138,7 @@
         (or/c FVC! WC!)
         (or/c WC! FVC!)       
         (rec/c x WC?))  
-  (WC?*-top any/c
-            (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ))
+  (WC?*-top (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ))
 
   ;; Maybe procedure
   (W? W (-- C*-top ... WC?*-top C*-top ...))
@@ -142,7 +152,7 @@
   (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   
-  (RCFLAT FC any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
+  (RCFLAT o? any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
   (RCHOC (RC ... -> RC)
          (or/c RCFLAT RCHOC)
@@ -173,16 +183,29 @@
          (term (productive? C_2 x_0 ...)))]
   [(productive? C x ...) #t])
 
-(test
- (test-equal (term (productive? any/c)) #t)
- (test-equal (term (productive? (rec/c x x))) #f)
- (test-equal (term (productive? (or/c any/c (rec/c x x)))) #f)
- (test-equal (term (productive? (rec/c x (or/c empty/c (cons/c any/c x))))) #t)
- (test-equal (term (productive? (any/c -> any/c))) #t)
- (test-equal (term (productive? (or/c (rec/c a a) (any/c -> any/c)))) #f))
+(define-syntax-rule 
+  (/c name p)  
+  (define-metafunction λc~
+    name : -> C
+    [(name) (pred p Λ)]))
+
+(/c any/c (λ (x) #t))
+(/c nat/c nat?)
+(/c string/c string?)
+(/c empty/c empty?)
+(/c bool/c bool?)
+(/c false/c false?)
 
 (test
- (test-equal (redex-match λc~ AV (term (-- any/c (and/c nat/c nat/c))))
+ (test-equal (term (productive? (pred (λ (x) #t) f))) #t)
+ (test-equal (term (productive? (rec/c x x))) #f)
+ (test-equal (term (productive? (or/c (any/c) (rec/c x x)))) #f)
+ (test-equal (term (productive? (rec/c x (or/c (empty/c) (cons/c (any/c) x))))) #t)
+ (test-equal (term (productive? ((any/c) -> (any/c)))) #t)
+ (test-equal (term (productive? (or/c (rec/c a a) ((any/c) -> (any/c))))) #f))
+
+(test
+ (test-equal (redex-match λc~ AV (term (-- (any/c) (and/c (nat/c) (nat/c)))))
              #f))
 
 (define abstract-value? (redex-match λc~ (-- C* ...)))
@@ -221,8 +244,8 @@
   
 (test
  (test-equal (term (FV/C a)) (term (a)))
- (test-equal (term (FV/C any/c)) (term ()))
- (test-equal (term (closed? any/c)) #t)
+ (test-equal (term (FV/C (any/c))) (term ()))
+ (test-equal (term (closed? (any/c))) #t)
  (test-equal (term (closed? a)) #f)
  (test-equal (term (closed? (rec/c a a))) #t)
  (test-equal (term (closed? (rec/c a b))) #f)
@@ -258,21 +281,21 @@
  
  (test-equal
   (redex-match λc~ HOC (term (cons/c
-                              nat/c
+                              (nat/c)
                               (cons/c
                                (rec/c
                                 X
                                 (or/c
-                                 nat/c
+                                 (nat/c)
                                  (cons/c
-                                  nat/c
+                                  (nat/c)
                                   (cons/c X X))))
                                (rec/c
                                 X
                                 (or/c
-                                 nat/c
+                                 (nat/c)
                                  (cons/c
-                                  nat/c
+                                  (nat/c)
                                   (cons/c X X))))))))
   #f)
  
