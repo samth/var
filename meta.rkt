@@ -146,6 +146,7 @@
    #t
    (side-condition (not (eq? (term o?) 'cons)))]
   [(refutes-con FC proc?) #t]
+  [(refutes-con nat/c cons?) #t]
   ;; missing nat/c refutes false? etc. 
   ;; [holding off since we may elim base/c].
   [(refutes-con (rec/c x C) o?) 
