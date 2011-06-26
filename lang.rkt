@@ -152,7 +152,7 @@
   (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   
-  (RCFLAT o? any/c  (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
+  (RCFLAT o? anything (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
   (RCHOC (RC ... -> RC)
          (or/c RCFLAT RCHOC)

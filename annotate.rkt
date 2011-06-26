@@ -63,6 +63,10 @@
 
 (define-metafunction λc~
   ann-con : RC ℓ (f ...) -> C  
+  [(ann-con o? ℓ (f ...))
+   (pred o? ℓ)]  
+  [(ann-con anything ℓ (f ...))
+   (pred (λ (x) #t) ℓ)]      
   [(ann-con (pred RL) ℓ (f ...))
    (pred (ann-exp RL ℓ (f ...)) ℓ)]
   [(ann-con (pred f) ℓ (f_0 ... f f_1 ...))
@@ -81,8 +85,14 @@
   [(ann-con (and/c RC_0 RC_1) ℓ (f ...))
    (and/c (ann-con RC_0 ℓ (f ...))
           (ann-con RC_1 ℓ (f ...)))]
-  [(ann-con (RC_0 -> RC_1) ℓ (f ...))
-   ((ann-con RC_0 ℓ (f ...)) -> (ann-con RC_1 ℓ (f ...)))]
+  [(ann-con (or/c RC_0 RC_1) ℓ (f ...))
+   (or/c (ann-con RC_0 ℓ (f ...))
+         (ann-con RC_1 ℓ (f ...)))]
+  [(ann-con (rec/c x RC) ℓ (f ...))
+   (rec/c x (ann-con RC ℓ (f ...)))]
+  
+  [(ann-con (RC_0 ... -> RC_1) ℓ (f ...))
+   ((ann-con RC_0 ℓ (f ...)) ... -> (ann-con RC_1 ℓ (f ...)))]
   [(ann-con RC ℓ (f ...)) RC])
 
 (test

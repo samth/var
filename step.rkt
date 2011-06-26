@@ -56,7 +56,7 @@
  (test--> v (term (@ proc? (-- #f) †)) (term (-- #f)))
  (test--> v (term (@ proc? (-- (λ (x) x)) †)) (term (-- #t)))
  (test--> v (term (@ proc? (-- (λ f (x) x)) †)) (term (-- #t)))
- (test--> v (term (@ proc? (-- (any/c -> any/c)) †)) (term (-- #t)))
+ (test--> v (term (@ proc? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
  (test--> v (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
  
  (test-->> -->_v (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
@@ -123,28 +123,28 @@
         chk-fun-fail-flat)))
 
 (test
- (test--> c (term (nat/c <= f g (-- 0) f (-- 5))) (term (-- 5)))
+ (test--> c (term (((nat/c)) <= f g (-- 0) f (-- 5))) (term (-- 5)))
  (test--> c 
-          (term (nat/c <= f g (-- 0) f (-- (λ (x) x))))
-          (term (blame f f (-- 0) nat/c (-- (λ (x) x)))))
+          (term (((nat/c)) <= f g (-- 0) f (-- (λ (x) x))))
+          (term (blame f f (-- 0) ((nat/c)) (-- (λ (x) x)))))
  (test--> c 
-          (term (nat/c <= f g (-- 0) f (-- #t))) 
-          (term (blame f f (-- 0) nat/c (-- #t))))
+          (term (((nat/c)) <= f g (-- 0) f (-- #t))) 
+          (term (blame f f (-- 0) ((nat/c)) (-- #t))))
  (test--> c #:equiv (λ (t1 t2) (term (≡α ,t1 ,t2)))
-          (term ((any/c  -> any/c) <= f g (-- 0) f (-- (λ (x) x))))
-          (term (-- (λ (z) (any/c <= f g (-- 0) f 
-                                  (@ (-- (λ (x) x)) (any/c <= g f z f z) Λ))))))
+          (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
+          (term (-- (λ (z) ((any/c) <= f g (-- 0) f 
+                                  (@ (-- (λ (x) x)) ((any/c) <= g f z f z) Λ))))))
  (test--> c 
-          (term ((any/c  -> any/c) <= f g (-- 0) f (-- 5)))
-          (term (blame f f (-- 0) (any/c -> any/c) (-- 5))))
+          (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
+          (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
  (test--> c
           (term ((pred (λ (x) 0) ℓ) <= f g (-- 0) f (-- 5)))
           (term (if (@ (λ (x) 0) (-- 5) ℓ)
                     (-- 5 (pred (λ (x) 0) ℓ))
                     (blame f f (-- 0) (pred (λ (x) 0) ℓ) (-- 5)))))
  (test--> c
-          (term ((and/c nat/c empty/c) <= f g (-- 0) f (-- #t)))
-          (term (blame f f (-- 0) nat/c (-- #t)))))
+          (term ((and/c (nat/c) (empty/c)) <= f g (-- 0) f (-- #t)))
+          (term (blame f f (-- 0) ((nat/c)) (-- #t)))))
                
 (define c~
   (reduction-relation
@@ -157,7 +157,7 @@
         ;; do bad things in case of a concrete value
         (begin (demonic* C_demon V)
                ;; abstract value constranated by all possible domains
-               (remember-contract (-- any/c) C_0 ...))
+               (remember-contract (-- (any/c)) C_0 ...))
         (where (-- C ...) AV)
         (where C_demon (∧ (domain-contracts (C ...))))
         (where (C_0 ...) (range-contracts (C ...)))
@@ -179,12 +179,12 @@
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
    (--> (-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...)
-        (remember-contract (-- any/c C_0 ... C ...) C_2)
+        (remember-contract (-- (any/c) C_0 ... C ...) C_2)
         (side-condition (term (valid? C_2)))
         abs-or/c-split)
    
    (--> (-- C_0 ... (rec/c x C_1) C ...)
-        (remember-contract (-- any/c C_0 ... C ...)  (unroll (rec/c x C_1)))
+        (remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)))
    
@@ -204,12 +204,12 @@
         Δ-other)))
 
 (test
- (test--> (∆ (term [(module f any/c 0)]))
+ (test--> (∆ (term [(module f (any/c) 0)]))
           (term (f ^ f))
           (term (-- 0)))
- (test--> (∆ (term [(module f any/c 0)]))
+ (test--> (∆ (term [(module f (any/c) 0)]))
           (term (f ^ g))
-          (term (any/c <= f g (-- 0) f (-- 0)))))
+          (term ((any/c) <= f g (-- 0) f (-- 0)))))
 
 (define (Δ~ Ms)
   (union-reduction-relations
@@ -223,19 +223,19 @@
          ∆-opaque))))
 
 (test
- (test--> (context-closure (Δ~ (term [(module prime? any/c ☁)])) λc~ 𝓔)
+ (test--> (context-closure (Δ~ (term [(module prime? (any/c) ☁)])) λc~ 𝓔)
           (term (@ (prime? ^ rsa)
                    (-- (pred (prime? ^ keygen) keygen)) Λ))         
-          (term (@ (any/c <= prime? rsa (-- any/c) prime? (-- any/c))
+          (term (@ ((any/c) <= prime? rsa (-- (any/c)) prime? (-- (any/c)))
                    (-- (pred (prime? ^ keygen) keygen)) Λ)))
  
- (test--> (Δ~ (term [(module prime? any/c ☁)]))
+ (test--> (Δ~ (term [(module prime? (any/c) ☁)]))
           (term (prime? ^ rsa))
-          (term (any/c <= prime? rsa (-- any/c) prime? (-- any/c))))
+          (term ((any/c) <= prime? rsa (-- (any/c)) prime? (-- (any/c)))))
  
- (test--> (Δ~ (term [(module f any/c ☁)]))
+ (test--> (Δ~ (term [(module f (any/c) ☁)]))
           (term (f ^ g))
-          (term (any/c <= f g (-- any/c) f (-- any/c)))))
+          (term ((any/c) <= f g (-- (any/c)) f (-- (any/c))))))
 
 ;; when we get blame, discard the context
 (define error-propagate
@@ -277,40 +277,39 @@
 
 (test 
  ;; testing demonic
- (test-->>p (term (ann [(module p ((cons/c nat/c nat/c) -> nat/c) ☁)
+ (test-->>p (term (ann [(module p ((cons/c (nat/c) (nat/c)) -> (nat/c)) ☁)
                         (p (cons 1 2))]))
-            (term (-- nat/c))) 
- (test-->>p (term (ann [(module p ((and/c nat/c nat/c) -> nat/c) ☁)
+            (term (-- (nat/c)))) 
+ (test-->>p (term (ann [(module p ((and/c (nat/c) (nat/c)) -> (nat/c)) ☁)
                         (p 1)]))
-            (term (-- nat/c)))
- (test-->>p (term (ann [(module p ((or/c nat/c nat/c) -> nat/c) ☁)
+            (term (-- (nat/c))))
+ (test-->>p (term (ann [(module p ((or/c (nat/c) (nat/c)) -> (nat/c)) ☁)
                         (p 1)]))
-            (term (-- nat/c))) 
+            (term (-- (nat/c)))) 
  (test-->>p (term [(string/c <= |†| rsa (-- "Plain") rsa (-- "Plain"))])
             (term (-- "Plain"))) 
  (test-->>p (term [(@ (-- (λ (o) (b ^ o))) (-- "") sN)])
             (term (b ^ o))) 
  (test-->>p (term [(@ (-- (λ (o) (@ 4 5 o))) (-- "") sN)])
             (term (blame o Λ (-- 4) λ (-- 4)))) 
- (test-->>p (term (ann [(module n (and/c nat/c nat/c) 1) n]))
+ (test-->>p (term (ann [(module n (and/c (nat/c) (nat/c)) 1) n]))
             (term (-- 1))) 
- (test-->>p (term (ann [(module n (and/c nat/c (pred (λ (x) (= x 7)))) 7) n]))
+ (test-->>p (term (ann [(module n (and/c (nat/c) (pred (λ (x) (= x 7)))) 7) n]))
             (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
- (test-->>p (term (ann [(module n (and/c nat/c (pred (λ (x) (= x 8)))) 7) n]))
+ (test-->>p (term (ann [(module n (and/c (nat/c) (pred (λ (x) (= x 8)))) 7) n]))
             (term (blame n n (-- 7) (pred (λ (x) (@ = x 8 n)) n) (-- 7))))
- (test-->>p (term (ann [(module n (and/c nat/c (pred (λ (x) (= x 8)))) "7") n]))
-            (term (blame n n (-- "7") nat/c (-- "7"))))
+ (test-->>p (term (ann [(module n (and/c (nat/c) (pred (λ (x) (= x 8)))) "7") n]))
+            (term (blame n n (-- "7") (nat/c) (-- "7"))))
  (test-->>p fit-example (term (-- string/c)))
  (test-->>p fit-example-keygen-string
-            (term (blame keygen prime? (-- "Key") nat/c (-- "Key"))))
+            (term (blame keygen prime? (-- "Key") (nat/c) (-- "Key"))))
  (test-->>p fit-example-rsa-7
             (term (-- string/c))
             (term (blame keygen keygen (-- (λ (x) 7)) (pred (prime? ^ keygen) keygen) (-- 7)))) 
  (test-->>p example-8 (term (blame h g (-- #f) (pred (λ (x) x) g) (-- #f))))
- ;; FIXME This test diverges
  (test-->>p example-8-opaque 
-            (term (-- any/c))
-            (term (blame h g (-- any/c) (pred (λ (x) x) g) (-- any/c))))
+            (term (-- (any/c)))
+            (term (blame h g (-- (any/c)) (pred (λ (x) x) g) (-- (any/c)))))
  (test-->>p list-id-example (term (-- (cons (-- 1) 
                                             (-- (cons (-- 2) 
                                                       (-- (cons (-- 3) (-- empty))))))))) 
@@ -321,14 +320,14 @@
                                                 (-- empty)))))))))
  
  ;; Not sure about the remembered contracts in these examples. 
- (test-->>p (term (ann [(module n nat/c 5) n]))
+ (test-->>p (term (ann [(module n (nat/c) 5) n]))
             (term (-- 5))) 
  (test-->>p (term (ann [(module p
-                          (cons/c nat/c nat/c)
+                          (cons/c (nat/c) (nat/c))
                           (cons (-- 1) (-- 2)))
                         p]))
             (term (-- (cons (-- 1) (-- 2)) 
-                      (cons/c nat/c nat/c))))
+                      (cons/c (nat/c) (nat/c)))))
  (test-->>p (term (ann [(module p
                           (pred (λ (x) (if (cons? x)
                                            (= (first x)
@@ -345,57 +344,45 @@
                                        #f))
                             p))))
  (test-->>p (term (ann [(module p
-                          (and/c (cons/c nat/c nat/c)
+                          (and/c (cons/c (nat/c) (nat/c))
                                  (pred (λ (x) (= (first x) (rest x)))))
                           (cons (-- 1) (-- 1)))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
-                      (cons/c nat/c nat/c) 
+                      (cons/c (nat/c) (nat/c)) 
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p))))
  
  ;; Swap of and/c arguments above
  (test-->>p (term (ann [(module p
                           (and/c (pred (λ (x) (= (first x) (rest x))))
-                                 (cons/c nat/c nat/c))                                
+                                 (cons/c (nat/c) (nat/c)))                                
                           (cons (-- 1) (-- 1)))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p)
-                      (cons/c nat/c nat/c))))
+                      (cons/c (nat/c) (nat/c)))))
  
  (test-->>p (term (ann [(module p
-                          (cons/c nat/c nat/c)
+                          (cons/c (nat/c) (nat/c))
                           (cons (-- 1) (-- 2)))
                         (first p)]))
             (term (-- 1)))
  (test-->>p (term (ann [(module p
-                          (cons/c nat/c nat/c)
+                          (cons/c (nat/c) (nat/c))
                           (cons (-- "hi") (-- 2)))
                         (first p)]))
-            (term (blame p p (-- (cons (-- "hi") (-- 2))) nat/c (-- "hi"))))
+            (term (blame p p (-- (cons (-- "hi") (-- 2))) (nat/c) (-- "hi"))))
  
  (test-->>p (term (ann [(module p
-                          (cons/c (any/c -> nat/c) any/c)
+                          (cons/c ((any/c) -> (nat/c)) (any/c))
                           (cons (-- (λ (x) "hi"))
                                 (-- 7)))
                         ((first p) 7)]))
             (term (blame p p (-- (cons (-- (λ (x) "hi"))
                                        (-- 7)))
-                         nat/c
+                         (nat/c)
                          (-- "hi"))))
- 
- #|
- (test-->>p (term (ann [(module n (or/c  nat/c) 5) n]))
-            (term (-- 5  (or/c ,none/c nat/c))))
- (test-->>p (term (ann [(module n (or/c nat/c ,none/c-raw) 5) n]))
-            (term (-- 5)))
- (test-->>p (term (ann [(module n (or/c nat/c (,none/c -> ,none/c)) 5) n]))
-            (term (-- 5)))
- (test-->>p (term (ann [(module f (or/c nat/c (,none/c -> ,none/c)) (λ x x)) f]))
-            (term (-- (λ y (,none/c <= f † (-- (λ x x)) f 
-                                   (@ (-- (λ x x)) 
-                                      (,none/c <= † f y f y) Λ))))))
-|#
+
  
  (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
             (term (-- empty)))
