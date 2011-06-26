@@ -1,6 +1,8 @@
 #lang s-exp "verified.rkt" trace
 ;; Binary trees
 
+(define-contract nat/c nat?)
+
 (define-contract bt/c
   (rec/c X 
          (or/c nat/c
@@ -49,6 +51,7 @@
 ;=> 6
 
 (map (λ (x) (+ 1 x)) (cons 1 (cons 2 3)))
+;(map (λ (x) (+ 1 x)) 7)
 ;=> (cons 2 (cons 3 4))
  
 ;((map (λ x n)) (cons 1 (cons 2 3)))

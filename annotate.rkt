@@ -6,8 +6,8 @@
 
 (define-metafunction λc~
   ann/define-contract : (any ...) -> P
-  [(ann/define-contract ((define-contract x C) any ...))
-   (ann/define-contract (subst x C (any ...)))]
+  [(ann/define-contract ((define-contract x RC) any ...))
+   (ann/define-contract (subst x RC (any ...)))]
   [(ann/define-contract (any ...))
    (ann (any ...))])
            
