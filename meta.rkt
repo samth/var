@@ -101,7 +101,7 @@
    #t
    (where #t (refutes-con C o?))]
   [(refutes (-- PV C ...) o?)
-   #f
+   #t
    (where #f (plain-δ o? PV Λ))]   
   [(refutes V o?) #f])
 
@@ -224,8 +224,8 @@
   remember-contract : V-or-AE C ... -> V or AE
   [(remember-contract V-or-AE) V-or-AE]
   ;; Expand away and/c
-  [(remember-contract V (and/c C_1 C_2) C ...)
-   (remember-contract V C_1 C_2 C ...)]
+  [(remember-contract V-or-AE (and/c C_1 C_2) C ...)
+   (remember-contract V-or-AE C_1 C_2 C ...)]
   ;; drop boring contracts on concrete flat values
   [(remember-contract (-- FV C_1 ...) FC C ...)
    (remember-contract (-- FV C_1 ...) C ...)]
@@ -324,6 +324,7 @@
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?
+;; FIXME do more here (or/c, rec/c, etc.)
 (define-metafunction λc~
   contract-not-in : C V -> #t or #f  
   [(contract-not-in (pred o? ℓ) V)
@@ -331,7 +332,17 @@
   [(contract-not-in FC V)
    #t
    (where #t (proves V proc?))]
+  [(contract-not-in (and/c C_1 C_2) V)
+   ,(or (term (contract-not-in C_1 V))
+        (term (contract-not-in C_2 V)))]
   [(contract-not-in C V) #f])
+
+;; Uncomment when contract-not-in is complete(r).
+#;
+(test 
+ (test-equal (term (contract-not-in (rec/c x (or/c (pred empty? Λ) (cons/c (pred nat? Λ) x))) (-- 0)))
+             #t))
+      
 
 ;; Removes duplicate remembered contracts.
 (define-metafunction λc~
@@ -515,7 +526,7 @@
 (define-metafunction λc~
   abstract-δ : o V ... ℓ -> (V-or-B V-or-B ...)
   [(abstract-δ o V_0 ... V V_1 ... ℓ)
-   (V) ;; V is impossible, so why not?
+   ((-- #f)) ;; V is impossible, so why not?
    (where #t (impossible? V))]
   
   ;; o?
