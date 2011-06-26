@@ -384,14 +384,15 @@
   [(flat-check/defun C V E E_k)
    E 
    (where #t (contract-in C V))]
+  [(flat-check/defun (and/c FLAT_0 FLAT_1) V E E_k)
+   (flat-check/defun FLAT_0 V (flat-check/defun FLAT_1 V E E_k) E_k)]
   [(flat-check/defun C V E E_k)
    (meta-defun-apply E_k C V)
    (where #t (contract-not-in C V))]
   [(flat-check/defun (pred SV ℓ) V E E_k)
    (if (@ SV V ℓ) 
        E 
-       (meta-defun-apply E_k (pred SV ℓ) V))]
-  
+       (meta-defun-apply E_k (pred SV ℓ) V))]  
   [(flat-check/defun (cons/c FLAT_0 FLAT_1)
                      (-- (cons V_0 V_1) C ...)
                      E E_k)
@@ -400,18 +401,16 @@
    (flat-check/defun FLAT_0 V
                    E
                    (flat-check/defun FLAT_1 V E 
-                                     (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]
-  [(flat-check/defun (and/c FLAT_0 FLAT_1) V E E_k)
-   (flat-check/defun FLAT_0 V (flat-check/defun FLAT_1 V E E_k) E_k)]
-  
+                                     (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
   [(flat-check/defun (rec/c x C) V E E_k)
-   (flat-check/defun (unroll (rec/c x C)) V E E_k)]
-  
+   (flat-check/defun (unroll (rec/c x C)) V E E_k)]  
   [(flat-check/defun FLAT V E E_k) 
    (meta-defun-apply E_k FLAT V)])
  
 (test
  (test-equal (term (proves (-- #t) bool?)) #t)
+ (test-equal (term (flat-check ((and/c (pred nat? f) (pred empty? f)) <= f1 f2 (-- "V") f1 (-- #t))))
+             (term (blame f1 f1 (-- "V") (pred nat? f) (-- #t))))
  (test-equal (term (flat-check/defun (string/c) (-- "Plain") #t #f)) #t)
  (test-equal (term (flat-check/defun (bool/c) (-- #t) #t #f)) #t)
  (test-equal (term (flat-check/defun (any/c) (-- 0) #t #f)) #t)
@@ -423,7 +422,7 @@
  (test-equal (term (flat-check/defun (pred (λ (x) x) ℓ) (-- 0) #t #f))
              (term (if (@ (λ (x) x) (-- 0) ℓ)
                        #t
-                       #f)))
+                       #f)))             
  ;; recursive contracts
  (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
                                      (-- 0) #t #f))
