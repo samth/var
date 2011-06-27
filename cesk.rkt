@@ -13,7 +13,7 @@
      (op o clo ... E ... ρ ℓ a)
      (let x E ρ a)
      (beg E ρ a)
-     (chk C ℓ ℓ V ℓ a))  ;; V?
+     (chk C ℓ ℓ V-or-AE ℓ a))  ;; V?
   
   (a any)
   (ρ ((x a) ...))
@@ -159,6 +159,57 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         (where (a_0) (alloc σ (x)))
         let)  
+   
+   
+   ;; Contract checking
+   
+   (--> (V ρ σ (chk FLAT ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+        ((flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        flat-check)
+   
+   (--> (V ρ σ (chk (or/c FLAT HOC) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+        ((flat-check/defun FLAT V (remember-contract V FLAT) (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        check-or-pass)
+   
+   (--> (V ρ σ (chk (and/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+             (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
+         ρ σ K)
+        (where HOC (and/c C_0 C_1))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        check-and-pass)
+   
+    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((@ cons 
+           (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
+           (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
+           Λ)
+         ρ σ K)
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        (where HOC (cons/c C_0 C_1))
+        check-cons-pass)
+    
+    (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+         ((-- (λ (x ...)
+               (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+                    (@ (remember-contract V (pred proc? Λ))
+                       (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
+                       ...
+                       Λ))))
+          ρ σ K)
+         (fresh ((x ...) (C_1 ...)))
+         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+         chk-fun-pass)
+    
+    (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+         ((blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> C_2) V) ρ σ K)
+         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
+         chk-fun-fail-flat)
+    
 
    ;; Context shuffling
    
@@ -198,7 +249,13 @@
         (E_0 ρ σ_0 (let x E_1 ρ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto σ (a) (K)))
-        let-push)))
+        let-push)
+   
+   (--> ((C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E) ρ σ K)
+        (E ρ σ_0 (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where (a) (alloc σ (K)))
+        (where σ_0 (extend-sto σ (a) (K)))
+        chk-push)))
 
 (define (f e)
   (traces step
