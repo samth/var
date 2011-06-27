@@ -1,6 +1,6 @@
 #lang racket
 (require (except-in redex plug))
-(require "lang.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt")
+(require "lang.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
@@ -94,7 +94,8 @@
    (--> (x ρ σ K)
         (V ρ_0 σ K)
         (where (D_0 ... (V ρ_0) D_1 ...)
-               (sto-lookup σ (env-lookup ρ x))))
+               (sto-lookup σ (env-lookup ρ x)))
+        var)
    
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
    
@@ -281,6 +282,12 @@
         (where σ_0 (extend-sto σ (a) (K)))
         let-push)
    
+   (--> ((C <= ℓ_1 ℓ_2 x ℓ_3 E) ρ σ K)
+        ((C <= ℓ_1 ℓ_2 V ℓ_3 E) ρ σ K)
+        (where (D_0 ... (V ρ_0) D_1 ...)
+               (sto-lookup σ (env-lookup ρ x)))
+        chk-subst)
+   
    (--> ((C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E) ρ σ K)
         (E ρ σ_0 (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a) (alloc σ (K)))
@@ -311,10 +318,37 @@
          (side-condition (not (eq? (term f) (term ℓ))))
          ∆-opaque))))
 
-(define (f e)
-  (traces step
-          (term (load (ann-exp ,e † ())))))
+(define error-propagate
+  (reduction-relation 
+   CESK* #:domain ς
+   (--> (B ρ σ K) (B () σ mt)
+        (side-condition (not (equal? (term K) (term mt))))
+        halt-blame)))
 
+(define (stepΔ Ms)
+  (union-reduction-relations error-propagate step (Δ~ Ms)))
+
+(define-syntax-rule (trace-it P . rest)
+  (traces (stepΔ (all-but-last P))
+          (term (load ,(last P)))
+          . rest))
+
+#|
+(trace-it fit-example)
+(trace-it fit-example-rsa-7)
+(trace-it fit-example-keygen-string)
+(trace-it example-8)
+(trace-it example-8-opaque)
+(trace-it list-id-example)
+(trace-it (term (ann ,cons/c-example-raw)))
+|#
+
+
+(define-syntax-rule (test-->>p P e ...)
+  (test-->> (stepΔ (all-but-last P))
+            #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
+            (term (load ,(last P)))
+            (term (load ,e)) ...))
 
 (define-syntax-rule (test-->>c r t1 t2)
   (test-->> r #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
@@ -373,3 +407,123 @@
 
 
 
+
+(test 
+ ;; testing demonic
+ (test-->>p (term (ann [(module p ((cons/c nat? nat?) -> nat?) ☁)
+                        (p (cons 1 2))]))
+            (term (-- (pred nat? p)))) 
+ (test-->>p (term (ann [(module p ((and/c nat? nat?) -> nat?) ☁)
+                        (p 1)]))
+            (term (-- (pred nat? p))))
+ (test-->>p (term (ann [(module p ((or/c nat? nat?) -> nat?) ☁)
+                        (p 1)]))
+            (term (-- (pred nat? p)))) 
+ (test-->>p (term [((string/c) <= |†| rsa (-- "Plain") rsa (-- "Plain"))])
+            (term (-- "Plain"))) 
+ (test-->>p (term [(@ (-- (λ (o) (b ^ o))) (-- "") sN)])
+            (term (b ^ o))) 
+ (test-->>p (term [(@ (-- (λ (o) (@ 4 5 o))) (-- "") sN)])
+            (term (blame o Λ (-- 4) λ (-- 4)))) 
+ (test-->>p (term (ann [(module n (and/c nat? nat?) 1) n]))
+            (term (-- 1))) 
+ (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 7)))) 7) n]))
+            (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
+ (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 8)))) 7) n]))
+            (term (blame n n (-- 7) (pred (λ (x) (@ = x 8 n)) n) (-- 7))))
+ (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 8)))) "7") n]))
+            (term (blame n n (-- "7") (pred nat? n) (-- "7"))))
+ (test-->>p fit-example (term (-- (pred string? rsa))))
+ (test-->>p fit-example-keygen-string
+            (term (blame keygen prime? (-- "Key") (pred nat? prime?) (-- "Key"))))
+ (test-->>p fit-example-rsa-7
+            (term (-- (pred string? rsa)))
+            (term (blame keygen keygen (-- (λ (x) 7)) (pred (prime? ^ keygen) keygen) (-- 7)))) 
+ (test-->>p example-8 (term (blame h g (-- #f) (pred (λ (x) x) g) (-- #f))))
+ (test-->>p example-8-opaque 
+            (term (-- (any/c)))
+            (term (blame h g (-- (any/c)) (pred (λ (x) x) g) (-- (any/c)))))
+ (test-->>p list-id-example (term (-- (cons (-- 1) 
+                                            (-- (cons (-- 2) 
+                                                      (-- (cons (-- 3) (-- empty))))))))) 
+ (test-->>p (term (ann ,list-rev-example-raw))
+            (term (-- (cons (-- 3)
+                            (-- (cons (-- 2)
+                                      (-- (cons (-- 1)
+                                                (-- empty)))))))))
+ 
+ ;; Not sure about the remembered contracts in these examples. 
+ (test-->>p (term (ann [(module n nat? 5) n]))
+            (term (-- 5))) 
+ (test-->>p (term (ann [(module p
+                          (cons/c nat? nat?)
+                          (cons (-- 1) (-- 2)))
+                        p]))
+            (term (-- (cons (-- 1) (-- 2)) 
+                      (cons/c (pred nat? p) (pred nat? p)))))
+ (test-->>p (term (ann [(module p
+                          (pred (λ (x) (if (cons? x)
+                                           (= (first x)
+                                              (rest x))
+                                           #f)))
+                          (cons (-- 1) (-- 1)))
+                        p]))
+            (term (-- (cons (-- 1) (-- 1))
+                      (pred (λ (x) (if (@ cons? x p)
+                                       (@ = 
+                                          (@ first x p)
+                                          (@ rest x p)
+                                          p)
+                                       #f))
+                            p))))
+ (test-->>p (term (ann [(module p
+                          (and/c (cons/c nat? nat?)
+                                 (pred (λ (x) (= (first x) (rest x)))))
+                          (cons (-- 1) (-- 1)))
+                        p]))
+            (term (-- (cons (-- 1) (-- 1))
+                      (cons/c (pred nat? p) (pred nat? p)) 
+                      (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p))))
+ 
+ ;; Swap of and/c arguments above
+ (test-->>p (term (ann [(module p
+                          (and/c (pred (λ (x) (= (first x) (rest x))))
+                                 (cons/c nat? nat?))                                
+                          (cons (-- 1) (-- 1)))
+                        p]))
+            (term (-- (cons (-- 1) (-- 1))
+                      (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p)
+                      (cons/c (pred nat? p) (pred nat? p)))))
+ 
+ (test-->>p (term (ann [(module p
+                          (cons/c nat? nat?)
+                          (cons (-- 1) (-- 2)))
+                        (first p)]))
+            (term (-- 1)))
+ (test-->>p (term (ann [(module p
+                          (cons/c nat? nat?)
+                          (cons (-- "hi") (-- 2)))
+                        (first p)]))
+            (term (blame p p (-- (cons (-- "hi") (-- 2))) (pred nat? p) (-- "hi"))))
+ 
+ (test-->>p (term (ann [(module p
+                          (cons/c (anything -> nat?) anything)
+                          (cons (-- (λ (x) "hi"))
+                                (-- 7)))
+                        ((first p) 7)]))
+            (term (blame p p (-- (cons (-- (λ (x) "hi"))
+                                       (-- 7)))
+                         (pred nat? p)
+                         (-- "hi"))))
+
+ 
+ (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
+            (term (-- empty)))
+ 
+ (test-->>p list-id-example-contract
+            (term (-- (cons (-- 1)
+                            (-- (cons (-- 2)
+                                      (-- (cons (-- 3)
+                                                (-- empty))))))
+                      ,list-of-nat/c)))
+ )
