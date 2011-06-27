@@ -287,6 +287,30 @@
         (where σ_0 (extend-sto σ (a) (K)))
         chk-push)))
 
+(define (∆ Ms)
+  (reduction-relation
+   CESK* #:domain ς
+   (--> ((f ^ f) ρ σ K)
+        ((-- PV) ρ σ K)
+        (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
+        Δ-self)
+   (--> ((f ^ ℓ) ρ σ K)
+        ((C <= f ℓ (-- PV) f (-- PV)) ρ σ K)
+        (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
+        (side-condition (not (eq? (term f) (term ℓ))))
+        Δ-other)))
+
+(define (Δ~ Ms)
+  (union-reduction-relations
+   (∆ Ms)
+   (reduction-relation
+    CESK* #:domain ς
+    (--> ((f ^ ℓ) ρ σ K)
+         ((C <= f ℓ (-- C) f (-- C)) ρ σ K)
+         (where (M_1 ... (module f C ☁) M_2 ...) ,Ms)
+         (side-condition (not (eq? (term f) (term ℓ))))
+         ∆-opaque))))
+
 (define (f e)
   (traces step
           (term (load (ann-exp ,e † ())))))
