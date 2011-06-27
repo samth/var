@@ -214,6 +214,32 @@
          (side-condition (term (∈ #f (δ (@ proc? V ★)))))
          chk-fun-fail-flat)
     
+    ;; applying abstract values
+    ;; FIXME -- handle multiple arguments
+    (--> (V ρ σ (ap (AV ρ_1) ρ_0 ℓ a))
+         ((begin (demonic* C_demon V)
+                 ;; abstract value constranated by all possible domains
+                 (remember-contract (-- (any/c)) C_0 ...))
+          ρ_0 σ K)
+         (where (-- C ...) AV)
+         (where C_demon (∧ (domain-contracts (C ...))))
+         (where (C_0 ...) (range-contracts (C ...)))
+         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+         apply-abs)
+    
+    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
+   ;; Some introduced values are infeasible, which is still sound.
+   (--> ((-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...) ρ σ K)
+        ((remember-contract (-- (any/c) C_0 ... C ...) C_2)  ρ σ K)
+        (side-condition (term (valid? C_2)))
+        abs-or/c-split)
+   
+   (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)
+        ((remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))  ρ σ K)
+        (side-condition (term (valid? (rec/c x C_1))))
+        abs-rec/c-unroll)
+    
 
    ;; Context shuffling
    

@@ -152,8 +152,10 @@
    
    ;; APPLYING ABSTRACT VALUES   
    
+   ;; FIXME -- multi argument functions
+   
    ;; applying abstract values to concrete values
-   (--> (@ AV V ℓ)
+   (--> (@ AV V ... ℓ)
         ;; do bad things in case of a concrete value
         (begin (demonic* C_demon V)
                ;; abstract value constranated by all possible domains
