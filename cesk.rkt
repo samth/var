@@ -22,10 +22,14 @@
   (σ ((a {D}) ...))
   (ς (E ρ σ K)))
 
+;; handles the second arg not being symbols
+(define (variables-not-in* a bs)
+  (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
+
 (define-metafunction CESK*
   alloc : σ (any ..._1) -> (a ..._1)
   [(alloc σ (any ...)) 
-   ,(variables-not-in (term σ) (term (any ...)))])
+   ,(variables-not-in* (term σ) (term (any ...)))])
 
 (define-metafunction CESK*
   extend-env : ρ (x ..._1) (a ..._1) -> ρ
@@ -263,7 +267,7 @@
 
 
 (define-syntax-rule (test-->>c r t1 t2)
-  (test-->> r #:equiv (λ (e1 e2) (equal? (term (unload ,e1)) (term (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
+  (test-->> r #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
 
 (test
  (test-->>c step (term (@ (-- (λ (x) 0)) (-- 1) †)) (term (-- 0)))
@@ -290,8 +294,31 @@
  (test-->>c step (term (if #f 1 2)) (term (-- 2)))
  (test-->>c step (term (@ add1 0 †))  (term (-- 1)))
  (test-->>c step (term (@ proc? #f †)) (term (-- #f)))
- (test-->>c step (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2)))))
-)
+ (test-->>c step (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
+ 
+
+(test
+ (test-->>c step (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
+ (test-->>c step 
+            (term ((nat/c) <= f g (-- 0) f (-- (λ (x) x))))
+            (term (blame f f (-- 0) (nat/c) (-- (λ (x) x)))))
+ (test-->>c step 
+            (term ((nat/c) <= f g (-- 0) f (-- #t))) 
+            (term (blame f f (-- 0) (nat/c) (-- #t))))
+ (test-->>c step 
+            (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
+            (term (-- (λ (z) ((any/c) <= f g (-- 0) f 
+                                      (@ (-- (λ (x) x)) ((any/c) <= g f z f z) Λ))))))
+ (test-->>c step 
+            (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
+            (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
+ (test-->>c step
+            (term ((pred (λ (x) 0) ℓ) <= f g (-- 0) f (-- 5)))
+            (term (-- 5 (pred (λ (x) 0) ℓ))))
+ (test-->>c step
+            (term ((and/c (nat/c) (empty/c)) <= f g (-- 0) f (-- #t)))
+            (term (blame f f (-- 0) (nat/c) (-- #t)))))
+
 
 
 
