@@ -1,8 +1,8 @@
 #lang racket
-(require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "name.rkt" "util.rkt")
+(require (except-in redex plug))
+(require "lang.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt")
 (provide (except-out (all-defined-out) test))
-(test-suite test cek)
+(test-suite test cesk)
 
 (define-extended-language CESK* λc~ 
   (K mt 
@@ -52,6 +52,35 @@
   [(load E)
    (E () () mt)])
 
+;; this will stop working once there's real non-determinism
+(define-metafunction CESK*
+  plug : E K -> E
+  [(plug E mt) E]
+  [(plug E (if E_1 E_2 ρ a)) (if E E_1 E_2)]
+  [(plug E (op o (V ρ_1) ... E_1 ... ρ ℓ a))
+   (@ op V ... E E_1 ... ℓ)]
+  [(plug E (ap (V ρ_1) ... E_1 ... ρ ℓ a))
+   (@ V ... E E_1 ... ℓ)]
+  [(plug E (let x E_1 ρ a))
+   (let x E E_1)]
+  [(plug E (beg E_1 ρ a))
+   (begin E E_1)]
+  [(plug E (chk C ℓ_1 ℓ_2 V ℓ_3 a))
+   (C <= ℓ_1 ℓ_2 V ℓ_3 E)])
+
+(define-metafunction CESK*
+  addr-of : K -> a
+  ;; the address always goes last!
+  [(addr-of (any ... a)) a])
+
+(define-metafunction CESK*
+  unload : ς -> E
+  [(unload (E ρ σ mt))
+   E]
+  [(unload (E ρ σ K))
+   (unload ((plug E K) ρ σ K_1))
+   (where {D_0 ... K_1 D_1 ...} (sto-lookup σ (addr-of K)))])
+
 (define step
   (reduction-relation
    CESK* #:domain ς
@@ -85,7 +114,7 @@
                            (add1 (length (term (clo ...))))))
         β-rec)      
    
-   (--> (U ρ σ (ap ((V ρ_0) clo ... ρ_1 ℓ a)))
+   (--> (U ρ σ (ap (V ρ_0) clo ... ρ_1 ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
         (side-condition (not (equal? (add1 (length (term (clo ...))))
@@ -93,7 +122,7 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         blame-arity)
    
-   (--> (U ρ σ (ap ((V ρ_0) clo ... ρ_1 ℓ a)))
+   (--> (U ρ σ (ap (V ρ_0) clo ... ρ_1 ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -171,12 +200,41 @@
         (where σ_0 (extend-sto σ (a) (K)))
         let-push)))
 
-
-(require redex)
-(require "annotate.rkt")
 (define (f e)
   (traces step
           (term (load (ann-exp ,e † ())))))
+
+
+(define-syntax-rule (test-->>c r t1 t2)
+  (test-->> r #:equiv (λ (e1 e2) (equal? (term (unload ,e1)) (term (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
+
+(test
+ (test-->>c step (term (@ (-- (λ (x) 0)) (-- 1) †)) (term (-- 0)))
+ #; ;; this loops
+ (test-->>c v 
+            (term (@ (-- (λ f (x) (@ f x †))) (-- 0) †))
+            (term (@ (-- (λ f (x) (@ f x †))) (-- 0) †))) 
+ 
+ (test-->>c step (term (@ (-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
+ (test-->>c step (term (if (-- 0) 1 2)) (term (-- 1)))
+ (test-->>c step (term (if (-- #t) 1 2)) (term (-- 1)))
+ (test-->>c step (term (if (-- #f) 1 2)) (term (-- 2)))
+ (test-->>c step (term (@ add1 (-- 0) †)) (term (-- 1)))
+ (test-->>c step (term (@ proc? (-- #f) †)) (term (-- #f)))
+ (test-->>c step (term (@ proc? (-- (λ (x) x)) †)) (term (-- #t)))
+ (test-->>c step (term (@ proc? (-- (λ f (x) x)) †)) (term (-- #t)))
+ (test-->>c step (term (@ proc? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
+ (test-->>c step (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
+ 
+ (test-->>c step (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
+ (test-->>c step (term (@ 0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
+ (test-->>c step (term (if 0 1 2)) (term (-- 1)))
+ (test-->>c step (term (if #t 1 2)) (term (-- 1)))
+ (test-->>c step (term (if #f 1 2)) (term (-- 2)))
+ (test-->>c step (term (@ add1 0 †))  (term (-- 1)))
+ (test-->>c step (term (@ proc? #f †)) (term (-- #f)))
+ (test-->>c step (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2)))))
+)
 
 
 
