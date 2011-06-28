@@ -19,7 +19,7 @@
   (ρ ((x a) ...))
   (clo (V ρ))
   (D clo K)
-  (σ ((a {D}) ...))
+  (σ ((a {D ...}) ...))
   (ς (E ρ σ K)))
 
 ;; handles the second arg not being symbols
@@ -28,6 +28,12 @@
 
 (define-metafunction CESK*
   alloc : σ (any ..._1) -> (a ..._1)
+  [(alloc σ (x ...))
+   (x ...)]
+  [(alloc σ (K ...))
+   ,(map (λ (p) (if (pair? p) (car p) p)) (term (K ...)))]
+  #;#;
+  [(alloc σ (K ...)) ,(build-list (length (term (K ...))) values)]
   [(alloc σ (any ...)) 
    ,(variables-not-in* (term σ) (term (any ...)))])
 
@@ -49,12 +55,12 @@
   [(extend-sto1 ((a_0 {D_0 ...}) ...) a D)
    ((a_0 {D_0 ...}) ... (a {D}))])
 
-(define (symbol< a b)
-  (string<? (symbol->string a) (symbol->string b)))
+(define (addr< a b)
+  (< (equal-hash-code a) (equal-hash-code a)))
 
 (define-metafunction CESK*
   extend-sto : σ (a ..._1) (D ..._1) -> σ
-  [(extend-sto σ () ()) ,(sort (term σ) symbol< #:key car)]
+  [(extend-sto σ () ()) ,(sort (term σ) addr< #:key car)]
   [(extend-sto σ (a a_1 ...) (D D_1 ...))
    (extend-sto (extend-sto1 σ a D) (a_1 ...) (D_1 ...))])
 
@@ -544,3 +550,11 @@
                                                 (-- empty))))))
                       ,list-of-nat/c)))
  )
+
+(define fact-prog
+  (term ((module fact (nat? -> nat?)
+           (λ f (x) (if (= x 0) 1 (* x (f (sub1 x))))))
+         (module input nat? ☁)         
+         (fact input))))
+
+(trace-it (term (ann ,fact-prog)))
