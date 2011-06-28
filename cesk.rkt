@@ -37,9 +37,26 @@
    ((x a) ... (a_0 a_0) ...)])
 
 (define-metafunction CESK*
+  extend-set : (any ...) (any ...) ->  (any ...)
+  [(extend-set (any_1 ...) (any_2 ...))
+   ,(sort (remove-duplicates (term (any_1 ... any_2 ...)))
+          < #:key equal-hash-code)])
+
+(define-metafunction CESK*
+  extend-sto1 : σ a D -> σ
+  [(extend-sto1 ((a_0 {D_0 ...}) ... (a {D_2 ...}) (a_1 {D_1 ...}) ...) a D)
+   ((a_0 {D_0 ...}) ... (a (extend-set {D} {D_2 ...}))  (a_1 {D_1 ...}) ...)]
+  [(extend-sto1 ((a_0 {D_0 ...}) ...) a D)
+   ((a_0 {D_0 ...}) ... (a {D}))])
+
+(define (symbol< a b)
+  (string<? (symbol->string a) (symbol->string b)))
+
+(define-metafunction CESK*
   extend-sto : σ (a ..._1) (D ..._1) -> σ
-  [(extend-sto ((a_0 {D_0 ...}) ...) (a ..._1) (D ..._1))
-   ((a {D}) ... (a_0 {D_0 ...}) ...)])
+  [(extend-sto σ () ()) ,(sort (term σ) symbol< #:key car)]
+  [(extend-sto σ (a a_1 ...) (D D_1 ...))
+   (extend-sto (extend-sto1 σ a D) (a_1 ...) (D_1 ...))])
 
 (define-metafunction CESK*
   sto-lookup : σ a -> {D ...}
@@ -251,13 +268,13 @@
    (--> ((@ E_0 E_1 ... ℓ) ρ σ K)
         (E_0 ρ σ_0 (ap E_1 ... ρ ℓ a))       
         (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto σ (a) (K)))
+        (where σ_0 (extend-sto1 σ a K))
         ap-push)
    
    (--> ((if E_0 E_1 E_2) ρ σ K)
         (E_0 ρ σ_0 (if E_1 E_2 ρ a))
         (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto σ (a) (K)))
+        (where σ_0 (extend-sto1 σ a K))
         if-push)
    
    (--> (V ρ σ (op o clo ... E_0 E ... ρ_0 ℓ a))
@@ -267,19 +284,19 @@
    (--> ((@ o E_0 E_1 ... ℓ) ρ σ K)
         (E_0 ρ σ_0 (op o E_1 ... ρ ℓ a))
         (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto σ (a) (K)))
+        (where σ_0 (extend-sto1 σ a K))
         op-push)
    
    (--> ((begin E_0 E_1) ρ σ K)
         (E_0 ρ σ_0 (beg E_1 ρ a))
         (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto σ (a) (K)))
+        (where σ_0 (extend-sto1 σ a K))
         beg-push)
    
    (--> ((let x E_0 E_1) ρ σ K)
         (E_0 ρ σ_0 (let x E_1 ρ a))
         (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto σ (a) (K)))
+        (where σ_0 (extend-sto1 σ a K))
         let-push)
    
    (--> ((C <= ℓ_1 ℓ_2 x ℓ_3 E) ρ σ K)
@@ -291,7 +308,7 @@
    (--> ((C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E) ρ σ K)
         (E ρ σ_0 (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto σ (a) (K)))
+        (where σ_0 (extend-sto1 σ a K))
         chk-push)))
 
 (define (∆ Ms)
