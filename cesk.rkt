@@ -62,7 +62,7 @@
   [(plug E mt) E]
   [(plug E (if E_1 E_2 ρ a)) (if E E_1 E_2)]
   [(plug E (op o (V ρ_1) ... E_1 ... ρ ℓ a))
-   (@ op V ... E E_1 ... ℓ)]
+   (@ o V ... E E_1 ... ℓ)]
   [(plug E (ap (V ρ_1) ... E_1 ... ρ ℓ a))
    (@ V ... E E_1 ... ℓ)]
   [(plug E (let x E_1 ρ a))
@@ -186,7 +186,7 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-and-pass)
    
-    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ((@ cons 
            (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
            (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
@@ -517,7 +517,7 @@
                          (-- "hi"))))
 
  
- (test-->>p (term [(module mt (pred empty? mt) empty) (mt ^ †)])
+ (test-->>p (term [(module mt-val (pred empty? mt-val) empty) (mt-val ^ †)])
             (term (-- empty)))
  
  (test-->>p list-id-example-contract
