@@ -108,6 +108,36 @@
    (unload ((plug E K) ρ σ K_1))
    (where {D_0 ... K_1 D_1 ...} (sto-lookup σ (addr-of K)))])
 
+;; trace : store -> store
+;; performs a garbage collection on the term `p'
+(define (trace sto roots)
+  (match sto
+    [`() null]
+    [(list-rest `[,a ,objs] rest)
+     (if (member a roots)
+         (cons `[,a ,objs]
+               (trace rest (apply append roots (map find-addrs objs))))
+         (trace rest roots))]))
+
+(define-metafunction CESK*
+  find : D -> (a ...)
+  [(find (V ((x a) ...))) (a ...)]
+  [(find K) ((addr-of K))])
+
+(define (find-addrs o)
+  (term (find ,o)))
+
+
+(define gc
+  (reduction-relation
+   CESK* #:domain ς
+   
+   [--> (E ρ σ K)
+        (E ρ σ_1 K)
+        (where ((x a) ...) ρ)
+        (where σ_1 ,(trace (term σ) (term ((addr-of K) a ...))))
+        gc]))
+
 (define step
   (reduction-relation
    CESK* #:domain ς
@@ -351,8 +381,21 @@
 (define (stepΔ Ms)
   (union-reduction-relations error-propagate step (Δ~ Ms)))
 
+
+
+(define step-gc  
+  (reduction-relation 
+   CESK* #:domain ς
+   [--> ς_old ς_new
+        (where (ς_1 ... ς_mid  ς_2 ...) (apply-reduction-relation step (term ς_old)))
+        (where (ς_3 ... ς_new ς_4 ...) (apply-reduction-relation gc (term ς_mid)))]))
+
+   
+(define (stepΔ-gc Ms)
+  (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
+
 (define-syntax-rule (trace-it P . rest)
-  (traces (stepΔ (all-but-last P))
+  (traces (stepΔ-gc (all-but-last P))
           (term (load ,(last P)))
           . rest))
 
