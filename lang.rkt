@@ -276,6 +276,31 @@
    ,(andmap values (term ((valid? C) ...)))]
   [(valid-value? (-- C ...))
    ,(andmap values (term ((valid? C) ...)))])
+
+(define-metafunction λc~
+  fv : E -> (x ...)
+  [(fv x) (x)]
+  [(fv (f ^ ℓ)) ()]
+  [(fv (λ (x ...) E)) (set-minus (fv E) (x ...))]
+  [(fv (let x E_1 E_2)) 
+   (x_1 ... x_2 ...)
+   (where (x_2 ...) (set-minus (fv E_2) (x)))
+   (where (x_1 ...) (fv E_1))]
+  [(fv (λ x_0 (x ...) E)) (set-minus (fv E) (x_0 x ...))]
+  [(fv PV) ()]
+  [(fv (-- PV C ...)) (fv PV)]
+  [(fv (-- C ...)) ()]
+  [(fv (if E ...)) (fv/list (E ...))]
+  [(fv (begin E ...)) (fv/list (E ...))]
+  [(fv (@ E ... ℓ)) (fv/list (E ...))]
+  [(fv (@ o E ... ℓ)) (fv/list (E ...))]
+  [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]
+  [(fv (blame ℓ_1 ℓ_2 V_1 C V)) (fv/list (V_1 V))])
+
+(define-metafunction λc~
+  fv/list : (E ...) -> (x ...)
+  [(fv/list (E ...)) (x ... ...)
+   (where ((x ...) ...) ((fv E) ...))])
   
 
 (test
