@@ -364,9 +364,16 @@
   (union-reduction-relations error-propagate step (Δ~ Ms)))
 
 (define-metafunction CESK*
+  restrict : ((any any) ...) (any ...) -> ((any any) ...)
+  [(restrict any_l any_keys)
+   ,(for/list ([e (in-list (term any_l))]
+               #:when (member (car e) (term any_keys)))
+      e)])
+
+(define-metafunction CESK*
   live-loc-clo : (E ρ) -> (a ...)
-  [(live-loc-clo (E ρ))  ;; Conservative.  Better: restrict to FV(e).
-   (live-loc-env ρ)])
+  [(live-loc-clo (E ρ))
+   (live-loc-env (restrict ρ (fv E)))])
 
 (define-metafunction CESK*
   live-loc-env : ρ -> (a ...)
@@ -419,6 +426,7 @@
               σ)
    (where (a_2 ...) (live-loc-Ds (sto-lookup σ a)))])
 
+#;
 (define-metafunction CESK*
   restrict-sto : σ (a ...) -> σ
   [(restrict-sto σ (a ...))   
@@ -429,7 +437,7 @@
 (define-metafunction CESK*
   gc : ς -> σ
   [(gc (E ρ σ K)) 
-   (restrict-sto σ (reachable (a_0 ... a_1 ...) () σ))
+   (restrict σ (reachable (a_0 ... a_1 ...) () σ))
    (where (a_0 ...) (live-loc-clo (E ρ)))
    (where (a_1 ...) (live-loc-K K))])
        
@@ -446,9 +454,11 @@
         (seen (set)))
     (reduction-relation 
      CESK* #:domain ς
-     [--> ς_old (E ρ σ_1 K)
+     [--> ς_old (E ρ_1 σ_1 K)
           (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
           (where σ_1 (gc (E ρ σ K)))
+          (where ρ_1 (restrict ρ (fv E)))
+          #;
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  (when (> (size  (term (E ρ σ_1 K))) m)
@@ -694,22 +704,8 @@
 
 (define (final P)
   (apply-reduction-relation* (stepΔ-gc (all-but-last P))
-                             (term (load ,(last P)))))
-
-
-#|
-;; start of fixed point computation
-(define (final* P)
-  (define s (set))
-  (define (loop s*)
-    
-    (set-map (λ (state)
-               (apply-reduction-relation (stepΔ-gc (all-but-last P)) state))
-|#
-
-             
-                              
-
+                             (term (load ,(last P)))
+                             #:cache-all? #t))                                          
 
 ;; Doesn't terminate, but should
 (final (term (ann ,wrong-prog)))
