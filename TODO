@@ -1,9 +1,13 @@
-get rid of any/c, blah/c, etc.
 state the main theorem and randomly test
 
-first class contracts
 dependent contracts
+first class contracts
 state
 translator from Racket subset
+
+use fv to improve gc
+
+drop labels in abstract values (makes more things the same, speeding
+up convergence)
 
 pony

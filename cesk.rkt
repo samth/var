@@ -22,6 +22,18 @@
   (σ ((a {D ...}) ...))
   (ς (E ρ σ K)))
 
+(define-metafunction CESK*
+  widen : V-or-B -> V-or-B
+  [(widen B) B]
+  [(widen AV) AV]
+  [(widen (-- bool C ...)) (-- bool C ...)]
+  [(widen (-- nat C ...)) (remember-contract (-- (nat/c)) C ...)]
+  [(widen (-- string C ...)) (remember-contract (-- (string/c)) C ...)]
+  [(widen (-- (cons V_1 V_2) C ...)) 
+   (remember-contract (-- (pred cons? Λ)) C ...)]
+  [(widen (-- empty C ...)) (-- empty C ...)]
+  [(widen (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
+
 ;; handles the second arg not being symbols
 (define (variables-not-in* a bs)
   (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
@@ -169,7 +181,7 @@
         if-f)   
    
    (--> (V ρ σ (op o (V_0 ρ_0) ... ρ_1 ℓ a))
-        (V-or-B () σ K)
+        ((widen V-or-B) () σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))         
         (where (V-or-B_1 ... V-or-B V-or-B_2 ...)
                (δ (@ o V_0 ... V ℓ)))
@@ -420,14 +432,30 @@
    (restrict-sto σ (reachable (a_0 ... a_1 ...) () σ))
    (where (a_0 ...) (live-loc-clo (E ρ)))
    (where (a_1 ...) (live-loc-K K))])
-        
+       
+(define (size sexp)
+  (if (not (cons? sexp))
+      1
+      (+ (size (car sexp))
+         (size (cdr sexp))
+         1)))
       
 (define step-gc  
-  (reduction-relation 
-   CESK* #:domain ς
-   [--> ς_old (E ρ σ_1 K)
-        (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
-        (where σ_1 (gc (E ρ σ K)))]))   
+  (let ((count 0)
+        (m 0)
+        (seen (set)))
+    (reduction-relation 
+     CESK* #:domain ς
+     [--> ς_old (E ρ σ_1 K)
+          (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
+          (where σ_1 (gc (E ρ σ K)))
+          (side-condition (begin (set! count (add1 count))
+                                 (set! seen (set-add seen (term (E ρ σ_1 K))))
+                                 (when (> (size  (term (E ρ σ_1 K))) m)
+                                   (printf "state: ~a~n" (term (E ρ σ_1 K))))                                        
+                                 (set! m (max m (size (term (E ρ σ_1 K)))))
+                                 (when (zero? (modulo count 100))
+                                   (printf "c: ~a, m: ~a, |s|: ~a ~n" count m (set-count seen)))))])))
 
 (define (stepΔ-gc Ms)
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
@@ -439,7 +467,7 @@
                                        [_ #f]))
                               Ms))
   (cond [(redex-match CESK* (V any any_1 mt) x) "green"]
-        [(redex-match CESK* B (car x))
+        [(redex-match CESK* (B any any_1 mt) x)
          (redex-let CESK*
                     ([(blame ℓ ℓ_0 V C-ext V_0) (car x)])
                     (cond [(equal? (term ℓ) '★) "pink"]
@@ -668,5 +696,21 @@
   (apply-reduction-relation* (stepΔ-gc (all-but-last P))
                              (term (load ,(last P)))))
 
+
+#|
+;; start of fixed point computation
+(define (final* P)
+  (define s (set))
+  (define (loop s*)
+    
+    (set-map (λ (state)
+               (apply-reduction-relation (stepΔ-gc (all-but-last P)) state))
+|#
+
+             
+                              
+
+
 ;; Doesn't terminate, but should
-;(final (term (ann ,wrong-prog)))
+(final (term (ann ,wrong-prog)))
+;(trace-it (term (ann ,wrong-prog)))
