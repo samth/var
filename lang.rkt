@@ -215,10 +215,16 @@
       (redex-match λc~ (-- C_0 ...  C_1 ...))))
 
 (define-metafunction λc~
+  set-minus : (any ...) (any ...) -> (any ...)
+  [(set-minus any_0 any_1)
+   ,(set->list (set-subtract  (apply set (term any_0))
+                              (apply set (term any_1))))])
+
+(define-metafunction λc~
   FV/C : C -> (x ...)
   [(FV/C x) (x)]
   [(FV/C (rec/c x C))
-   (set-minus (FV/C C) x)]
+   (set-minus (FV/C C) (x))]
   [(FV/C (cons/c C_1 C_2))
    ,(append (term (FV/C C_1))
             (term (FV/C C_2)))]
@@ -232,11 +238,6 @@
    ,(append (apply append (map (λ (c) (term (FV/C ,c))) (term (C_1 ...))))
             (term (FV/C C_2)))]  
   [(FV/C C) ()])
-
-(define-metafunction λc~
-  set-minus : (any ...) any -> (any ...)
-  [(set-minus (any_0 ...) any_1)
-   ,(filter-not (λ (x) (equal? x (term any_1))) (term (any_0 ...)))])
 
 (define-metafunction λc~
   closed? : C -> #t or #f
