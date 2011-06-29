@@ -108,36 +108,6 @@
    (unload ((plug E K) ρ σ K_1))
    (where {D_0 ... K_1 D_1 ...} (sto-lookup σ (addr-of K)))])
 
-;; trace : store -> store
-;; performs a garbage collection on the term `p'
-(define (trace sto roots)
-  (match sto
-    [`() null]
-    [(list-rest `[,a ,objs] rest)
-     (if (member a roots)
-         (cons `[,a ,objs]
-               (trace rest (apply append roots (map find-addrs objs))))
-         (trace rest roots))]))
-
-(define-metafunction CESK*
-  find : D -> (a ...)
-  [(find (V ((x a) ...))) (a ...)]
-  [(find K) ((addr-of K))])
-
-(define (find-addrs o)
-  (term (find ,o)))
-
-
-(define gc
-  (reduction-relation
-   CESK* #:domain ς
-   
-   [--> (E ρ σ K)
-        (E ρ σ_1 K)
-        (where ((x a) ...) ρ)
-        (where σ_1 ,(trace (term σ) (term ((addr-of K) a ...))))
-        gc]))
-
 (define step
   (reduction-relation
    CESK* #:domain ς
@@ -381,22 +351,110 @@
 (define (stepΔ Ms)
   (union-reduction-relations error-propagate step (Δ~ Ms)))
 
+(define-metafunction CESK*
+  live-loc-clo : (E ρ) -> (a ...)
+  [(live-loc-clo (E ρ))  ;; Conservative.  Better: restrict to FV(e).
+   (live-loc-env ρ)])
 
+(define-metafunction CESK*
+  live-loc-env : ρ -> (a ...)
+  [(live-loc-env ((x a) ...))
+   (a ...)])
 
+(define-metafunction CESK*
+  live-loc-K : K -> (a ...) 
+  [(live-loc-K mt) ()]
+  [(live-loc-K (ap clo ... E ... ρ ℓ a)) 
+   (a a_0 ... ... a_1 ... ...)
+   (where ((a_0 ...) ...) ((live-loc-clo clo) ...))
+   (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))] 
+  [(live-loc-K (if E_1 E_2 ρ a)) 
+   (a a_0 ... a_1 ...)
+   (where (a_0 ...) (live-loc-clo (E_1 ρ)))
+   (where (a_1 ...) (live-loc-clo (E_2 ρ)))]    
+  [(live-loc-K (op o clo ... E ... ρ ℓ a)) 
+   (a a_0 ... ... a_1 ... ...)
+   (where ((a_0 ...) ...) ((live-loc-clo clo) ...))
+   (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))]
+  [(live-loc-K (let x E ρ a))
+   (a a_0 ...)
+   (where (a_0 ...) (live-loc-clo (E ρ)))]
+  [(live-loc-K (beg E ρ a))
+   (a a_0 ...)
+   (where (a_0 ...) (live-loc-clo (E ρ)))]
+  ;; Probably want V-or-AE to be a closure and traverse it as well.
+  [(live-loc-K (chk C ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
+   (a)])
+
+(define-metafunction CESK*
+  live-loc-Ds : (D ...) -> (a ...)
+  [(live-loc-Ds ()) ()]
+  [(live-loc-Ds ((V ρ) D ...))
+   (a_0 ... a_1 ...)
+   (where (a_0 ...) (live-loc-clo (V ρ)))
+   (where (a_1 ...) (live-loc-Ds (D ...)))]
+  [(live-loc-Ds (K D ...))
+   (a_0 ... a_1 ...)
+   (where (a_0 ...) (live-loc-K K))
+   (where (a_1 ...) (live-loc-Ds (D ...)))])
+
+(define-metafunction CESK*
+  reachable : (a ...) (a ...) σ -> (a ...)
+  [(reachable () (a ...) σ) (a ...)]
+  [(reachable (a a_0 ...) (a_1 ...) σ)   
+   (reachable (set-minus (a_0 ... a_2 ...) (a a_1 ...))
+              (a a_1 ...)
+              σ)
+   (where (a_2 ...) (live-loc-Ds (sto-lookup σ a)))])
+
+(define-metafunction CESK*
+  restrict-sto : σ (a ...) -> σ
+  [(restrict-sto σ (a ...))   
+   ,(for/list ([l (in-list (term σ))]
+               #:when (member (car l) (term (a ...))))
+      l)])
+
+(define-metafunction CESK*
+  gc : ς -> σ
+  [(gc (E ρ σ K)) 
+   (restrict-sto σ (reachable (a_0 ... a_1 ...) () σ))
+   (where (a_0 ...) (live-loc-clo (E ρ)))
+   (where (a_1 ...) (live-loc-K K))])
+        
+      
 (define step-gc  
   (reduction-relation 
    CESK* #:domain ς
-   [--> ς_old ς_new
-        (where (ς_1 ... ς_mid  ς_2 ...) (apply-reduction-relation step (term ς_old)))
-        (where (ς_3 ... ς_new ς_4 ...) (apply-reduction-relation gc (term ς_mid)))]))
+   [--> ς_old (E ρ σ_1 K)
+        (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
+        (where σ_1 (gc (E ρ σ K)))]))   
 
-   
 (define (stepΔ-gc Ms)
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
+
+
+(define ((colorize Ms) x node)
+  (define opaques (filter-map (λ (M) (match M
+                                       [`(module ,n ,c ☁) n]
+                                       [_ #f]))
+                              Ms))
+  (cond [(redex-match CESK* (V any any_1 mt) x) "green"]
+        [(redex-match CESK* B (car x))
+         (redex-let CESK*
+                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x)])
+                    (cond [(equal? (term ℓ) '★) "pink"]
+                          [(member (term ℓ) opaques) "pink"]
+                          [else "red"]))]
+        [(null? (term-node-children node)) "blue"]
+        [else #t]))
+
+
+
 
 (define-syntax-rule (trace-it P . rest)
   (traces (stepΔ-gc (all-but-last P))
           (term (load ,(last P)))
+          #:pred (colorize (all-but-last P))
           . rest))
 
 #|
