@@ -658,4 +658,15 @@
          (module input nat? ☁)         
          (fact input))))
 
-(trace-it (term (ann ,fact-prog)))
+(define wrong-prog
+  (term ((module fact (nat? -> nat?)
+           (λ f (x) (if (= (add1 x) (add1 0)) 1 (* x (f (sub1 x))))))
+         (module input nat? ☁)         
+         (fact input))))
+
+(define (final P)
+  (apply-reduction-relation* (stepΔ-gc (all-but-last P))
+                             (term (load ,(last P)))))
+
+;; Doesn't terminate, but should
+;(final (term (ann ,wrong-prog)))
