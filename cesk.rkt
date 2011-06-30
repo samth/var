@@ -14,9 +14,7 @@
      (let x E ρ a)
      (beg E ρ a)
      (chk C ℓ ℓ V-or-AE ℓ a))  ;; V?
-  
-  [E .... (addr a)]
-  (a any)
+   
   (ρ ((x a) ...))
   (clo (V ρ))
   (D clo K)
@@ -122,10 +120,6 @@
   [(unload (E ρ σ K))
    (unload ((plug E K) ρ σ K_1))
    (where {D_0 ... K_1 D_1 ...} (sto-lookup σ (addr-of K)))])
-
-(define-metafunction/extension fv CESK*
-  fv-CESK* : E -> (x ...)
-  [(fv-CESK* (addr a)) ()])
 
 (define step
   (reduction-relation
@@ -292,8 +286,8 @@
    ;; applying abstract values
    ;; FIXME -- BAD BUG environments not handled properly
    (--> (V ρ σ (ap (AV ρ_1) (U ρ_2) ... ρ_0 ℓ a))
-        ((seq (demonic* C_demon_0 V)
-              (demonic* C_demon_1 U)
+        ((seq (demonic* C_demon0 V)
+              (demonic* C_demon1 U)
               ...
               ;; abstract value constranated by all possible domains
               (remember-contract (-- (any/c)) C_0 ...))
@@ -304,7 +298,7 @@
                                 (term (arity AV))))
         (where (-- C ...) AV)
         (where ((C_D ...) ...) (domain-contracts (C ...)))
-        (where (C_demon_0 C_demon_1 ...) ((∧ C_D ...) ...))
+        (where (C_demon0 C_demon1 ...) ((∧ C_D ...) ...))
         (where (C_0 ...) (range-contracts (C ...)))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         apply-abs)
@@ -418,12 +412,22 @@
 (define-metafunction CESK*
   live-loc-clo : (E ρ) -> (a ...)
   [(live-loc-clo (E ρ))
-   (live-loc-env (restrict ρ (fv-CESK* E)))])
+   (a_0 ... a_1 ...)
+   (where (a_0 ...) (live-loc-E E))
+   (where (a_1 ...) (live-loc-env (restrict ρ (fv E))))])
 
 (define-metafunction CESK*
   live-loc-env : ρ -> (a ...)
   [(live-loc-env ((x a) ...))
    (a ...)])
+
+(define-metafunction CESK*
+  live-loc-E : any_E -> (a ...)
+  [(live-loc-E (addr a)) (a)]
+  [(live-loc-E (any ...))
+   (a ... ...)
+   (where ((a ...) ...) ((live-loc-E any) ...))]
+  [(live-loc-E any) ()])
 
 (define-metafunction CESK*
   live-loc-K : K -> (a ...) 
@@ -493,16 +497,18 @@
     (reduction-relation 
      CESK* #:domain ς
      [--> ς_old (E ρ_1 σ_1 K)
-          (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
+          (where ((any_1 ς_1) ... (any_name (E ρ σ K))  (any_2 ς_2) ...)
+                 ,(apply-reduction-relation/tag-with-names step (term ς_old)))
           (where σ_1 (gc (E ρ σ K)))
-          (where ρ_1 (restrict ρ (fv-CESK* E)))
+          (where ρ_1 (restrict ρ (fv E)))
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  (when (> (size  (term (E ρ σ_1 K))) m)
                                    (printf "state: ~a~n" (term (E ρ σ_1 K))))                    
                                  (set! m (max m (size (term (E ρ σ_1 K)))))
                                  (when (zero? (modulo count 100))
-                                   (printf "c: ~a, m: ~a, |s|: ~a ~n" count m (set-count seen)))))])))
+                                   (printf "c: ~a, m: ~a, |s|: ~a ~n" count m (set-count seen)))))
+          (computed-name (term any_name))])))
 
 (define (stepΔ-gc Ms)
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
@@ -541,7 +547,7 @@
 
 
 (define-syntax-rule (test-->>p P e ...)
-  (test-->> (stepΔ (all-but-last P))
+  (test-->> (stepΔ-gc (all-but-last P))
             #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
             (term (load ,(last P)))
             (term (load ,e)) ...))
@@ -748,7 +754,21 @@
 (define (final P)
   (apply-reduction-relation* (stepΔ-gc (all-but-last P))
                              (term (load ,(last P)))
-                             #:cache-all? #t))                                          
+                             #:cache-all? #t))
+
+(define next #f)
+(define result #f)
+
+(define (single P)
+  (set! next (λ () 
+               (define r (append-map (λ (p) (apply-reduction-relation (stepΔ-gc (all-but-last P)) p)) result))
+               (set! result r)
+               r))
+  (let ([r (apply-reduction-relation (stepΔ-gc (all-but-last P))
+                                     (term (load ,(last P))))])
+    (set! result r)
+    r))
+
 
 ;; Doesn't terminate, but should
 ;(final (term (ann ,wrong-prog)))
