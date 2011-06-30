@@ -1,10 +1,10 @@
-#lang s-exp "verified.rkt" ;trace
+#lang s-exp "verified.rkt" cesk
 
-(module prime? (any/c -> bool/c) ☁)
+(module prime? (anything -> bool?) ☁)
 
-(module keygen (any/c -> (pred prime?)) ☁) 
+(module keygen (anything -> (pred prime?)) ☁) 
 
-(module rsa ((pred prime?) -> (string/c -> string/c)) ☁)
+(module rsa ((pred prime?) -> (string? -> string?)) ☁)
 
 ((rsa (keygen #f)) "Plain")
 

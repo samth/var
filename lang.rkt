@@ -295,7 +295,7 @@
   [(fv (@ E ... ℓ)) (fv/list (E ...))]
   [(fv (@ o E ... ℓ)) (fv/list (E ...))]
   [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]
-  [(fv (blame ℓ_1 ℓ_2 V_1 C V)) (fv/list (V_1 V))])
+  [(fv (blame ℓ_1 ℓ_2 V-or-AE any_C V)) (fv/list (V-or-AE V))])
 
 (define-metafunction λc~
   fv/list : (E ...) -> (x ...)

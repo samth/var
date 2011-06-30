@@ -15,6 +15,7 @@
      (beg E ρ a)
      (chk C ℓ ℓ V-or-AE ℓ a))  ;; V?
   
+  [E .... a]
   (a any)
   (ρ ((x a) ...))
   (clo (V ρ))
@@ -44,6 +45,8 @@
    (x ...)]
   [(alloc σ (K ...))
    ,(map (λ (p) (if (pair? p) (car p) p)) (term (K ...)))]
+  [(alloc σ (V ...))
+   ,(build-list (length (term (V ...))) values)]
   #;#;
   [(alloc σ (K ...)) ,(build-list (length (term (K ...))) values)]
   [(alloc σ (any ...)) 
@@ -131,6 +134,12 @@
         (where (D_0 ... (V ρ_0) D_1 ...)
                (sto-lookup σ (env-lookup ρ x)))
         var)
+   
+   (--> (a ρ σ K)
+        (V ρ_0 σ K)
+        (where (D_0 ... (V ρ_0) D_1 ...)
+               (sto-lookup σ a))
+        addr)
    
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
    
@@ -234,13 +243,15 @@
     (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
          ((-- (λ (x ...)
                (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                    (@ (remember-contract V (pred proc? Λ))
+                    (@ a_new
                        (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
                        ...
                        Λ))))
-          ρ σ K)
+          ρ σ_1 K)
          (fresh ((x ...) (C_1 ...)))
+         (where a_new (alloc σ (V)))
          (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+         (where σ_1 (extend-sto1 σ a_new (V ρ)))
          (side-condition (term (∈ #t (δ (@ proc? V ★)))))
          chk-fun-pass)
     
@@ -426,43 +437,35 @@
               σ)
    (where (a_2 ...) (live-loc-Ds (sto-lookup σ a)))])
 
-#;
-(define-metafunction CESK*
-  restrict-sto : σ (a ...) -> σ
-  [(restrict-sto σ (a ...))   
-   ,(for/list ([l (in-list (term σ))]
-               #:when (member (car l) (term (a ...))))
-      l)])
-
 (define-metafunction CESK*
   gc : ς -> σ
   [(gc (E ρ σ K)) 
    (restrict σ (reachable (a_0 ... a_1 ...) () σ))
    (where (a_0 ...) (live-loc-clo (E ρ)))
-   (where (a_1 ...) (live-loc-K K))])
-       
+   (where (a_1 ...) (live-loc-K K))])     
+
 (define (size sexp)
   (if (not (cons? sexp))
       1
       (+ (size (car sexp))
          (size (cdr sexp))
          1)))
+
       
 (define step-gc  
   (let ((count 0)
         (m 0)
-        (seen (set)))
+        (seen (set)))    
     (reduction-relation 
      CESK* #:domain ς
      [--> ς_old (E ρ_1 σ_1 K)
           (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
           (where σ_1 (gc (E ρ σ K)))
           (where ρ_1 (restrict ρ (fv E)))
-          #;
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  (when (> (size  (term (E ρ σ_1 K))) m)
-                                   (printf "state: ~a~n" (term (E ρ σ_1 K))))                                        
+                                   (printf "state: ~a~n" (term (E ρ σ_1 K))))                    
                                  (set! m (max m (size (term (E ρ σ_1 K)))))
                                  (when (zero? (modulo count 100))
                                    (printf "c: ~a, m: ~a, |s|: ~a ~n" count m (set-count seen)))))])))
@@ -485,9 +488,6 @@
                           [else "red"]))]
         [(null? (term-node-children node)) "blue"]
         [else #t]))
-
-
-
 
 (define-syntax-rule (trace-it P . rest)
   (traces (stepΔ-gc (all-but-last P))
@@ -702,11 +702,17 @@
          (module input nat? ☁)         
          (fact input))))
 
+(define fit-ex-prog
+  (term ((module prime? (anything -> bool?) ☁)
+         (module keygen (anything -> (pred prime?)) ☁) 
+         (module rsa ((pred prime?) -> (string? -> string?)) ☁)
+         ((rsa (keygen #f)) "Plain"))))
+
 (define (final P)
   (apply-reduction-relation* (stepΔ-gc (all-but-last P))
                              (term (load ,(last P)))
                              #:cache-all? #t))                                          
 
 ;; Doesn't terminate, but should
-(final (term (ann ,wrong-prog)))
+;(final (term (ann ,wrong-prog)))
 ;(trace-it (term (ann ,wrong-prog)))
