@@ -4,6 +4,8 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
+(current-cache-all? #t)
+
 (define-extended-language CESK* λc~ 
   (K mt 
      
@@ -42,7 +44,7 @@
   [(alloc σ (x ...))
    (x ...)]
   [(alloc σ (K ...))
-   ,(map (λ (p) (if (pair? p) (car p) p)) (term (K ...)))]
+   ,(map (λ (p) (if (pair? p) (all-but-last p) p)) (term (K ...)))]
   [(alloc σ (V ...))
    ,(build-list (length (term (V ...))) values)]
   #;#;
@@ -142,11 +144,11 @@
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
   
    ;; Nullary function application
-   (--> (((-- (λ () E) C ...) ρ) ρ_0 σ (ap ρ_1 ℓ a))
+   (--> ((-- (λ () E) C ...) ρ σ (ap ρ_1 ℓ a))
         (E ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         β-0)
-   (--> (((-- (λ x () E) C ...) ρ) ρ_0 σ_0 (ap ρ_1 ℓ a))
+   (--> ((-- (λ x () E) C ...) ρ σ (ap ρ_1 ℓ a))
         (E (extend-env ρ (x) (a_1))
            (extend-sto1 σ a_1 ((-- (λ x () E) C ...) ρ))
            K)
@@ -260,6 +262,9 @@
                        ...
                        Λ))))
          ρ σ_1 K)
+        (where (x ...) ,(variables-not-in (term (C_1 ... C_2 V-or-AE))
+                                          (map (λ _ 'x) (term (C_1 ...)))))
+        #;
         (fresh ((x ...) (C_1 ...)))
         (where a_new (alloc σ (V)))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -275,7 +280,7 @@
    
    ;; Nullary abstract application
    (--> (AV ρ_0 σ (ap ρ_1 ℓ a))
-        ((remember-contracts (-- (any/c)) C_0 ...) ρ σ K)
+        ((remember-contract (-- (any/c)) C_0 ...) () σ K)
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? 0 (term (arity AV))))        
         (where (-- C ...) AV)
@@ -395,7 +400,7 @@
 (define error-propagate
   (reduction-relation 
    CESK* #:domain ς
-   (--> (B ρ σ K) (B () σ mt)
+   (--> (B ρ σ K) (B () (gc (B () σ mt)) mt)
         (side-condition (not (equal? (term K) (term mt))))
         halt-blame)))
 
@@ -501,6 +506,7 @@
                  ,(apply-reduction-relation/tag-with-names step (term ς_old)))
           (where σ_1 (gc (E ρ σ K)))
           (where ρ_1 (restrict ρ (fv E)))
+          #;
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  (when (> (size  (term (E ρ σ_1 K))) m)
@@ -545,12 +551,25 @@
 (trace-it (term (ann ,cons/c-example-raw)))
 |#
 
+(define-syntax (print-here stx)
+  (syntax-case stx ()
+    [(_ foo)
+     #`(displayln #,(syntax-line #'foo))]))
 
 (define-syntax-rule (test-->>p P e ...)
-  (test-->> (stepΔ-gc (all-but-last P))
-            #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
+  (begin (print-here P)
+  (test-->>E (stepΔ-gc (all-but-last P))
+            ;#:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
+            ;#:cycles-ok
             (term (load ,(last P)))
-            (term (load ,e)) ...))
+            (term (load ,e))) ...))
+
+(define-syntax-rule (test-->>pE P e ...)
+  (test-->>E (stepΔ-gc (all-but-last P))
+             #;#;
+             #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
+             (term (load ,(last P)))
+             (term (load ,e)) ...))
 
 (define-syntax-rule (test-->>c r t1 t2)
   (test-->> r #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
@@ -615,9 +634,9 @@
 
 (test 
  ;; testing demonic
- (test-->>p (term (ann [(module p ((cons/c nat? nat?) -> nat?) ☁)
-                        (p (cons 1 2))]))
-            (term (-- (pred nat? p)))) 
+ (test-->>pE (term (ann [(module p ((cons/c nat? nat?) -> nat?) ☁)
+                         (p (cons 1 2))]))
+             (term (-- (pred nat? p)))) 
  (test-->>p (term (ann [(module p ((and/c nat? nat?) -> nat?) ☁)
                         (p 1)]))
             (term (-- (pred nat? p))))

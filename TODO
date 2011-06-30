@@ -12,4 +12,6 @@ use fv to improve gc
 drop labels in abstract values (makes more things the same, speeding
 up convergence)
 
+parameterize cesk to be abstract or not
+
 pony
