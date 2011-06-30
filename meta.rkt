@@ -81,7 +81,8 @@
   [(refutes V o?) #f])
 
 (test
- (test-equal (term (refutes (-- 0) empty?)) #t))
+ (test-equal (term (refutes (-- 0) empty?)) #t)
+ (test-equal (term (refutes (-- (cons/c (pred nat? p) (pred nat? p))) cons?)) #f))
 
 ;; Does satisfying C imply o?
 (define-metafunction λc~
@@ -120,7 +121,7 @@
         (term (refutes-con C_1 o?)))]
   [(refutes-con (cons/c C_0 C_1) o?) 
    #t
-   (side-condition (not (eq? (term o?) 'cons)))]
+   (side-condition (not (eq? (term o?) 'cons?)))]
   [(refutes-con (rec/c x C) o?) 
    #f ;; FIXME
    #;(refutes-con (unroll (rec/c x C)) o?)]
@@ -201,6 +202,13 @@
   contract-not-in : C V -> #t or #f  
   [(contract-not-in (pred o? ℓ) V)
    (refutes V o?)]
+  [(contract-not-in (cons/c C_1 C_2) V)
+   ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
+   (where (V_car ...) ,(filter (redex-match λc~ V) (term (δ (@ first V Λ)))))
+   (where (V_cdr ...) ,(filter (redex-match λc~ V) (term (δ (@ rest V Λ)))))
+   (where bool_cars ,(andmap values (term ((contract-not-in C_1 V_car) ...))))
+   (where bool_cdrs ,(andmap values (term ((contract-not-in C_2 V_cdr) ...))))
+   ]
   [(contract-not-in FC V)
    #t
    (where #t (proves V proc?))]
@@ -208,6 +216,10 @@
    ,(or (term (contract-not-in C_1 V))
         (term (contract-not-in C_2 V)))]
   [(contract-not-in C V) #f])
+
+(test 
+ (test-equal (term (contract-not-in (cons/c (any/c) (any/c))  (-- 0)))
+             #t))
 
 ;; Uncomment when contract-not-in is complete(r).
 #;
@@ -221,7 +233,16 @@
    (flat-check/defun FLAT V
                      (remember-contract V FLAT)
                      (blame ℓ_1 ℓ_3 V-or-AE FLAT V))])
-  
+
+(test 
+ (test-equal
+  (term (flat-check ((cons/c (pred nat? p) (pred nat? p))
+                     <= f g (-- 0) h
+                     (-- (pred cons? f)))))
+  (term (amb (-- (pred cons? f) (cons/c (pred nat? p) (pred nat? p)))
+             (blame f h (-- 0) (cons/c (pred nat? p) (pred nat? p)) (-- (pred cons? f)))))))
+
+
 ;; the continuation ranges over: B | E.
 (define-metafunction λc~
   meta-defun-apply : E C V -> E
@@ -238,6 +259,10 @@
    (where #t (contract-in C V))]
   [(flat-check/defun (and/c FLAT_0 FLAT_1) V E E_k)
    (flat-check/defun FLAT_0 V (flat-check/defun FLAT_1 V E E_k) E_k)]
+  [(flat-check/defun (cons/c FLAT_0 FLAT_1)
+                     (-- (cons V_0 V_1) C ...)
+                     E E_k)
+   (flat-check/defun FLAT_0 V_0 (flat-check/defun FLAT_1 V_1 E E_k) E_k)]
   [(flat-check/defun C V E E_k)
    (meta-defun-apply E_k C V)
    (where #t (contract-not-in C V))]
@@ -245,19 +270,16 @@
    (if (@ SV V ℓ) 
        E 
        (meta-defun-apply E_k (pred SV ℓ) V))]  
-  [(flat-check/defun (cons/c FLAT_0 FLAT_1)
-                     (-- (cons V_0 V_1) C ...)
-                     E E_k)
-   (flat-check/defun FLAT_0 V_0 (flat-check/defun FLAT_1 V_1 E E_k) E_k)]
   [(flat-check/defun (or/c FLAT_0 FLAT_1) V E E_k)
    (flat-check/defun FLAT_0 V
                    E
                    (flat-check/defun FLAT_1 V E 
                                      (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
   [(flat-check/defun (rec/c x C) V E E_k)
-   (flat-check/defun (unroll (rec/c x C)) V E E_k)]  
+   (flat-check/defun (unroll (rec/c x C)) V E E_k)]
+  ;; Fall of end: fork in the road, take it.
   [(flat-check/defun FLAT V E E_k) 
-   (meta-defun-apply E_k FLAT V)])
+   (amb E (meta-defun-apply E_k FLAT V))])
  
 (test
  (test-equal (term (proves (-- #t) bool?)) #t)
