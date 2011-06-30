@@ -308,6 +308,19 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         apply-abs)
    
+   (--> (V ρ σ (ap (AV ρ_1) (U ρ_2) ... ρ_0 ℓ a))
+        ((seq (demonic* (any/c) V)
+              (demonic* (any/c) U)
+              ...
+              (-- (any/c)))
+         ρ_0 σ K)
+        
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition ;; this is a proc with no arity, so it could be anything
+         (not (term (arity AV))))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        apply-abs-any)
+   
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
    (--> ((-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...) ρ σ K)
