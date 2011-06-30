@@ -36,6 +36,7 @@
   
   (FLAT* FC (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
   (HOC* (C ... -> C)
+        (C ..._1 -> (λ (x ..._1) C))
         (or/c FLAT HOC)
         (cons/c HOC C) (cons/c C HOC)
         (rec/c x HOC))
@@ -100,6 +101,7 @@
   ;; no or/c or rec/c at top-level
   (C*-top (pred SV ℓ)
           (C ... -> C)
+          (C ..._1 -> (λ (x ..._1) C))
           (cons/c C C))
   
   ;; Definite flat value contract
@@ -124,7 +126,7 @@
   ;; Definite procedure contract
   (WC! WC!* (and/c C WC!) (and/c WC! C))
   (WC!* WC!*-top (rec/c x WC!))
-  (WC!*-top (C ... -> C) (pred proc? ℓ))
+  (WC!*-top (C ... -> C) (C ..._1 -> (λ (x ..._1) C)) (pred proc? ℓ))
   
   ;; Definite procedure  
   (W .... (-- C*-top ... WC!*-top C*-top ...))
@@ -157,6 +159,7 @@
   (RCFLAT o? anything (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
   (RCHOC (RC ... -> RC)
+         (RC ..._1 -> (λ (x ..._1) RC))
          (or/c RCFLAT RCHOC)
          (cons/c RCHOC RC) (cons/c RC RCHOC)
          (and/c RCHOC RC)  (and/c RC RCHOC)
@@ -175,6 +178,9 @@
    ,(and (term (productive? C_1))
          (term (productive? C_2)))]
   [(productive? (C_1 ... -> C_2) x_0 ...)
+   ,(and (andmap (λ (c) (term (productive? ,c))) (term (C_1 ...)))
+         (term (productive? C_2)))]
+  [(productive? (C_1 ... -> (λ (x ...) C_2)) x_0 ...)
    ,(and (andmap (λ (c) (term (productive? ,c))) (term (C_1 ...)))
          (term (productive? C_2)))]
   [(productive? (or/c C_1 C_2) x_0 ...)
@@ -238,7 +244,10 @@
          (term (FV/C C_2)))]
   [(FV/C (C_1 ... -> C_2))
    ,(append (apply append (map (λ (c) (term (FV/C ,c))) (term (C_1 ...))))
-            (term (FV/C C_2)))]  
+            (term (FV/C C_2)))] 
+  [(FV/C (C_1 ... -> (λ (x ...) C_2)))
+   ,(append (apply append (map (λ (c) (term (FV/C ,c))) (term (C_1 ...))))
+            (term (FV/C C_2)))]
   [(FV/C C) ()])
 
 (define-metafunction λc~
