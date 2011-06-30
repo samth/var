@@ -15,7 +15,7 @@
      (beg E ρ a)
      (chk C ℓ ℓ V-or-AE ℓ a))  ;; V?
   
-  [E .... a]
+  [E .... (addr a)]
   (a any)
   (ρ ((x a) ...))
   (clo (V ρ))
@@ -123,6 +123,10 @@
    (unload ((plug E K) ρ σ K_1))
    (where {D_0 ... K_1 D_1 ...} (sto-lookup σ (addr-of K)))])
 
+(define-metafunction/extension fv CESK*
+  E -> (x ...)
+  [(fv (addr a)) ()])
+
 (define step
   (reduction-relation
    CESK* #:domain ς
@@ -135,7 +139,7 @@
                (sto-lookup σ (env-lookup ρ x)))
         var)
    
-   (--> (a ρ σ K)
+   (--> ((addr a) ρ σ K)
         (V ρ_0 σ K)
         (where (D_0 ... (V ρ_0) D_1 ...)
                (sto-lookup σ a))
@@ -243,7 +247,7 @@
     (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
          ((-- (λ (x ...)
                (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                    (@ a_new
+                    (@ (addr a_new)
                        (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
                        ...
                        Λ))))
