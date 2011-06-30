@@ -82,6 +82,9 @@
   [(subst-var x_1 x_0 any_2) any_2])
 
 (test
+ (test-equal (term (subst x 0 ((any/c) -> (λ (x) (any/c))))) (term ((any/c) -> (λ (x) (any/c)))))
+ (test-equal (term (subst x 0 ((any/c) -> (λ (x) (pred (λ (z) x) f))))) (term ((any/c) -> (λ (x) (pred (λ (z) x) f)))))
+ (test-equal (term (subst x 0 ((any/c) -> (λ (z) (pred (λ (y) x) f))))) (term ((any/c) -> (λ (z) (pred (λ (y) 0) f)))))
  (test-equal (term (subst x 0 x)) (term 0))
  (test-equal (term (subst x 0 y)) (term y))
  (test-equal (term (subst x 0 (λ (x) x))) (term (λ (x) x))))
