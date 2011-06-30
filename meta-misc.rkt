@@ -100,14 +100,44 @@
   [(strip-concrete-contracts AV) AV])
 
 ;; All domain contracts of all function contracts in given contracts.
+;; produces a list of the list of contracts for each argument of a function.
+
+;; In case of arity mismatch, we take the first function contract as canonical
+;; just like `arity'.
 (define-metafunction λc~
-  domain-contracts : (C ...) -> (C ...)
-  [(domain-contracts ()) ()]
-  [(domain-contracts ((C_1 -> C_2) C ...))
-   (C_1 C_0 ...)
-   (where (C_0 ...) (domain-contracts (C ...)))]
-  [(domain-contracts (C_0 C ...))
-   (domain-contracts (C ...))])
+  domain-contracts : (C ...) -> ((C ...) ...)
+  [(domain-contracts (C ...))
+   (domain-contracts* (C ...) ())])
+
+(define-metafunction λc~
+  domain-contracts* : (C ...) ((C ...) ...) -> ((C ...) ...)  
+  [(domain-contracts* () any) any]
+  [(domain-contracts* ((C_1 ... -> C_2) C ...) ())
+   (domain-contracts* (C ...) ((C_1) ...))]
+  [(domain-contracts* ((C_1 ..._1 -> C_2) C ...) ((C_3 ...) ..._1))
+   (domain-contracts* (C ...) ((C_3 ... C_1) ...))]
+  [(domain-contracts* (C_0 C ...) any)
+   (domain-contracts* (C ...) any)])
+
+(test
+ (redex-check λc~ AV
+              (if (term (∈ #t (δ (@ proc? AV ★))))
+                  (= (term (arity AV))
+                     (length (term (domain-contracts ,(cdr (term AV))))))
+                  #t))
+ 
+  (test-equal (term (domain-contracts (((nat/c) (string/c) -> (nat/c))
+                                       ((bool/c) (empty/c) -> (nat/c)))))
+              (term (((nat/c) (bool/c))
+                     ((string/c) (empty/c)))))
+  (test-equal (term (domain-contracts (((nat/c) (string/c) -> (nat/c))
+                                       ((bool/c) -> (nat/c)))))
+              (term (((nat/c)) ((string/c))))))
+
+(define-metafunction λc~
+  seq : E E ... -> E 
+  [(seq E) E]
+  [(seq E E_0 ...) (begin E (seq E_0 ...))])
 
 ;; All range contracts of all function contracts in given contracts.
 (define-metafunction λc~
@@ -120,18 +150,18 @@
    (range-contracts (C ...))])
 
 (define-metafunction λc~
-  ∧ : (C ...) -> C
-  [(∧ ())  (any/c)]
-  [(∧ (C)) C]
-  [(∧ (C_0 C_1  ...))
-   (and/c C_0 (∧ (C_1 ...)))])
+  ∧ : C ... -> C
+  [(∧)  (any/c)]
+  [(∧ C) C]
+  [(∧ C_0 C_1  ...)
+   (and/c C_0 (∧ C_1 ...))])
 
 (test
- (test-equal (term (∧ ())) (term (any/c)))
- (test-equal (term (∧ ((nat/c)))) (term (nat/c)))
- (test-equal (term (∧ ((nat/c) (string/c))))
+ (test-equal (term (∧)) (term (any/c)))
+ (test-equal (term (∧ (nat/c))) (term (nat/c)))
+ (test-equal (term (∧ (nat/c) (string/c)))
              (term (and/c (nat/c) (string/c))))
- (test-equal (term (∧ ((nat/c) (string/c) (empty/c))))
+ (test-equal (term (∧ (nat/c) (string/c) (empty/c)))
              (term (and/c (nat/c) (and/c (string/c) (empty/c))))))
 
 ;; Removes duplicate remembered contracts.

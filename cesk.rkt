@@ -124,13 +124,13 @@
    (where {D_0 ... K_1 D_1 ...} (sto-lookup σ (addr-of K)))])
 
 (define-metafunction/extension fv CESK*
-  E -> (x ...)
-  [(fv (addr a)) ()])
+  fv-CESK* : E -> (x ...)
+  [(fv-CESK* (addr a)) ()])
 
 (define step
   (reduction-relation
    CESK* #:domain ς
-
+   
    ;; Reductions
    
    (--> (x ρ σ K)
@@ -204,7 +204,7 @@
         (E ρ_0 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         begin)
-        
+   
    (--> (V ρ σ (let x E ρ_0 a))
         (E (extend-env ρ_0 (x) (a_0))
            (extend-sto σ (a_0) ((V ρ)))
@@ -228,58 +228,64 @@
    
    (--> (V ρ σ (chk (and/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ((C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-             (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
+              (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
          ρ σ K)
         (where HOC (and/c C_0 C_1))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-and-pass)
    
-    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ((@ cons 
-           (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
-           (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
-           Λ)
+            (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
+            (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
+            Λ)
          ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         (where HOC (cons/c C_0 C_1))
         check-cons-pass)
-    
-    (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-         ((-- (λ (x ...)
+   
+   (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((-- (λ (x ...)
                (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
                     (@ (addr a_new)
                        (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
                        ...
                        Λ))))
-          ρ σ_1 K)
-         (fresh ((x ...) (C_1 ...)))
-         (where a_new (alloc σ (V)))
-         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-         (where σ_1 (extend-sto1 σ a_new (V ρ)))
-         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
-         chk-fun-pass)
-    
-    (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-         ((blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> C_2) V) ρ σ K)
-         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
-         chk-fun-fail-flat)
-    
-    ;; applying abstract values
-    ;; FIXME -- handle multiple arguments
-    (--> (V ρ σ (ap (AV ρ_1) ρ_0 ℓ a))
-         ((begin (demonic* C_demon V)
-                 ;; abstract value constranated by all possible domains
-                 (remember-contract (-- (any/c)) C_0 ...))
-          ρ_0 σ K)
-         (where (-- C ...) AV)
-         (where C_demon (∧ (domain-contracts (C ...))))
-         (where (C_0 ...) (range-contracts (C ...)))
-         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
-         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-         apply-abs)
-    
-    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
+         ρ σ_1 K)
+        (fresh ((x ...) (C_1 ...)))
+        (where a_new (alloc σ (V)))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        (where σ_1 (extend-sto1 σ a_new (V ρ)))
+        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        chk-fun-pass)
+   
+   (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> C_2) V) ρ σ K)
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        (side-condition (term (∈ #f (δ (@ proc? V ★)))))
+        chk-fun-fail-flat)
+   
+   ;; applying abstract values
+   ;; FIXME -- BAD BUG environments not handled properly
+   (--> (V ρ σ (ap (AV ρ_1) (U ρ_2) ... ρ_0 ℓ a))
+        ((seq (demonic* C_demon_0 V)
+              (demonic* C_demon_1 U)
+              ...
+              ;; abstract value constranated by all possible domains
+              (remember-contract (-- (any/c)) C_0 ...))
+         ρ_0 σ K)
+        
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (equal? (length (term (U ... V)))
+                                (term (arity AV))))
+        (where (-- C ...) AV)
+        (where ((C_D ...) ...) (domain-contracts (C ...)))
+        (where (C_demon_0 C_demon_1 ...) ((∧ C_D ...) ...))
+        (where (C_0 ...) (range-contracts (C ...)))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        apply-abs)
+   
+   ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
    (--> ((-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...) ρ σ K)
         ((remember-contract (-- (any/c) C_0 ... C ...) C_2)  ρ σ K)
@@ -290,8 +296,8 @@
         ((remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))  ρ σ K)
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)
-    
-
+   
+   
    ;; Context shuffling
    
    (--> (V ρ σ (ap clo ... E_0 E ... ρ_0 ℓ a))
@@ -388,7 +394,7 @@
 (define-metafunction CESK*
   live-loc-clo : (E ρ) -> (a ...)
   [(live-loc-clo (E ρ))
-   (live-loc-env (restrict ρ (fv E)))])
+   (live-loc-env (restrict ρ (fv-CESK* E)))])
 
 (define-metafunction CESK*
   live-loc-env : ρ -> (a ...)
@@ -455,7 +461,7 @@
          (size (cdr sexp))
          1)))
 
-      
+
 (define step-gc  
   (let ((count 0)
         (m 0)
@@ -465,7 +471,7 @@
      [--> ς_old (E ρ_1 σ_1 K)
           (where (ς_1 ... (E ρ σ K)  ς_2 ...) ,(apply-reduction-relation step (term ς_old)))
           (where σ_1 (gc (E ρ σ K)))
-          (where ρ_1 (restrict ρ (fv E)))
+          (where ρ_1 (restrict ρ (fv-CESK* E)))
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  (when (> (size  (term (E ρ σ_1 K))) m)
@@ -545,7 +551,7 @@
  (test-->>c step (term (@ add1 0 †))  (term (-- 1)))
  (test-->>c step (term (@ proc? #f †)) (term (-- #f)))
  (test-->>c step (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
- 
+
 
 (test
  (test-->>c step (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
@@ -681,7 +687,7 @@
                                        (-- 7)))
                          (pred nat? p)
                          (-- "hi"))))
-
+ 
  
  (test-->>p (term [(module mt-val (pred empty? mt-val) empty) (mt-val ^ †)])
             (term (-- empty)))

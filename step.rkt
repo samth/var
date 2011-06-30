@@ -150,20 +150,22 @@
   (reduction-relation
    λc~ #:domain E
    
-   ;; APPLYING ABSTRACT VALUES   
-   
-   ;; FIXME -- multi argument functions
+   ;; APPLYING ABSTRACT VALUES    
    
    ;; applying abstract values to concrete values
-   (--> (@ AV V ℓ)
+   (--> (@ AV V ... ℓ)
         ;; do bad things in case of a concrete value
-        (begin (demonic* C_demon V)
-               ;; abstract value constranated by all possible domains
-               (remember-contract (-- (any/c)) C_0 ...))
-        (where (-- C ...) AV)
-        (where C_demon (∧ (domain-contracts (C ...))))
-        (where (C_0 ...) (range-contracts (C ...)))
+        (seq (demonic* C_demon V) 
+             ...
+             ;; abstract value constranated by all possible domains
+             (remember-contract (-- (any/c)) C_0 ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (equal? (length (term (V ...)))
+                                (term (arity AV))))
+        (where (-- C ...) AV)
+        (where ((C_D ...) ...) (domain-contracts (C ...)))
+        (where (C_demon ...) ((∧ C_D ...) ...))
+        (where (C_0 ...) (range-contracts (C ...)))
         apply-abs)
    
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
