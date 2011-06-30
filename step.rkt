@@ -280,6 +280,10 @@
 (define none/c (term (pred (λ (x) #f) Λ)))
 
 (test 
+ (test-->>p (term [(@ (λ () 4) f)]) (term (-- 4)))
+ (test-->>p (term [(@ (λ z () 4) f)]) (term (-- 4)))
+ (test-->>p (term [(@ (-- (-> (nat/c))) f)]) (term (-- (nat/c))))
+ 
  ;; testing demonic
  (test-->>p (term (ann [(module p ((cons/c nat? nat?) -> nat?) ☁)
                         (p (cons 1 2))]))

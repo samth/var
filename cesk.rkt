@@ -146,7 +146,21 @@
         addr)
    
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
+  
+   ;; Nullary function application
+   (--> (((-- (λ () E) C ...) ρ) ρ_0 σ (ap ρ_1 ℓ a))
+        (E ρ σ K)
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        β-0)
+   (--> (((-- (λ x () E) C ...) ρ) ρ_0 σ_0 (ap ρ_1 ℓ a))
+        (E (extend-env ρ (x) (a_1))
+           (extend-sto1 σ a_1 ((-- (λ x () E) C ...) ρ))
+           K)
+        (where (a_1) (alloc σ (x)))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        β-rec0)   
    
+   ;; Unary+ function application
    (--> (V ρ σ (ap ((-- (λ (x ...) E) C ...) ρ_0) clo ... ρ_1 ℓ a))
         (E (extend-env ρ (x ...) (a_1 ...))
            (extend-sto σ (a_1 ...) (clo ... (V ρ)))
@@ -265,6 +279,16 @@
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
         chk-fun-fail-flat)
    
+   ;; Nullary abstract application
+   (--> (AV ρ_0 σ (ap ρ_1 ℓ a))
+        ((remember-contracts (-- (any/c)) C_0 ...) ρ σ K)
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (equal? 0 (term (arity AV))))        
+        (where (-- C ...) AV)
+        (where (C_0 ...) (range-contracts (C ...)))        
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        apply-abs0)
+   
    ;; applying abstract values
    ;; FIXME -- BAD BUG environments not handled properly
    (--> (V ρ σ (ap (AV ρ_1) (U ρ_2) ... ρ_0 ℓ a))
@@ -305,7 +329,7 @@
         ap-next)
    
    (--> ((@ E_0 E_1 ... ℓ) ρ σ K)
-        (E_0 ρ σ_0 (ap E_1 ... ρ ℓ a))       
+        (E_0 ρ σ_0 (ap E_1 ... ρ ℓ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         ap-push)
@@ -554,6 +578,9 @@
 
 
 (test
+ (test-->>c step (term (@ (λ () 4) f)) (term (-- 4)))
+ (test-->>c step (term (@ (λ z () 4) f)) (term (-- 4)))
+ (test-->>c step (term (@ (-- (-> (nat/c))) f)) (term (-- (nat/c))))
  (test-->>c step (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
  (test-->>c step 
             (term ((nat/c) <= f g (-- 0) f (-- (λ (x) x))))
