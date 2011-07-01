@@ -434,10 +434,18 @@
    (where (a_0 ...) (live-loc-E E))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv E))))])
 
+(test
+ (redex-check CESK* (E ρ)
+              (redex-match CESK* (a ...) (term (live-loc-clo (E ρ))))))
+
 (define-metafunction CESK*
   live-loc-env : ρ -> (a ...)
   [(live-loc-env ((x a) ...))
    (a ...)])
+
+(test
+ (redex-check CESK* ρ
+              (redex-match CESK* (a ...) (term (live-loc-env ρ)))))
 
 (define-metafunction CESK*
   live-loc-E : any_E -> (a ...)
@@ -446,6 +454,10 @@
    (a ... ...)
    (where ((a ...) ...) ((live-loc-E any) ...))]
   [(live-loc-E any) ()])
+
+(test
+ (redex-check CESK* E
+              (redex-match CESK* (a ...) (term (live-loc-E E)))))
 
 (define-metafunction CESK*
   live-loc-K : K -> (a ...) 
@@ -475,6 +487,10 @@
    (a a_0 ...)
    (where (a_0 ...) (live-loc-E AV))])
 
+(test
+ (redex-check CESK* K
+              (redex-match CESK* (a ...) (term (live-loc-K K)))))
+
 (define-metafunction CESK*
   live-loc-Ds : (D ...) -> (a ...)
   [(live-loc-Ds ()) ()]
@@ -486,6 +502,10 @@
    (a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-K K))
    (where (a_1 ...) (live-loc-Ds (D ...)))])
+
+(test
+ (redex-check CESK* (D ...)
+              (redex-match CESK* (a ...) (term (live-loc-Ds (D ...))))))
 
 (define-metafunction CESK*
   reachable : (a ...) (a ...) σ -> (a ...)
