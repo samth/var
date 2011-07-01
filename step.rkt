@@ -165,8 +165,18 @@
         (where (-- C ...) AV)
         (where ((C_D ...) ...) (domain-contracts (C ...)))
         (where (C_demon ...) ((∧ C_D ...) ...))
-        (where (C_0 ...) (range-contracts (C ...)))
+        (where (C_0 ...) (range-contracts (C ...) (V ...)))
         apply-abs)
+   
+   (--> (@ AV V ... ℓ)
+        ;; do bad things in case of a concrete value
+        (seq (demonic* (any/c) V) 
+             ...
+             ;; abstract value constranated by all possible domains
+             (any/c))
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (not (term (arity AV))))
+        apply-abs-any)
    
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
    
