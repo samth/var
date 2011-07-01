@@ -13,6 +13,8 @@
    ,(length (term (x_0 ...)))]
   [(arity (-- (C_0 ... -> C_1) C ...))
    ,(length (term (C_0 ...)))]
+  [(arity (-- (C_0 ... -> (λ (x ...) C_1)) C ...))
+   ,(length (term (C_0 ...)))]
   [(arity (-- C)) #f]
   [(arity (-- C_0 C ...))
    (arity (-- C ...))])
@@ -21,6 +23,7 @@
  (test-equal (term (arity (-- (λ () x)))) 0)
  (test-equal (term (arity (-- (λ (x y z) x)))) 3)
  (test-equal (term (arity (-- ((nat/c) (nat/c) -> (nat/c))))) 2)
+ (test-equal (term (arity (-- ((nat/c) (nat/c) -> (λ (x y) (nat/c)))))) 2)
  (test-equal (term (arity (-- (string/c) ((nat/c) (nat/c) -> (nat/c))))) 2)
  (test-equal (term (arity (-- (pred proc? f)))) #f))
 
@@ -36,10 +39,10 @@
   feasible : C C -> #t or #f
   [(feasible FC (cons/c C_1 C_2)) #f]
   [(feasible (cons/c C_1 C_2) FC) #f]
-  [(feasible FC (C_1 ... -> C_2)) #f]
-  [(feasible (C_1 ... -> C_2) FC) #f]
-  [(feasible (cons/c C_a C_b) (C_1 ... -> C_2)) #f]
-  [(feasible (C_1 ... -> C_2) (cons/c C_a C_b)) #f]
+  [(feasible FC (C_1 ... -> any)) #f]
+  [(feasible (C_1 ... -> any) FC) #f]
+  [(feasible (cons/c C_a C_b) (C_1 ... -> any)) #f]
+  [(feasible (C_1 ... -> any) (cons/c C_a C_b)) #f]
   [(feasible FC_1 FC_2) ,(equal? (term FC_1) (term FC_2))]
   [(feasible C_1 C_2) #t])
   
@@ -112,9 +115,9 @@
 (define-metafunction λc~
   domain-contracts* : (C ...) ((C ...) ...) -> ((C ...) ...)  
   [(domain-contracts* () any) any]
-  [(domain-contracts* ((C_1 ... -> C_2) C ...) ())
+  [(domain-contracts* ((C_1 ... -> any) C ...) ())
    (domain-contracts* (C ...) ((C_1) ...))]
-  [(domain-contracts* ((C_1 ..._1 -> C_2) C ...) ((C_3 ...) ..._1))
+  [(domain-contracts* ((C_1 ..._1 -> any) C ...) ((C_3 ...) ..._1))
    (domain-contracts* (C ...) ((C_3 ... C_1) ...))]
   [(domain-contracts* (C_0 C ...) any)
    (domain-contracts* (C ...) any)])
@@ -140,14 +143,19 @@
   [(seq E E_0 ...) (begin E (seq E_0 ...))])
 
 ;; All range contracts of all function contracts in given contracts.
+;; given the specified arguments for dependent contracts
+;; throw out all ranges when the arity doesn't match the supplied number of values
 (define-metafunction λc~
-  range-contracts : (C ...) -> (C ...)
-  [(range-contracts ()) ()]
-  [(range-contracts ((C_1 ... -> C_2) C ...))
+  range-contracts : (C ...) (V ...) -> (C ...)
+  [(range-contracts () any) ()]
+  [(range-contracts ((C_1 ..._1 -> C_2) C ...) (V ..._1))
    (C_2 C_0 ...)
-   (where (C_0 ...) (range-contracts (C ...)))]
-  [(range-contracts (C_0 C ...)) 
-   (range-contracts (C ...))])
+   (where (C_0 ...) (range-contracts (C ...) (V ...)))]
+  [(range-contracts ((C_1 ..._1 -> (λ (x ..._1) C_2)) C ...) (V ..._1))
+   ((subst* (x ...) (V ...) C_2) C_0 ...)
+   (where (C_0 ...) (range-contracts (C ...) (V ...)))]
+  [(range-contracts (C_0 C ...) any) 
+   (range-contracts (C ...) any)])
 
 (define-metafunction λc~
   ∧ : C ... -> C

@@ -52,6 +52,9 @@
   
   [(demonic (C_0 ... -> C_1)) 
    (λ (f) (@ (demonic C_1) (@ f (-- C_0) ... ★) ★))
+   (where f ,(gensym 'f))]
+  [(demonic (C_0 ... -> (λ (x ...) C_1))) 
+   (λ (f) (@ (demonic (subst* (x ...) ((-- C_0) ...) C_1)) (@ f (-- C_0) ... ★) ★))
    (where f ,(gensym 'f))])
 
 ;; Does o? hold on all values abstracted by V
@@ -109,8 +112,8 @@
 ;; Does satisfying C imply (negate o?)
 (define-metafunction λc~
   refutes-con : C o? -> #t or #f
-  [(refutes-con (C_0 ... -> C_1) proc?) #f]
-  [(refutes-con (C_0 ... -> C_1) o?) #t]
+  [(refutes-con (C_0 ... -> any) proc?) #f]
+  [(refutes-con (C_0 ... -> any) o?) #t]
   [(refutes-con (pred o?_0 ℓ) o?_1) 
    (refutes-predicate o?_0 o?_1)]
   [(refutes-con (or/c C_0 C_1) o?)
