@@ -272,8 +272,27 @@
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
         chk-fun-pass)
    
-   (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ((blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> C_2) V) ρ σ K)
+   (--> (V ρ σ (chk (C_1 ... -> (λ (x_0 ...) C_2)) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((-- (λ (x ...)
+               ((subst* (x_0 ...) (x ...) C_2)
+                <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+                (@ (addr a_new)
+                   (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
+                   ...
+                   Λ))))
+         ρ σ_1 K)
+        (where (x ...) ,(variables-not-in (term (C_1 ... C_2 x_0 ... V-or-AE))
+                                          (map (λ _ 'x) (term (C_1 ...)))))
+        #;
+        (fresh ((x ...) (C_1 ...)))
+        (where a_new (alloc σ (V)))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        (where σ_1 (extend-sto1 σ a_new (V ρ)))
+        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        chk-fun-dep-pass)
+   
+   (--> (V ρ σ (chk (C ... -> any) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
         chk-fun-fail-flat)
@@ -828,3 +847,6 @@
 ;; Doesn't terminate, but should
 ;(final (term (ann ,wrong-prog)))
 ;(trace-it (term (ann ,wrong-prog)))
+
+
+(trace-it (term [(@ (((any/c) -> (λ (x) (pred (λ (y) x) f))) <= f g (-- 0) h (λ (z) z)) 1 †)]))
