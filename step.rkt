@@ -162,29 +162,44 @@
    λc~ #:domain E
    
    ;; APPLYING ABSTRACT VALUES    
+   (--> (@ AV ℓ)
+        (remember-contract (-- (any/c) C_0 ...))
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (equal? 0 (term (arity AV))))
+        (where (-- C ...) AV)
+        (where (C_0 ...) (range-contracts (C ...) ()))
+        apply-abs-known-arity0)
    
    ;; applying abstract values to concrete values
    (--> (@ AV V ... ℓ)
         ;; do bad things in case of a concrete value
-        (seq (demonic* C_demon V) 
-             ...
-             ;; abstract value constranated by all possible domains
-             (remember-contract (-- (any/c)) C_0 ...))
+        (begin (demonic* C_demon V_demon)
+               ;; abstract value constranated by all possible domains
+               (remember-contract (-- (any/c) C_0 ...)))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? (length (term (V ...)))
                                 (term (arity AV))))
         (where (-- C ...) AV)
-        (where ((C_D ...) ...) (domain-contracts (C ...)))
-        (where (C_demon ...) ((∧ C_D ...) ...))
+        (where ((C_D ...) ...) (domain-contracts (C ...)))        
+        (where (C_demon0 ..._1 C_demon C_demon1 ..._2) ((∧ C_D ...) ...))        
+        (where (V_demon0 ..._1 V_demon V_demon1 ..._2) (V ...))
         (where (C_0 ...) (range-contracts (C ...) (V ...)))
-        apply-abs)
+        apply-abs-known-arity)
    
-   (--> (@ AV V ... ℓ)
+   (--> (@ AV ℓ)
         ;; do bad things in case of a concrete value
-        (seq (demonic* (any/c) V) ... (any/c))
+        (any/c)
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (not (term (arity AV))))
-        apply-abs-any)
+        apply-abs-no-arity0)
+       
+   (--> (@ AV V_0 ... V V_1 ... ℓ)
+        ;; do bad things in case of a concrete value
+        (begin (demonic* (any/c) V)
+               (any/c))
+        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (not (term (arity AV))))
+        apply-abs-no-arity)
    
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
    
