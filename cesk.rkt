@@ -7,15 +7,14 @@
 (current-cache-all? #t)
 
 (define-extended-language CESK* λc~ 
-  (K mt 
-     
-     (ap clo ... E ... ρ ℓ a)
-     
+  (K mt      
+     (ap clo ... E ... ρ ℓ a)     
      (if E E ρ a)
      (op o clo ... E ... ρ ℓ a)
      (let x E ρ a)
      (beg E ρ a)
-     (chk C ℓ ℓ V-or-AE ℓ a))  ;; V?
+     (chk C ℓ ℓ V-or-AE ℓ a)  ;; V?
+     (dem AV a))
    
   (ρ ((x a) ...))
   (clo (V ρ))
@@ -285,42 +284,32 @@
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? 0 (term (arity AV))))        
         (where (-- C ...) AV)
-        (where (C_0 ...) (range-contracts (C ...)))        
+        (where (C_0 ...) (range-contracts (C ...) ()))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         apply-abs0)
    
-   ;; applying abstract values
-   ;; FIXME -- BAD BUG environments not handled properly
-   (--> (V ρ σ (ap (AV ρ_1) (U ρ_2) ... ρ_0 ℓ a))
-        ((seq (demonic* C_demon0 V)
-              (demonic* C_demon1 U)
-              ...
-              ;; abstract value constranated by all possible domains
-              (remember-contract (-- (any/c)) C_0 ...))
-         ρ_0 σ K)
-        
+   ;; applying abstract values   
+   (--> (V ρ σ (ap (AV ρ_1) clo ... ρ_0 ℓ a))
+        ((demonic* C_demon U) ρ_2 σ (dem (remember-contract (-- (any/c)) C_0 ...) a))
+        (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
-        (side-condition (equal? (length (term (U ... V)))
+        (side-condition (equal? (length (term (clo ... V)))
                                 (term (arity AV))))
         (where (-- C ...) AV)
         (where ((C_D ...) ...) (domain-contracts (C ...)))
-        (where (C_demon0 C_demon1 ...) ((∧ C_D ...) ...))
-        (where (C_0 ...) (range-contracts (C ...)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        apply-abs)
-   
-   (--> (V ρ σ (ap (AV ρ_1) (U ρ_2) ... ρ_0 ℓ a))
-        ((seq (demonic* (any/c) V)
-              (demonic* (any/c) U)
-              ...
-              (-- (any/c)))
-         ρ_0 σ K)
+        (where (C_demon0 ..._1 C_demon C_demon1 ..._2) ((∧ C_D ...) ...))
+        (where ((V_0 any_0) ...) (clo ... (V ρ)))              ;; FIXME, stripping environments because we're
+        (where (C_0 ...) (range-contracts (C ...) (V_0 ...)))  ;; fucked here.
         
+        apply-abs-known-arity)
+   
+   (--> (V ρ σ (ap (AV ρ_1) clo ... ρ_0 ℓ a))
+        ((demonic* (any/c) U) ρ_2 σ (dem (-- (any/c)) a))
+        (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition ;; this is a proc with no arity, so it could be anything
          (not (term (arity AV))))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        apply-abs-any)
+        apply-abs-no-arity)
    
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
@@ -334,6 +323,16 @@
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)
    
+   ;; Demonic
+   
+   (--> (V ρ σ (dem AV a))
+        (AV () σ K)
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        dem-done)
+   
+   (--> (V ρ σ (dem (E_1 ρ_1) (E_2 ρ_2) ... AV a))
+        (E_1 ρ_1 σ (dem (E_2 ρ_2) ... AV a))
+        dem-continue)   
    
    ;; Context shuffling
    
@@ -471,7 +470,10 @@
    (where (a_0 ...) (live-loc-clo (E ρ)))]
   ;; Probably want V-or-AE to be a closure and traverse it as well.
   [(live-loc-K (chk C ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
-   (a)])
+   (a)]
+  [(live-loc-K (dem AV a))
+   (a a_0 ...)
+   (where (a_0 ...) (live-loc-E AV))])
 
 (define-metafunction CESK*
   live-loc-Ds : (D ...) -> (a ...)
