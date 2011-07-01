@@ -1,13 +1,8 @@
 state the main theorem and randomly test
 
-fix application of AV to multiple args
-
-dependent contracts
 first class contracts
 state
 translator from Racket subset
-
-use fv to improve gc
 
 drop labels in abstract values (makes more things the same, speeding
 up convergence)

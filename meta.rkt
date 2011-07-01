@@ -99,7 +99,7 @@
    ,(or (term (proves-con C_0 o?))
         (term (proves-con C_1 o?)))]
   [(proves-con (cons/c C_0 C_1) cons?) #t]
-  [(proves-con (C_0 ... -> C_1) proc?) #t]
+  [(proves-con (C_0 ... -> any) proc?) #t]
   [(proves-con C o?) #f])
 
 (define-metafunction λc~
@@ -126,8 +126,8 @@
    #t
    (side-condition (not (eq? (term o?) 'cons?)))]
   [(refutes-con (rec/c x C) o?) 
-   #f ;; FIXME
-   #;(refutes-con (unroll (rec/c x C)) o?)]
+   (refutes-con (unroll (rec/c x C)) o?)
+   (where #t (productive? (rec/c x C)))]
   [(refutes-con C o?) #f])
 
 (define-metafunction λc~
@@ -200,7 +200,6 @@
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?
-;; FIXME do more here (or/c, rec/c, etc.)
 (define-metafunction λc~
   contract-not-in : C V -> #t or #f  
   [(contract-not-in (pred o? ℓ) V)
@@ -218,6 +217,19 @@
   [(contract-not-in (and/c C_1 C_2) V)
    ,(or (term (contract-not-in C_1 V))
         (term (contract-not-in C_2 V)))]
+  [(contract-not-in (or/c C_1 C_2) V)
+   ,(and (term (contract-not-in C_1 V))
+         (term (contract-not-in C_2 V)))]
+  
+  [(contract-not-in (rec/c x C) V)
+   (contract-not-in (unroll (rec/c x C)) V)
+   (where #t (productive? (rec/c x C)))]
+                    
+  
+  [(contract-not-in (C_1 ... -> any) V)
+   #t
+   (where #t (refutes V proc?))]
+  
   [(contract-not-in C V) #f])
 
 (test 
