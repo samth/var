@@ -137,11 +137,6 @@
                                        ((bool/c) -> (nat/c)))))
               (term (((nat/c)) ((string/c))))))
 
-(define-metafunction λc~
-  seq : E E ... -> E 
-  [(seq E) E]
-  [(seq E E_0 ...) (begin E (seq E_0 ...))])
-
 ;; All range contracts of all function contracts in given contracts.
 ;; given the specified arguments for dependent contracts
 ;; throw out all ranges when the arity doesn't match the supplied number of values
