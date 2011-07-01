@@ -116,9 +116,20 @@
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
         chk-fun-pass)
    
+   (--> ((C_1 ... -> (λ (x_0 ...) C_2)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        (-- (λ (x ...)
+              ((subst* (x_0 ...) ((C_1 <= ℓ_2 ℓ_3 x ℓ_2 x) ...) C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+                   (@ (remember-contract V (pred proc? Λ))
+                      (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
+                      ...
+                      Λ))))
+        (fresh ((x ...) (C_1 ...)))
+        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        chk-dep-fun-pass)
+   
    ;; flat values
-   (--> ((C_1 ... -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> C_2) V)
+   (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        (blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> any) V)
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
         chk-fun-fail-flat)))
 
@@ -170,10 +181,7 @@
    
    (--> (@ AV V ... ℓ)
         ;; do bad things in case of a concrete value
-        (seq (demonic* (any/c) V) 
-             ...
-             ;; abstract value constranated by all possible domains
-             (any/c))
+        (seq (demonic* (any/c) V) ... (any/c))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (not (term (arity AV))))
         apply-abs-any)
