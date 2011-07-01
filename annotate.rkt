@@ -93,6 +93,8 @@
   
   [(ann-con (RC_0 ... -> RC_1) ℓ (f ...))
    ((ann-con RC_0 ℓ (f ...)) ... -> (ann-con RC_1 ℓ (f ...)))]
+  [(ann-con (RC_0 ... -> (λ (x ...) RC_1)) ℓ (f ...))
+   ((ann-con RC_0 ℓ (f ...)) ... -> (λ (x ...) (ann-con RC_1 ℓ (f ...))))]
   [(ann-con RC ℓ (f ...)) RC])
 
 (test
@@ -104,6 +106,8 @@
  
  (test-equal (term (ann ,fit-example-raw)) fit-example)
  (test-equal (term (ann ,list-id-example-raw)) list-id-example))
+
+;; below stuff is bitrotted
 
 #;
 (define-metafunction λc~
