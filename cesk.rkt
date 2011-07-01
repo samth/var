@@ -33,6 +33,7 @@
   [(widen (-- (cons V_1 V_2) C ...)) 
    (remember-contract (-- (pred cons? Λ)) C ...)]
   [(widen (-- empty C ...)) (-- empty C ...)]
+  [(widen (-- L C ...)) (-- L C ...)]
   [(widen (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
 
 ;; handles the second arg not being symbols
