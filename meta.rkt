@@ -202,35 +202,49 @@
 ;; Does this abstract value *definitely* fail this contract?
 (define-metafunction λc~
   contract-not-in : C V -> #t or #f  
-  [(contract-not-in (pred o? ℓ) V)
+  [(contract-not-in C V)
+   (contract-not-in/cache C V ())])
+
+(define-metafunction λc~
+  contract-not-in/cache : C V ((C V) ...) -> #t or #f
+  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]
+  [(contract-not-in/cache (pred o? ℓ) V any)
    (refutes V o?)]
-  [(contract-not-in (cons/c C_1 C_2) V)
+  [(contract-not-in/cache (cons/c C_1 C_2) V ((C_3 V_3) ...))
    ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
    (where (V_car ...) ,(filter (redex-match λc~ V) (term (δ (@ first V Λ)))))
    (where (V_cdr ...) ,(filter (redex-match λc~ V) (term (δ (@ rest V Λ)))))
-   (where bool_cars ,(andmap values (term ((contract-not-in C_1 V_car) ...))))
-   (where bool_cdrs ,(andmap values (term ((contract-not-in C_2 V_cdr) ...))))
+   (where bool_cars ,(andmap values (term ((contract-not-in/cache C_1 V_car (((cons/c C_1 C_2) V) (C_3 V_3) ...)) ...))))
+   (where bool_cdrs ,(andmap values (term ((contract-not-in/cache C_2 V_cdr (((cons/c C_1 C_2) V) (C_3 V_3) ...)) ...))))
    ]
-  [(contract-not-in FC V)
+  [(contract-not-in/cache FC V any)
    #t
    (where #t (proves V proc?))]
-  [(contract-not-in (and/c C_1 C_2) V)
-   ,(or (term (contract-not-in C_1 V))
-        (term (contract-not-in C_2 V)))]
-  [(contract-not-in (or/c C_1 C_2) V)
-   ,(and (term (contract-not-in C_1 V))
-         (term (contract-not-in C_2 V)))]
+  [(contract-not-in/cache (and/c C_1 C_2) V ((C_3 V_3) ...))
+   ,(or (term (contract-not-in/cache C_1 V (((and/c C_1 C_2) V) (C_3 V_3) ...)))
+        (term (contract-not-in/cache C_2 V (((and/c C_1 C_2) V) (C_3 V_3) ...))))]
+  [(contract-not-in/cache (or/c C_1 C_2) V ((C_3 V_3) ...))
+   ,(and (term (contract-not-in/cache C_1 V (((or/c C_1 C_2) V) (C_3 V_3) ...)))
+         (term (contract-not-in/cache C_2 V (((or/c C_1 C_2) V) (C_3 V_3) ...))))]
   
-  [(contract-not-in (rec/c x C) V)
-   (contract-not-in (unroll (rec/c x C)) V)
+  [(contract-not-in/cache (rec/c x C) V ((C_3 V_3) ...))
+   (contract-not-in/cache (unroll (rec/c x C)) V (((rec/c x C) V) (C_3 V_3) ...))
    (where #t (productive? (rec/c x C)))]
                     
   
-  [(contract-not-in (C_1 ... -> any) V)
+  [(contract-not-in/cache (C_1 ... -> any) V any_1)
    #t
    (where #t (refutes V proc?))]
   
-  [(contract-not-in C V) #f])
+  [(contract-not-in/cache C V any) #f])
+
+
+;; Loops
+#;
+(term (contract-not-in (cons/c (pred nat? Λ) (rec/c X (or/c (pred empty? Λ) (cons/c (pred nat? Λ) X))))
+                       (-- (cons/c (any/c) (rec/c Y (or/c (empty/c) (cons/c (any/c) Y)))))))
+
+
 
 (test 
  (test-equal (term (contract-not-in (cons/c (any/c) (any/c))  (-- 0)))
@@ -251,11 +265,14 @@
 
 (test 
  (test-equal
-  (term (flat-check ((cons/c (pred nat? p) (pred nat? p))
+  (term (flat-check ((cons/c (pred (λ (x) (@ 1 0 blame-me)) p) (pred (λ (x) (@ 2 3 blame-me2)) p))
                      <= f g (-- 0) h
                      (-- (pred cons? f)))))
-  (term (amb (-- (pred cons? f) (cons/c (pred nat? p) (pred nat? p)))
-             (blame f h (-- 0) (cons/c (pred nat? p) (pred nat? p)) (-- (pred cons? f)))))))
+  (term (if (@ (λ (x) (@ 1 0 blame-me)) (-- (pred (λ (x) #t) Λ)) p)
+            (if (@ (λ (x) (@ 2 3 blame-me2)) (-- (pred (λ (x) #t) Λ)) p)
+                (-- (pred cons? f) (cons/c (pred (λ (x) (@ 1 0 blame-me)) p) (pred (λ (x) (@ 2 3 blame-me2)) p)))
+                (blame f h (-- 0) (pred (λ (x) (@ 2 3 blame-me2)) p) (-- (pred (λ (x) #t) Λ))))
+            (blame f h (-- 0) (pred (λ (x) (@ 1 0 blame-me)) p) (-- (pred (λ (x) #t) Λ)))))))
 
 
 ;; the continuation ranges over: B | E.
@@ -292,11 +309,30 @@
                                      (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
   [(flat-check/defun (rec/c x C) V E E_k)
    (flat-check/defun (unroll (rec/c x C)) V E E_k)]
-  ;; Fall of end: fork in the road, take it.
-  [(flat-check/defun FLAT V E E_k) 
-   (amb E (meta-defun-apply E_k FLAT V))])
+  
+  [(flat-check/defun (cons/c C_1 C_2) AV E E_k)   ;; 2 cases: AV proves cons?
+   (amb E_r ...)      
+   (where (E_r ...)
+          ,(for*/list ([l (term (proj-left AV))]
+                       [r (term (proj-right AV))])
+             (term (flat-check/defun C_1 ,l (flat-check/defun C_2 ,r E (meta-defun-apply E_k C_2 ,r)) (meta-defun-apply E_k C_1 ,l)))))   
+   (where #t (proves AV cons?))]  
+  [(flat-check/defun (cons/c C_1 C_2) AV E E_k)   ;; 2 cases: AV maybe is a cons.   
+   (amb E_r ... 
+        (meta-defun-apply E_k (cons/c C_1 C_2) AV))
+   (where (E_r ...)
+          ,(for*/list ([l (term (proj-left AV))]
+                       [r (term (proj-right AV))])
+             (term (flat-check/defun C_1 ,l (flat-check/defun C_2 ,r E (meta-defun-apply E_k C_2 ,r)) (meta-defun-apply E_k C_1 ,l)))))
+   (where #f (proves AV cons?))
+   (where #f (refutes AV cons?))]  
+  )
+
  
 (test
+ 
+ (redex-check λc~ ((side-condition FLAT_1 (term (valid? FLAT_1))) V E E_k) (redex-match λc~ E (term (flat-check/defun FLAT_1 V E E_k))))
+ 
  (test-equal (term (proves (-- #t) bool?)) #t)
  (test-equal (term (flat-check ((and/c (pred nat? f) (pred empty? f)) <= f1 f2 (-- "V") f1 (-- #t))))
              (term (blame f1 f1 (-- "V") (pred nat? f) (-- #t))))
