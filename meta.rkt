@@ -12,7 +12,7 @@
   demonic* : C V -> E
   [(demonic* C (-- PV C_0 ...))
    (@ (demonic C) (-- PV C_0 ...) ★)]
-  [(demonic* C V) ;; produces trivial expression
+  [(demonic* C AV) ;; produces trivial expression
    (-- 0)])
 
 (define-metafunction λc~
