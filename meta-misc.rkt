@@ -51,7 +51,6 @@
 
 (define-metafunction λc~
   remember-contract : V-or-AE C ... -> V or AE
-  [(remember-contract V-or-AE) V-or-AE]
   ;; Expand away and/c
   [(remember-contract V-or-AE (and/c C_1 C_2) C ...)
    (remember-contract V-or-AE C_1 C_2 C ...)]
@@ -82,13 +81,17 @@
    (where (#t ...) ((feasible C_2 C_1) ...))]
   ;; drop infeasible contracts
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
-   (remember-contract (-- any_0 C_1 ...) C ...)])
+   (remember-contract (-- any_0 C_1 ...) C ...)]
+  ;; we're done
+  [(remember-contract V-or-AE) V-or-AE])
 
 (test
  (test-equal (term (remember-contract (-- (λ (x) x)) (pred proc? Λ)))
              (term (-- (λ (x) x))))
  (test-equal (term (remember-contract (-- 1) (nat/c)))
              (term (-- 1)))
+ (test-equal (term (remember-contract (-- (any/c) (nat/c))))
+             (term (-- (nat/c))))
  
  ;; check that remember-contract is total and produces the right type
  (redex-check λc~ (V C ...)              
