@@ -1,6 +1,6 @@
 #lang racket
 (require (except-in redex plug))
-(require "lang.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
+(require "lang.rkt" "flat-check.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
@@ -849,4 +849,4 @@
 ;(trace-it (term (ann ,wrong-prog)))
 
 
-(trace-it (term [(@ (((any/c) -> (λ (x) (pred (λ (y) x) f))) <= f g (-- 0) h (λ (z) z)) 1 †)]))
+;(trace-it (term [(@ (((any/c) -> (λ (x) (pred (λ (y) x) f))) <= f g (-- 0) h (λ (z) z)) 1 †)]))
