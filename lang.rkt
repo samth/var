@@ -22,8 +22,6 @@
   ;; A flat value is definitely not a procedure
   (FV nat bool string empty (cons V V))
   
-  (V-or-x V x)
-  
   ;; Values
   ((U V) WFV W)
   
@@ -77,7 +75,7 @@
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
   (B (blame ℓ ℓ V C V))
-  (E .... (C <= ℓ ℓ V-or-x ℓ E) B)
+  (E .... (C <= ℓ ℓ V ℓ E) B)
   (𝓔 .... (C <= ℓ ℓ V ℓ 𝓔)))
 
 ;; Figure 5, gray (cont).
@@ -85,20 +83,20 @@
   ;; Abstract expressions
   (AE (-- C* C* ...) blessed-AE)   
   (blessed-AE
-   ((C ... --> C) <= ℓ ℓ V-or-x ℓ AE)
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ AE))
+   ((C ... --> C) <= ℓ ℓ V ℓ AE)
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ AE))
 
   ;; Abstract values
   (AV (-- C*-top C*-top ...)
       blessed-AV)
   (blessed-AV
-   ((C ... --> C) <= ℓ ℓ V-or-x ℓ AV)
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ AV))
+   ((C ... --> C) <= ℓ ℓ V ℓ AV)
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ AV))
   (blessed-L
-   ((C ... --> C) <= ℓ ℓ V-or-x ℓ (-- L C* ...))
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ (-- L C* ...))
-   ((C ... --> C) <= ℓ ℓ V-or-x ℓ blessed-L)
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ blessed-L))
+   ((C ... --> C) <= ℓ ℓ V ℓ (-- L C* ...))
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ (-- L C* ...))
+   ((C ... --> C) <= ℓ ℓ V ℓ blessed-L)
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ blessed-L))
   
   ;; Concrete values
   (CV (-- PV C* ...) blessed-L)
@@ -309,9 +307,9 @@
    ,(andmap values (term ((valid? C) ...)))]
   [(valid-value? (-- C ...))
    ,(andmap values (term ((valid? C) ...)))]
-  [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+  [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))]
-  [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+  [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))])
 
 (define-metafunction λc~

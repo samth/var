@@ -18,7 +18,7 @@
   [(arity (-- C)) #f]
   [(arity (-- C_0 C ...))
    (arity (-- C ...))]
-  [(arity ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+  [(arity ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    ,(length (term (C ...)))])
   
 (test
@@ -85,8 +85,8 @@
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
    (remember-contract (-- any_0 C_1 ...) C ...)]  
   ;; push remembered contracts past blessed arrows
-  [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) C_0 ...)
-   ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2
+  [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) C_0 ...)
+   ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2
                      (remember-contract V C_0 ...))]  
   ;; we're done
   [(remember-contract V-or-AE) V-or-AE])
@@ -189,8 +189,8 @@
                                [(`(,f ^ _) `(,f ^ _)) #t]
                                [(a b) (equal? a b)])))]
   
-  [(normalize ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
-   ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 (normalize V))])
+  [(normalize ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
+   ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (normalize V))])
 
 (test
  (redex-check λc~ V  (redex-match λc~ V (term (normalize V)))))

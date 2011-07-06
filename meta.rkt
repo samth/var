@@ -69,7 +69,7 @@
   [(proves (-- C_0 ... C C_1 ...) o?) 
    #t
    (where #t (proves-con C o?))]
-  [(proves ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) o?)
+  [(proves ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) o?)
    (proves V o?)]
   [(proves V o?) #f])
 
@@ -86,7 +86,7 @@
   [(refutes (-- PV C ...) o?)
    #t
    (where #f (plain-δ o? PV Λ))]
-  [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) o?)
+  [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) o?)
    (refutes V o?)]
   [(refutes V o?) #f])
 
@@ -197,7 +197,7 @@
   contract-in : C V -> #t or #f
   [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
   [(contract-in C (-- C_0 ... C C_1 ...)) #t]
-  [(contract-in C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+  [(contract-in C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    (contract-in C V)]
   [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
                 (-- PV C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
@@ -218,7 +218,7 @@
 (define-metafunction λc~
   contract-not-in/cache : C V ((C V) ...) -> #t or #f
   [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]
-  [(contract-not-in/cache C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) any)
+  [(contract-not-in/cache C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) any)
    (contract-not-in/cache C V any)]
   [(contract-not-in/cache (pred o? ℓ) V any)
    (refutes V o?)]
@@ -269,7 +269,7 @@
 (define-metafunction λc~
   δ : (@ o V ... ℓ) -> (V-or-B V-or-B ...)
   [(δ (@ cons V_0 V_1 ℓ)) ((-- (cons V_0 V_1)))]
-  [(δ (@ o V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) V_1 ... ℓ))
+  [(δ (@ o V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) V_1 ... ℓ))
    (δ (@ o V_0 ... V V_1 ... ℓ))]
   [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
   [(δ (@ o V ... ℓ)) (abstract-δ o V ... ℓ)])
@@ -321,7 +321,7 @@
   [(impossible? (-- PV C ...)) #f]
   [(impossible? (-- C))
    (impossible-con? C)]
-  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    (impossible? V)]
   [(impossible? (-- C_0 C_1 C ...))
    ,(or (term (impossible? (-- C_0 C ...)))
@@ -483,7 +483,7 @@
 
 (test  
  (test-equal (term (δ (@ cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0) q)))
-             (term (-- (cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0)))))
+             (term ((-- (cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0))))))
  
  (test-equal (term (δ (@ proc? (-- ((any/c) -> (any/c))) †)))
              (term ((-- #t))))
