@@ -323,9 +323,10 @@
   [(fv (begin E ...)) (fv/list (E ...))]
   [(fv (@ E ... ℓ)) (fv/list (E ...))]
   [(fv (@ o E ... ℓ)) (fv/list (E ...))]
-  [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]
+  [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]  ;; Wrong in env semantics
   [(fv (blame ℓ_1 ℓ_2 V-or-AE any_C V)) (fv/list (V-or-AE V))]
-  [(fv (addr a)) ()])
+  [(fv (addr a)) ()]
+  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)])
 
 (define-metafunction λc~
   fv/list : (E ...) -> (x ...)
@@ -334,6 +335,8 @@
   
 
 (test
+ (redex-check λc~ E (redex-match λc~ (x ...) (term (fv E))))
+ 
  (test-equal (list? (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #t)
  (test-equal (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (λ () 1)))) #f)
  (test-equal (redex-match λc~ V (term (-- ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #f)
