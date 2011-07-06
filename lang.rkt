@@ -12,7 +12,8 @@
   ;; Annotated language
   (P (M ... E))
   (M (module f C PV))
-  (L (λ (x ...) E) (λ x (x ...) E)) 
+  (L (λ (x ...) E) 
+     (λ x (x ...) E))     
   (W (-- L C* ...))
   (bool #t #f)
   ;; Plain value
@@ -82,10 +83,19 @@
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
   (AE (-- C* C* ...))      ;; Abstract expressions
-  (AV (-- C*-top C*-top ...))  ;; Abstract values
+  (AV (-- C*-top C*-top ...)  ;; Abstract values
+      blessed-AV)
+  (blessed-AV
+   ((C ... --> C) <= ℓ ℓ V-or-x ℓ AV)             ;; missing wrapping.  OK?
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ AV))
+  (blessed-L
+   ((C ... --> C) <= ℓ ℓ V-or-x ℓ (-- L C* ...))
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ (-- L C* ...))
+   ((C ... --> C) <= ℓ ℓ V-or-x ℓ blessed-L)
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ blessed-L))
   (CV (-- PV C*-top ...))      ;; Concrete values
   (C-ext C λ)
-      
+  
   (V-or-AE V AE)
   (E .... AE (C <= ℓ ℓ AE ℓ E) (addr a))   ;; (addr a) for CESK only
   (𝓔 .... (C <= ℓ ℓ AE ℓ 𝓔))
@@ -118,7 +128,8 @@
          (rec/c x FVC!))
   (FVC!*-top FC (cons/c C C))
   
-  (V .... AV)             ;; (-- X) is overline X.
+  (V .... AV blessed-L)
+     
   (M .... (module f C ☁))
 
   (V-or-B V B)
@@ -129,7 +140,10 @@
   (WC!*-top (C ... -> C) (C ..._1 -> (λ (x ..._1) C)) (pred proc? ℓ))
   
   ;; Definite procedure  
-  (W .... (-- C*-top ... WC!*-top C*-top ...))
+  (W .... 
+     blessed-L
+     blessed-AV 
+     (-- C*-top ... WC!*-top C*-top ...))
   
     
   ;; Note: uninhabited contracts may be both definitely flat and procedures.
@@ -286,7 +300,11 @@
   [(valid-value? (-- PV C ...))
    ,(andmap values (term ((valid? C) ...)))]
   [(valid-value? (-- C ...))
-   ,(andmap values (term ((valid? C) ...)))])
+   ,(andmap values (term ((valid? C) ...)))]
+  [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+   ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))]
+  [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+   ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))])
 
 (define-metafunction λc~
   fv : E -> (x ...)
@@ -316,6 +334,10 @@
   
 
 (test
+ (test-equal (list? (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #t)
+ (test-equal (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (λ () 1)))) #f)
+ (test-equal (redex-match λc~ V (term (-- ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #f)
+ (test-equal (list? (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (-- (any/c)))))) #t)
  
  (test-equal
   (redex-match λc~ HOC (term (cons/c
