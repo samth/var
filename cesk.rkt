@@ -337,7 +337,7 @@
         (side-condition (term (valid? C_2)))
         abs-or/c-split)
    
-   (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)
+   (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)  ;; Productivity implies this doesn't loop.
         ((remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))  ρ σ K)
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)

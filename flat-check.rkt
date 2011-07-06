@@ -33,45 +33,51 @@
 
 (define-metafunction λc~
   flat-check/defun : FLAT V E E_k -> E
-  [(flat-check/defun anyc V E E_k) E]
-  [(flat-check/defun C V E E_k)
+  [(flat-check/defun FLAT V E E_k)
+   (fc/c () FLAT V E E_k)])
+
+
+(define-metafunction λc~
+  fc/c : ((C V) ...) FLAT V E E_k -> E
+  [(fc/c (any_1 ... (C V) any_2 ...) C V E E_k) E]  
+  [(fc/c any anyc V E E_k) E]
+  [(fc/c any C V E E_k)
    E 
    (where #t (contract-in C V))]
-  [(flat-check/defun (and/c FLAT_0 FLAT_1) V E E_k)
-   (flat-check/defun FLAT_0 V (flat-check/defun FLAT_1 V E E_k) E_k)]
-  [(flat-check/defun (cons/c FLAT_0 FLAT_1)
+  [(fc/c any (and/c FLAT_0 FLAT_1) V E E_k)
+   (fc/c any FLAT_0 V (fc/c any FLAT_1 V E E_k) E_k)]
+  [(fc/c any (cons/c FLAT_0 FLAT_1)
                      (-- (cons V_0 V_1) C ...)
                      E E_k)
-   (flat-check/defun FLAT_0 V_0 (flat-check/defun FLAT_1 V_1 E E_k) E_k)]
-  [(flat-check/defun C V E E_k)
+   (fc/c any FLAT_0 V_0 (fc/c any FLAT_1 V_1 E E_k) E_k)]
+  [(fc/c any C V E E_k)
    (meta-defun-apply E_k C V)
    (where #t (contract-not-in C V))]
-  [(flat-check/defun (pred SV ℓ) V E E_k)
+  [(fc/c any (pred SV ℓ) V E E_k)
    (if (@ SV V ℓ) 
        E 
        (meta-defun-apply E_k (pred SV ℓ) V))]  
-  [(flat-check/defun (or/c FLAT_0 FLAT_1) V E E_k)
-   (flat-check/defun FLAT_0 V
-                   E
-                   (flat-check/defun FLAT_1 V E 
-                                     (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
-  [(flat-check/defun (rec/c x C) V E E_k)
-   (flat-check/defun (unroll (rec/c x C)) V E E_k)]
+  [(fc/c any (or/c FLAT_0 FLAT_1) V E E_k)
+   (fc/c any FLAT_0 V
+                     E
+                     (fc/c any FLAT_1 V E 
+                                       (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
+  [(fc/c any (rec/c x C) V E E_k)
+   (fc/c (((rec/c x C) V) . any) (unroll (rec/c x C)) V E E_k)]
   
-  [(flat-check/defun (cons/c C_1 C_2) AV E E_k)   ;; 2 cases: AV proves cons?
+  [(fc/c any (cons/c C_1 C_2) AV E E_k)
    (amb E_r ...)      
    (where (E_r ...)
           ,(for*/list ([l (term (proj-left AV))]
                        [r (term (proj-right AV))])
-             (term (flat-check/defun C_1 ,l (flat-check/defun C_2 ,r E (meta-defun-apply E_k C_2 ,r)) (meta-defun-apply E_k C_1 ,l)))))   
+             (term (fc/c any C_1 ,l (fc/c any C_2 ,r E (meta-defun-apply E_k C_2 ,r)) (meta-defun-apply E_k C_1 ,l)))))   
    (where #t (proves AV cons?))]  
-  [(flat-check/defun (cons/c C_1 C_2) AV E E_k)   ;; 2 cases: AV maybe is a cons.   
-   (amb E_r ... 
-        (meta-defun-apply E_k (cons/c C_1 C_2) AV))
-   (where (E_r ...)
-          ,(for*/list ([l (term (proj-left AV))]
-                       [r (term (proj-right AV))])
-             (term (flat-check/defun C_1 ,l (flat-check/defun C_2 ,r E (meta-defun-apply E_k C_2 ,r)) (meta-defun-apply E_k C_1 ,l)))))
+  [(fc/c any (cons/c C_1 C_2) AV E E_k) 
+   (amb E_r (meta-defun-apply E_k (cons/c C_1 C_2) AV))
+   (where E_r
+          (fc/c any C_1 (-- (any/c)) (fc/c any C_2 (-- (any/c)) E (meta-defun-apply E_k C_2 (-- (any/c)))) 
+                (meta-defun-apply E_k C_1 (-- (any/c)))))
+   
    (where #f (proves AV cons?))
    (where #f (refutes AV cons?))]  
   )

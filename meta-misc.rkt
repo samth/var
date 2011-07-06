@@ -194,8 +194,8 @@
   [(explode (or/c C_1 C_2))
    (C_1e ... C_2e ...)
    (where ((C_1e ...) (C_2e ...)) ((explode C_1) (explode C_2)))]  
-  [(explode (rec/c x C))
-   (explode (unroll (rec/c x C)))]  
+  [(explode (rec/c x C))            ;; Productive implies you'll never get
+   (explode (unroll (rec/c x C)))]  ;; back to (rec/c x C) in this metafunction.   
   [(explode C) (C)])
 
 (define-metafunction λc~

@@ -126,8 +126,8 @@
    #t
    (side-condition (not (eq? (term o?) 'cons?)))]
   [(refutes-con (rec/c x C) o?) 
-   (refutes-con (unroll (rec/c x C)) o?)
-   (where #t (productive? (rec/c x C)))]
+   (refutes-con (unroll (rec/c x C)) o?)   ;; Productive implies you'll never get
+   (where #t (productive? (rec/c x C)))]   ;; back to (rec/c x C) in this metafunction.
   [(refutes-con C o?) #f])
 
 (define-metafunction λc~
