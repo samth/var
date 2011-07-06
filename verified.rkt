@@ -14,13 +14,16 @@
           #,(begin
               (displayln (attribute kw))
               (cond 
-                [(eq? (syntax-e (attribute kw)) 'trace)
+                [(and (attribute kw)
+                      (eq? (syntax-e (attribute kw)) 'trace))
                  #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e])))  
                  ;;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
                  ]
-                [(eq? (syntax-e (attribute kw)) 'cesk-trace)
+                [(and (attribute kw)
+                      (eq? (syntax-e (attribute kw)) 'cesk-trace))
                  #'(c:trace-it (term (ann/define-contract [m ... e])))]
-                [(eq? (syntax-e (attribute kw)) 'cesk)
+                [(and (attribute kw)
+                      (eq? (syntax-e (attribute kw)) 'cesk))
                  #'(apply values
                           (filter-not
                            (λ (p)
