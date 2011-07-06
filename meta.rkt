@@ -10,8 +10,10 @@
 
 (define-metafunction λc~
   demonic* : C V -> E
-  [(demonic* C (-- PV C_0 ...))
-   (@ (demonic C) (-- PV C_0 ...) ★)]
+  [(demonic* C CV)
+   (@ (demonic C) CV ★)]
+  [(demonic* C blessed-AV)
+   (@ (demonic C) blessed-AV ★)]
   [(demonic* C AV) ;; produces trivial expression
    (-- 0)])
 
@@ -67,10 +69,13 @@
   [(proves (-- C_0 ... C C_1 ...) o?) 
    #t
    (where #t (proves-con C o?))]
+  [(proves ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) o?)
+   (proves V o?)]
   [(proves V o?) #f])
 
 (test
- (test-equal (term (proves (-- "Hi") string?)) #t))
+ (test-equal (term (proves (-- "Hi") string?)) #t)
+ (test-equal (term (proves ((--> (any/c)) <= f g (-- 0) h (-- (pred proc? Λ))) proc?)) #t))
 
 ;; Does (negate o?) hold on all values abstracted by AV
 (define-metafunction λc~
@@ -80,12 +85,15 @@
    (where #t (refutes-con C o?))]
   [(refutes (-- PV C ...) o?)
    #t
-   (where #f (plain-δ o? PV Λ))]   
+   (where #f (plain-δ o? PV Λ))]
+  [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) o?)
+   (refutes V o?)]
   [(refutes V o?) #f])
 
 (test
  (test-equal (term (refutes (-- 0) empty?)) #t)
- (test-equal (term (refutes (-- (cons/c (pred nat? p) (pred nat? p))) cons?)) #f))
+ (test-equal (term (refutes (-- (cons/c (pred nat? p) (pred nat? p))) cons?)) #f)
+ (test-equal (term (refutes ((--> (any/c)) <= f g (-- 0) h (-- (pred nat? Λ))) proc?)) #t))
 
 ;; Does satisfying C imply o?
 (define-metafunction λc~
@@ -189,6 +197,8 @@
   contract-in : C V -> #t or #f
   [(contract-in C (-- PV C_0 ... C C_1 ...)) #t]
   [(contract-in C (-- C_0 ... C C_1 ...)) #t]
+  [(contract-in C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+   (contract-in C V)]
   [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
                 (-- PV C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
    #t]
@@ -208,6 +218,8 @@
 (define-metafunction λc~
   contract-not-in/cache : C V ((C V) ...) -> #t or #f
   [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]
+  [(contract-not-in/cache C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) any)
+   (contract-not-in/cache C V any)]
   [(contract-not-in/cache (pred o? ℓ) V any)
    (refutes V o?)]
   [(contract-not-in/cache (cons/c C_1 C_2) V ((C_3 V_3) ...))
@@ -239,20 +251,13 @@
   [(contract-not-in/cache C V any) #f])
 
 
-;; Loops
-#;
-(term (contract-not-in (cons/c (pred nat? Λ) (rec/c X (or/c (pred empty? Λ) (cons/c (pred nat? Λ) X))))
-                       (-- (cons/c (any/c) (rec/c Y (or/c (empty/c) (cons/c (any/c) Y)))))))
 
-
-
-(test 
+(test
+ ;; testing termination
+ (term (contract-not-in (cons/c (pred nat? Λ) (rec/c X (or/c (pred empty? Λ) (cons/c (pred nat? Λ) X))))
+                        (-- (cons/c (any/c) (rec/c Y (or/c (empty/c) (cons/c (any/c) Y)))))))
  (test-equal (term (contract-not-in (cons/c (any/c) (any/c))  (-- 0)))
-             #t))
-
-;; Uncomment when contract-not-in is complete(r).
-#;
-(test 
+             #t)
  (test-equal (term (contract-not-in (rec/c x (or/c (pred empty? Λ) (cons/c (pred nat? Λ) x))) (-- 0)))
              #t))
 
@@ -263,6 +268,8 @@
 
 (define-metafunction λc~
   δ : (@ o V ... ℓ) -> (V-or-B V-or-B ...)
+  [(δ (@ o V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) V_1 ... ℓ))
+   (δ (@ o V_0 ... V V_1 ... ℓ))]
   [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
   [(δ (@ o V ... ℓ)) (abstract-δ o V ... ℓ)])
 
@@ -313,6 +320,8 @@
   [(impossible? (-- PV C ...)) #f]
   [(impossible? (-- C))
    (impossible-con? C)]
+  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+   (impossible? V)]
   [(impossible? (-- C_0 C_1 C ...))
    ,(or (term (impossible? (-- C_0 C ...)))
         (term (impossible-con? C_1)))])

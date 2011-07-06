@@ -17,7 +17,9 @@
    ,(length (term (C_0 ...)))]
   [(arity (-- C)) #f]
   [(arity (-- C_0 C ...))
-   (arity (-- C ...))])
+   (arity (-- C ...))]
+  [(arity ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+   ,(length (term (C ...)))])
   
 (test
  (test-equal (term (arity (-- (λ () x)))) 0)
@@ -81,11 +83,18 @@
    (where (#t ...) ((feasible C_2 C_1) ...))]
   ;; drop infeasible contracts
   [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
-   (remember-contract (-- any_0 C_1 ...) C ...)]
+   (remember-contract (-- any_0 C_1 ...) C ...)]  
+  ;; push remembered contracts past blessed arrows
+  [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) C_0 ...)
+   ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2
+                     (remember-contract V C_0 ...))]  
   ;; we're done
   [(remember-contract V-or-AE) V-or-AE])
 
-(test
+(test 
+ (test-equal (term (remember-contract ((--> (any/c)) <= f g (-- 0) h (-- (any/c))) (nat/c)))
+             (term ((--> (any/c)) <= f g (-- 0) h (-- (nat/c)))))
+ 
  (test-equal (term (remember-contract (-- (λ (x) x)) (pred proc? Λ)))
              (term (-- (λ (x) x))))
  (test-equal (term (remember-contract (-- 1) (nat/c)))
@@ -98,12 +107,6 @@
               (or (not (term (valid-value? V)))
                   (ormap not (term ((valid? C) ...)))
                   (redex-match λc~ V-or-AE (term (remember-contract V C ...))))))
-
-
-(define-metafunction λc~
-  strip-concrete-contracts : V -> AV or PV
-  [(strip-concrete-contracts (-- PV C ...)) PV]
-  [(strip-concrete-contracts AV) AV])
 
 ;; All domain contracts of all function contracts in given contracts.
 ;; produces a list of the list of contracts for each argument of a function.
@@ -184,7 +187,10 @@
           ,(remove-duplicates (term (C ...))
                               (match-lambda**
                                [(`(,f ^ _) `(,f ^ _)) #t]
-                               [(a b) (equal? a b)])))])
+                               [(a b) (equal? a b)])))]
+  
+  [(normalize ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V))
+   ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 (normalize V))])
 
 (test
  (redex-check λc~ V  (redex-match λc~ V (term (normalize V)))))

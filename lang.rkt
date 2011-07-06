@@ -82,18 +82,26 @@
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc~ λc
-  (AE (-- C* C* ...))      ;; Abstract expressions
-  (AV (-- C*-top C*-top ...)  ;; Abstract values
+  ;; Abstract expressions
+  (AE (-- C* C* ...) blessed-AE)   
+  (blessed-AE
+   ((C ... --> C) <= ℓ ℓ V-or-x ℓ AE)
+   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ AE))
+
+  ;; Abstract values
+  (AV (-- C*-top C*-top ...)
       blessed-AV)
   (blessed-AV
-   ((C ... --> C) <= ℓ ℓ V-or-x ℓ AV)             ;; missing wrapping.  OK?
+   ((C ... --> C) <= ℓ ℓ V-or-x ℓ AV)
    ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ AV))
   (blessed-L
    ((C ... --> C) <= ℓ ℓ V-or-x ℓ (-- L C* ...))
    ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ (-- L C* ...))
    ((C ... --> C) <= ℓ ℓ V-or-x ℓ blessed-L)
    ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ blessed-L))
-  (CV (-- PV C*-top ...))      ;; Concrete values
+  
+  ;; Concrete values
+  (CV (-- PV C*-top ...) blessed-L)
   (C-ext C λ)
   
   (V-or-AE V AE)
