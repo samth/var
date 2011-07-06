@@ -101,7 +101,7 @@
    ((C ... --> (λ (x ...) C)) <= ℓ ℓ V-or-x ℓ blessed-L))
   
   ;; Concrete values
-  (CV (-- PV C*-top ...) blessed-L)
+  (CV (-- PV C* ...) blessed-L)
   (C-ext C λ)
   
   (V-or-AE V AE)
