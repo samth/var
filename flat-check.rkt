@@ -47,8 +47,8 @@
   [(fc/c any (and/c FLAT_0 FLAT_1) V E E_k)
    (fc/c any FLAT_0 V (fc/c any FLAT_1 V E E_k) E_k)]
   [(fc/c any (cons/c FLAT_0 FLAT_1)
-                     (-- (cons V_0 V_1) C ...)
-                     E E_k)
+         (-- (cons V_0 V_1) C ...)
+         E E_k)
    (fc/c any FLAT_0 V_0 (fc/c any FLAT_1 V_1 E E_k) E_k)]
   [(fc/c any C V E E_k)
    (meta-defun-apply E_k C V)
@@ -59,9 +59,9 @@
        (meta-defun-apply E_k (pred SV ℓ) V))]  
   [(fc/c any (or/c FLAT_0 FLAT_1) V E E_k)
    (fc/c any FLAT_0 V
-                     E
-                     (fc/c any FLAT_1 V E 
-                                       (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
+         E
+         (fc/c any FLAT_1 V E 
+               (meta-defun-apply E_k (or/c FLAT_0 FLAT_1) V)))]  
   [(fc/c any (rec/c x C) V E E_k)
    (fc/c (((rec/c x C) V) . any) (unroll (rec/c x C)) V E E_k)]
   
@@ -82,7 +82,7 @@
    (where #f (refutes AV cons?))]  
   )
 
- 
+
 (test
  
  (redex-check λc~ ((side-condition FLAT_1 (term (valid? FLAT_1))) V E E_k) (redex-match λc~ E (term (flat-check/defun FLAT_1 V E E_k))))
@@ -120,7 +120,7 @@
              #f)
  
  (test-equal (term (flat-check ((cons/c (cons/c (nat/c) (nat/c)) (nat/c)) <= f1 f2 (-- 0) f1
-                                                                    (-- (cons (-- (cons (-- "s") (-- "t"))) (-- "u"))))))
+                                                                          (-- (cons (-- (cons (-- "s") (-- "t"))) (-- "u"))))))
              (term (blame f1 f1 (-- 0) (nat/c) (-- "s"))))
  
  )
