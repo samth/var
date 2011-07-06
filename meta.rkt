@@ -268,6 +268,7 @@
 
 (define-metafunction λc~
   δ : (@ o V ... ℓ) -> (V-or-B V-or-B ...)
+  [(δ (@ cons V_0 V_1 ℓ)) ((-- (cons V_0 V_1)))]
   [(δ (@ o V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V-or-x ℓ_2 V) V_1 ... ℓ))
    (δ (@ o V_0 ... V V_1 ... ℓ))]
   [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
@@ -311,8 +312,8 @@
   [(plain-δ <= nat_0 nat_1 ℓ) ,(<= (term nat_0) (term nat_1))]
   [(plain-δ > nat_0 nat_1 ℓ) ,(> (term nat_0) (term nat_1))]
   [(plain-δ >= nat_0 nat_1 ℓ) ,(>= (term nat_0) (term nat_1))]
-  [(plain-δ cons PV_0 PV_1 ℓ) (cons (-- PV_0) (-- PV_1))]
-  [(plain-δ o PV PV_0 ... ℓ)
+  ;[(plain-δ cons PV_0 PV_1 ℓ) (cons (-- PV_0) (-- PV_1))]
+  [(plain-δ o PV PV_0 ... ℓ)       ;; catches domain errors
    (blame ℓ o (-- PV) λ (-- PV))]) ;; FIXME: Not right value
 
 (define-metafunction λc~
@@ -441,11 +442,7 @@
    ((-- #t) 
     (-- #f)
     (blame ℓ nat*nat->bool V_0 λ V_0)
-    (blame ℓ nat*nat->bool V_1 λ V_1))]
-  
-  ;; cons
-  [(abstract-δ cons V_0 V_1 ℓ)
-   ((-- (cons V_0 V_1)))])
+    (blame ℓ nat*nat->bool V_1 λ V_1))])
 
 ;; Project an AV to the left
 ;; (proj-left (-- (cons/c nat? string?) (cons/c zero? string?)))
@@ -484,7 +481,10 @@
   [(proj-right/a (AV ...) C_0 C_1 ...)
    (proj-right/a (AV ...) C_1 ...)])
 
-(test 
+(test  
+ (test-equal (term (δ (@ cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0) q)))
+             (term (-- (cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0)))))
+ 
  (test-equal (term (δ (@ proc? (-- ((any/c) -> (any/c))) †)))
              (term ((-- #t))))
  
