@@ -17,7 +17,7 @@
         β)
    (--> (@ (-- (λ x_0 (x_1 ..._1) E) C ...) V ..._1 ℓ)
         (subst x_0 (-- (λ x_0 (x_1 ...) E) C ...) (subst* (x_1 ...) (V ...) E))
-        β-rec)   
+        β-rec)
    (--> (@ V U ... ℓ)
         (blame ℓ  Λ V λ V)
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
@@ -74,26 +74,25 @@
   (reduction-relation
    λc~ #:domain E
    
-   ;; FLAT CONTRACTS
-   
+   ;; FLAT CONTRACTS   
    (--> (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))        
         flat-check)
    
-   ;; HIGHER-ORDER CONTRACTS
-   
+   ;; HIGHER-ORDER CONTRACTS   
    (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (flat-check/defun FLAT V
                           (remember-contract V FLAT)
-                          (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)))
+                          (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
+        or/c-hoc)
    (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
              (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
-        (where HOC (and/c C_0 C_1)))
+        (where HOC (and/c C_0 C_1))
+        and/c-hoc)
    
    ;; PAIR CONTRACTS
-   ;; FIXME: forgets what's known about the pair.
-   
+   ;; FIXME: forgets what's known about the pair.   
    (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (-- (cons V_0 V_1) C ...))
         (@ cons 
            (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
@@ -102,32 +101,25 @@
         (where HOC (cons/c C_0 C_1))
         check-cons-pass)
    
-   ;; PROCEDURE CONTRACTS   
-      
-   ;; definite procedures
-   (--> ((C_1 ... -> C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (-- (λ (x ...)
-              (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                   (@ (remember-contract V (pred proc? Λ))
-                      (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
-                      ...
-                      Λ))))
-        (fresh ((x ...) (C_1 ...)))
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
-        chk-fun-pass)
+   ;; PROCEDURE CONTRACTS      
+   (--> (@ ((C_0 ..._1 --> (λ (x ..._1) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
+        ((subst* (x ...) ((C_0 <= ℓ_2 ℓ_3 V_1 ℓ_2 V_1) ...) C_1)
+         <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+         (@ V (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
+        blessed-β-dep)
+
+   (--> (@ ((C_0 ..._1 --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
+        (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
+             (@ V (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
+        blessed-β)
    
-   (--> ((C_1 ... -> (λ (x_0 ...) C_2)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (-- (λ (x ...)
-              ((subst* (x_0 ...) ((C_1 <= ℓ_2 ℓ_3 x ℓ_2 x) ...) C_2) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                   (@ (remember-contract V (pred proc? Λ))
-                      (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
-                      ...
-                      Λ))))
-        (fresh ((x ...) (C_1 ...)))
+   ;; BLESSING
+   (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        ((C_1 ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (remember-contract V (pred proc? Λ)))
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
-        chk-dep-fun-pass)
+        chk-fun-pass)   
    
-   ;; flat values
+   ;; DAMNING
    (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> any) V)
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
@@ -141,10 +133,9 @@
  (test--> c 
           (term ((nat/c) <= f g (-- 0) f (-- #t))) 
           (term (blame f f (-- 0) (nat/c) (-- #t))))
- (test--> c #:equiv (λ (t1 t2) (term (≡α ,t1 ,t2)))
+ (test--> c
           (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
-          (term (-- (λ (z) ((any/c) <= f g (-- 0) f 
-                                  (@ (-- (λ (x) x)) ((any/c) <= g f z f z) Λ))))))
+          (term (((any/c)  --> (any/c)) <= f g (-- 0) f (-- (λ (x) x)))))
  (test--> c 
           (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
           (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
@@ -169,7 +160,7 @@
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? (length (term (V ...)))
                                 (term (arity AV))))
-        (where (-- C ...) AV)
+        (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (where ((C_D ...) ..._1) (domain-contracts (C ...)))        
         (where (C_demon ..._1) ((∧ C_D ...) ...))        
         (where (V_demon ..._1) (V ...))
@@ -183,6 +174,7 @@
         (amb (any/c)
              (begin (demonic* (any/c) V) (any/c))
              ...)
+        (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (not (term (arity AV))))
         apply-abs-no-arity)
