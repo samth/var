@@ -268,7 +268,8 @@
 
 (define-metafunction λc~
   δ : (@ o V ... ℓ) -> (V-or-B V-or-B ...)
-  [(δ (@ cons V_0 V_1 ℓ)) ((-- (cons V_0 V_1)))]
+  [(δ (@ cons V_0 V_1 ℓ)) ((-- (cons V_0 V_1)))]  
+  [(δ (@ proc? ((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 any_1) ℓ)) ((-- #t))]
   [(δ (@ o V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) V_1 ... ℓ))
    (δ (@ o V_0 ... V V_1 ... ℓ))]
   [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
@@ -323,6 +324,8 @@
    (impossible-con? C)]
   [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    (impossible? V)]
+  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))) ;; for CESK only
+   #f]
   [(impossible? (-- C_0 C_1 C ...))
    ,(or (term (impossible? (-- C_0 C ...)))
         (term (impossible-con? C_1)))])

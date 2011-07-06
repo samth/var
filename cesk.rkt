@@ -8,7 +8,7 @@
 
 (define-extended-language CESK* λc~ 
   (K mt      
-     (ap clo ... E ... ρ ℓ a)     
+     (ap (clo ...) ((E ρ) ...) ℓ a)
      (if E E ρ a)
      (op o clo ... E ... ρ ℓ a)
      (let x E ρ a)
@@ -101,7 +101,7 @@
   [(plug E (if E_1 E_2 ρ a)) (if E E_1 E_2)]
   [(plug E (op o (V ρ_1) ... E_1 ... ρ ℓ a))
    (@ o V ... E E_1 ... ℓ)]
-  [(plug E (ap (V ρ_1) ... E_1 ... ρ ℓ a))
+  [(plug E (ap ((V ρ_1) ...) ((E_1 ρ) ...) ℓ a))
    (@ V ... E E_1 ... ℓ)]
   [(plug E (let x E_1 ρ a))
    (let x E E_1)]
@@ -135,29 +135,79 @@
                (sto-lookup σ (env-lookup ρ x)))
         var)
    
-   (--> ((addr a) ρ σ K)
-        (V ρ_0 σ K)
-        (where (D_0 ... (V ρ_0) D_1 ...)
-               (sto-lookup σ a))
-        addr)
-   
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
   
+   ;; Blessing
+   (--> (V ρ σ (chk (C ... -> any) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_new)) () σ_1 K)
+        (where (a_new) (alloc σ (V)))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))        
+        (where σ_1 (extend-sto1 σ a_new (V ρ)))        
+        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        chk-fun-pass)
+           
    ;; Nullary function application
-   (--> ((-- (λ () E) C ...) ρ σ (ap ρ_1 ℓ a))
+   (--> ((-- (λ () E) C ...) ρ σ (ap () () ℓ a))
         (E ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         β-0)
-   (--> ((-- (λ x () E) C ...) ρ σ (ap ρ_1 ℓ a))
+   (--> ((-- (λ x () E) C ...) ρ σ (ap () () ℓ a))
         (E (extend-env ρ (x) (a_1))
            (extend-sto1 σ a_1 ((-- (λ x () E) C ...) ρ))
            K)
         (where (a_1) (alloc σ (x)))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        β-rec0)   
+        β-rec0)
    
+   ;; BLESSED APPLICATION
+   ;; Nullary blessed application
+   (--> (((--> C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (ap () () ℓ a))
+        (V_f ρ_f σ_1 (ap () () ℓ a_k))
+        (where K (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ a))
+        (where (a_k) (alloc σ (K)))
+        (where σ_1 (extend-sto1 σ a_k K))
+        (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
+        nullary-blessed-β)
+   (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (ap () () ℓ a))
+        (V_f ρ_f σ_1 (ap () () ℓ a_k))
+        (where K (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ a))
+        (where (a_k) (alloc σ (K)))
+        (where σ_1 (extend-sto1 σ a_k K))
+        (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
+        nullary-blessed-β-dep)
+   ;; Unary+ blessed application
+   (--> (V_n ρ_n σ (ap ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ))
+                       ((V_1 ρ_1) ...) ℓ a))        
+        (V_1r ρ_1r σ_1 (ap ((V_f ρ_f))
+                           (((C_0 <= ℓ_2 ℓ_1 V_2r ℓ_3 V_2r) ρ_2r) ...)
+                           ℓ a_k))        
+        (side-condition (= (length (term (C_0 ...)))
+                           (add1 (length (term ((V_1 ρ_1) ...))))))        
+        (where ((V_1r ρ_1r) (V_2r ρ_2r) ...) 
+               ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
+        (where K (chk C_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ a))
+        (where (a_k) (alloc σ (K)))
+        (where σ_1 (exend-sto1 σ a_k K))        
+        unary+-blessed-β)   
+   (--> (V_n ρ_n σ (ap ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ))
+                       ((V_1 ρ_1) ...) ℓ a))        
+        (V_1r ρ_1r σ_1 (ap ((V_f ρ_f))
+                           (((C_0 <= ℓ_2 ℓ_1 V_2r ℓ_3 V_2r) ρ_2r) ...)
+                           ℓ a_k))        
+        (side-condition (= (length (term (C_0 ...)))
+                           (add1 (length (term ((V_1 ρ_1) ...))))))        
+        (where ((V_1r ρ_1r) (V_2r ρ_2r) ...) 
+               ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
+        (where K (chk C_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ_2 a))
+        (where (a_k) (alloc σ (K)))
+        (where (a_1 ...) (alloc σ (x ...)))
+        (where σ_1 (extend-sto σ (a_k a_1 ...) (K (V_1r ρ_1r) (V_2r ρ_2r) ...)))
+        (where ρ_2 (extend-env ρ (x ...) (a_1 ...)))
+        unary+-blessed-β-dep)
+    
+   ;; PLAIN OL' APPLICATION
    ;; Unary+ function application
-   (--> (V ρ σ (ap ((-- (λ (x ...) E) C ...) ρ_0) clo ... ρ_1 ℓ a))
+   (--> (V ρ σ (ap (((-- (λ (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
         (E (extend-env ρ (x ...) (a_1 ...))
            (extend-sto σ (a_1 ...) (clo ... (V ρ)))
            K)
@@ -167,7 +217,7 @@
                            (add1 (length (term (clo ...))))))
         β)
    
-   (--> (V ρ σ (ap ((-- (λ x_f (x ...) E) C ...) ρ_0) clo ... ρ_1 ℓ a))
+   (--> (V ρ σ (ap (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
         (E (extend-env ρ (x_f x ...) (a_1 ...))
            (extend-sto σ (a_1 ...) (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ... (V ρ)))
            K)
@@ -177,7 +227,8 @@
                            (add1 (length (term (clo ...))))))
         β-rec)      
    
-   (--> (U ρ σ (ap (V ρ_0) clo ... ρ_1 ℓ a))
+   ;; APPLICATIONS GONE WRONG
+   (--> (U ρ σ (ap ((V ρ_0) clo ...) () ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
         (side-condition (term (∈ #t (δ (@ proc? V ★)))))
         (side-condition (not (equal? (add1 (length (term (clo ...))))
@@ -185,7 +236,7 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         blame-arity)
    
-   (--> (U ρ σ (ap (V ρ_0) clo ... ρ_1 ℓ a))
+   (--> (U ρ σ (ap ((V ρ_0) clo ...) () ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -254,43 +305,6 @@
         (where HOC (cons/c C_0 C_1))
         check-cons-pass)
    
-   (--> (V ρ σ (chk (C_1 ... -> C_2) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ((-- (λ (x ...)
-               (C_2 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                    (@ (addr a_new)
-                       (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
-                       ...
-                       Λ))))
-         ρ σ_1 K)
-        (where (x ...) ,(variables-not-in (term (C_1 ... C_2 V-or-AE))
-                                          (map (λ _ 'x) (term (C_1 ...)))))
-        #;
-        (fresh ((x ...) (C_1 ...)))
-        (where a_new (alloc σ (V)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (where σ_1 (extend-sto1 σ a_new (V ρ)))
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
-        chk-fun-pass)
-   
-   (--> (V ρ σ (chk (C_1 ... -> (λ (x_0 ...) C_2)) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ((-- (λ (x ...)
-               ((subst* (x_0 ...) (x ...) C_2)
-                <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-                (@ (addr a_new)
-                   (C_1 <= ℓ_2 ℓ_1 x ℓ_3 x)
-                   ...
-                   Λ))))
-         ρ σ_1 K)
-        (where (x ...) ,(variables-not-in (term (C_1 ... C_2 x_0 ... V-or-AE))
-                                          (map (λ _ 'x) (term (C_1 ...)))))
-        #;
-        (fresh ((x ...) (C_1 ...)))
-        (where a_new (alloc σ (V)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (where σ_1 (extend-sto1 σ a_new (V ρ)))
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
-        chk-fun-dep-pass)
-   
    (--> (V ρ σ (chk (C ... -> any) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -298,7 +312,7 @@
         chk-fun-fail-flat)
    
    ;; Nullary abstract application
-   (--> (AV ρ_0 σ (ap ρ_1 ℓ a))
+   (--> (AV ρ_0 σ (ap () () ℓ a))
         ((remember-contract (-- (any/c)) C_0 ...) () σ K)
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? 0 (term (arity AV))))        
@@ -308,7 +322,7 @@
         apply-abs0)
    
    ;; applying abstract values   
-   (--> (V ρ σ (ap (AV ρ_1) clo ... ρ_0 ℓ a))
+   (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
         ((demonic* C_demon U) ρ_2 σ (dem (remember-contract (-- (any/c)) C_0 ...) a))
         (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
@@ -322,7 +336,7 @@
         
         apply-abs-known-arity)
    
-   (--> (V ρ σ (ap (AV ρ_1) clo ... ρ_0 ℓ a))
+   (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
         ((demonic* (any/c) U) ρ_2 σ (dem (-- (any/c)) a))
         (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
@@ -355,12 +369,12 @@
    
    ;; Context shuffling
    
-   (--> (V ρ σ (ap clo ... E_0 E ... ρ_0 ℓ a))
-        (E_0 ρ_0 σ (ap clo ... (V ρ) E ... ρ_0 ℓ a))
+   (--> (V ρ σ (ap (clo ...) ((E_0 ρ_0) (E_1 ρ_1) ...) ℓ a))
+        (E_0 ρ_0 σ (ap (clo ... (V ρ)) ((E_1 ρ_1) ...) ℓ a))
         ap-next)
    
    (--> ((@ E_0 E_1 ... ℓ) ρ σ K)
-        (E_0 ρ σ_0 (ap E_1 ... ρ ℓ a))
+        (E_0 ρ σ_0 (ap () ((E_1 ρ) ...) ℓ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         ap-push)
@@ -481,10 +495,10 @@
 (define-metafunction CESK*
   live-loc-K : K -> (a ...) 
   [(live-loc-K mt) ()]
-  [(live-loc-K (ap clo ... E ... ρ ℓ a)) 
+  [(live-loc-K (ap (clo ...) ((E ρ) ...) ℓ a))
    (a a_0 ... ... a_1 ... ...)
    (where ((a_0 ...) ...) ((live-loc-clo clo) ...))
-   (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))] 
+   (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))]
   [(live-loc-K (if E_1 E_2 ρ a)) 
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-clo (E_1 ρ)))
@@ -670,8 +684,7 @@
             (term (blame f f (-- 0) (nat/c) (-- #t))))
  (test-->>c step 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
-            (term (-- (λ (z) ((any/c) <= f g (-- 0) f 
-                                      (@ (-- (λ (x) x)) ((any/c) <= g f z f z) Λ))))))
+            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr 0))))
  (test-->>c step 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))

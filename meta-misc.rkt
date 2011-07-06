@@ -18,7 +18,7 @@
   [(arity (-- C)) #f]
   [(arity (-- C_0 C ...))
    (arity (-- C ...))]
-  [(arity ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
+  [(arity ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_0))
    ,(length (term (C ...)))])
   
 (test

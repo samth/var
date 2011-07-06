@@ -103,7 +103,7 @@
   (C-ext C λ)
   
   (V-or-AE V AE)
-  (E .... AE (C <= ℓ ℓ AE ℓ E) (addr a))   ;; (addr a) for CESK only
+  (E .... AE (C <= ℓ ℓ AE ℓ E))
   (𝓔 .... (C <= ℓ ℓ AE ℓ 𝓔))
   (B ....
      (blame ℓ ℓ AE C V) 
@@ -134,7 +134,9 @@
          (rec/c x FVC!))
   (FVC!*-top FC (cons/c C C))
   
-  (V .... AV blessed-L)
+  (V .... AV blessed-L
+     ((C ... --> C) <= ℓ ℓ V ℓ (addr a))  ;; Only for CESK.
+     ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ (addr a)))
      
   (M .... (module f C ☁))
 
@@ -332,7 +334,8 @@
   [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]  ;; Wrong in env semantics
   [(fv (blame ℓ_1 ℓ_2 V-or-AE any_C V)) (fv/list (V-or-AE V))]
   [(fv (addr a)) ()]
-  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)])
+  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]
+  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 (addr a))) ()]) ;; for CESK only
 
 (define-metafunction λc~
   fv/list : (E ...) -> (x ...)
