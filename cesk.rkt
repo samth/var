@@ -13,7 +13,7 @@
      (op o clo ... E ... ρ ℓ a)
      (let x E ρ a)
      (beg E ρ a)
-     (chk C ℓ ℓ V-or-AE ℓ a)  ;; V?
+     (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?
      (dem AV a))
    
   (ρ ((x a) ...))
@@ -107,7 +107,7 @@
    (let x E E_1)]
   [(plug E (beg E_1 ρ a))
    (begin E E_1)]
-  [(plug E (chk C ℓ_1 ℓ_2 V ℓ_3 a))
+  [(plug E (chk C ρ ℓ_1 ℓ_2 V ℓ_3 a))
    (C <= ℓ_1 ℓ_2 V ℓ_3 E)])
 
 (define-metafunction CESK*
@@ -138,8 +138,8 @@
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
   
    ;; Blessing
-   (--> (V ρ σ (chk (C ... -> any) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_new)) () σ_1 K)
+   (--> (V ρ σ (chk (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_new)) ρ_1 σ_1 K)
         (where (a_new) (alloc σ (V)))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))        
         (where σ_1 (extend-sto1 σ a_new (V ρ)))        
@@ -163,46 +163,54 @@
    ;; Nullary blessed application
    (--> (((--> C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (ap () () ℓ a))
         (V_f ρ_f σ_1 (ap () () ℓ a_k))
-        (where K (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ a))
+        (where K (chk C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
         (where σ_1 (extend-sto1 σ a_k K))
         (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
         nullary-blessed-β)
    (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (ap () () ℓ a))
         (V_f ρ_f σ_1 (ap () () ℓ a_k))
-        (where K (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ a))
+        (where K (chk ρ C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
         (where σ_1 (extend-sto1 σ a_k K))
         (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
         nullary-blessed-β-dep)
    ;; Unary+ blessed application
-   (--> (V_n ρ_n σ (ap ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ))
-                       ((V_1 ρ_1) ...) ℓ a))        
+   (--> (V_n ρ_n σ (ap ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
+                        (V_1 ρ_1) ...)
+                       () 
+                       ℓ a))
+        ;; FIXME not checking V_1r ρ_1r
         (V_1r ρ_1r σ_1 (ap ((V_f ρ_f))
                            (((C_0 <= ℓ_2 ℓ_1 V_2r ℓ_3 V_2r) ρ_2r) ...)
                            ℓ a_k))        
         (side-condition (= (length (term (C_0 ...)))
-                           (add1 (length (term ((V_1 ρ_1) ...))))))        
+                           (add1 (length (term ((V_1 ρ_1) ...))))))
+        (where (D_0 ... (V_f ρ_f) D_1 ...) (sto-lookup σ a_f))
         (where ((V_1r ρ_1r) (V_2r ρ_2r) ...) 
                ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
-        (where K (chk C_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ a))
+        (where K (chk C_1 ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
-        (where σ_1 (exend-sto1 σ a_k K))        
-        unary+-blessed-β)   
-   (--> (V_n ρ_n σ (ap ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ))
-                       ((V_1 ρ_1) ...) ℓ a))        
+        (where σ_1 (extend-sto1 σ a_k K))        
+        unary+-blessed-β)
+   (--> (V_n ρ_n σ (ap ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
+                        (V_1 ρ_1) ...)
+                       ()
+                       ℓ a))
         (V_1r ρ_1r σ_1 (ap ((V_f ρ_f))
                            (((C_0 <= ℓ_2 ℓ_1 V_2r ℓ_3 V_2r) ρ_2r) ...)
                            ℓ a_k))        
         (side-condition (= (length (term (C_0 ...)))
-                           (add1 (length (term ((V_1 ρ_1) ...))))))        
-        (where ((V_1r ρ_1r) (V_2r ρ_2r) ...) 
-               ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
-        (where K (chk C_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 ρ_2 a))
-        (where (a_k) (alloc σ (K)))
+                           (add1 (length (term ((V_1 ρ_1) ...))))))
+        (where (D_0 ... (V_f ρ_f) D_1 ...) (sto-lookup σ a_f))
         (where (a_1 ...) (alloc σ (x ...)))
-        (where σ_1 (extend-sto σ (a_k a_1 ...) (K (V_1r ρ_1r) (V_2r ρ_2r) ...)))
+        (where ((V_1r ρ_1r) (V_2r ρ_2r) ...) 
+               ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
         (where ρ_2 (extend-env ρ (x ...) (a_1 ...)))
+        (where K (chk C_1 ρ_2 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where (a_k) (alloc σ (K)))
+        
+        (where σ_1 (extend-sto σ (a_k a_1 ...) (K (V_1r ρ_1r) (V_2r ρ_2r) ...)))                
         unary+-blessed-β-dep)
     
    ;; PLAIN OL' APPLICATION
@@ -277,17 +285,20 @@
    
    ;; Contract checking
    
-   (--> (V ρ σ (chk FLAT ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+   (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+        ;; FIXME flat-check needs to take an environment
         ((flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         flat-check)
    
-   (--> (V ρ σ (chk (or/c FLAT HOC) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+   (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))    
+        ;; FIXME flat-check
         ((flat-check/defun FLAT V (remember-contract V FLAT) (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-or-pass)
    
-   (--> (V ρ σ (chk (and/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (chk (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a)) 
+        ;; FIXME push harder, use ρ_1
         ((C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
               (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
          ρ σ K)
@@ -295,7 +306,8 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-and-pass)
    
-   (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ;; FIXME push harder, use ρ_1
         ((@ cons 
             (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
             (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
@@ -305,7 +317,8 @@
         (where HOC (cons/c C_0 C_1))
         check-cons-pass)
    
-   (--> (V ρ σ (chk (C ... -> any) ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (chk (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ;; NOTE ρ_1 discarded, reported contract not closed
         ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         (side-condition (term (∈ #f (δ (@ proc? V ★)))))
@@ -414,7 +427,7 @@
         chk-subst)
    
    (--> ((C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E) ρ σ K)
-        (E ρ σ_0 (chk C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (E ρ σ_0 (chk C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         chk-push)))
@@ -490,7 +503,7 @@
 
 (test
  (redex-check CESK* E
-              (redex-match CESK* (a ...) (term (live-loc-E E)))))
+              (redex-match CESK* (a ...) (term (live-loc-E E)))))  
 
 (define-metafunction CESK*
   live-loc-K : K -> (a ...) 
@@ -514,8 +527,10 @@
    (a a_0 ...)
    (where (a_0 ...) (live-loc-clo (E ρ)))]
   ;; Probably want V-or-AE to be a closure and traverse it as well.
-  [(live-loc-K (chk C ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
-   (a)]
+  [(live-loc-K (chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
+   (a a_0 ... a_1 ...)
+   (where (a_0 ...) (live-loc-E C))
+   (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
   [(live-loc-K (dem AV a))
    (a a_0 ...)
    (where (a_0 ...) (live-loc-E AV))])
