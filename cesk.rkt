@@ -251,7 +251,7 @@
    ;; PLAIN OL' APPLICATION
    ;; Unary+ function application
    (--> (V ρ σ (ap (((-- (λ (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
-        (E (extend-env ρ (x ...) (a_1 ...))
+        (E (extend-env ρ_0 (x ...) (a_1 ...))
            (extend-sto σ (a_1 ...) (clo ... (V ρ)))
            K)
         (where (a_1 ...) (alloc σ (x ...)))
