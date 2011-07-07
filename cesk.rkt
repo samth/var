@@ -23,17 +23,19 @@
   (ς (E ρ σ K)))
 
 (define-metafunction CESK*
-  widen : V-or-B -> V-or-B
-  [(widen B) B]
-  [(widen AV) AV]
-  [(widen (-- bool C ...)) (-- bool C ...)]
-  [(widen (-- nat C ...)) (remember-contract (-- (nat/c)) C ...)]
-  [(widen (-- string C ...)) (remember-contract (-- (string/c)) C ...)]
-  [(widen (-- (cons V_1 V_2) C ...)) 
+  widen : o V-or-B -> V-or-B
+  [(widen o B) B]
+  [(widen o AV) AV]
+  [(widen o (-- bool C ...)) (-- bool C ...)]
+  [(widen first V) V]
+  [(widen rest V) V]
+  [(widen o (-- nat C ...)) (remember-contract (-- (nat/c)) C ...)]
+  [(widen o (-- string C ...)) (remember-contract (-- (string/c)) C ...)]
+  [(widen o (-- (cons V_1 V_2) C ...)) 
    (remember-contract (-- (pred cons? Λ)) C ...)]
-  [(widen (-- empty C ...)) (-- empty C ...)]
-  [(widen (-- L C ...)) (-- L C ...)]
-  [(widen (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
+  [(widen o (-- empty C ...)) (-- empty C ...)]
+  [(widen o (-- L C ...)) (-- L C ...)]
+  [(widen o (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
 
 ;; handles the second arg not being symbols
 (define (variables-not-in* a bs)
@@ -261,7 +263,7 @@
         if-f)   
    
    (--> (V ρ σ (op o (V_0 ρ_0) ... ρ_1 ℓ a))
-        ((widen V-or-B) () σ K)
+        ((widen o V-or-B) () σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))         
         (where (V-or-B_1 ... V-or-B V-or-B_2 ...)
                (δ (@ o V_0 ... V ℓ)))
