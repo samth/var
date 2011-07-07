@@ -113,7 +113,7 @@
      (blame ℓ ℓ AE C V) 
      (blame ℓ ℓ V λ V)) ;; broke the contract with the language
   
-  (a any)
+  (a (loc any))
   
   (WFV .... (-- C*-top ... FVC!*-top C*-top ...))
   

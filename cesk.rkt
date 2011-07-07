@@ -59,18 +59,23 @@
   (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
 
 (define-metafunction CESK*
-  alloc : σ (any ..._1) -> (a ..._1)
-  [(alloc σ (x ...))
+  alloc-addr : σ (any ..._1) -> (any ..._1)
+  #;#;#;
+  [(alloc-addr σ (x ...))
    (x ...)]
-  [(alloc σ (K ...))
+  [(alloc-addr σ (K ...))
    ,(map (λ (p) (if (pair? p) (all-but-last p) p)) (term (K ...)))]
-  [(alloc σ (V ...))
+  [(alloc-addr σ (V ...))
    ,(build-list (length (term (V ...))) values)]
-  ;; replace with the below to be exact
-  #;#;
-  [(alloc σ (K ...)) ,(build-list (length (term (K ...))) values)]
-  [(alloc σ (any ...)) 
+  ;; replace with the below to be exact  
+  [(alloc-addr σ (any ...))
    ,(variables-not-in* (term σ) (term (any ...)))])
+
+(define-metafunction CESK*
+  alloc : σ (any ..._1) -> (a ..._1)
+  [(alloc σ (any ...))
+   ((loc any_1) ...)
+   (where (any_1 ...) (alloc-addr σ (any ...)))])
 
 ;; produces any/c if there's imprecision
 (define-metafunction CESK*
@@ -92,7 +97,7 @@
 (define-metafunction CESK*
   extend-env : ρ (x ..._1) (a ..._1) -> ρ
   [(extend-env ((x_0 a_0) ...) (x ..._1) (a ..._1))
-   ((x a) ... (a_0 a_0) ...)])
+   ((x a) ... (x_0 a_0) ...)])
 
 (define-metafunction CESK*
   extend-set : (any ...) (any ...) ->  (any ...)
@@ -347,7 +352,7 @@
    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V_0 ρ σ_new (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
         (where K (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
-        (where a_k (alloc σ (K)))
+        (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         (where HOC (cons/c C_0 C_1))
         check-cons-pass-first)
@@ -355,7 +360,7 @@
    (--> (V ρ σ (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
         (V_1 ρ_2 σ_new (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
         (where K (op cons (V ρ) () Λ a))
-        (where a_k (alloc σ (K)))
+        (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         check-cons-pass-rest)
    
@@ -736,7 +741,7 @@
             (term (blame f f (-- 0) (nat/c) (-- #t))))
  (test-->>c step 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
-            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr 0))))
+            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr (loc 0)))))
  (test-->>c step 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
