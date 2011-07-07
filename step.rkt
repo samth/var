@@ -85,6 +85,7 @@
                           (remember-contract V FLAT)
                           (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
         or/c-hoc)
+   ;; Note: not strictly faithful to Racket, which checks the first-order portions of each first if they exist
    (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
              (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
