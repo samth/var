@@ -84,19 +84,23 @@
   (AE (-- C* C* ...) blessed-AE)   
   (blessed-AE
    ((C ... --> C) <= ℓ ℓ V ℓ AE)
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ AE))
+   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ AE))
 
   ;; Abstract values
   (AV (-- C*-top C*-top ...)
       blessed-AV)
   (blessed-AV
    ((C ... --> C) <= ℓ ℓ V ℓ AV)
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ AV))
+   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ AV))
   (blessed-L
    ((C ... --> C) <= ℓ ℓ V ℓ (-- L C* ...))
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ (-- L C* ...))
+   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ (-- L C* ...))
    ((C ... --> C) <= ℓ ℓ V ℓ blessed-L)
-   ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ blessed-L))
+   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ blessed-L))
+  ;; Only for CESK.
+  (blessed-A 
+   ((C ... --> C) <= ℓ ℓ V ℓ (addr a))  
+   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ (addr a)))
   
   ;; Concrete values
   (CV (-- PV C* ...) blessed-L)
@@ -134,9 +138,9 @@
          (rec/c x FVC!))
   (FVC!*-top FC (cons/c C C))
   
-  (V .... AV blessed-L
-     ((C ... --> C) <= ℓ ℓ V ℓ (addr a))  ;; Only for CESK.
-     ((C ... --> (λ (x ...) C)) <= ℓ ℓ V ℓ (addr a)))
+
+  
+  (V .... AV blessed-L blessed-A)
      
   (M .... (module f C ☁))
 
@@ -151,6 +155,7 @@
   (W .... 
      blessed-L
      blessed-AV 
+     blessed-A
      (-- C*-top ... WC!*-top C*-top ...))
   
     
@@ -250,35 +255,36 @@
    ,(set->list (set-subtract  (apply set (term any_0))
                               (apply set (term any_1))))])
 
+;; Free *contract* variables
 (define-metafunction λc~
-  FV/C : C -> (x ...)
-  [(FV/C x) (x)]
-  [(FV/C (rec/c x C))
-   (set-minus (FV/C C) (x))]
-  [(FV/C (cons/c C_1 C_2))
-   ,(append (term (FV/C C_1))
-            (term (FV/C C_2)))]
-  [(FV/C (or/c C_1 C_2))
-   ,(append (term (FV/C C_1))
-            (term (FV/C C_2)))]
-  [(FV/C (and/c C_1 C_2))
-   ,(append (term (FV/C C_1))
-         (term (FV/C C_2)))]
-  [(FV/C (C_1 ... -> C_2))
-   ,(append (apply append (map (λ (c) (term (FV/C ,c))) (term (C_1 ...))))
-            (term (FV/C C_2)))] 
-  [(FV/C (C_1 ... -> (λ (x ...) C_2)))
-   ,(append (apply append (map (λ (c) (term (FV/C ,c))) (term (C_1 ...))))
-            (term (FV/C C_2)))]
-  [(FV/C C) ()])
+  fcv/C : C -> (x ...)
+  [(fcv/C x) (x)]
+  [(fcv/C (rec/c x C))
+   (set-minus (fcv/C C) (x))]
+  [(fcv/C (cons/c C_1 C_2))
+   ,(append (term (fcv/C C_1))
+            (term (fcv/C C_2)))]
+  [(fcv/C (or/c C_1 C_2))
+   ,(append (term (fcv/C C_1))
+            (term (fcv/C C_2)))]
+  [(fcv/C (and/c C_1 C_2))
+   ,(append (term (fcv/C C_1))
+         (term (fcv/C C_2)))]
+  [(fcv/C (C_1 ... -> C_2))
+   ,(append (apply append (map (λ (c) (term (fcv/C ,c))) (term (C_1 ...))))
+            (term (fcv/C C_2)))] 
+  [(fcv/C (C_1 ... -> (λ (x ...) C_2)))
+   ,(append (apply append (map (λ (c) (term (fcv/C ,c))) (term (C_1 ...))))
+            (term (fcv/C C_2)))]
+  [(fcv/C C) ()])
 
 (define-metafunction λc~
   closed? : C -> #t or #f
-  [(closed? C) ,(empty? (term (FV/C C)))])
+  [(closed? C) ,(empty? (term (fcv/C C)))])
   
 (test
- (test-equal (term (FV/C a)) (term (a)))
- (test-equal (term (FV/C (any/c))) (term ()))
+ (test-equal (term (fcv/C a)) (term (a)))
+ (test-equal (term (fcv/C (any/c))) (term ()))
  (test-equal (term (closed? (any/c))) #t)
  (test-equal (term (closed? a)) #f)
  (test-equal (term (closed? (rec/c a a))) #t)
@@ -312,7 +318,11 @@
   [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))]
   [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
-   ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))])
+   ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))]
+  [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))) ;; CESK only
+   ,(andmap values (term ((valid? C_0) ... (valid? C_1))))]
+  [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))) ;; CESK only
+   ,(andmap values (term ((valid? C_0) ... (valid? C_1))))])
 
 (define-metafunction λc~
   fv : E -> (x ...)
@@ -331,11 +341,49 @@
   [(fv (begin E ...)) (fv/list (E ...))]
   [(fv (@ E ... ℓ)) (fv/list (E ...))]
   [(fv (@ o E ... ℓ)) (fv/list (E ...))]
-  [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]  ;; Wrong in env semantics
+  [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) 
+   (x_1 ... x_2 ...)
+   (where (x_1 ...) (fv E))
+   (where (x_2 ...) (fv/C C))]          
   [(fv (blame ℓ_1 ℓ_2 V-or-AE any_C V)) (fv/list (V-or-AE V))]
   [(fv (addr a)) ()]
-  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) (fv E)]
-  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 (addr a))) ()]) ;; for CESK only
+  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) 
+   (x_1 ... x_2 ...)
+   (where (x_1 ...) (fv/C (C_0 ... -> any)))
+   (where (x_2 ...) (fv E))]
+  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 (addr a))) 
+   (fv/C (C_0 ... -> any))]) ;; for CESK only
+
+(define-metafunction λc~
+  fv/C  : C -> (x ...)
+  [(fv/C (pred E ℓ))
+   (fv E)]
+  [(fv/C (pred any ℓ))
+   ()]
+  [(fv/C (and/c C_1 C_2))
+   (x_1 ... x_2 ...)
+   (where (x_1 ...) (fv/C C_1))
+   (where (x_2 ...) (fv/C C_2))]
+  [(fv/C (or/c C_1 C_2))
+   (x_1 ... x_2 ...)
+   (where (x_1 ...) (fv/C C_1))
+   (where (x_2 ...) (fv/C C_2))]  
+  [(fv/C (C_1 ... -> C_2))
+   (x_1 ... ... x_2 ...)
+   (where ((x_1 ...) ...) ((fv/C C_1) ...))
+   (where (x_2 ...) (fv/C C_2))]  
+  [(fv/C (C_1 ... -> (λ (x ...) C_2)))
+   (x_1 ... ... x_2 ...)
+   (where ((x_1 ...) ...) ((fv/C C_1) ...))
+   (where (x_2 ...) (set-minus (fv/C C_2) (x ...)))]
+  [(fv/C (rec/c x C))
+   (fv/C C)]
+  [(fv/C x)
+   ()]
+  [(fv/C (cons/c C_1 C_2))
+   (x_1 ... x_2 ...)
+   (where (x_1 ...) (fv/C C_1))
+   (where (x_2 ...) (fv/C C_2))])
 
 (define-metafunction λc~
   fv/list : (E ...) -> (x ...)
