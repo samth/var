@@ -14,6 +14,8 @@
    (@ (demonic C) CV ★)]
   [(demonic* C blessed-AV)
    (@ (demonic C) blessed-AV ★)]
+  [(demonic* C blessed-A)
+   (@ (demonic C) blessed-A ★)]
   [(demonic* C AV) ;; produces trivial expression
    (-- 0)])
 
