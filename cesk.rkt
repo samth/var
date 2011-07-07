@@ -1,6 +1,6 @@
 #lang racket
 (require (except-in redex plug))
-(require "lang.rkt" "flat-check.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
+(require "lang.rkt" "flat-check-fun.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
@@ -15,6 +15,7 @@
      (beg (E ρ) (E ρ) ... a)
      (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?     
      (cons-chk C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
+     (check-or-left V ρ (or/c FLAT HOC) ρ ℓ ℓ V-or-AE ℓ a) ;; (if [] (rem V FLAT) (HOC <= V))
      )
    
   (ρ ((x a) ...))
@@ -329,17 +330,35 @@
    
    ;; Contract checking
    
-   (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
-        ;; FIXME flat-check needs to take an environment
-        ((flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+   (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V ρ σ_new
+           (ap (((-- (flat-check/fun FLAT V)) ρ_1)) () Λ a_k))
+        (where (a_k) (alloc σ (K)))
+        (where K
+               (if (remember-contract V (try-close-contract FLAT ρ_1 σ))
+                   (blame ℓ_1 ℓ_3 V-or-AE FLAT V)
+                   ρ a))
+        (where σ_new (extend-sto1 σ a_k K))
         flat-check)
    
-   (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))   
-        ;; FIXME flat-check
-        ((flat-check/defun FLAT V (remember-contract V FLAT) (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+   (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V ρ σ_new
+           (ap (((-- (flat-check/fun FLAT V)) ρ_1)) () Λ a_k))
+        (where (a_k) (alloc σ (K)))
+        (where K (check-or-left V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where σ_new (extend-sto1 σ a_k K))
         check-or-pass)
+   
+   (--> (V ρ σ (check-or-left V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+        (V ρ σ (chk HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where #t (∈ #t (δ (@ false? V Λ))))
+        check-or-false)
+   
+   (--> (V ρ σ (check-or-left V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((remember-contract V (try-close-contract FLAT ρ_1)) ρ σ K)        
+        (where #t (∈ #f (δ (@ false? V Λ))))
+        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        check-or-true)
    
    (--> (V ρ σ (chk (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_1 (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_1))                
@@ -571,6 +590,11 @@
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
+  [(live-loc-K (check-or-left V ρ C ρ_2 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (a a_0 ... a_1 ... a_2 ...)
+   (where (a_0 ...) (live-loc-E C))
+   (where (a_2 ...) (live-loc-clo (V ρ)))
+   (where (a_1 ...) (live-loc-env (restrict ρ_2 (fv/C C))))]
   [(live-loc-K (cons-chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 V ρ_2 a))
    (a a_0 ... a_1 ... a_2 ...)
    (where (a_0 ...) (live-loc-E C))
