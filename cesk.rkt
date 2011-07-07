@@ -12,9 +12,8 @@
      (if E E ρ a)
      (op o clo ... E ... ρ ℓ a)
      (let x E ρ a)
-     (beg E ρ a)
-     (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?
-     (dem AV a)
+     (beg (E ρ) (E ρ) ... a)
+     (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?     
      (cons-chk C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
      )
    
@@ -27,20 +26,33 @@
 (define-metafunction CESK*
   widen : o V-or-B -> V-or-B
   [(widen o B) B]
-  [(widen o AV) AV]
-  [(widen o (-- bool C ...)) (-- bool C ...)]
-  [(widen first V) V]
-  [(widen rest V) V]
-  [(widen o (-- nat C ...))
+  [(widen o V) (widen/n 10 o V)])
+
+(define-metafunction CESK*
+  widen/n : nat o V -> V  
+  [(widen/n nat o AV) AV]
+  [(widen/n nat o (-- bool C ...)) (-- bool C ...)]
+  [(widen/n nat first V) V]
+  [(widen/n nat rest V) V]
+  [(widen/n nat_0 o (-- nat C ...))
    (-- nat C ...)
-   (side-condition (< (term nat) 10))]
-  [(widen o (-- nat C ...)) (remember-contract (-- (nat/c)) C ...)]
-  [(widen o (-- string C ...)) (remember-contract (-- (string/c)) C ...)]
-  [(widen o (-- (cons V_1 V_2) C ...)) 
+   (side-condition (< (term nat) (term nat_0)))]
+  [(widen/n nat_0 o (-- nat C ...)) (remember-contract (-- (nat/c)) C ...)]
+  [(widen/n nat o (-- string C ...)) 
+   (-- string C ...)
+   (side-condition (< (string-length (term string)) (term nat_0)))]
+  [(widen/n nat o (-- string C ...)) (remember-contract (-- (string/c)) C ...)]
+  [(widen/n 0 o (-- (cons V_1 V_2) C ...))   
    (remember-contract (-- (pred cons? Λ)) C ...)]
-  [(widen o (-- empty C ...)) (-- empty C ...)]
-  [(widen o (-- L C ...)) (-- L C ...)]
-  [(widen o (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
+  [(widen/n nat o (-- (cons V_1 V_2) C ...))
+   (-- (cons (widen/n ,(sub1 (term nat)) o V_1) 
+             (widen/n ,(sub1 (term nat)) o V_2))
+       C ...)]
+  [(widen/n nat o (-- empty C ...)) (-- empty C ...)]
+  [(widen/n nat o (-- L C ...)) (-- L C ...)]
+  [(widen/n nat o blessed-L) blessed-L]
+  [(widen/n nat o blessed-A) blessed-A]  
+  [(widen/n nat o (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
 
 ;; handles the second arg not being symbols
 (define (variables-not-in* a bs)
@@ -112,7 +124,7 @@
    (@ V ... E E_1 ... ℓ)]
   [(plug E (let x E_1 ρ a))
    (let x E E_1)]
-  [(plug E (beg E_1 ρ a))
+  [(plug E (beg (E_1 ρ) a)) ;; this is dead anyway
    (begin E E_1)]
   [(plug E (chk C ρ ℓ_1 ℓ_2 V ℓ_3 a))
    (C <= ℓ_1 ℓ_2 V ℓ_3 E)])
@@ -274,10 +286,14 @@
                (δ (@ o V_0 ... V ℓ)))
         δ)
    
-   (--> (V ρ σ (beg E ρ_0 a))
+   (--> (V ρ σ (beg (E ρ_0) a))
         (E ρ_0 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        begin)
+        begin-done)
+   
+   (--> (V ρ σ (beg (E ρ_0) (E_1 ρ_1) (E_2 ρ_2) ... a))
+        (E ρ_0 σ (beg (E_1 ρ_1) (E_2 ρ_2) ... a))
+        begin-swap)
    
    (--> (V ρ σ (let x E ρ_0 a))
         (E (extend-env ρ_0 (x) (a_0))
@@ -319,8 +335,8 @@
         check-cons-pass-first)
    
    (--> (V ρ σ (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
-        (V_1 ρ_2 σ (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
-        (where K (op cons (V ρ) Λ a))
+        (V_1 ρ_2 σ_new (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
+        (where K (op cons (V ρ) () Λ a))
         (where a_k (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         check-cons-pass-rest)
@@ -345,7 +361,7 @@
    
    ;; applying abstract values   
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((demonic* C_demon U) ρ_2 σ (dem (remember-contract (-- (any/c)) C_0 ...) a))
+        ((demonic* C_demon U) ρ_2 σ (beg ((remember-contract (-- (any/c)) C_0 ...) ()) a))
         (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? (length (term (clo ... V)))
@@ -354,12 +370,12 @@
         (where ((C_D ...) ...) (domain-contracts (C ...)))
         (where (C_demon0 ..._1 C_demon C_demon1 ..._2) ((∧ C_D ...) ...))
         (where ((V_0 any_0) ...) (clo ... (V ρ)))              ;; FIXME, stripping environments because we're
-        (where (C_0 ...) (range-contracts (C ...) (V_0 ...)))  ;; fucked here.
+        (where (C_0 ...) (range-contracts (C ...) (V_0 ...)))  ;; fucked here.  Need contract closures to fix.
         
         apply-abs-known-arity)
    
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((demonic* (any/c) U) ρ_2 σ (dem (-- (any/c)) a))
+        ((demonic* (any/c) U) ρ_2 σ (beg ((-- (any/c)) ()) a))
         (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition ;; this is a proc with no arity, so it could be anything
@@ -376,18 +392,7 @@
    (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)  ;; Productivity implies this doesn't loop.
         ((remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))  ρ σ K)
         (side-condition (term (valid? (rec/c x C_1))))
-        abs-rec/c-unroll)
-   
-   ;; Demonic
-   
-   (--> (V ρ σ (dem AV a))
-        (AV () σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        dem-done)
-   
-   (--> (V ρ σ (dem (E_1 ρ_1) (E_2 ρ_2) ... AV a))
-        (E_1 ρ_1 σ (dem (E_2 ρ_2) ... AV a))
-        dem-continue)   
+        abs-rec/c-unroll)   
    
    ;; Context shuffling
    
@@ -418,7 +423,7 @@
         op-push)
    
    (--> ((begin E_0 E_1) ρ σ K)
-        (E_0 ρ σ_0 (beg E_1 ρ a))
+        (E_0 ρ σ_0 (beg (E_1 ρ) a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         beg-push)
@@ -532,9 +537,9 @@
   [(live-loc-K (let x E ρ a))
    (a a_0 ...)
    (where (a_0 ...) (live-loc-clo (E ρ)))]
-  [(live-loc-K (beg E ρ a))
-   (a a_0 ...)
-   (where (a_0 ...) (live-loc-clo (E ρ)))]
+  [(live-loc-K (beg (E ρ) ... a))
+   (a a_0 ... ...)
+   (where ((a_0 ...) ...) ((live-loc-clo (E ρ)) ...))]
   ;; Probably want V-or-AE to be a closure and traverse it as well.
   [(live-loc-K (chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
    (a a_0 ... a_1 ...)
@@ -544,10 +549,7 @@
    (a a_0 ... a_1 ... a_2 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ_2)))
-   (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
-  [(live-loc-K (dem AV a))
-   (a a_0 ...)
-   (where (a_0 ...) (live-loc-E AV))])
+   (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))])
 
 (test
  (redex-check CESK* K
