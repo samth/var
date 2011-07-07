@@ -66,10 +66,28 @@
    ,(map (λ (p) (if (pair? p) (all-but-last p) p)) (term (K ...)))]
   [(alloc σ (V ...))
    ,(build-list (length (term (V ...))) values)]
+  ;; replace with the below to be exact
   #;#;
   [(alloc σ (K ...)) ,(build-list (length (term (K ...))) values)]
   [(alloc σ (any ...)) 
    ,(variables-not-in* (term σ) (term (any ...)))])
+
+;; produces any/c if there's imprecision
+(define-metafunction CESK*
+  try-close-contract : C ρ σ -> C
+  [(try-close-contract C ρ σ)
+   C
+   (where () (fv/C C))]
+  [(try-close-contract C ρ σ) (any/c)])
+
+;; produces (-- any/c) if there's imprecision
+(define-metafunction CESK*
+  try-close-value : V ρ σ -> V
+  [(try-close-value V ρ σ)
+   V
+   (where () (fv V))]
+  [(try-close-value V ρ σ) (-- (any/c))])
+
 
 (define-metafunction CESK*
   extend-env : ρ (x ..._1) (a ..._1) -> ρ
@@ -351,7 +369,7 @@
    
    ;; Nullary abstract application
    (--> (AV ρ_0 σ (ap () () ℓ a))
-        ((remember-contract (-- (any/c)) C_0 ...) () σ K)
+        ((remember-contract (-- (any/c)) (try-close-contract C_0 ρ_0 σ) ...) () σ K)
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? 0 (term (arity AV))))        
         (where (-- C ...) AV)
@@ -361,7 +379,7 @@
    
    ;; applying abstract values   
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((demonic* C_demon U) ρ_2 σ (beg ((remember-contract (-- (any/c)) C_0 ...) ()) a))
+        ((demonic* C_demon U) ρ_2 σ (beg ((remember-contract (-- (any/c)) (try-close-contract C_0 ρ_1 σ) ...) ()) a))
         (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? (length (term (clo ... V)))
@@ -369,8 +387,11 @@
         (where (-- C ...) AV)
         (where ((C_D ...) ...) (domain-contracts (C ...)))
         (where (C_demon0 ..._1 C_demon C_demon1 ..._2) ((∧ C_D ...) ...))
-        (where ((V_0 any_0) ...) (clo ... (V ρ)))              ;; FIXME, stripping environments because we're
-        (where (C_0 ...) (range-contracts (C ...) (V_0 ...)))  ;; fucked here.  Need contract closures to fix.
+        (where ((V_0 ρ_0) ...) (clo ... (V ρ)))
+        (where (V_0c ...) ((try-close-value V_0 ρ_0 σ) ...))
+        (where (C_0 ...) (range-contracts (C ...) (V_0c ...)))
+        ;; FIXME, stripping environments because we're 
+        ;; fucked here.  Need contract closures to fix.
         
         apply-abs-known-arity)
    
@@ -385,12 +406,12 @@
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
    (--> ((-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...) ρ σ K)
-        ((remember-contract (-- (any/c) C_0 ... C ...) C_2)  ρ σ K)
+        ((remember-contract (-- (any/c) C_0 ... C ...) C_2) ρ σ K)
         (side-condition (term (valid? C_2)))
         abs-or/c-split)
    
    (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)  ;; Productivity implies this doesn't loop.
-        ((remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))  ρ σ K)
+        ((remember-contract (-- (any/c) C_0 ... C ...) (unroll (rec/c x C_1))) ρ σ K)
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)   
    
