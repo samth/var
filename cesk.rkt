@@ -14,7 +14,9 @@
      (let x E ρ a)
      (beg E ρ a)
      (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?
-     (dem AV a))
+     (dem AV a)
+     (cons-chk C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
+     )
    
   (ρ ((x a) ...))
   (clo (V ρ))
@@ -291,31 +293,35 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         flat-check)
    
-   (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))    
+   (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))   
         ;; FIXME flat-check
         ((flat-check/defun FLAT V (remember-contract V FLAT) (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-or-pass)
    
-   (--> (V ρ σ (chk (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a)) 
-        ;; FIXME push harder, use ρ_1
-        ((C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-              (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
-         ρ σ K)
+   (--> (V ρ σ (chk (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V ρ σ_1 (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_1))                
         (where HOC (and/c C_0 C_1))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        (where K (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where (a_1) (alloc σ (K)))        
+        (where σ_1 (extend-sto1 σ a_1 K))
         check-and-pass)
    
    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ;; FIXME push harder, use ρ_1
-        ((@ cons 
-            (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
-            (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
-            Λ)
-         ρ σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
+        (V_0 ρ σ_new (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
+        (where K (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
+        (where a_k (alloc σ (K)))
+        (where σ_new (extend-sto1 σ a_k K))
         (where HOC (cons/c C_0 C_1))
-        check-cons-pass)
+        check-cons-pass-first)
+   
+   (--> (V ρ σ (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
+        (V_1 ρ_2 σ (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
+        (where K (op cons (V ρ) Λ a))
+        (where a_k (alloc σ (K)))
+        (where σ_new (extend-sto1 σ a_k K))
+        check-cons-pass-rest)
+   
    
    (--> (V ρ σ (chk (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ;; NOTE ρ_1 discarded, reported contract not closed
@@ -530,6 +536,11 @@
   [(live-loc-K (chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E C))
+   (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
+  [(live-loc-K (cons-chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 V ρ_2 a))
+   (a a_0 ... a_1 ... a_2 ...)
+   (where (a_0 ...) (live-loc-E C))
+   (where (a_2 ...) (live-loc-clo (V ρ_2)))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
   [(live-loc-K (dem AV a))
    (a a_0 ...)
