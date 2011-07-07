@@ -31,6 +31,9 @@
   [(widen o (-- bool C ...)) (-- bool C ...)]
   [(widen first V) V]
   [(widen rest V) V]
+  [(widen o (-- nat C ...))
+   (-- nat C ...)
+   (side-condition (< (term nat) 10))]
   [(widen o (-- nat C ...)) (remember-contract (-- (nat/c)) C ...)]
   [(widen o (-- string C ...)) (remember-contract (-- (string/c)) C ...)]
   [(widen o (-- (cons V_1 V_2) C ...)) 
