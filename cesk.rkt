@@ -6,7 +6,7 @@
 
 (current-cache-all? #t)
 
-(define exact? #t)
+(define exact? #f)
 
 (define-extended-language CESK* λc~ 
   (K mt      
@@ -772,7 +772,7 @@
  (test-->>c step-gc 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
             ;; kind of a giant hack
-            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ([(loc 0) (((-- 0) ()))]) (((-- (λ (x) x)) ())))))))))
+            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ([(loc 0) (((-- 0) ()))]) ((-- (λ (x) x))))))))))
  (test-->>c step-gc 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
