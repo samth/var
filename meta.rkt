@@ -211,7 +211,13 @@
                 (-- C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
    #t]
   [(contract-in (pred o? ℓ) V)
-   (proves V o?)]  
+   (proves V o?)]
+  [(contract-in (and/c C_1 C_2) V)
+   ,(and (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
+  [(contract-in (or/c C_1 C_2) V)
+   ,(or (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
+  [(contract-in (cons/c C_1 C_2) (-- (cons V_1 V_2) C ...))
+   ,(and (term (contract-in C_1 V_1)) (term (contract-in C_2 V_2)))]
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?
@@ -517,6 +523,8 @@
              #t)
  
  (redex-check λc~ WFV (term (∈ #f (δ (@ proc? WFV ℓ)))))
+ 
+ (test-equal (term (proves (-- #t) bool?)) #t)
  
  ;; Test for δ totalness.
  (redex-check λc~ (o1 V) (or (not (term (valid-value? V)))
