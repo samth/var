@@ -60,3 +60,49 @@
    (where #f (proves AV cons?))
    (where #f (refutes AV cons?))]
   )
+
+(test
+ 
+ (redex-check λc~ ((side-condition FLAT_1 (term (valid? FLAT_1))) V)
+              (redex-match λc~ E (term (flat-check FLAT_1 V))))
+ 
+ ;; FIXME: tests from flat-check/defun.  Fix up for flat-check.
+ #|
+ (test-equal (term (proves (-- #t) bool?)) #t)
+ (test-equal (term (flat-check ((and/c (pred nat? f) (pred empty? f)) <= f1 f2 (-- "V") f1 (-- #t))))
+             (term (blame f1 f1 (-- "V") (pred nat? f) (-- #t))))
+ (test-equal (term (flat-check/defun (string/c) (-- "Plain") #t #f)) #t)
+ (test-equal (term (flat-check/defun (bool/c) (-- #t) #t #f)) #t)
+ (test-equal (term (flat-check/defun (any/c) (-- 0) #t #f)) #t)
+ (test-equal (term (flat-check/defun (cons/c (nat/c) (nat/c))
+                                     (-- (cons (-- 0) (-- 1)))
+                                     #t
+                                     #f))
+             #t)
+ (test-equal (term (flat-check/defun (pred (λ (x) x) ℓ) (-- 0) #t #f))
+             (term (if (@ (λ (x) x) (-- 0) ℓ)
+                       #t
+                       #f)))
+ ;; recursive contracts
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
+                                     (-- 0) #t #f))
+             #f)
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
+                                     (-- empty) #t #f))
+             #t)
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
+                                     (-- (cons (-- 0) (-- empty))) #t #f))
+             #t)
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
+                                     (-- (cons (-- 0) (-- (cons (-- 0) (-- empty))))) #t #f))
+             #t)
+ (test-equal (term (flat-check/defun (rec/c x (or/c (empty/c) (cons/c (nat/c) x)))
+                                     (-- (cons (-- "0") (-- empty))) #t #f))
+             #f)
+ 
+ (test-equal (term (flat-check ((cons/c (cons/c (nat/c) (nat/c)) (nat/c)) <= f1 f2 (-- 0) f1
+                                                                          (-- (cons (-- (cons (-- "s") (-- "t"))) (-- "u"))))))
+             (term (blame f1 f1 (-- 0) (nat/c) (-- "s")))
+|#
+ )
+ 
