@@ -1,3 +1,5 @@
+fix soundness bug with predicates that have abstract parts -- don't remember them
+
 state the main theorem and randomly test
 
 first class contracts

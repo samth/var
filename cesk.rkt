@@ -414,8 +414,8 @@
         (where ((V_0 ρ_0) ...) (clo ... (V ρ)))
         (where (V_0c ...) ((try-close-value V_0 ρ_0 σ) ...))
         (where (C_0 ...) (range-contracts (C ...) (V_0c ...)))
-        ;; FIXME, stripping environments because we're 
-        ;; fucked here.  Need contract closures to fix.
+        ;; FIXME, closing contracts in their environments
+        ;; because we don't have contract closures.
         
         apply-abs-known-arity)
    
