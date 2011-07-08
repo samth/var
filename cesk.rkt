@@ -14,9 +14,8 @@
      (let x E ρ a)
      (beg (E ρ) (E ρ) ... a)
      (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?     
-     (cons-chk C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
-     (check-or-left V ρ (or/c FLAT HOC) ρ ℓ ℓ V-or-AE ℓ a) ;; (if [] (rem V FLAT) (HOC <= V))
-     )
+     (chk-cons C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
+     (chk-or V ρ (or/c FLAT HOC) ρ ℓ ℓ V-or-AE ℓ a)) ;; (if [] (rem V FLAT) (HOC <= V))     
    
   (ρ ((x a) ...))
   (clo (V ρ))
@@ -291,6 +290,7 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         blame-not-proc)  
    
+   ;; if
    (--> (V ρ σ (if E_1 E_2 ρ_1 a))
         (E_1 ρ_1 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -303,6 +303,7 @@
         (side-condition (term (∈ #t (δ (@ false? V ★)))))
         if-f)   
    
+   ;; δ
    (--> (V ρ σ (op o (V_0 ρ_0) ... ρ_1 ℓ a))
         ((widen o V-or-B) () σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))         
@@ -310,6 +311,7 @@
                (δ (@ o V_0 ... V ℓ)))
         δ)
    
+   ;; begin
    (--> (V ρ σ (beg (E ρ_0) a))
         (E ρ_0 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -319,6 +321,7 @@
         (E ρ_0 σ (beg (E_1 ρ_1) (E_2 ρ_2) ... a))
         begin-swap)
    
+   ;; let
    (--> (V ρ σ (let x E ρ_0 a))
         (E (extend-env ρ_0 (x) (a_0))
            (extend-sto σ (a_0) ((V ρ)))
@@ -328,8 +331,7 @@
         let)  
    
    
-   ;; Contract checking
-   
+   ;; CONTRACT CHECKING   
    (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
            (ap (((-- (flat-check/fun FLAT V)) ρ_1)) () Λ a_k))
@@ -345,16 +347,16 @@
         (V ρ σ_new
            (ap (((-- (flat-check/fun FLAT V)) ρ_1)) () Λ a_k))
         (where (a_k) (alloc σ (K)))
-        (where K (check-or-left V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where K (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where σ_new (extend-sto1 σ a_k K))
         check-or-pass)
    
-   (--> (V ρ σ (check-or-left V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+   (--> (V ρ σ (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
         (V ρ σ (chk HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where #t (∈ #t (δ (@ false? V Λ))))
         check-or-false)
    
-   (--> (V ρ σ (check-or-left V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ((remember-contract V (try-close-contract FLAT ρ_1)) ρ σ K)        
         (where #t (∈ #f (δ (@ false? V Λ))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -370,13 +372,13 @@
    
    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V_0 ρ σ_new (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
-        (where K (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
+        (where K (chk-cons C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         (where HOC (cons/c C_0 C_1))
         check-cons-pass-first)
    
-   (--> (V ρ σ (cons-chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
+   (--> (V ρ σ (chk-cons C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
         (V_1 ρ_2 σ_new (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
         (where K (op cons (V ρ) () Λ a))
         (where (a_k) (alloc σ (K)))
@@ -590,12 +592,12 @@
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
-  [(live-loc-K (check-or-left V ρ C ρ_2 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+  [(live-loc-K (chk-or V ρ C ρ_2 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
    (a a_0 ... a_1 ... a_2 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ)))
    (where (a_1 ...) (live-loc-env (restrict ρ_2 (fv/C C))))]
-  [(live-loc-K (cons-chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 V ρ_2 a))
+  [(live-loc-K (chk-cons C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 V ρ_2 a))
    (a a_0 ... a_1 ... a_2 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ_2)))
@@ -918,15 +920,15 @@
          (module keygen (anything -> (pred prime?)) ☁) 
          (module rsa ((pred prime?) -> (string? -> string?)) ☁)
          ((rsa (keygen #f)) "Plain"))))
-
+#;
 (define (final P)
   (apply-reduction-relation* (stepΔ-gc (all-but-last P))
                              (term (load ,(last P)))
                              #:cache-all? #t))
-
+#;#;
 (define next #f)
 (define result #f)
-
+#;
 (define (single P)
   (set! next (λ () 
                (define r (append-map (λ (p) (apply-reduction-relation (stepΔ-gc (all-but-last P)) p)) result))
@@ -936,11 +938,3 @@
                                      (term (load ,(last P))))])
     (set! result r)
     r))
-
-
-;; Doesn't terminate, but should
-;(final (term (ann ,wrong-prog)))
-;(trace-it (term (ann ,wrong-prog)))
-
-
-;(trace-it (term [(@ (((any/c) -> (λ (x) (pred (λ (y) x) f))) <= f g (-- 0) h (λ (z) z)) 1 †)]))
