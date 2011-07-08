@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "flat-check.rkt" "meta.rkt" "name.rkt" 
+(require "lang.rkt" "flat-check-fun.rkt" "meta.rkt" "name.rkt" 
          "examples.rkt" "annotate.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test step)
@@ -70,23 +70,29 @@
 
 (define flat? (redex-match λc~ FLAT))
 
+;; Note: contract checking not strictly faithful to Racket, which checks the 
+;; first-order portions of each first if they exist.  Racket also reports
+;; most specific flat contract that fails (in or/c, and/c, cons/c), while we
+;; just report the whole flat contract.
 (define c
   (reduction-relation
    λc~ #:domain E
    
    ;; FLAT CONTRACTS   
    (--> (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (flat-check (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))        
+        (if (@ (flat-check/fun FLAT V) V Λ)
+            (remember-contract V FLAT)
+            (blame ℓ_1 ℓ_3 V-or-AE FLAT V))        
         flat-check)
    
    ;; HIGHER-ORDER CONTRACTS   
    (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (flat-check/defun FLAT V
-                          (remember-contract V FLAT)
-                          (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
+        (if (@ (flat-check/fun FLAT V) V Λ)
+            (remember-contract V FLAT)
+            (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
         or/c-hoc)
-   ;; Note: not strictly faithful to Racket, which checks the first-order portions of each first if they exist
-   (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+   
+   (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)        
         (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
              (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
         (where HOC (and/c C_0 C_1))
@@ -127,27 +133,41 @@
         chk-fun-fail-flat)))
 
 (test
- (test--> c (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
- (test--> c 
+ (test--> c (term ((nat/c) <= f g (-- 0) f (-- 5))) 
+          (term (if (@ (λ (x) #t) (-- 5) Λ)
+                    (-- 5)
+                    (blame f f (-- 0) (nat/c) (-- 5)))))
+ (test--> c #:equiv (λ (x1 x2) (term (≡α ,x1 ,x2)))
           (term ((nat/c) <= f g (-- 0) f (-- (λ (x) x))))
-          (term (blame f f (-- 0) (nat/c) (-- (λ (x) x)))))
+          (term (if (@ (λ (x) #f) (-- (λ (x) x)) Λ)
+                    (-- (λ (x) x))
+                    (blame f f (-- 0) (nat/c) (-- (λ (x) x))))))
  (test--> c 
           (term ((nat/c) <= f g (-- 0) f (-- #t))) 
-          (term (blame f f (-- 0) (nat/c) (-- #t))))
+          (term (if (@ (λ (x) #f) (-- #t) Λ)
+                    (-- #t)
+                    (blame f f (-- 0) (nat/c) (-- #t)))))
  (test--> c
           (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
           (term (((any/c)  --> (any/c)) <= f g (-- 0) f (-- (λ (x) x)))))
  (test--> c 
           (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
           (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
- (test--> c
+ (test--> c #:equiv (λ (x1 x2) (term (≡α ,x1 ,x2)))
           (term ((pred (λ (x) 0) ℓ) <= f g (-- 0) f (-- 5)))
-          (term (if (@ (λ (x) 0) (-- 5) ℓ)
+          (term (if (@ (λ (x) (@ (λ (x) 0) x ℓ)) (-- 5) Λ)
                     (-- 5 (pred (λ (x) 0) ℓ))
                     (blame f f (-- 0) (pred (λ (x) 0) ℓ) (-- 5)))))
  (test--> c
           (term ((and/c (nat/c) (empty/c)) <= f g (-- 0) f (-- #t)))
-          (term (blame f f (-- 0) (nat/c) (-- #t)))))
+          (term (if (@ (λ (x) 
+                         (if (@ (λ (x) #f) x Λ)
+                             (@ (λ (x) #f) x Λ)                             
+                             #f))
+                       (-- #t)
+                       Λ)
+                    (-- #t)
+                    (blame f f (-- 0) (and/c (pred nat? Λ) (pred empty? Λ)) (-- #t))))))
                
 (define c~
   (reduction-relation
@@ -317,9 +337,9 @@
  (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 7)))) 7) n]))
             (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
  (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 8)))) 7) n]))
-            (term (blame n n (-- 7) (pred (λ (x) (@ = x 8 n)) n) (-- 7))))
+            (term (blame n n (-- 7) (and/c (pred nat? n) (pred (λ (x) (@ = x 8 n)) n)) (-- 7))))
  (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 8)))) "7") n]))
-            (term (blame n n (-- "7") (pred nat? n) (-- "7"))))
+            (term (blame n n (-- "7") (and/c (pred nat? n) (pred (λ (x) (@ = x 8 n)) n)) (-- "7"))))
  (test-->>p fit-example (term (-- (pred string? rsa))))
  (test-->>p fit-example-keygen-string
             (term (blame keygen prime? (-- "Key") (pred nat? prime?) (-- "Key"))))
@@ -391,7 +411,10 @@
                           (cons/c nat? nat?)
                           (cons (-- "hi") (-- 2)))
                         (first p)]))
-            (term (blame p p (-- (cons (-- "hi") (-- 2))) (pred nat? p) (-- "hi"))))
+            (term (blame p p 
+                         (-- (cons (-- "hi") (-- 2)))
+                         (cons/c (pred nat? p) (pred nat? p))
+                         (-- (cons (-- "hi") (-- 2))))))
  
  (test-->>p (term (ann [(module p
                           (cons/c (anything -> nat?) anything)
