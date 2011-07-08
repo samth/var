@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "flat-check-fun.rkt" "meta.rkt" "name.rkt" 
+(require "lang.rkt" "flat-check.rkt" "meta.rkt" "name.rkt" 
          "examples.rkt" "annotate.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test step)
@@ -80,14 +80,14 @@
    
    ;; FLAT CONTRACTS   
    (--> (FLAT <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (if (@ (flat-check/fun FLAT V) V Λ)
+        (if (@ (flat-check FLAT V) V Λ)
             (remember-contract V FLAT)
             (blame ℓ_1 ℓ_3 V-or-AE FLAT V))        
         flat-check)
    
    ;; HIGHER-ORDER CONTRACTS   
    (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (if (@ (flat-check/fun FLAT V) V Λ)
+        (if (@ (flat-check FLAT V) V Λ)
             (remember-contract V FLAT)
             (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
         or/c-hoc)

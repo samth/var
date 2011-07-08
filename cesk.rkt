@@ -1,6 +1,6 @@
 #lang racket
 (require (except-in redex plug))
-(require "lang.rkt" "flat-check-fun.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
+(require "lang.rkt" "flat-check.rkt" "meta.rkt" "name.rkt" "util.rkt" "annotate.rkt" "examples.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
@@ -334,7 +334,7 @@
    ;; CONTRACT CHECKING   
    (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
-           (ap (((-- (flat-check/fun FLAT V)) ρ_1)) () Λ a_k))
+           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))
         (where (a_k) (alloc σ (K)))
         (where K
                (if (remember-contract V (try-close-contract FLAT ρ_1 σ))
@@ -345,7 +345,7 @@
    
    (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
-           (ap (((-- (flat-check/fun FLAT V)) ρ_1)) () Λ a_k))
+           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))
         (where (a_k) (alloc σ (K)))
         (where K (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where σ_new (extend-sto1 σ a_k K))
