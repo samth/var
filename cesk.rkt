@@ -920,7 +920,7 @@
          (module keygen (anything -> (pred prime?)) ☁) 
          (module rsa ((pred prime?) -> (string? -> string?)) ☁)
          ((rsa (keygen #f)) "Plain"))))
-#;
+
 (define (final P)
   (apply-reduction-relation* (stepΔ-gc (all-but-last P))
                              (term (load ,(last P)))

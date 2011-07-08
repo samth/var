@@ -88,6 +88,9 @@
   [(refutes (-- PV C ...) o?)
    #t
    (where #f (plain-δ o? PV Λ))]
+  [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_1) o?)
+   #t
+   (side-condition (not (eq? 'proc? (term o?))))]
   [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) o?)
    (refutes V o?)]
   [(refutes V o?) #f])
