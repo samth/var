@@ -160,10 +160,7 @@
                     (blame f f (-- 0) (pred (λ (x) 0) ℓ) (-- 5)))))
  (test--> c
           (term ((and/c (nat/c) (empty/c)) <= f g (-- 0) f (-- #t)))
-          (term (if (@ (λ (x) 
-                         (if (@ (λ (x) #f) x Λ)
-                             (@ (λ (x) #f) x Λ)                             
-                             #f))
+          (term (if (@ (λ (x) #f)
                        (-- #t)
                        Λ)
                     (-- #t)

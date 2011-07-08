@@ -40,5 +40,6 @@ f: (f 6 fred) is not in my domain
 - enforce ellipsis invariants stated in metafunction contracts, 
   e.g., f : any ..._1 -> any ..._1
 - why does the #;equiv predicate get called in both directions?
+- -->E tests should print what they did reduce to
 
 - run FASTER!

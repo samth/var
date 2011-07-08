@@ -727,48 +727,49 @@
   (test-->> r #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
 
 (test
- (test-->>c step (term (@ (-- (λ (x) 0)) (-- 1) †)) (term (-- 0)))
+ (test-->>c step-gc (term (@ (-- (λ (x) 0)) (-- 1) †)) (term (-- 0)))
  #; ;; this loops
  (test-->>c v 
             (term (@ (-- (λ f (x) (@ f x †))) (-- 0) †))
             (term (@ (-- (λ f (x) (@ f x †))) (-- 0) †))) 
  
- (test-->>c step (term (@ (-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
- (test-->>c step (term (if (-- 0) 1 2)) (term (-- 1)))
- (test-->>c step (term (if (-- #t) 1 2)) (term (-- 1)))
- (test-->>c step (term (if (-- #f) 1 2)) (term (-- 2)))
- (test-->>c step (term (@ add1 (-- 0) †)) (term (-- 1)))
- (test-->>c step (term (@ proc? (-- #f) †)) (term (-- #f)))
- (test-->>c step (term (@ proc? (-- (λ (x) x)) †)) (term (-- #t)))
- (test-->>c step (term (@ proc? (-- (λ f (x) x)) †)) (term (-- #t)))
- (test-->>c step (term (@ proc? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
- (test-->>c step (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
+ (test-->>c step-gc (term (@ (-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
+ (test-->>c step-gc (term (if (-- 0) 1 2)) (term (-- 1)))
+ (test-->>c step-gc (term (if (-- #t) 1 2)) (term (-- 1)))
+ (test-->>c step-gc (term (if (-- #f) 1 2)) (term (-- 2)))
+ (test-->>c step-gc (term (@ add1 (-- 0) †)) (term (-- 1)))
+ (test-->>c step-gc (term (@ proc? (-- #f) †)) (term (-- #f)))
+ (test-->>c step-gc (term (@ proc? (-- (λ (x) x)) †)) (term (-- #t)))
+ (test-->>c step-gc (term (@ proc? (-- (λ f (x) x)) †)) (term (-- #t)))
+ (test-->>c step-gc (term (@ proc? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
+ (test-->>c step-gc (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
  
- (test-->>c step (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
- (test-->>c step (term (@ 0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
- (test-->>c step (term (if 0 1 2)) (term (-- 1)))
- (test-->>c step (term (if #t 1 2)) (term (-- 1)))
- (test-->>c step (term (if #f 1 2)) (term (-- 2)))
- (test-->>c step (term (@ add1 0 †))  (term (-- 1)))
- (test-->>c step (term (@ proc? #f †)) (term (-- #f)))
- (test-->>c step (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
+ (test-->>c step-gc (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
+ (test-->>c step-gc (term (@ 0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
+ (test-->>c step-gc (term (if 0 1 2)) (term (-- 1)))
+ (test-->>c step-gc (term (if #t 1 2)) (term (-- 1)))
+ (test-->>c step-gc (term (if #f 1 2)) (term (-- 2)))
+ (test-->>c step-gc (term (@ add1 0 †))  (term (-- 1)))
+ (test-->>c step-gc (term (@ proc? #f †)) (term (-- #f)))
+ (test-->>c step-gc (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
 
 
 (test
- (test-->>c step (term (@ (λ () 4) f)) (term (-- 4)))
- (test-->>c step (term (@ (λ z () 4) f)) (term (-- 4)))
- (test-->>c step (term (@ (-- (-> (nat/c))) f)) (term (-- (nat/c))))
- (test-->>c step (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
- (test-->>c step 
+ (test-->>c step-gc (term (@ (λ () 4) f)) (term (-- 4)))
+ (test-->>c step-gc (term (@ (λ z () 4) f)) (term (-- 4)))
+ (test-->>c step-gc (term (@ (-- (-> (nat/c))) f)) (term (-- (nat/c))))
+ (test-->>c step-gc (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
+ (test-->>c step-gc 
             (term ((nat/c) <= f g (-- 0) f (-- (λ (x) x))))
             (term (blame f f (-- 0) (nat/c) (-- (λ (x) x)))))
- (test-->>c step 
+ (test-->>c step-gc 
             (term ((nat/c) <= f g (-- 0) f (-- #t))) 
             (term (blame f f (-- 0) (nat/c) (-- #t))))
- (test-->>c step 
+ (test-->>c step-gc 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
-            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr (loc 0)))))
- (test-->>c step 
+            ;; kind of a giant hack
+            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ([(loc 0) (((-- 0) ()))]) (((-- (λ (x) x)) ())))))))))
+ (test-->>c step-gc 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
  (test-->>c step
@@ -776,7 +777,7 @@
             (term (-- 5 (pred (λ (x) 0) ℓ))))
  (test-->>c step
             (term ((and/c (nat/c) (empty/c)) <= f g (-- 0) f (-- #t)))
-            (term (blame f f (-- 0) (nat/c) (-- #t)))))
+            (term (blame f f (-- 0) (and/c (nat/c) (empty/c)) (-- #t)))))
 
 
 
@@ -805,9 +806,9 @@
  (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 7)))) 7) n]))
             (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
  (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 8)))) 7) n]))
-            (term (blame n n (-- 7) (pred (λ (x) (@ = x 8 n)) n) (-- 7))))
+            (term (blame n n (-- 7) (and/c (pred nat? n) (pred (λ (x) (@ = x 8 n)) n)) (-- 7))))
  (test-->>p (term (ann [(module n (and/c nat? (pred (λ (x) (= x 8)))) "7") n]))
-            (term (blame n n (-- "7") (pred nat? n) (-- "7"))))
+            (term (blame n n (-- "7") (and/c (pred nat? n) (pred (λ (x) (@ = x 8 n)) n)) (-- "7"))))
  (test-->>p fit-example (term (-- (pred string? rsa))))
  (test-->>p fit-example-keygen-string
             (term (blame keygen prime? (-- "Key") (pred nat? prime?) (-- "Key"))))
@@ -879,7 +880,7 @@
                           (cons/c nat? nat?)
                           (cons (-- "hi") (-- 2)))
                         (first p)]))
-            (term (blame p p (-- (cons (-- "hi") (-- 2))) (pred nat? p) (-- "hi"))))
+            (term (blame p p (-- (cons (-- "hi") (-- 2))) (cons/c (pred nat? p) (pred nat? p)) (-- (cons (-- "hi") (-- 2))))))
  
  (test-->>p (term (ann [(module p
                           (cons/c (anything -> nat?) anything)
