@@ -6,6 +6,8 @@
 
 (current-cache-all? #t)
 
+(define exact? #t)
+
 (define-extended-language CESK* λc~ 
   (K mt      
      (ap (clo ...) ((E ρ) ...) ℓ a)
@@ -26,6 +28,9 @@
 (define-metafunction CESK*
   widen : o V-or-B -> V-or-B
   [(widen o B) B]
+  [(widen o V) 
+   V
+   (side-condition exact?)]
   [(widen o V) (widen/n 10 o V)])
 
 (define-metafunction CESK*
@@ -60,16 +65,15 @@
 
 (define-metafunction CESK*
   alloc-addr : σ (any ..._1) -> (any ..._1)
-  #;#;#;
+  [(alloc-addr σ (any ...))
+   ,(variables-not-in* (term σ) (term (any ...)))
+   (side-condition exact?)]
   [(alloc-addr σ (x ...))
    (x ...)]
   [(alloc-addr σ (K ...))
    ,(map (λ (p) (if (pair? p) (all-but-last p) p)) (term (K ...)))]
   [(alloc-addr σ (V ...))
-   ,(build-list (length (term (V ...))) values)]
-  ;; replace with the below to be exact  
-  [(alloc-addr σ (any ...))
-   ,(variables-not-in* (term σ) (term (any ...)))])
+   ,(build-list (length (term (V ...))) values)])
 
 (define-metafunction CESK*
   alloc : σ (any ..._1) -> (a ..._1)
