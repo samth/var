@@ -360,13 +360,13 @@
         (where σ_new (extend-sto1 σ a_k K))
         check-or-pass)
    
-   (--> (V ρ σ (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
-        (V ρ σ (chk HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ_0 σ (chk-or U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+        (U ρ σ (chk HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where #t (∈ #t (δ (@ false? V Λ))))
         check-or-false)
    
-   (--> (V ρ σ (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ((remember-contract V (try-close-contract FLAT ρ_1)) ρ σ K)        
+   (--> (V ρ_0 σ (chk-or U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        ((remember-contract U (try-close-contract FLAT ρ_1)) ρ σ K)        
         (where #t (∈ #f (δ (@ false? V Λ))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-or-true)
