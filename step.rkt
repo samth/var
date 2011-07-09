@@ -100,6 +100,11 @@
         (where HOC (and/c C_0 C_1))
         and/c-hoc)
    
+   (--> ((rec/c x C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        ((unroll HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        (where HOC (rec/c x C))
+        unroll-HOC)
+   
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
    (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (-- (cons V_0 V_1) C ...))
