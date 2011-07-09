@@ -222,6 +222,8 @@
         (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
         nullary-blessed-β-dep)
    ;; Unary+ blessed application
+   ;; FIXME: these two rules are broken with the environments of the argument contracts.
+   ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
    (--> (V_n ρ_n σ (ap ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
                         (V_1 ρ_1) ...)
                        () 
