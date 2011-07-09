@@ -4,6 +4,8 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
+;; FIXME handling of cons, car, cdr is broken on pairs of functions.
+
 (current-cache-all? #t)
 
 (define exact? #f)
@@ -310,6 +312,7 @@
         if-f)   
    
    ;; δ
+   ;; FIXME broken delta rule for things producing closures.
    (--> (V ρ σ (op o (V_0 ρ_0) ... ρ_1 ℓ a))
         ((widen o V-or-B) () σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))         
