@@ -377,7 +377,7 @@
         (where K (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_1) (alloc σ (K)))        
         (where σ_1 (extend-sto1 σ a_1 K))
-        check-and-pass)
+        check-and-push)
    
    (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V_0 ρ σ_new (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
