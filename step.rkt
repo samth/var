@@ -107,13 +107,20 @@
    
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
-   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (-- (cons V_0 V_1) C ...))
+   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (@ cons 
-           (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_0)
-           (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1)
+           (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (@ first (remember-contract V (pred cons? Λ)) Λ))
+           (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (@ rest (remember-contract V (pred cons? Λ)) Λ))
            Λ)
         (where HOC (cons/c C_0 C_1))
+        (where #t (∈ #t (δ (@ cons? V Λ))))
         check-cons-pass)
+   
+   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
+        (blame ℓ_1 ℓ_3 V-or-AE HOC V)
+        (where HOC (cons/c C_0 C_1))
+        (where #t (∈ #f (δ (@ cons? V Λ))))
+        check-cons-fail)
    
    ;; PROCEDURE CONTRACTS      
    (--> (@ ((C_0 ..._1 --> (λ (x ..._1) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
