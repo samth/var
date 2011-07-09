@@ -414,7 +414,7 @@
    
    ;; applying abstract values   
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((demonic* C_demon U) ρ_2 σ (beg ((remember-contract (-- (any/c)) (try-close-contract C_0 ρ_1 σ) ...) ()) a))
+        ((amb 0 (demonic* C_demon U)) ρ_2 σ (beg (E_result ()) a))
         (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition (equal? (length (term (clo ... V)))
@@ -425,13 +425,14 @@
         (where ((V_0 ρ_0) ...) (clo ... (V ρ)))
         (where (V_0c ...) ((try-close-value V_0 ρ_0 σ) ...))
         (where (C_0 ...) (range-contracts (C ...) (V_0c ...)))
+        (where E_result (remember-contract (-- (any/c)) (try-close-contract C_0 ρ_1 σ) ...))
         ;; FIXME, closing contracts in their environments
         ;; because we don't have contract closures.
         
         apply-abs-known-arity)
    
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((demonic* (any/c) U) ρ_2 σ (beg ((-- (any/c)) ()) a))
+        ((amb 0 (demonic* (any/c) U)) ρ_2 σ (beg ((-- (any/c)) ()) a))
         (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
         (side-condition ;; this is a proc with no arity, so it could be anything
