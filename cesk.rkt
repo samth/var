@@ -343,20 +343,20 @@
    ;; CONTRACT CHECKING   
    (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
-           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))
-        (where (a_k) (alloc σ (K)))
+           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
         (where K
                (if (remember-contract V (try-close-contract FLAT ρ_1 σ))
                    (blame ℓ_1 ℓ_3 V-or-AE FLAT V)
                    ρ a))
+        (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         flat-check)
    
    (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
-           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))
-        (where (a_k) (alloc σ (K)))
+           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
         (where K (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         check-or-pass)
    
@@ -566,6 +566,11 @@
 
 (define-metafunction CESK*
   live-loc-E : any_E -> (a ...)
+  [(live-loc-E (loc any)) ((loc any))]
+  ;; don't traverse the orig value in any of these
+  [(live-loc-E (any_C <= ℓ_1 ℓ_2 any_V ℓ_2 any_E)) (live-loc-E (any_C any_E))]
+  [(live-loc-E (chk any_C any_ρ ℓ_1 ℓ_2 any_V ℓ_2 any_E any_ρ2 any_a)) (live-loc-E (any_C any_ρ any_E any_ρ2 any_a))]
+  [(live-loc-E (blame ℓ_1 ℓ_2 any_V any_C any_V2)) (live-loc-E (any_C any_V2))]
   [(live-loc-E (addr a)) (a)]
   [(live-loc-E (any ...))
    (a ... ...)
