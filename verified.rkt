@@ -12,7 +12,7 @@
         (parameterize ([reduction-steps-cutoff 100]) 
           ;(step-it -->_vcc~Δ (term (ann [m ... e])))
           #,(begin
-              (displayln (attribute kw))
+              ;(displayln (attribute kw))
               (cond 
                 [(and (attribute kw)
                       (eq? (syntax-e (attribute kw)) 'trace))
@@ -33,10 +33,27 @@
                            (c:final (term (ann/define-contract [m ... e])))))]
                 [else 
                  #'(apply values
-                          (filter-not
-                           (λ (p)
-                             (match p
-                               [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                           (map (λ (x) x #;(term (unann-exp ,x)))   
-                                (eval_vcc~Δ  (term (ann/define-contract [m ... e]))))))]))))]))
-        
+                          (map clean-up
+                                (filter-not
+                                 (λ (p)
+                                   (match p
+                                     [(list 'blame '★ _ (... ...)) #t] [_ #f]))
+                                 (map (λ (x) x #;(term (unann-exp ,x)))   
+                                      (eval_vcc~Δ  (term (ann/define-contract [m ... e])))))))]))))]))
+
+(define (clean-up r)
+  (match r
+    [(list '-- c ...)
+     (cons '● (remove-duplicates (filter-map clean-up-c c)))]
+    [_ r]))
+
+(define (clean-up-c c)
+  (match c
+    [`(pred (λ (,x) #t) ,l) #f]
+    [(list 'pred (list (and (? symbol?) f) '^ _) _)
+     (list 'pred f)]
+    [(list 'pred (list-rest l) _)
+     (list 'pred l)]
+    [_ c]))
+     
+  

@@ -176,7 +176,8 @@
   
   ;; Raw, unannotated language
   (RP (RM ... RE))
-  (RM (module f RC RPV) (module f RC ☁) (module f RC •))
+  (RM (module f RC RPV) (module f RC bullet))
+  (bullet ● • ☁)
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
   (RSV RL f o1) ; Syntactic values for pred.

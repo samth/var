@@ -60,6 +60,8 @@
    (module f (ann-con RC f (f_0 ...)) (ann-exp RE f (f_0 ...)))]
   [(ann-mod (module f RC •) (f_0 ...))
    (module f (ann-con RC f (f_0 ...)) ☁)]
+  [(ann-mod (module f RC ●) (f_0 ...))
+   (module f (ann-con RC f (f_0 ...)) ☁)]
   [(ann-mod (module f RC ☁) (f_0 ...))
    (module f (ann-con RC f (f_0 ...)) ☁)])
 
