@@ -41,5 +41,6 @@ f: (f 6 fred) is not in my domain
   e.g., f : any ..._1 -> any ..._1
 - why does the #;equiv predicate get called in both directions?
 - -->E tests should print what they did reduce to
+- ,@ in (term)
 
 - run FASTER!

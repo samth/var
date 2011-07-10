@@ -126,12 +126,14 @@
    (--> (@ ((C_0 ..._1 --> (λ (x ..._1) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
         ((subst* (x ...) ((C_0 <= ℓ_2 ℓ_3 V_1 ℓ_2 V_1) ...) C_1)
          <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-         (@ V (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
+         (@ (remember-contract V (C_arity ... -> (any/c))) (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
+        (where (C_arity ...) ,(map (λ _ (term (any/c))) (term (C_0 ...))))
         blessed-β-dep)
 
    (--> (@ ((C_0 ..._1 --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
         (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-             (@ V (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
+             (@ (remember-contract V (C_arity ... -> (any/c))) (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
+        (where (C_arity ...) ,(map (λ _ (term (any/c))) (term (C_0 ...))))
         blessed-β)
    
    ;; BLESSING
