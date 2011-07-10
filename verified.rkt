@@ -5,14 +5,27 @@
 (provide #%module-begin #%top-interaction)
 (require unstable/pretty)
 
+(define the-module-context (box null))
+
+(define-syntax (#%top-interaction stx)  
+  (syntax-parse stx
+    [(_ . e)
+     #'(apply values
+              (filter-not
+               (λ (p)
+                 (match p
+                   [(list 'blame '★ _ (... ...)) #t] [_ #f]))
+               (eval_vcc~Δ  (term-let ([(m (... ...)) (unbox the-module-context)])
+                                   (term (ann/define-contract [m (... ...) e]))))))]))
+
 (define-syntax (#%module-begin stx)
   (syntax-parse stx
     [(_ (~optional (~and kw (~or (~datum cesk) (~datum cesk-trace) (~datum trace)))) m ... e)
      #`(r:#%module-begin 
         (parameterize ([reduction-steps-cutoff 100]) 
+          (set-box! the-module-context '(m ...))
           ;(step-it -->_vcc~Δ (term (ann [m ... e])))
           #,(begin
-              (displayln (attribute kw))
               (cond 
                 [(and (attribute kw)
                       (eq? (syntax-e (attribute kw)) 'trace))

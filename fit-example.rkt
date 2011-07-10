@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt" cesk
+#lang s-exp "verified.rkt"
 
 (module prime? (anything -> bool?) ☁)
 

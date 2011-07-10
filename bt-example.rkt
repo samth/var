@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt" trace
+#lang s-exp "verified.rkt" cesk
 ;; Binary trees
 
 (define-contract nat/c nat?)
@@ -50,7 +50,7 @@
 ;(sum (cons 1 (cons 2 3)))
 ;=> 6
 
-(map (λ (x) (+ 1 x)) (cons 1 (cons 2 3)))
+;(map (λ (x) (+ 1 x)) (cons 1 (cons 2 3)))
 ;(map (λ (x) (+ 1 x)) 7)
 ;=> (cons 2 (cons 3 4))
  
@@ -61,8 +61,8 @@
 ;=> (-- nat/c)
 
 ;; doesn't work because we haven't got (-- rec/c) yet.
-;(module bt bt/c ☁)
-;(sum bt)
+(module bt bt/c ☁)
+(sum bt)
 
 
 ;(module c (cons/c nat/c (rec/c X (cons/c X X))) ☁)

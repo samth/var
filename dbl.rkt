@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt" cesk
+#lang s-exp "verified.rkt" 
 
 (module dbl (((pred even?) -> (pred even?)) -> ((pred even?) -> (pred even?)))
   (λ (f) (λ (x) (f (f x)))))

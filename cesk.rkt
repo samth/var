@@ -581,6 +581,8 @@
  (redex-check CESK* E
               (redex-match CESK* (a ...) (term (live-loc-E E)))))  
 
+(define (subset-of a b) (subset? (apply set a) (apply set b)))
+
 (define-metafunction CESK*
   live-loc-K : K -> (a ...) 
   [(live-loc-K mt) ()]
@@ -669,11 +671,25 @@
     (reduction-relation 
      CESK* #:domain ς
      [--> ς_old (E ρ_1 σ_1 K)
+          ;(side-condition (printf "state: ~a\n" (term ς_old)))
           (where ((any_1 ς_1) ... (any_name (E ρ σ K))  (any_2 ς_2) ...)
                  ,(apply-reduction-relation/tag-with-names step (term ς_old)))
           (where σ_1 (gc (E ρ σ K)))
-          (where ρ_1 (restrict ρ (fv E)))
-          #;
+          (where ρ_1 (restrict ρ (fv E)))          
+          ;(side-condition (printf "rule: ~a\n" (term any_name)))
+          #;(side-condition (unless (subset-of (term (live-loc-E E)) (map car (term σ_1)))
+                            (displayln (term (live-loc-E E)))
+                            (error "missing loc in E")))          
+          #;(side-condition (when (and (member '(loc 0) (term (live-loc-K K)))
+                                     (not (member '(loc 0) (map car (term σ_1)))))
+                            (displayln "=============================")
+                            (displayln (term any_name))
+                            (displayln (term (live-loc-K K)))
+                            (displayln (term (live-loc-E K)))
+                            (displayln (term K)) 
+                            (displayln (map car (term σ_1)))
+                            (error "missing loc in K")))
+          ;#;
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  (when (> (size  (term (E ρ σ_1 K))) m)
