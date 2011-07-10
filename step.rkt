@@ -203,8 +203,8 @@
    
    (--> (@ AV V ... ℓ)
         ;; do bad things in case of a concrete value
-        (amb (any/c)
-             (begin (demonic* (any/c) V) (any/c))
+        (amb (-- (any/c))
+             (begin (demonic* (any/c) V) (-- (any/c)))
              ...)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
