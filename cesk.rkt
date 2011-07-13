@@ -70,10 +70,11 @@
   [(alloc-addr σ (any ...))
    ,(variables-not-in* (term σ) (term (any ...)))
    (side-condition exact?)]
-  [(alloc-addr σ (x ...))
-   (x ...)]
+  [(alloc-addr σ (x ...)) 
+   (x ...) #;
+   ,(variables-not-in (term σ) (term (x ...)))]
   [(alloc-addr σ (K ...))
-   ,(map (λ (p) (if (pair? p) (all-but-last p) p)) (term (K ...)))]
+   ,(map (λ (p) (if (and (pair? p)) (car p) p)) (term (K ...)))]
   [(alloc-addr σ (V ...))
    ,(build-list (length (term (V ...))) values)])
 
@@ -351,6 +352,10 @@
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         flat-check)
+   
+   (--> (V ρ σ (chk (rec/c X HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V ρ σ (chk (unroll (rec/c X HOC)) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        chk-unroll)
    
    (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
@@ -692,7 +697,7 @@
           ;#;
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
-                                 (when (> (size  (term (E ρ σ_1 K))) m)
+                                 #;(when (> (size  (term (E ρ σ_1 K))) m)
                                    (printf "state: ~a~n" (term (E ρ σ_1 K))))                    
                                  (set! m (max m (size (term (E ρ σ_1 K)))))
                                  (when (zero? (modulo count 100))
