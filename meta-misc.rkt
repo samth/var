@@ -87,7 +87,9 @@
   ;; push remembered contracts past blessed arrows
   [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) C_0 ...)
    ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2
-                     (remember-contract V C_0 ...))]  
+                     (remember-contract V C_0 ...))]
+  [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_1) C_0 ...)
+   ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_1)]
   ;; we're done
   [(remember-contract V-or-AE) V-or-AE])
 
