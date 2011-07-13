@@ -48,9 +48,11 @@
           ,(remove-duplicates
             (for*/list ([l (term (proj-left AV))]
                         [r (term (proj-right AV))])
-              (term (λ (x) (if (@ (fc/c x any C_1 ,l) (@ first x Λ) Λ)
-                               (@ (fc/c x any C_2 ,r) (@ rest x Λ) Λ)
-                               #f))))))   
+              (term (λ (x) (if (@ cons? x Λ)
+                               (if (@ (fc/c x any C_1 ,l) (@ first x Λ) Λ)
+                                   (@ (fc/c x any C_2 ,r) (@ rest x Λ) Λ)
+                                   #f)
+                               #t))))))
    (where #t (proves AV cons?))]  
   [(fc/c x any (cons/c C_1 C_2) AV)
    (λ (x) (amb (if (@ (fc/c x any C_1 (-- (any/c))) (-- (any/c)) Λ)
