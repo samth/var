@@ -218,6 +218,9 @@
    ,(or (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
   [(contract-in (cons/c C_1 C_2) (-- (cons V_1 V_2) C ...))
    ,(and (term (contract-in C_1 V_1)) (term (contract-in C_2 V_2)))]
+  [(contract-in (cons/c C_1 C_2) AV)
+   ,(and (andmap (λ (x) (term (contract-in C_1 ,x))) (term (proj-left AV)))
+         (andmap (λ (x) (term (contract-in C_2 ,x))) (term (proj-right AV))))]
   [(contract-in C V) #f])
 
 ;; Does this abstract value *definitely* fail this contract?
