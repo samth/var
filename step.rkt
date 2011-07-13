@@ -200,7 +200,7 @@
         (where (V_demon ..._1) (V ...))
         (where (C_0 ...) (range-contracts (C ...) (V ...)))
         ;; abstract value constrained by all possible domains
-        (where E_result (remember-contract (-- (any/c) C_0 ...)))
+        (where E_result (remember-contract (-- (any/c)) C_0 ...))
         apply-abs-known-arity)
    
    (--> (@ AV V ... ℓ)
@@ -266,7 +266,7 @@
    (reduction-relation
     λc~ #:domain E
     (--> (f ^ ℓ)
-         (C <= f ℓ (-- C) f (-- C))
+         (C <= f ℓ (-- C) f (remember-contract (-- (any/c)) C))
          (where (M_1 ... (module f C ☁) M_2 ...) ,Ms)
          (side-condition (not (eq? (term f) (term ℓ))))
          ∆-opaque))))
