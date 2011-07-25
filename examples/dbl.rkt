@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt" trace
+#lang s-exp "../verified.rkt" trace
 (module dbl (((pred even?) -> (pred even?)) -> 
              ((pred even?) -> (pred even?)))
   (λ (f) (λ (x) (f (f x)))))

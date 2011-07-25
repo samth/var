@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt"
+#lang s-exp "../verified.rkt"
 
 (module prime? (anything -> bool?) ☁)
 

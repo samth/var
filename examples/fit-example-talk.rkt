@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt" trace
+#lang s-exp "../verified.rkt" trace
 ;; This program runs forever.
 
 #;#;
