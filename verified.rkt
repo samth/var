@@ -1,10 +1,10 @@
 #lang racket
-(require "trace.rkt" "annotate.rkt" "eval.rkt" (prefix-in c: "cesk.rkt") redex)
+(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") redex)
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
 (require unstable/pretty)
-
+(provide clean-up)
 (define the-module-context (box null))
 
 (define-syntax (#%top-interaction stx)  
@@ -60,8 +60,12 @@
 
 (define (clean-up r)
   (match r
-    [(list '-- c ...)
-     (cons '● (remove-duplicates (filter-map clean-up-c c)))]
+    [(list '-- c-or-v c ...)
+     (if (redex-match λc~ PV c-or-v)
+         c-or-v     
+         (cons '● (remove-duplicates (filter-map clean-up-c (cons c-or-v c)))))]
+    [(list 'blame f g v0 c v1)
+     (list 'blame f g (clean-up v0) (clean-up-c c) (clean-up v1))]
     [_ r]))
 
 (define (clean-up-c c)
