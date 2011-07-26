@@ -2,8 +2,9 @@
 
 define-contract list/c
   rec/c X
-    or/c(empty? 
-         cons/c(nat? X))
+    or/c
+      empty? 
+      cons/c nat? X
   
 module sorted-ne? 
   list/c -> bool?
@@ -17,15 +18,17 @@ module sorted?
        sorted-ne?(l)    
 
 module insert 
-  nat? and/c(list/c pred(sorted?)) -> and/c(list/c pred(sorted?))
+  nat? and/c(list/c sorted?) -> and/c(list/c sorted?)
   ●
 
 module insertion-sort
-  list/c and/c(list/c pred(sorted?)) -> and/c(list/c pred(sorted?))
+  list/c and/c(list/c sorted?) -> and/c(list/c sorted?)
   λ (l acc) 
     if empty?(l)
        acc 
-       insertion-sort(rest(l) insert(first(l) acc))
+       insertion-sort
+         rest l 
+         insert(first(l) acc)
 
 module n list/c ●
   

@@ -2,9 +2,9 @@
 
 (module prime? (anything -> bool?) ☁)
 
-(module keygen (anything -> (pred prime?)) ☁) 
+(module keygen (anything -> prime?) ☁) 
 
-(module rsa ((pred prime?) -> (string? -> string?)) ☁)
+(module rsa (prime? -> (string? -> string?)) ☁)
 
 ((rsa (keygen #f)) "Plain")
 
