@@ -62,15 +62,16 @@
   (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
   (nat natural)
   (o o1 o2)
-  (o1 o? first rest nat->nat string->list-of-string)
+  (o1 o? first rest nat->nat)
   (nat->nat add1 sub1)
   ;; Built-in predicates
   (o? zero? proc? empty? cons? nat? string? bool? false?)
-  (o2 nat*nat->nat nat*nat->bool cons nat*string->string)
+  (o2 nat*nat->nat nat*nat->bool cons string*string->bool)
   (nat*nat->nat + - * expt)
   (nat*nat->bool = < <= > >=)
-  (string->list-of-string exlode)
-  (nat*string->string replicate)
+  (string*string->bool 
+   string=? string<? string<=? string>? string>=? 
+   string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?)
   
   (𝓔 hole (@ V ... 𝓔 E ... ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
 

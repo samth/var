@@ -328,6 +328,16 @@
   [(plain-δ > nat_0 nat_1 ℓ) ,(> (term nat_0) (term nat_1))]
   [(plain-δ >= nat_0 nat_1 ℓ) ,(>= (term nat_0) (term nat_1))]
   ;[(plain-δ cons PV_0 PV_1 ℓ) (cons (-- PV_0) (-- PV_1))]
+  [(plain-δ string=? string_0 string_1 ℓ) ,(string=? (term string_0) (term string_1))]
+  [(plain-δ string<? string_0 string_1 ℓ) ,(string<? (term string_0) (term string_1))]
+  [(plain-δ string>? string_0 string_1 ℓ) ,(string>? (term string_0) (term string_1))]
+  [(plain-δ string<=? string_0 string_1 ℓ) ,(string<=? (term string_0) (term string_1))]
+  [(plain-δ string>=? string_0 string_1 ℓ) ,(string>=? (term string_0) (term string_1))]
+  [(plain-δ string-ci=? string_0 string_1 ℓ) ,(string-ci=? (term string_0) (term string_1))]
+  [(plain-δ string-ci<? string_0 string_1 ℓ) ,(string-ci<? (term string_0) (term string_1))]
+  [(plain-δ string-ci>? string_0 string_1 ℓ) ,(string-ci>? (term string_0) (term string_1))]
+  [(plain-δ string-ci<=? string_0 string_1 ℓ) ,(string-ci<=? (term string_0) (term string_1))]
+  [(plain-δ string-ci>=? string_0 string_1 ℓ) ,(string-ci>=? (term string_0) (term string_1))]
   [(plain-δ o PV PV_0 ... ℓ)       ;; catches domain errors
    (blame ℓ o (-- PV) λ (-- PV))]) ;; FIXME: Not right value
 
@@ -459,7 +469,35 @@
    ((-- #t) 
     (-- #f)
     (blame ℓ nat*nat->bool V_0 λ V_0)
-    (blame ℓ nat*nat->bool V_1 λ V_1))])
+    (blame ℓ nat*nat->bool V_1 λ V_1))]
+  
+  ;; string*string->bool
+  [(abstract-δ string*string->bool V_0 V_1 ℓ)
+   ((-- #t) (-- #f))
+   (where #t (proves V_0 string?))
+   (where #t (proves V_1 string?))]
+  [(abstract-δ string*string->bool V_0 V_1 ℓ)
+   ((blame ℓ string*string->bool V_0 λ V_0))
+   (where #t (refutes V_0 string?))]
+  [(abstract-δ string*string->bool V_0 V_1 ℓ)
+   ((blame ℓ string*string->bool V_1 λ V_1))
+   (where #t (refutes V_1 string?))]  
+  [(abstract-δ string*string->bool V_0 V_1 ℓ)
+   ((-- #t) 
+    (-- #f)
+    (blame ℓ string*string->bool V_1 λ V_1))
+   (where #t (proves V_0 string?))]  
+  [(abstract-δ string*string->bool V_0 V_1 ℓ)
+   ((-- #t) 
+    (-- #f)
+    (blame ℓ string*string->bool V_0 λ V_0))
+   (where #t (proves V_1 string?))]
+  [(abstract-δ string*string->bool V_0 V_1 ℓ)
+   ((-- #t) 
+    (-- #f)
+    (blame ℓ string*string->bool V_0 λ V_0)
+    (blame ℓ string*string->bool V_1 λ V_1))])
+
 
 ;; Project an AV to the left
 ;; (proj-left (-- (cons/c nat? string?) (cons/c zero? string?)))
