@@ -177,6 +177,7 @@
   (W? W (-- C*-top ... WC?*-top C*-top ...))
   
   ;; Raw, unannotated language
+  (RARR -> →)
   (RP (RM ... RE))
   (RM (module f RC RPV) (module f RC bullet))
   (bullet ● • ☁)
@@ -188,8 +189,8 @@
   
   (RCFLAT o? anything (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
-  (RCHOC (RC ... -> RC)
-         (RC ..._1 -> (λ (x ..._1) RC))
+  (RCHOC (RC ... RARR RC)
+         (RC ..._1 RARR (λ (x ..._1) RC))
          (or/c RCFLAT RCHOC)
          (cons/c RCHOC RC) (cons/c RC RCHOC)
          (and/c RCHOC RC)  (and/c RC RCHOC)

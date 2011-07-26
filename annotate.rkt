@@ -97,9 +97,9 @@
   [(ann-con (rec/c x RC) ℓ (f ...))
    (rec/c x (ann-con RC ℓ (f ...)))]
   
-  [(ann-con (RC_0 ... -> RC_1) ℓ (f ...))
+  [(ann-con (RC_0 ... RARR RC_1) ℓ (f ...))
    ((ann-con RC_0 ℓ (f ...)) ... -> (ann-con RC_1 ℓ (f ...)))]
-  [(ann-con (RC_0 ... -> (λ (x ...) RC_1)) ℓ (f ...))
+  [(ann-con (RC_0 ... RARR (λ (x ...) RC_1)) ℓ (f ...))
    ((ann-con RC_0 ℓ (f ...)) ... -> (λ (x ...) (ann-con RC_1 ℓ (f ...))))]
   [(ann-con RC ℓ (f ...)) RC])
 

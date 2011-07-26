@@ -7,22 +7,22 @@ define-contract list/c
       cons/c nat? X
   
 module sorted-ne? 
-  list/c -> bool?
+  list/c → bool?
   ●
   
 module sorted?
-  list/c -> bool?
+  list/c → bool?
   λ (l) 
     if empty?(l) 
        #t 
        sorted-ne?(l)    
 
 module insert 
-  nat? and/c(list/c sorted?) -> and/c(list/c sorted?)
+  nat? {list/c and/c sorted?} → {list/c and/c sorted?}
   ●
 
 module insertion-sort
-  list/c and/c(list/c sorted?) -> and/c(list/c sorted?)
+  list/c {list/c and/c sorted?} → {list/c and/c sorted?}
   λ (l acc) 
     if empty?(l)
        acc 
