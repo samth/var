@@ -32,14 +32,14 @@
    (@ o (ann-exp RE ℓ (f ...)) ... ℓ)]
   [(ann-exp (let x RE_0 RE_1) ℓ (f ...))
    (let x (ann-exp RE_0 ℓ (f ...))
-     (ann-exp RE_1 ℓ (f ...)))]
+     (ann-exp RE_1 ℓ (set-minus (f ...) (x))))]
   [(ann-exp (begin RE_0 RE_1) ℓ (f ...))
    (begin (ann-exp RE_0 ℓ (f ...))
           (ann-exp RE_1 ℓ (f ...)))]  
   [(ann-exp (λ (x ...) RE) ℓ (f ...))
-   (λ (x ...) (ann-exp RE ℓ (f ...)))]
+   (λ (x ...) (ann-exp RE ℓ (set-minus (f ...) (x ...))))]
   [(ann-exp (λ x_f (x ...) RE) ℓ (f ...))
-   (λ x_f (x ...) (ann-exp RE ℓ (f ...)))]
+   (λ x_f (x ...) (ann-exp RE ℓ (set-minus (f ...) (x ... x_f))))]
   [(ann-exp FV ℓ (f ...)) FV]
   [(ann-exp (RE_0 RE_1 ...) ℓ (f ...))
    (@ (ann-exp RE_0 ℓ (f ...))
@@ -116,7 +116,9 @@
  (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
  
  (test-equal (term (ann ,fit-example-raw)) fit-example)
- (test-equal (term (ann ,list-id-example-raw)) list-id-example))
+ (test-equal (term (ann ,list-id-example-raw)) list-id-example)
+ (test-equal (term (ann ((module f anything 1) (λ (f) f))))
+             (term ((module f (pred (λ (x) #t) f) 1) (λ (f) f)))))
 
 ;; below stuff is bitrotted
 
