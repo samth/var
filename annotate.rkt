@@ -14,8 +14,8 @@
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~
   ann : RP -> P
-  [(ann ((module f RC any) ... RE))
-   ((ann-mod (module f RC any) (f ...)) ...        
+  [(ann ((moddec f RC any) ... RE))
+   ((ann-mod (moddec f RC any) (f ...)) ...        
     (ann-exp RE † (f ...)))])
 
 ;; Annotate RE with context f, using (f ...) module variables.
@@ -56,13 +56,13 @@
 
 (define-metafunction λc~
   ann-mod : RM (f ...) -> M
-  [(ann-mod (module f RC RE) (f_0 ...)) 
+  [(ann-mod (moddec f RC RE) (f_0 ...)) 
    (module f (ann-con RC f (f_0 ...)) (ann-exp RE f (f_0 ...)))]
-  [(ann-mod (module f RC •) (f_0 ...))
+  [(ann-mod (moddec f RC •) (f_0 ...))
    (module f (ann-con RC f (f_0 ...)) ☁)]
-  [(ann-mod (module f RC ●) (f_0 ...))
+  [(ann-mod (moddec f RC ●) (f_0 ...))
    (module f (ann-con RC f (f_0 ...)) ☁)]
-  [(ann-mod (module f RC ☁) (f_0 ...))
+  [(ann-mod (moddec f RC ☁) (f_0 ...))
    (module f (ann-con RC f (f_0 ...)) ☁)])
 
 (define-metafunction λc~
@@ -70,7 +70,9 @@
   [(ann-con o? ℓ (f ...))
    (pred o? ℓ)]  
   [(ann-con anything ℓ (f ...))
-   (pred (λ (x) #t) ℓ)]      
+   (pred (λ (x) #t) ℓ)]
+  [(ann-con any? ℓ (f ...))
+   (pred (λ (x) #t) ℓ)]
   [(ann-con (pred RL) ℓ (f ...))
    (pred (ann-exp RL ℓ (f ...)) ℓ)]
   [(ann-con (pred f) ℓ (f_0 ... f f_1 ...))
@@ -104,6 +106,9 @@
   [(ann-con RC ℓ (f ...)) RC])
 
 (test
+ (test-equal (term (ann-con f g (f)))
+             (term (pred (f ^ g) g)))
+ 
  (test-equal (term (ann-con (pred f) g (f)))
              (term (pred (f ^ g) g)))
  

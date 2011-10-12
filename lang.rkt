@@ -179,7 +179,8 @@
   ;; Raw, unannotated language
   (RARR -> →)
   (RP (RM ... RE))
-  (RM (module f RC RPV) (module f RC bullet))
+  (RM (moddec f RC RPV) (moddec f RC bullet))
+  (moddec module define/contract)
   (bullet ● • ☁)
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
@@ -187,7 +188,7 @@
   (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
   
   
-  (RCFLAT o? anything (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
+  (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
   (RCHOC (RC ... RARR RC)
          (RC ..._1 RARR (λ (x ..._1) RC))
