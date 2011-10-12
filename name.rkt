@@ -7,11 +7,16 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; subst
 
+;; Parallel substituion (broken)
 (define-metafunction λc~ 
   subst* : (x ...) (any ...) any -> any
   [(subst* () () any) any]
   [(subst* (x x_0 ...) (any any_0 ...) any_1)
    (subst* (x_0 ...) (any_0 ...) (subst x any any_1))])
+
+(test 
+ (test-equal (term (subst* (f g) (g 7) f)) 
+             (term g)))
 
 (define-metafunction λc~ 
   subst-var* : (x ...) (x ...) any -> any
@@ -23,6 +28,7 @@
   subst : x any any -> any 
   ;; 0. Don't substitue for module references.
   [(subst x any (f ^ ℓ)) (f ^ ℓ)]
+  [(subst x any (pred any_1 ℓ)) (pred (subst x any any_1) ℓ)]
   [(subst x any (@ any_1 ... ℓ))
    (@ (subst x any any_1) ... ℓ)]   
   ;; 1. x bound, so don't continue in λ body  
