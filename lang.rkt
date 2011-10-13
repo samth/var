@@ -25,9 +25,10 @@
   ((U V) WFV W)
   
   (WFV (-- FV C* ...))
+  (MODREF (f ^ ℓ))
   
-  (SV L (f ^ f) o1) ; Syntactic values for pred.
-  (E V PV x (f ^ ℓ) (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
+  (SV L MODREF o1) ; Syntactic values for pred.
+  (E V PV x MODREF (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
   (FLAT FLAT* x (and/c FLAT FLAT))
   (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
@@ -332,7 +333,7 @@
 (define-metafunction λc~
   fv : E -> (x ...)
   [(fv x) (x)]
-  [(fv (f ^ ℓ)) ()]
+  [(fv MODREF) ()]
   [(fv (λ (x ...) E)) (set-minus (fv E) (x ...))]
   [(fv (let x E_1 E_2)) 
    (x_1 ... x_2 ...)
