@@ -155,7 +155,7 @@ E
  (test-equal (term (ann ((module f racket (require) (define g 1) (provide/contract [g anything]))
                          (require)
                          (λ (f) f))))
-             (term ((module f racket (require) (define g 1) (provide/contract [g (λ (x) #t)])) 
+             (term ((module f racket (require) (define g 1) (provide/contract [g (pred (λ (x) #t) f)])) 
                     (require)
                     (λ (f) f)))))
 
