@@ -26,13 +26,13 @@ E
 (define-metafunction λc~
   ann : RP -> P
   [(ann ((module f_1 LANG RR
-           (define f_3 any) ... 
+           RDEF ... 
            (provide/contract [f_2 RC] ...)) 
          ...
          (require (only-in f_4 f_5 ...) ...)
          RE))
-   ((ann-mod (module f_1 LANG RR (define f_3 any) ... 
-               (provide/contract [f_2 RC] ...)))             
+   ((ann-mod (module f_1 LANG RR RDEF ... 
+               (provide/contract [f_2 RC] ...)))
     ...
     (require (only-in f_4 f_5 ...) ...) 
     (ann-exp RE † ((f_4 (f_5 ...)) ...) ()))])
@@ -90,14 +90,14 @@ E
 (define-metafunction λc~
   ann-mod : RM -> M
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
-              DEF ...
-              (provide/contract [f_3 RC] ...))) 
+              RDEF ...
+              (provide/contract [f_3 RC] ...)))
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
      ...
      (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
-   (where ((define f_4 any) ...) ((unfold-def DEF) ...))])
+   (where ((define f_4 any) ...) ((unfold-def RDEF) ...))])
 
 (define-metafunction λc~
   ann-rhs : any f MODENV (f ...) -> ☁ or E
@@ -116,11 +116,11 @@ E
   [(ann-con (pred RL) ℓ MODENV (f ...))
    (pred (ann-exp RL ℓ MODENV (f ...)) ℓ)]
   
-  ;; Eta expand for simplicity.
+  ;; We cheat by re-using the expression annotator for module references
   [(ann-con (pred f) ℓ MODENV (f_1 ...))
-   (ann-con (pred (λ (x) (f x))) ℓ MODENV (f_1 ...))]  
+   (pred (ann-exp f ℓ MODENV (f_1 ...)) ℓ)]
   [(ann-con f ℓ MODENV (f_1 ...))
-   (ann-con (pred f) ℓ MODENV (f_1 ...))]  
+   (ann-con (pred f) ℓ MODENV (f_1 ...))]
   [(ann-con (pred o1) ℓ MODENV (f ...))
    (pred o1 ℓ)]
   ;; ---
@@ -144,12 +144,12 @@ E
 
 (test
  (test-equal (term (ann-con f g ((h (f))) ()))
-             (term (pred (λ (x) (@ (f ^ g h) x g)) g)))
+             (term (pred (f ^ g h) g)))
  (test-equal (term (ann-con j g ((h (f))) (j)))
-             (term (pred (λ (x) (@ (j ^ g g) x g)) g)))
+             (term (pred (j ^ g g) g)))
  
  (test-equal (term (ann-con (pred f) g ((h (f))) ()))
-             (term (pred (λ (x) (@ (f ^ g h) x g)) g)))
+             (term (pred (f ^ g h) g)))
  
  ;; Totality test
  (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
@@ -168,7 +168,7 @@ E
 
 ;; below stuff is bitrotted
 
-#;
+#|
 (define-metafunction λc~
   unann : P -> RP
   [(unann (M ... E))
@@ -204,3 +204,4 @@ E
   [(unann-con (any C_0 C_1))
    (any (unann-con C_0) (unann-con C_1))]
   [(unann-con C) C])
+|#
