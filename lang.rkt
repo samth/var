@@ -499,5 +499,5 @@ E
                   (redex-match λc~ WFV (term V_1)))                  
               #:attempts 10000))
 
-(define (all-but-last ls)
-  (drop-right ls 1))
+(define (program-modules ls)
+  (drop-right ls 2))
