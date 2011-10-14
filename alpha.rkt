@@ -71,7 +71,7 @@
   [(≡α/C (pred L_1 ℓ)
          (pred L_2 ℓ))
    (≡α L_1 L_2)]
-  [(≡α/C C C) #f])
+  [(≡α/C C_1 C_2) #f])
 
 (test
  (test-equal (term (≡α (λ (x) x) (λ (y) y))) #t)
@@ -81,6 +81,22 @@
  (test-equal (term (≡α (@ (λ (x) x) 3 f) (@ (λ (y) y) 3 f))) #t)
  (test-equal (term (≡α (@ (λ (x) x) (λ (y) y) f) (@ (λ (y) y) (λ (x) x) f))) #t)
  
+ (test-equal (term (≡α (((pred bool? f) --> (λ (x) (pred (λ (y) x) f))) <= f f (-- 0) f (-- (λ (z) z)))
+                       (((pred bool? f) --> (λ (q) (pred (λ (y) q) f))) <= f f (-- 0) f (-- (λ (z) z)))))
+             #t)
+ 
+ (test-equal (term (≡α/C ((pred bool? f) -> (λ (x) (pred (λ (y) x) f)))
+                         ((pred bool? f) -> (λ (q) (pred (λ (y) q) f)))))
+             #t)
+ 
+ (test-equal (term (≡α (-- 0 (rec/c X (or/c int? (cons/c X X))))
+                       (-- 0 (rec/c Y (or/c int? (cons/c Y Y))))))
+             #t)
+ 
+ (test-equal (term (≡α/C (rec/c X (or/c int? (cons/c X X)))
+                         (rec/c Y (or/c int? (cons/c Y Y)))))
+             #t) 
+                   
  ;; Syntactic identity implies ≡α.
  (redex-check λc~ E (term (≡α E E)))
  
