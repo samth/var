@@ -724,9 +724,9 @@
         [else #t]))
 
 (define-syntax-rule (trace-it P . rest)
-  (traces (stepΔ-gc (all-but-last P))
+  (traces (stepΔ-gc (program-modules P))
           (term (load ,(last P)))
-          #:pred (colorize (all-but-last P))
+          #:pred (colorize (program-modules P))
           . rest))
 
 #|
@@ -746,14 +746,14 @@
 
 (define-syntax-rule (test-->>p P e ...)
   (begin (print-here P)
-  (test-->>E (stepΔ-gc (all-but-last P))
+  (test-->>E (stepΔ-gc (program-modules P))
             ;#:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
             ;#:cycles-ok
             (term (load ,(last P)))
             (term (load ,e))) ...))
 
 (define-syntax-rule (test-->>pE P e ...)
-  (test-->>E (stepΔ-gc (all-but-last P))
+  (test-->>E (stepΔ-gc (program-modules P))
              #;#;
              #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
              (term (load ,(last P)))
@@ -959,7 +959,7 @@
          ((rsa (keygen #f)) "Plain"))))
 
 (define (final P)
-  (apply-reduction-relation* (stepΔ-gc (all-but-last P))
+  (apply-reduction-relation* (stepΔ-gc (program-modules P))
                              (term (load ,(last P)))
                              #:cache-all? #t))
 #;#;
@@ -968,10 +968,10 @@
 #;
 (define (single P)
   (set! next (λ () 
-               (define r (append-map (λ (p) (apply-reduction-relation (stepΔ-gc (all-but-last P)) p)) result))
+               (define r (append-map (λ (p) (apply-reduction-relation (stepΔ-gc (program-modules P)) p)) result))
                (set! result r)
                r))
-  (let ([r (apply-reduction-relation (stepΔ-gc (all-but-last P))
+  (let ([r (apply-reduction-relation (stepΔ-gc (program-modules P))
                                      (term (load ,(last P))))])
     (set! result r)
     r))

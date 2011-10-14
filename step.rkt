@@ -334,9 +334,9 @@
 ;; A sometimes useful utility
 #;
 (define (step p)
-  (match (apply-reduction-relation (-->_vcc~Δ (all-but-last p))
+  (match (apply-reduction-relation (-->_vcc~Δ (program-modules p))
                                    (last p))
-    [(list e) (append (all-but-last p) (list e))]))
+    [(list e) (append (program-modules p) (list e))]))
 
 (define-syntax-rule (test-->>p p e ...)
   (test-->> (-->_vcc~Δ (program-modules p))

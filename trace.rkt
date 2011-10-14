@@ -30,7 +30,7 @@
         [else #t]))
 
 (define-syntax-rule (step-it R P)
-  (stepper (R (all-but-last P))
+  (stepper (R (program-modules P))
            (last P)))
 #|
 (trace-it -->_vcc~Δ fit-example)

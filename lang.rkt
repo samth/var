@@ -208,6 +208,10 @@ E
   (RP (RM ... RR RE))
   
   (RM (module f LANG RR RDEF ...
+        (provide/contract [f RC] ...))
+      (module f LANG RR
+        (provide/contract [f RC] ...))
+      (module f LANG
         (provide/contract [f RC] ...)))
   
   (MODENV ((f (f ...)) ...))

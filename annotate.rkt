@@ -25,16 +25,11 @@ E
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~
   ann : RP -> P
-  [(ann ((module f_1 LANG RR
-           RDEF ... 
-           (provide/contract [f_2 RC] ...)) 
-         ...
+  [(ann (RM ...
          (require (only-in f_4 f_5 ...) ...)
          RE))
-   ((ann-mod (module f_1 LANG RR RDEF ... 
-               (provide/contract [f_2 RC] ...)))
-    ...
-    (require (only-in f_4 f_5 ...) ...) 
+   ((ann-mod RM) ...
+    (require (only-in f_4 f_5 ...) ...)
     (ann-exp RE † ((f_4 (f_5 ...)) ...) ()))])
 
 ;; Annotate RE with inside module ℓ, using MODENV module environment and (f ...) local environment.
@@ -42,7 +37,7 @@ E
   ann-exp : RE ℓ MODENV (f ...) -> E  
   [(ann-exp f_1 f_2 MODENV (f_4 ... f_1 f_3 ...))  ; local reference
    (f_1 ^ f_2 f_2)]      
-  [(ann-exp f_1 ℓ (f_4 ... (f_3 (f_5 ... f_1 f_6 ...)) f_7 ...) any) ; non-local reference
+  [(ann-exp f_1 ℓ (any_4 ... (f_3 (f_5 ... f_1 f_6 ...)) any_7 ...) any) ; non-local reference
    (f_1 ^ ℓ f_3)]
   
   [(ann-exp x ℓ MODENV any) x]
@@ -97,7 +92,22 @@ E
      (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
      ...
      (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
-   (where ((define f_4 any) ...) ((unfold-def RDEF) ...))])
+   (where ((define f_4 any) ...) ((unfold-def RDEF) ...))]
+  [(ann-mod (module f LANG
+              (provide/contract [f_3 RC] ...)))
+   (module f LANG
+     (require)
+     (define f_3 ☁)
+     ...
+     (provide/contract [f_3 (ann-con RC f () (f_3 ...))] ...))]
+  [(ann-mod (module f LANG
+              (require (only-in f_1 f_2 ...) ...)
+              (provide/contract [f_3 RC] ...)))
+   (module f LANG
+     (require (only-in f_1 f_2 ...) ...)
+     (define f_3 ☁)
+     ...
+     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))])
 
 (define-metafunction λc~
   ann-rhs : any f MODENV (f ...) -> ☁ or E
