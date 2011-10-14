@@ -236,38 +236,56 @@
         (remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)))
+
+;; modulename x valuename x modules -> value
+(define-metafunction λc~
+  lookup-modref/val : f f (M ...) -> PV or bullet
+  [(lookup-modref/val f f_1 (M ... 
+                             (module f LANG R DEF ... (define f_1 any_result) DEF_1 ... any_p)
+                             M_1 ...))
+   any_result])
+
+;; modulename x valuename x modules -> contract
+(define-metafunction λc~
+  lookup-modref/con : f f (M ...) -> C
+  [(lookup-modref/con f f_1 (M ... 
+                             (module f LANG R DEF ...(provide/contract any_1 ... [f_1 C] any_2 ...))
+                             M_1 ...))
+   C])
    
    
   
 (define (∆ Ms)
   (reduction-relation
    λc~ #:domain E
-   (--> (f ^ f)
+   (--> (f_1 ^ f f)
         (-- PV)
-        (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
+        (where PV (lookup-modref/val f f_1 ,Ms))        
         Δ-self)
-   (--> (f ^ ℓ)
-        (C <= f ℓ (-- PV) f (-- PV))
-        (where (M_1 ... (module f C PV) M_2 ...) ,Ms)
+   (--> (f_1 ^ ℓ f)
+        (C <= f ℓ (-- PV) f_1 (-- PV))
+        (where C (lookup-modref/con f f_1 ,Ms))
+        (where PV (lookup-modref/val f f_1 ,Ms))
         (side-condition (not (eq? (term f) (term ℓ))))
         Δ-other)))
 
 (test
- (test--> (∆ (term [(module f (any/c) 0)]))
-          (term (f ^ f))
+ (test--> (∆ (term [(module f (require) (define v 0) (provide/contract [v (any/c)]))]))
+          (term (v ^ f f))
           (term (-- 0)))
- (test--> (∆ (term [(module f (any/c) 0)]))
-          (term (f ^ g))
-          (term ((any/c) <= f g (-- 0) f (-- 0)))))
+ (test--> (∆ (term [(module f (require) (define v 0) (provide/contract [v (any/c)]))]))
+          (term (v ^ g f))
+          (term ((any/c) <= f g (-- 0) v (-- 0)))))
 
 (define (Δ~ Ms)
   (union-reduction-relations
    (∆ Ms)
    (reduction-relation
     λc~ #:domain E
-    (--> (f ^ ℓ)
-         (C <= f ℓ (-- C) f (remember-contract (-- (any/c)) C))
-         (where (M_1 ... (module f C ☁) M_2 ...) ,Ms)
+    (--> (f_1 ^ ℓ f)
+         (C <= f ℓ (-- C) f_1 (remember-contract (-- (any/c)) C))
+         (where bullet (lookup-modref/val f f_1 ,Ms))
+         (where C (lookup-modref/con f f_1 ,Ms))
          (side-condition (not (eq? (term f) (term ℓ))))
          ∆-opaque))))
 
