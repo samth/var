@@ -1,14 +1,17 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt")
-(provide #;≡α subst/β subst/C subst/μ)
-(test-suite test name)
+(provide subst/β subst/C subst/μ)
+(test-suite test subst)
 
 ;; There are 3 kinds of substitutions
 ;; * β (and let) : ((x V) ...) E -> E
 ;; * dependent contract β : ((x V) ...) C -> C
 ;; * μ : x C C -> C
 ;; All substituted values are closed
+
+;; There is also a raw replacement, used only for define-contract:
+;; * replace : any any any -> any
 
 ;; {x/V,...}E
 ;; Never substitutes inside contracts
@@ -117,4 +120,17 @@
 (test
  ;; totality test
  (redex-check λc~ (x C_1 C_2) (term (subst/μ x C_1 C_2))))
+
+
+(define-metafunction λc~
+  replace : any any any -> any
+  [(replace any any_1 any) any_1]
+  [(replace any_1 any_2 (any_3 ...))
+   ((replace any_1 any_2 any_3) ...)]
+  [(replace any any_1 any_2) any_2])
+
+(test
+ (test-equal (term (replace x 3 x)) (term 3))
+ (test-equal (term (replace (y) 3 ((y) (y) (y)))) (term (3 3 3)))
+ (test-equal (term (replace x 3 (q r s))) (term (q r s))))
 

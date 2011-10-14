@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt" "name.rkt" "meta-misc.rkt")
+(require "lang.rkt" "util.rkt" "subst.rkt" "meta-misc.rkt")
 (provide (except-out (all-defined-out) test))
 (provide (all-from-out "meta-misc.rkt"))
 (test-suite test meta)
@@ -58,7 +58,7 @@
    (λ (f) (@ (demonic C_1) (@ f (-- C_0) ... ★) ★))
    (where f ,(gensym 'f))]
   [(demonic (C_0 ... -> (λ (x ...) C_1))) 
-   (λ (f) (@ (demonic (subst* (x ...) ((-- C_0) ...) C_1)) (@ f (-- C_0) ... ★) ★))
+   (λ (f) (@ (demonic (subst/C ((x (-- C_0)) ...) C_1)) (@ f (-- C_0) ... ★) ★))
    (where f ,(gensym 'f))])
 
 ;; Does o? hold on all values abstracted by V

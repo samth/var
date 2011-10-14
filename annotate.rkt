@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "examples.rkt" "name.rkt" "util.rkt") 
+(require "lang.rkt" "examples.rkt" "subst.rkt" "util.rkt") 
 (provide (except-out (all-defined-out) test))
 (test-suite test annotate)
 
@@ -18,7 +18,7 @@ E
 (define-metafunction λc~
   ann/define-contract : (any ...) -> P
   [(ann/define-contract ((define-contract x RC) any ...))
-   (ann/define-contract (subst x RC (any ...)))]
+   (ann/define-contract (replace x RC (any ...)))]
   [(ann/define-contract (any ...))
    (ann (any ...))])
            
