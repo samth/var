@@ -1,7 +1,7 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt")
-(provide subst/β subst/C subst/μ)
+(provide subst/α subst/β subst/C subst/μ)
 (test-suite test subst)
 
 ;; There are 4 kinds of substitutions
@@ -18,6 +18,11 @@
   subst/β : ((x V) ...) E -> E
   [(subst/β ((x V) ...) E)
    (subst/αβ ((x V) ...) E)])
+
+(define-metafunction λc~
+  subst/α : ((x x) ...) E -> E
+  [(subst/α ((x x_*) ...) E)
+   (subst/αβ ((x x_*) ...) E)])
 
 (define-metafunction λc~
   subst/αβ : SUBST E -> E
@@ -91,16 +96,31 @@
  (redex-check λc~ (side-condition (E ((x V) ...))
                                   (equal? (length (term (x ...)))
                                           (length (remove-duplicates (term (x ...))))))
-              (begin (term (subst/αβ ((x V) ...) E))
+              (begin (term (subst/β ((x V) ...) E))
                      #t))
  
- (test-equal (term (subst/αβ ((x (-- 4))) x)) (term (-- 4)))
- (test-equal (term (subst/αβ ((x (-- 4))) (λ (x) x)))
-             (term (λ (x) x)))
- (test-equal (term (subst/αβ ((y (-- 4))) (λ (x) y)))
-             (term (λ (x) (-- 4))))
- (test-equal (term (subst/αβ ((x (-- 3)) (y (-- 4))) (λ (x z) (@ z x y f))))
-             (term (λ (x z) (@ z x (-- 4) f))))) 
+  (redex-check λc~ (side-condition (E ((x x_*) ...))
+                                  (equal? (length (term (x ...)))
+                                          (length (remove-duplicates (term (x ...))))))
+              (begin (term (subst/α ((x x_*) ...) E))
+                     #t))
+  
+  (test-equal (term (subst/β ((x (-- 4))) x)) (term (-- 4)))
+  (test-equal (term (subst/β ((x (-- 4))) (λ (x) x)))
+              (term (λ (x) x)))
+  (test-equal (term (subst/β ((y (-- 4))) (λ (x) y)))
+              (term (λ (x) (-- 4))))
+  (test-equal (term (subst/β ((x (-- 3)) (y (-- 4))) (λ (x z) (@ z x y f))))
+              (term (λ (x z) (@ z x (-- 4) f))))
+  
+  (test-equal (term (subst/α ((x q)) x)) (term q))
+  (test-equal (term (subst/α ((x q)) (λ (x) x)))
+              (term (λ (x) x)))
+  (test-equal (term (subst/α ((y q)) (λ (x) y)))
+              (term (λ (x) q)))
+  (test-equal (term (subst/α ((x q) (y r)) (λ (x z) (@ z x y f))))
+              (term (λ (x z) (@ z x r f)))))
+
  
 (define-metafunction λc~
   subst/C : ((x V) ...) any -> any ; really : ((x V) ...) C -> C
