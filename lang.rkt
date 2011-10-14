@@ -49,7 +49,7 @@ E
   
   (MODREF (f ^ ℓ f)) ;; f_1 is occurs in ℓ and is defined in f_2.
   
-  (SV L MODREF o1) ; Syntactic values for pred.
+  (SV L #;MODREF o1) ; Syntactic values for pred.
   (E V PV x MODREF (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
   
   (FLAT FLAT* x (and/c FLAT FLAT))
