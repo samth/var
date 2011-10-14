@@ -1,5 +1,7 @@
 structs
 
+don't eta-expand in the annotator -- breaks some things we can check in `contract-in'
+
 evaluate Okasaki
 
 fix soundness bug with predicates that have abstract parts -- don't remember them

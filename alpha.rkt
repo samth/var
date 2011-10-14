@@ -2,7 +2,7 @@
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt")
 (provide ≡α)
-(test-suite test subst)
+(test-suite test alpha)
 
 ;; There are only two uses of ≡α, one in testing flat-check.rkt, the other
 ;; in testing cesk.rkt.  Only the latter is a serious use.  Maybe they

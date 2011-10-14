@@ -204,12 +204,14 @@
   [(contract-in C (-- C_0 ... C C_1 ...)) #t]
   [(contract-in C ((C_0 ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    (contract-in C V)]
-  [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
-                (-- PV C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
-   #t]
-  [(contract-in (pred (f ^ ℓ_0) ℓ_2) 
-                (-- C_0 ... (pred (f ^ ℓ_1) ℓ_3) C_1 ...)) 
-   #t]
+  [(contract-in (pred MODREF ℓ_2) 
+                (-- PV C_0 ... (pred MODREF_1 ℓ_3) C_1 ...))   
+   #t
+   (where #t (modref=? MODREF MODREF_1))]
+  [(contract-in (pred MODREF ℓ_2) 
+                (-- C_0 ... (pred MODREF_1 ℓ_3) C_1 ...)) 
+   #t
+   (where #t (modref=? MODREF MODREF_1))]
   [(contract-in (pred o? ℓ) V)
    (proves V o?)]
   [(contract-in (and/c C_1 C_2) V)
