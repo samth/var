@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "flat-check.rkt" "meta.rkt" "name.rkt" 
+(require "lang.rkt" "flat-check.rkt" "meta.rkt" "subst.rkt" 
          "examples.rkt" "annotate.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test step)
@@ -13,10 +13,10 @@
    λc~ #:domain E
    (--> PV (-- PV) wrap)
    (--> (@ (-- (λ (x ..._1) E) C ...) V ..._1 ℓ)
-        (subst* (x ...) (V ...) E)
+        (subst/β ((x V) ...) E)
         β)
    (--> (@ (-- (λ x_0 (x_1 ..._1) E) C ...) V ..._1 ℓ)
-        (subst x_0 (-- (λ x_0 (x_1 ...) E) C ...) (subst* (x_1 ...) (V ...) E))
+        (subst/β ((x_0 (-- (λ x_0 (x_1 ...) E) C ...)) (x_1 V) ...) E)
         β-rec)
    (--> (@ V U ... ℓ)
         (blame ℓ  Λ V λ V)
@@ -41,7 +41,7 @@
         δ)   
    (--> (begin V E) E begin)
    (--> (let x V E)
-        (subst x V E) let)))
+        (subst/β ((x V)) E) let)))
 
 (define -->_v (context-closure v λc~ 𝓔))
 
@@ -124,7 +124,7 @@
    
    ;; PROCEDURE CONTRACTS      
    (--> (@ ((C_0 ..._1 --> (λ (x ..._1) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
-        ((subst* (x ...) ((C_0 <= ℓ_2 ℓ_3 V_1 ℓ_2 V_1) ...) C_1)
+        ((subst/C ((x (C_0 <= ℓ_2 ℓ_3 V_1 ℓ_2 V_1)) ...) C_1)
          <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
          (@ (remember-contract V (C_arity ... -> (any/c))) (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
         (where (C_arity ...) ,(map (λ _ (term (any/c))) (term (C_0 ...))))

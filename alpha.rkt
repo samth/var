@@ -1,8 +1,17 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt")
-(provide ≡α subst subst*)
-(test-suite test name)
+(provide ≡α)
+(test-suite test subst)
+
+;; There are only two uses of ≡α, one in testing flat-check.rkt, the other
+;; in testing cesk.rkt.  Only the latter is a serious use.  Maybe they
+;; could all go away.
+
+;; subst is only used locally for ≡α and should be replaced with uses of
+;; subst.rkt, although currently there's no form for substituting in
+;; variables so this code remains here. OR alpha equivalence should go
+;; away altogether.
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; subst

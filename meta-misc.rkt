@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt" "name.rkt")
+(require "lang.rkt" "util.rkt" "subst.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test meta-misc)
 
@@ -155,7 +155,7 @@
    (C_2 C_0 ...)
    (where (C_0 ...) (range-contracts (C ...) (V ...)))]
   [(range-contracts ((C_1 ..._1 -> (λ (x ..._1) C_2)) C ...) (V ..._1))
-   ((subst* (x ...) (V ...) C_2) C_0 ...)
+   ((subst/C ((x V) ...) C_2) C_0 ...)
    (where (C_0 ...) (range-contracts (C ...) (V ...)))]
   [(range-contracts (C_0 C ...) any) 
    (range-contracts (C ...) any)])
@@ -209,7 +209,7 @@
 (define-metafunction λc~
   unroll : (rec/c x C) -> C
   [(unroll (rec/c x C))
-   (subst x (rec/c x C) C)])
+   (subst/μ x (rec/c x C) C)])
 
 (test
  (test-equal (term (explode (or/c (nat/c) (string/c))))
