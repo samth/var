@@ -1,11 +1,12 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt")
-(provide subst/β subst/C subst/μ)
+(provide subst/α subst/β subst/C subst/μ)
 (test-suite test subst)
 
-;; There are 3 kinds of substitutions
+;; There are 4 kinds of substitutions
 ;; * β (and let) : ((x V) ...) E -> E
+;; * α renaming : ((x x) ...) E -> E
 ;; * dependent contract β : ((x V) ...) C -> C
 ;; * μ : x C C -> C
 ;; All substituted values are closed
@@ -13,64 +14,82 @@
 ;; There is also a raw replacement, used only for define-contract:
 ;; * replace : any any any -> any
 
-;; {x/V,...}E
-;; Never substitutes inside contracts
-(define-metafunction λc~ 
+(define-metafunction λc~
   subst/β : ((x V) ...) E -> E
-  ;; V
-  [(subst/β ((x V) ...) (-- C*-top_0 C*-top ...))
-   (-- C*-top_0 C*-top ...)]
-  [(subst/β ((x V) ...) (any <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
-   (any <= ℓ_1 ℓ_2 
-        (subst/β ((x V) ...) V_1) ℓ_3 
-        (subst/β ((x V) ...) V_2))]
-  ; only for CESK*, so do nothing
-  [(subst/β ((x V) ...) blessed-A) blessed-A] 
-  [(subst/β ((x V) ...) (-- PV C* ...))
-   (-- (subst/β ((x V) ...) PV) C* ...)]
-  
-  [(subst/β ((x V) ...) V_0) V_0]  
-  ;; PV
-  [(subst/β ((x V) ...) (cons V_1 V_2))
-   (cons (subst/β ((x V) ...) V_1)
-         (subst/β ((x V) ...) V_2))]
-  [(subst/β ((x V) ...) (λ (x_1 ...) E))
-   (λ (x_1 ...) (subst/β (subst-minus ((x V) ...) (x_1 ...)) E))]
-  [(subst/β ((x V) ...) (λ x_f (x_1 ...) E))
-   (λ (x_1 ...) (subst/β (subst-minus ((x V) ...) (x_f x_1 ...)) E))]
-  [(subst/β ((x V) ...) PV) PV]
-  ;; --
-  [(subst/β ((x_0 V_0) ... (x V) (x_1 V_1) ...) x) V]
-  [(subst/β ((x_0 V_0) ...) x) x]  
-  [(subst/β ((x V) ...) MODREF) MODREF]
-  [(subst/β ((x V) ...) (@ E ... ℓ))
-   (@ (subst/β ((x V) ...) E) ... ℓ)]
-  [(subst/β ((x V) ...) (if E ...))
-   (if (subst/β ((x V) ...) E) ...)]
-  [(subst/β ((x V) ...) (@ o E ... ℓ))
-   (@ o (subst/β ((x V) ...) E) ... ℓ)]  
-  [(subst/β ((x V) ...) (let x_1 E_1 E_2))
-   (let x_1 (subst/β ((x V) ...) E_1)
-     (subst/β (subst-minus ((x V) ...) (x_1)) E_2))]
-  [(subst/β ((x V) ...) (begin E ...))
-   (begin (subst/β ((x V) ...) E) ...)]  
-  [(subst/β ((x V) ...) AE) AE] ; not sure  
-  [(subst/β ((x V) ...) (C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E))
-   (C <= ℓ_1 ℓ_2 
-      (subst/β ((x V) ...) V-or-AE)
-      ℓ_3 
-      (subst/β ((x V) ...) E))] 
-  [(subst/β ((x V) ...) (blame ℓ_1 ℓ_2 V-or-AE any V_1))
-   (blame ℓ_1 ℓ_2 (subst/β ((x V) ...) V-or-AE) any 
-          (subst/β ((x V) ...) V_1))])
+  [(subst/β ((x V) ...) E)
+   (subst/αβ ((x V) ...) E)])
 
 (define-metafunction λc~
-  subst-minus : ((x V) ...) (x ...) -> ((x V) ...)
-  [(subst-minus ((x V) ...) ()) ((x V) ...)]
+  subst/α : ((x x) ...) E -> E
+  [(subst/α ((x x_*) ...) E)
+   (subst/αβ ((x x_*) ...) E)])
+
+(define-metafunction λc~
+  subst/αβ : SUBST E -> E
+  ;; V
+  [(subst/αβ SUBST (-- C*-top_0 C*-top ...))
+   (-- C*-top_0 C*-top ...)]
+  [(subst/αβ SUBST (any <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2))
+   (any <= ℓ_1 ℓ_2 
+        (subst/αβ SUBST V_1) ℓ_3 
+        (subst/αβ SUBST V_2))]
+  ; only for CESK*, so do nothing
+  [(subst/αβ SUBST blessed-A) blessed-A] 
+  [(subst/αβ SUBST (-- PV C* ...))
+   (-- (subst/αβ SUBST PV) C* ...)]
+  
+  [(subst/αβ SUBST V_0) V_0]  
+  ;; PV
+  [(subst/αβ SUBST (cons V_1 V_2))
+   (cons (subst/αβ SUBST V_1)
+         (subst/αβ SUBST V_2))]
+  [(subst/αβ SUBST (λ (x_1 ...) E))
+   (λ (x_1 ...) (subst/αβ (subst-minus SUBST (x_1 ...)) E))]
+  [(subst/αβ SUBST (λ x_f (x_1 ...) E))
+   (λ (x_1 ...) (subst/αβ (subst-minus SUBST (x_f x_1 ...)) E))]
+  [(subst/αβ SUBST PV) PV]
+  ;; --
+  [(subst/αβ ((x_0 V_0) ... (x V) (x_1 V_1) ...) x) V]
+  [(subst/αβ ((x_0 x_0*) ... (x x_*) (x_1 x_1*) ...) x) x_*]  
+  [(subst/αβ SUBST x) x]  
+  
+  [(subst/αβ SUBST MODREF) MODREF]
+  [(subst/αβ SUBST (@ E ... ℓ))
+   (@ (subst/αβ SUBST E) ... ℓ)]
+  [(subst/αβ SUBST (if E ...))
+   (if (subst/αβ SUBST E) ...)]
+  [(subst/αβ SUBST (@ o E ... ℓ))
+   (@ o (subst/αβ SUBST E) ... ℓ)]  
+  [(subst/αβ SUBST (let x_1 E_1 E_2))
+   (let x_1 (subst/αβ SUBST E_1)
+     (subst/αβ (subst-minus SUBST (x_1)) E_2))]
+  [(subst/αβ SUBST (begin E ...))
+   (begin (subst/αβ SUBST E) ...)]  
+  [(subst/αβ SUBST AE) AE] ; not sure  
+  [(subst/αβ SUBST (C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E))
+   (C <= ℓ_1 ℓ_2 
+      (subst/αβ SUBST V-or-AE)
+      ℓ_3 
+      (subst/αβ SUBST E))] 
+  [(subst/αβ SUBST (blame ℓ_1 ℓ_2 V-or-AE any V_1))
+   (blame ℓ_1 ℓ_2 (subst/αβ SUBST V-or-AE) any 
+          (subst/αβ SUBST V_1))])
+
+(define-metafunction λc~
+  subst-minus : SUBST (x ...) -> SUBST
+  [(subst-minus SUBST ()) SUBST]
+  ;; V subst
   [(subst-minus ((x_1 V_1) ... (x V) (x_2 V_2) ...) (x x_3 ...))
    (subst-minus ((x_1 V_1) ... (x_2 V_2) ...) (x_3 ...))]
   [(subst-minus ((x_1 V_1) ...) (x x_2 ...))
-   (subst-minus ((x_1 V_1) ...) (x_2 ...))])
+   (subst-minus ((x_1 V_1) ...) (x_2 ...))]
+  ;; x subst
+  [(subst-minus ((x_1 x_1*) ... (x x_*) (x_2 x_2*) ...) (x x_3 ...))
+   (subst-minus ((x_1 x_1*) ... (x_2 x_2*) ...) (x_3 ...))]
+  [(subst-minus ((x_1 x_1*) ...) (x x_2 ...))
+   (subst-minus ((x_1 x_1*) ...) (x_2 ...))])
+  
+  
 
 (test
  ;; totality test
@@ -80,18 +99,33 @@
               (begin (term (subst/β ((x V) ...) E))
                      #t))
  
- (test-equal (term (subst/β ((x (-- 4))) x)) (term (-- 4)))
- (test-equal (term (subst/β ((x (-- 4))) (λ (x) x)))
-             (term (λ (x) x)))
- (test-equal (term (subst/β ((y (-- 4))) (λ (x) y)))
-             (term (λ (x) (-- 4))))
- (test-equal (term (subst/β ((x (-- 3)) (y (-- 4))) (λ (x z) (@ z x y f))))
-             (term (λ (x z) (@ z x (-- 4) f))))) 
+  (redex-check λc~ (side-condition (E ((x x_*) ...))
+                                  (equal? (length (term (x ...)))
+                                          (length (remove-duplicates (term (x ...))))))
+              (begin (term (subst/α ((x x_*) ...) E))
+                     #t))
+  
+  (test-equal (term (subst/β ((x (-- 4))) x)) (term (-- 4)))
+  (test-equal (term (subst/β ((x (-- 4))) (λ (x) x)))
+              (term (λ (x) x)))
+  (test-equal (term (subst/β ((y (-- 4))) (λ (x) y)))
+              (term (λ (x) (-- 4))))
+  (test-equal (term (subst/β ((x (-- 3)) (y (-- 4))) (λ (x z) (@ z x y f))))
+              (term (λ (x z) (@ z x (-- 4) f))))
+  
+  (test-equal (term (subst/α ((x q)) x)) (term q))
+  (test-equal (term (subst/α ((x q)) (λ (x) x)))
+              (term (λ (x) x)))
+  (test-equal (term (subst/α ((y q)) (λ (x) y)))
+              (term (λ (x) q)))
+  (test-equal (term (subst/α ((x q) (y r)) (λ (x z) (@ z x y f))))
+              (term (λ (x z) (@ z x r f)))))
+
  
 (define-metafunction λc~
   subst/C : ((x V) ...) any -> any ; really : ((x V) ...) C -> C
   [(subst/C ((x V) ...) (pred L ℓ))
-   (pred (subst/β ((x V) ...) L) ℓ)]
+   (pred (subst/αβ ((x V) ...) L) ℓ)]
   [(subst/C ((x V) ...) (any ...))
    ((subst/C ((x V) ...) any) ...)]
   [(subst/C ((x V) ...) any) any])
