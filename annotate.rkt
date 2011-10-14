@@ -106,7 +106,7 @@ E
    (ann-exp RE f_1 MODENV (f ...))])
 
 (define-metafunction λc~
-  ann-con : RC ℓ MODENV (f ...) -> C  
+  ann-con : RC ℓ MODENV (f ...) -> C ;or (pred f f)
   [(ann-con o? ℓ MODENV (f ...))
    (pred o? ℓ)]  
   [(ann-con anything ℓ MODENV (f ...))
@@ -118,7 +118,8 @@ E
   
   ;; We cheat by re-using the expression annotator for module references
   [(ann-con (pred f) ℓ MODENV (f_1 ...))
-   (pred (ann-exp f ℓ MODENV (f_1 ...)) ℓ)]
+   (pred MODREF ℓ)
+   (where MODREF (ann-exp f ℓ MODENV (f_1 ...)))]
   [(ann-con f ℓ MODENV (f_1 ...))
    (ann-con (pred f) ℓ MODENV (f_1 ...))]
   [(ann-con (pred o1) ℓ MODENV (f ...))
@@ -140,7 +141,7 @@ E
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (ann-con RC_1 ℓ MODENV (f ...)))]
   [(ann-con (RC_0 ... RARR (λ (x ...) RC_1)) ℓ MODENV (f ...))
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (λ (x ...) (ann-con RC_1 ℓ MODENV (f ...))))]
-  [(ann-con RC ℓ MODENV (f ...)) RC])
+  [(ann-con RC ℓ MODENV (f ...)) (pred (λ (x) "this is the fall-through case") ★)])
 
 (test
  (test-equal (term (ann-con f g ((h (f))) ()))
