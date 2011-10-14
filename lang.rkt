@@ -209,6 +209,7 @@ E
   (MODENV ((f (f ...)) ...))
   (RR R)
   (RDEF (define f RPV)
+        (define (f x ...) RE)
         (define f bullet))
     
   (bullet ● • ☁)

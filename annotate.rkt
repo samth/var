@@ -81,16 +81,23 @@ E
  (test-equal (term (ann-exp (zero? x) † () ())) (term (@ zero? x †)))
  (test-equal (term (ann-exp (f x) † () ())) (term (@ f x †))))
 
+(define-metafunction λc~ 
+  unfold-def : RDEF -> RDEF
+  [(unfold-def (define (f x ...) RE))
+   (define f (λ f (x ...) RE))]
+  [(unfold-def RDEF) RDEF])
+
 (define-metafunction λc~
   ann-mod : RM -> M
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
-              (define f_4 any) ...
+              DEF ...
               (provide/contract [f_3 RC] ...))) 
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
      ...
-     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))])
+     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
+   (where ((define f_4 any) ...) ((unfold-def DEF) ...))])
 
 (define-metafunction λc~
   ann-rhs : any f MODENV (f ...) -> ☁ or E
