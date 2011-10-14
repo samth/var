@@ -1,10 +1,12 @@
 #lang s-exp "../verified.rkt"
 
-(module prime? (anything -> bool?) ☁)
+(module prime? racket (provide/contract [prime? (anything -> bool?)]))
 
-(module keygen (anything -> prime?) ☁) 
+(module keygen racket (provide/contract [keygen (anything -> prime?)]))
 
-(module rsa (prime? -> (string? -> string?)) ☁)
+(module rsa racket (provide/contract [rsa (prime? -> (string? -> string?))]))
+
+(require (only-in rsa rsa) (only-in keygen keygen))
 
 ((rsa (keygen #f)) "Plain")
 
