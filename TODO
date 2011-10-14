@@ -1,3 +1,7 @@
+structs
+
+evaluate Okasaki
+
 fix soundness bug with predicates that have abstract parts -- don't remember them
 
 test: all valid programs reduce to a value or blame.
