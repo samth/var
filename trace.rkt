@@ -10,14 +10,14 @@
 ;; Trace and stepper
 
 (define-syntax-rule (trace-it R P . rest)
-  (traces (R (all-but-last P))
+  (traces (R (program-modules P))
           (last P)
-          #:pred (colorize (all-but-last P))
+          #:pred (colorize (program-modules P))
           . rest))
 
 (define ((colorize Ms) x)
   (define opaques (filter-map (λ (M) (match M
-                                       [`(module ,n ,c ☁) n]
+                                       [(list 'module n lang (list 'define _ ☁) ... prov) n]
                                        [_ #f]))
                               Ms))
   (cond [(redex-match λc~ V x) "green"]
