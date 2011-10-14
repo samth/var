@@ -127,7 +127,7 @@
                        (cons/c (nat/c) x)))))               
 
 (define list-id-example-contract
-  (term [(module id 
+  (term [(simple-module id 
            (,list-of-nat/c -> ,list-of-nat/c)
            (λ (ls)
              (if (@ empty? ls id)
