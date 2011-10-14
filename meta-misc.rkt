@@ -197,6 +197,8 @@
    (where (C_1 ...)
           ,(remove-duplicates (term (C ...)) contract=?))]
   
+  [(normalize ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a)))
+   ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))]
   [(normalize ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
    ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (normalize V))])
 
