@@ -177,6 +177,10 @@
   ;; Maybe procedure
   (W? W (-- C*-top ... WC?*-top C*-top ...))
   
+  ;; Substitutions and renamings
+  (SUBST ((x V) ...)
+         ((x x) ...))
+  
   ;; Raw, unannotated language
   (RARR -> →)
   (RP (RM ... RE))
