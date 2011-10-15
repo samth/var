@@ -12,6 +12,8 @@ Grammar of programs:
 
 (module m racket
   (require (only-in m f ...) ...)
+  (struct f (x ...))
+  ...
   (define f PV)
   ...
   (provide/contract [f C] ...))
@@ -24,11 +26,12 @@ E
   
   ;; Annotated language
   (P (M ... R E))
-  (M (module f LANG R DEF ...
-       (provide/contract [f C] ...)))
+  (M (module f LANG R STRUCT ... DEF ...
+       (provide/contract [f C] ...)))  
      
   (R (require (only-in f f ...) ...))
   (LANG racket racket/base)
+  (STRUCT (struct x (x ...)))
   (DEF (define f PV))
      
   (L (λ (x ...) E) 
@@ -434,8 +437,22 @@ E
   [(fv/list (E ...)) (x ... ...)
    (where ((x ...) ...) ((fv E) ...))])
   
+(define-metafunction λc~
+  program-structs : P -> (STRUCT ...)
+  [(program-structs (M ... R E))
+   (STRUCT ... ...)
+   (where ((STRUCT ...) ...) ((module-struct M) ...))])
+
+(define-metafunction λc~
+  module-struct : M -> (STRUCT ...)
+  [(module-struct (module f_1 LANG R STRUCT ... DEF ...
+                    (provide/contract [f_2 C] ...)))
+   (STRUCT ...)])
+  
+
 
 (test
+ (redex-check λc~ P (term (program-structs P)))
  (redex-check λc~ E (redex-match λc~ (x ...) (term (fv E))))
  
  (test-equal (list? (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #t)
