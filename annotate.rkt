@@ -104,11 +104,37 @@ E
   [(unfold-def RDEF) RDEF])
 
 (define-metafunction λc~
-  ann-mod : RM -> M
-  [(ann-mod (define/contract f RC any))
-   (ann-mod (module f racket (require) (define f any) (provide/contract [f RC])))]
+  ann-req : (RR ...) MODENV -> R
+  [(ann-req ((require (only-in f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
+  [(ann-req ((require any ...) ...) MODENV) (ann-req ((require (ann-one-req any MODENV) ...) ...))])
+
+(define-metafunction λc~
+  ann-one-req : any MODENV -> any
+  [(ann-one-req (only-in f f_1 ...) MODENV) (only-in f f_1 ...)]
+  [(ann-one-req f MODENV) 
+   (only-in f f_1 ...)
+   (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)])
+
+(define-metafunction λc~
+  ann-mod : RM MODENV -> M
+  [(ann-mod (define/contract f RC any) MODENV)
+   (ann-mod (module f racket (require) (define f any) (provide/contract [f RC])) MODENV)]
+  [(ann-mod (module f LANG 
+              RR ...
+              RSTRUCT ...
+              RDEF ...
+              (provide/contract [f_3 RC] ...))
+            MODENV)
+   (ann-mod
+    (module f LANG
+      R
+      RSTRUCT ...
+      RDEF ...
+      (provide/contract [f_3 RC] ...)))
+   (where R (ann-req (RR ...) MODENV))]
   [(ann-mod (module f LANG
-              (provide/contract [f_3 RC] ...)))
+              (provide/contract [f_3 RC] ...))
+            MODENV)
    (module f LANG
      (require)
      (define f_3 ☁)
@@ -116,11 +142,11 @@ E
      (provide/contract [f_3 (ann-con RC f () (f_3 ...))] ...))]
   [(ann-mod (module f LANG
               (require (only-in f_1 f_2 ...) ...)
-              STRUCT ...
+              RSTRUCT ...
               (provide/contract [f_3 RC] ...)))
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
-     STRUCT ...
+     RSTRUCT ...
      (define f_3 ☁)
      ...
      (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))]
