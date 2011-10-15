@@ -23,10 +23,29 @@ E
    (ann/define-contract (replace x RC (any ...)))]
   [(ann/define-contract (any ...))
    (ann (any ...))])
+
+(define (check-mod M)
+  (unless (redex-match λc~ RM M)
+    (error 'module "not a module: ~a" M))
+  #f)
+
+(define (check-expr E)
+  (unless (redex-match λc~ RE E)
+    (error 'expr "not an expression: ~a" E))
+  #f)
+
+(define (check-req R)
+  (unless (redex-match λc~ RR R)
+    (error 'require "not a require: ~a" R))
+  #f)
            
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~
-  ann : RP -> P
+  ann : any -> P
+  [(ann (any_m ... any_r any_e)) ,(error "should never happen")
+   (side-condition (or (ormap check-mod (term (any_m ...)))
+                       (check-req (term any_r))
+                       (check-expr (term any_e))))]
   [(ann (RM ...
          (require (only-in f_4 f_5 ...) ...)
          RE))
