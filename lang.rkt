@@ -53,7 +53,7 @@ E
   (MODREF (f ^ ℓ f)) ;; f_1 is occurs in ℓ and is defined in f_2.
   
   (SV L MODREF o1) ; Syntactic values for pred.
-  (E V PV x MODREF (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
+  (E V PV x MODREF (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let ((x E) ...) E) (begin E E))
   
   (FLAT FLAT* x (and/c FLAT FLAT))
   (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
@@ -98,7 +98,7 @@ E
    string=? string<? string<=? string>? string>=? 
    string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?)
   
-  (𝓔 hole (@ V ... 𝓔 E ... ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let x 𝓔 E) (begin 𝓔 E)))
+  (𝓔 hole (@ V ... 𝓔 E ... ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let ((x V) ... (x 𝓔) (x E) ...) E) (begin 𝓔 E)))
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
@@ -229,7 +229,7 @@ E
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
   (RSV RL f o1) ; Syntactic values for pred.
-  (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let x RE RE) (begin RE RE))
+  (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let ((x RE) ...) RE RE) (begin RE RE))
   
   
   (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
@@ -378,10 +378,10 @@ E
   [(fv x) (x)]
   [(fv MODREF) ()]
   [(fv (λ (x ...) E)) (set-minus (fv E) (x ...))]
-  [(fv (let x E_1 E_2)) 
-   (x_1 ... x_2 ...)
-   (where (x_2 ...) (set-minus (fv E_2) (x)))
-   (where (x_1 ...) (fv E_1))]
+  [(fv (let ((x E_1) ...) E_2))
+   (x_1 ... ... x_2 ...)
+   (where (x_2 ...) (set-minus (fv E_2) (x ...)))
+   (where ((x_1 ...) ...) ((fv E_1) ...))]
   [(fv (λ x_0 (x ...) E)) (set-minus (fv E) (x_0 x ...))]
   [(fv PV) ()]
   [(fv (-- PV C ...)) (fv PV)]
