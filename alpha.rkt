@@ -11,15 +11,10 @@
 (define-metafunction λc~
   ≡α : E E -> #t or #f
   [(≡α E E) #t]
-  [(≡α (-- (cons V_1 V_2) C*_1 ...)
-       (-- (cons V_3 V_4) C*_2 ...))
-   (≡α V_2 V_4)
-   (where #t (≡α V_3 V_4))
-   (where (#t ...) ((≡α/C C*_1 C*_2) ...))]
-  [(≡α (-- L_1 C*_1 ...)       
-       (-- L_2 C*_2 ...))
-   (≡α L_1 L_2)
-   (where (#t ...) ((≡α/C C*_1 C*_2) ...))]
+  [(≡α (-- PV_1 C_1 ...)
+       (-- PV_2 C_2 ...))
+   (≡α PV_1 PV_2)   
+   (where (#t ...) ((≡α/C C_1 C_2) ...))]
   [(≡α ((C_1 ..._1 --> (λ (x_1 ..._1) C_2)) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
        ((C_3 ..._1 --> (λ (x_2 ..._1) C_4)) <= ℓ_1 ℓ_2 V_3 ℓ_3 V_4))
    (≡α/C (subst/C ((x_1 x_1*) ...) C_2)
@@ -28,10 +23,6 @@
    (where (#t ...) ((≡α V_1 V_3) (≡α V_2 V_4)))
    (where (x_1* ...) ,(variables-not-in (term (C_2 C_4))
                                         (term (x_1 ...))))]
-  [(≡α (-- PV_1 C_1 ...)
-       (-- PV_2 C_2 ...))
-   (≡α PV_1 PV_2)
-   (where (#t ...) ((≡α/C C_1 C_2) ...))]
   ; all other Vs must be syntactically identical.    
   [(≡α (cons V_1 V_2)
        (cons V_3 V_4))
@@ -100,6 +91,10 @@
  (test-equal (term (≡α (λ (x) x) (λ (y) z))) #f)
  (test-equal (term (≡α 3 3)) #t)
  (test-equal (term (≡α 3 4)) #f)
+ (test-equal (term (≡α (-- (λ (x) x)) (-- (λ (y) y)))) #t)
+ (test-equal (term (≡α (-- (λ (x) x)) (-- (λ (y) z)))) #f)
+ (test-equal (term (≡α (-- 3) (-- 3))) #t)
+ (test-equal (term (≡α (-- 3) (-- 4))) #f) 
  (test-equal (term (≡α (@ (λ (x) x) 3 f) (@ (λ (y) y) 3 f))) #t)
  (test-equal (term (≡α (@ (λ (x) x) (λ (y) y) f) (@ (λ (y) y) (λ (x) x) f))) #t)
  (test-equal (term (≡α (let ((x 1) (y 2)) x)
