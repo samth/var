@@ -1,5 +1,5 @@
 #lang racket
-(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") redex)
+(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") redex "step.rkt")
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
@@ -24,7 +24,7 @@
     [(_ (~and m ((~datum module) . _)) ...)
 	#`(r:#%module-begin 
 	   (set-box! the-module-context '(m ...)))]
-    [(_ (~optional (~and kw (~or (~datum cesk) (~datum cesk-trace) (~datum trace)))) m ... e)
+    [(_ (~optional (~and kw (~or (~datum cesk) (~datum cesk-trace) (~datum trace) (~datum count)))) m ... e)
      #`(r:#%module-begin 
         (parameterize ([reduction-steps-cutoff 100]) 
           (set-box! the-module-context '(m ...))
@@ -36,6 +36,11 @@
                  #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e])))  
                  ;;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
                  ]
+                [(and (attribute kw)
+                      (eq? (syntax-e (attribute kw)) 'count))
+                 #'(let ([k 0]) 
+                     (count-it (term (ann/define-contract [m ... e])) k)
+                     (printf "~a terms explored\n" k))]
                 [(and (attribute kw)
                       (eq? (syntax-e (attribute kw)) 'cesk-trace))
                  #'(c:trace-it (term (ann/define-contract [m ... e])))]

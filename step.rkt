@@ -343,6 +343,14 @@
             #:equiv (λ (e0 e1) (term (≡α ,e0 ,e1)))
             (last p)
             e ...))
+(provide count-it)
+(define-syntax-rule (count-it p k)
+  (with-handlers ([exn:fail? void])
+    (test-->> (-->_vcc~Δ (program-modules p))
+              #:equiv (λ (e0 e1) (term (≡α ,e0 ,e1)))
+              #:pred (λ (v) (set! k (add1 k)))
+              (last p)
+              (gensym))))
 
 (define none/c (term (pred (λ (x) #f) Λ)))
 
