@@ -60,9 +60,9 @@
    (if (subst/αβ SUBST E) ...)]
   [(subst/αβ SUBST (@ o E ... ℓ))
    (@ o (subst/αβ SUBST E) ... ℓ)]  
-  [(subst/αβ SUBST (let x_1 E_1 E_2))
-   (let x_1 (subst/αβ SUBST E_1)
-     (subst/αβ (subst-minus SUBST (x_1)) E_2))]
+  [(subst/αβ SUBST (let ((x_1 E_1) ...) E_2))
+   (let ((x_1 (subst/αβ SUBST E_1)) ...)
+     (subst/αβ (subst-minus SUBST (x_1 ...)) E_2))]
   [(subst/αβ SUBST (begin E ...))
    (begin (subst/αβ SUBST E) ...)]  
   [(subst/αβ SUBST AE) AE] ; not sure  
