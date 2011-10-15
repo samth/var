@@ -28,6 +28,10 @@
        (cons V_3 V_4))
    (≡α V_2 V_4)
    (where #t (≡α V_1 V_3))]
+  [(≡α (struct x V_1 ...)
+       (struct x V_2 ...))
+   #t
+   (where (#t ...) ((≡α V_1 V_2) ...))]
   [(≡α (λ (x_1 ..._1) E_1)
        (λ (x_2 ..._1) E_2))
    (≡α (subst/α ((x_1 x_1*) ...) E_1)
@@ -100,7 +104,12 @@
  (test-equal (term (≡α (let ((x 1) (y 2)) x)
                        (let ((y 1) (x 2)) y)))
              #t)
- 
+ (test-equal (term (≡α (cons (-- (λ (x) x)) (-- (λ (y) y)))
+                       (cons (-- (λ (y) y)) (-- (λ (z) z)))))
+             #t)
+ (test-equal (term (≡α (struct s (-- (λ (x) x)) (-- (λ (y) y)))
+                       (struct s (-- (λ (y) y)) (-- (λ (z) z)))))
+             #t) 
  (test-equal (term (≡α (((pred bool? f) --> (λ (x) (pred (λ (y) x) f))) <= f f (-- 0) f (-- (λ (z) z)))
                        (((pred bool? f) --> (λ (q) (pred (λ (y) q) f))) <= f f (-- 0) f (-- (λ (z) z)))))
              #t)

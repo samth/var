@@ -43,7 +43,7 @@ E
   (PV FV L)
   
   ;; A flat value is definitely not a procedure
-  (FV nat bool string empty (cons V V))
+  (FV nat bool string empty (cons V V) (struct x V ...))
   
   ;; Values
   ((U V) WFV W)

@@ -43,6 +43,8 @@
   [(subst/αβ SUBST (cons V_1 V_2))
    (cons (subst/αβ SUBST V_1)
          (subst/αβ SUBST V_2))]
+  [(subst/αβ SUBST (struct x V ...))
+   (struct x (subst/αβ SUBST V) ...)]
   [(subst/αβ SUBST (λ (x_1 ...) E))
    (λ (x_1 ...) (subst/αβ (subst-minus SUBST (x_1 ...)) E))]
   [(subst/αβ SUBST (λ x_f (x_1 ...) E))
