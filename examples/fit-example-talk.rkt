@@ -2,20 +2,21 @@
 ;; This program runs forever.
 
 #;#;
-(module mul (nat/c -> (nat/c -> nat/c)) ☁)
-(module 1- (nat/c -> nat/c) ☁)
+(define/contract mul (nat/c -> (nat/c -> nat/c)) ☁)
+(define/contract 1- (nat/c -> nat/c) ☁)
 
 
-(module fact (nat/c -> nat/c)
-  (λ in
-    (((λ f x
-      (λ acc
-        (if (= x 0)
-            acc
-            ((f (sub1 x)) (* acc x)))))
-     in) 1)))
+(module fact racket
+  (require)
+  (define (fact-acc x acc)
+    (if (= x 0)
+        acc
+        (fact-acc (sub1 x) (* acc x))))
+  (define (fact in) (fact-acc in 1))
+  (provide/contract [fact (nat? -> nat?)]))
 
-(module input nat/c ☁)
+(define/contract input nat? ☁)
+(require (only-in fact fact) (only-in input input))
 
 (fact input)
 
