@@ -105,8 +105,8 @@ E
 
 (define-metafunction λc~
   ann-mod : RM -> M
-  [(ann-mod (define/contract f RC RPV))
-   (ann-mod (module f racket (require) (define f RPV) (provide/contract [f RC])))]
+  [(ann-mod (define/contract f RC any))
+   (ann-mod (module f racket (require) (define f any) (provide/contract [f RC])))]
   [(ann-mod (module f LANG
               (provide/contract [f_3 RC] ...)))
    (module f LANG

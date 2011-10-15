@@ -216,7 +216,8 @@ E
         (provide/contract [f RC] ...))
       (module f LANG
         (provide/contract [f RC] ...))
-      (define/contract f RC RPV))
+      (define/contract f RC RPV)
+      (define/contract f RC bullet))
   
   (MODENV ((f (f ...)) ...))
   (RR R)
