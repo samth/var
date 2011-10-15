@@ -46,7 +46,7 @@
   [(subst/αβ SUBST (λ (x_1 ...) E))
    (λ (x_1 ...) (subst/αβ (subst-minus SUBST (x_1 ...)) E))]
   [(subst/αβ SUBST (λ x_f (x_1 ...) E))
-   (λ (x_1 ...) (subst/αβ (subst-minus SUBST (x_f x_1 ...)) E))]
+   (λ x_f (x_1 ...) (subst/αβ (subst-minus SUBST (x_f x_1 ...)) E))]
   [(subst/αβ SUBST PV) PV]
   ;; --
   [(subst/αβ ((x_0 V_0) ... (x V) (x_1 V_1) ...) x) V]
