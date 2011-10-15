@@ -40,8 +40,8 @@
                (δ (@ o V ... ℓ)))
         δ)   
    (--> (begin V E) E begin)
-   (--> (let x V E)
-        (subst/β ((x V)) E) let)))
+   (--> (let ((x V) ...) E)
+        (subst/β ((x V) ...) E) let)))
 
 (define -->_v (context-closure v λc~ 𝓔))
 
