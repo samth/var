@@ -123,12 +123,17 @@
 
  
 (define-metafunction λc~
-  subst/C : ((x V) ...) any -> any ; really : ((x V) ...) C -> C
-  [(subst/C ((x V) ...) (pred L ℓ))
-   (pred (subst/αβ ((x V) ...) L) ℓ)]
-  [(subst/C ((x V) ...) (any ...))
-   ((subst/C ((x V) ...) any) ...)]
-  [(subst/C ((x V) ...) any) any])
+  subst/C : SUBST any -> any ; really : SUBST C -> C
+  [(subst/C SUBST (pred L ℓ))
+   (pred (subst/αβ SUBST L) ℓ)]
+  [(subst/C SUBST (any ...))
+   ((subst/C SUBST any) ...)]
+  [(subst/C ((x_1 x_2) ... (x x_*) (x_3 x_4) ...) x) x_*]   
+  [(subst/C SUBST any) any])
+
+(test
+ (test-equal (term (subst/C ((X Z)) (or/c int? (cons/c X X))))
+             (term (or/c int? (cons/c Z Z)))))
 
 (define-metafunction λc~
   subst/μ : x C C -> C

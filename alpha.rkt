@@ -20,6 +20,18 @@
        (-- L_2 C*_2 ...))
    (≡α L_1 L_2)
    (where (#t ...) ((≡α/C C*_1 C*_2) ...))]
+  [(≡α ((C_1 ..._1 --> (λ (x_1 ..._1) C_2)) <= ℓ_1 ℓ_2 V_1 ℓ_3 V_2)
+       ((C_3 ..._1 --> (λ (x_2 ..._1) C_4)) <= ℓ_1 ℓ_2 V_3 ℓ_3 V_4))
+   (≡α/C (subst/C ((x_1 x_1*) ...) C_2)
+         (subst/C ((x_2 x_1*) ...) C_4))
+   (where (#t ...) ((≡α/C C_1 C_3) ...))
+   (where (#t ...) ((≡α V_1 V_3) (≡α V_2 V_4)))
+   (where (x_1* ...) ,(variables-not-in (term (C_2 C_4))
+                                        (term (x_1 ...))))]
+  [(≡α (-- PV_1 C_1 ...)
+       (-- PV_2 C_2 ...))
+   (≡α PV_1 PV_2)
+   (where (#t ...) ((≡α/C C_1 C_2) ...))]
   ; all other Vs must be syntactically identical.    
   [(≡α (cons V_1 V_2)
        (cons V_3 V_4))
@@ -64,10 +76,20 @@
    (where #t (≡α E_1 E_3))]
   [(≡α E_1 E_2) #f])
   
-;; doesn't do α for μ-bound or dependent λ-bound vars.
 (define-metafunction λc~
   ≡α/C : C C -> #t or #f
   [(≡α/C C C) #t]
+  [(≡α/C (C_1 ..._1 -> (λ (x_1 ..._2) C_2))
+         (C_3 ..._1 -> (λ (x_2 ..._2) C_4)))
+   (≡α/C (subst/C ((x_1 x_1*) ...) C_2)
+         (subst/C ((x_2 x_1*) ...) C_4))
+   (where (#t ...) ((≡α/C C_1 C_3) ...))
+   (where (x_1* ...) ,(variables-not-in (term (C_2 C_4))
+                                        (term (x_1 ...))))]
+  [(≡α/C (rec/c x_1 C_1) (rec/c x_2 C_2))
+   (≡α/C (subst/C ((x_1 x_*)) C_1)
+         (subst/C ((x_2 x_*)) C_2))
+   (where x_* ,(variable-not-in (term (C_1 C_2)) (term x_1)))]                 
   [(≡α/C (pred L_1 ℓ)
          (pred L_2 ℓ))
    (≡α L_1 L_2)]
@@ -101,6 +123,9 @@
  (redex-check λc~ E (term (≡α E E)))
  
  ;; All fresh substitions preserve ≡α.
+ ;; COUNTEREXAMPLE: (q (q)) -- the statement is clearly false
+ ;; I don't see how to clean it up
+ #;
  (redex-check λc~ (E (x ...))
               (redex-let λc~ ([(x_* ...) (variables-not-in (term E) (term (x ...)))])
                          (term (≡α E (subst/α ((x x_*) ...) E))))))
