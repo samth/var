@@ -10,14 +10,23 @@
 
 (define-metafunction λc~
   demonic* : C V -> E
-  [(demonic* C CV)
-   (@ (demonic C) CV ★)]
-  [(demonic* C blessed-AV)
-   (@ (demonic C) blessed-AV ★)]
-  [(demonic* C blessed-A)
-   (@ (demonic C) blessed-A ★)]
-  [(demonic* C AV) ;; produces trivial expression
-   (-- 0)])
+  [(demonic* C V)
+   (-- 0)
+   (where #t (no-behavior V))]
+  [(demonic* C V) (@ (demonic C) V ★)])
+
+(define-metafunction λc~
+  no-behavior : V -> #t or #f
+  [(no-behavior blessed-AV) #f]
+  [(no-behavior blessed-A) #f]
+  [(no-behavior AV) #t]
+  [(no-behavior (-- nat any ...)) #t]
+  [(no-behavior (-- bool any ...)) #t]
+  [(no-behavior (-- string any ...)) #t]
+  [(no-behavior (-- empty any ...)) #t]
+  [(no-behavior (-- (cons V_1 V_2) any ...))
+   ,(and (term (no-behavior V_1)) (term (no-behavior V_2)))]
+  [(no-behavior V) #f])
 
 (define-metafunction λc~
   amb : E E ... -> E
