@@ -107,17 +107,6 @@ E
   ann-mod : RM -> M
   [(ann-mod (define/contract f RC RPV))
    (ann-mod (module f racket (require) (define f RPV) (provide/contract [f RC])))]
-  [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
-              RSTRUCT ...
-              RDEF ...
-              (provide/contract [f_3 RC] ...)))
-   (module f LANG
-     (require (only-in f_1 f_2 ...) ...)
-     RSTRUCT ...
-     (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
-     ...
-     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
-   (where ((define f_4 any) ...) ((unfold-def RDEF) ...))]
   [(ann-mod (module f LANG
               (provide/contract [f_3 RC] ...)))
    (module f LANG
@@ -134,7 +123,18 @@ E
      STRUCT ...
      (define f_3 ☁)
      ...
-     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))])
+     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))]
+  [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
+              RSTRUCT ...
+              RDEF ...
+              (provide/contract [f_3 RC] ...)))
+   (module f LANG
+     (require (only-in f_1 f_2 ...) ...)
+     RSTRUCT ...
+     (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
+     ...
+     (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
+   (where ((define f_4 any) ...) ((unfold-def RDEF) ...))])
 
 (define-metafunction λc~
   ann-rhs : any f MODENV (f ...) -> ☁ or E
@@ -158,7 +158,9 @@ E
    (pred MODREF ℓ)
    (where MODREF (ann-exp f ℓ MODENV (f_1 ...)))]
   [(ann-con f ℓ MODENV (f_1 ...))
-   (ann-con (pred f) ℓ MODENV (f_1 ...))]
+   (ann-con (pred f) ℓ MODENV (f_1 ...))
+   (where ((f_s any_2) ...) MODENV)
+   (where (any ... f any_1 ...) (f_s ... f_1 ...))]
   [(ann-con (pred o1) ℓ MODENV (f ...))
    (pred o1 ℓ)]
   ;; ---
@@ -178,6 +180,7 @@ E
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (ann-con RC_1 ℓ MODENV (f ...)))]
   [(ann-con (RC_0 ... RARR (λ (x ...) RC_1)) ℓ MODENV (f ...))
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (λ (x ...) (ann-con RC_1 ℓ MODENV (f ...))))]
+  [(ann-con RC ℓ MODENV (f ...)) RC]
   [(ann-con RC ℓ MODENV (f ...)) (pred (λ (x) "this is the fall-through case") ★)])
 
 (test
