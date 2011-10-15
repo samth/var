@@ -34,10 +34,10 @@
    (--> (if V E_1 E_2) E_2
         (side-condition (term (∈ #t (δ (@ false? V ★)))))
         if-f)   
-   (--> (@ o V ... ℓ)
+   (--> (@ op V ... ℓ)
         V-or-B
         (where (V-or-B_1 ... V-or-B V-or-B_2 ...)
-               (δ (@ o V ... ℓ)))
+               (δ (@ op V ... ℓ)))
         δ)   
    (--> (begin V E) E begin)
    (--> (let ((x V) ...) E)

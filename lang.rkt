@@ -86,7 +86,8 @@ E
   (f variable-not-otherwise-mentioned)
   (ℓ f x † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
   (nat natural) 
-  (o x o1 o2)
+  (o x op)
+  (op o1 o2)
   (o1 o? first rest nat->nat)
   (nat->nat add1 sub1)
   ;; Built-in predicates

@@ -292,13 +292,13 @@
 ;; δ
 
 (define-metafunction λc~
-  δ : (@ o V ... ℓ) -> (V-or-B V-or-B ...)
+  δ : (@ op V ... ℓ) -> (V-or-B V-or-B ...)
   [(δ (@ cons V_0 V_1 ℓ)) ((-- (cons V_0 V_1)))]  
   [(δ (@ proc? ((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 any_1) ℓ)) ((-- #t))]
-  [(δ (@ o V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) V_1 ... ℓ))
-   (δ (@ o V_0 ... V V_1 ... ℓ))]
-  [(δ (@ o (-- PV C ...) ... ℓ)) (wrap (plain-δ o PV ... ℓ))]
-  [(δ (@ o V ... ℓ)) (abstract-δ o V ... ℓ)])
+  [(δ (@ op V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) V_1 ... ℓ))
+   (δ (@ op V_0 ... V V_1 ... ℓ))]
+  [(δ (@ op (-- PV C ...) ... ℓ)) (wrap (plain-δ op PV ... ℓ))]
+  [(δ (@ op V ... ℓ)) (abstract-δ op V ... ℓ)])
 
 (define-metafunction λc~
   wrap : any -> (V-or-B)
@@ -307,7 +307,7 @@
   [(wrap V) [V]])
 
 (define-metafunction λc~
-  plain-δ : o PV ... ℓ -> V or PV or B  
+  plain-δ : op PV ... ℓ -> V or PV or B  
   [(plain-δ string? string ℓ) #t]
   [(plain-δ string? PV ℓ) #f]
   [(plain-δ bool? bool ℓ) #t]
@@ -349,8 +349,8 @@
   [(plain-δ string-ci>? string_0 string_1 ℓ) ,(string-ci>? (term string_0) (term string_1))]
   [(plain-δ string-ci<=? string_0 string_1 ℓ) ,(string-ci<=? (term string_0) (term string_1))]
   [(plain-δ string-ci>=? string_0 string_1 ℓ) ,(string-ci>=? (term string_0) (term string_1))]
-  [(plain-δ o PV PV_0 ... ℓ)       ;; catches domain errors
-   (blame ℓ o (-- PV) λ (-- PV))]) ;; FIXME: Not right value
+  [(plain-δ op PV PV_0 ... ℓ)       ;; catches domain errors
+   (blame ℓ op (-- PV) λ (-- PV))]) ;; FIXME: Not right value
 
 (define-metafunction λc~
   impossible? : V -> #t or #f
@@ -383,8 +383,8 @@
   [(impossible-con? C) #f])
 
 (define-metafunction λc~
-  abstract-δ : o V ... ℓ -> (V-or-B V-or-B ...)
-  [(abstract-δ o V_0 ... V V_1 ... ℓ)
+  abstract-δ : op V ... ℓ -> (V-or-B V-or-B ...)
+  [(abstract-δ op V_0 ... V V_1 ... ℓ)
    ((-- #f)) ;; V is impossible, so why not?
    (where #t (impossible? V))]
   
