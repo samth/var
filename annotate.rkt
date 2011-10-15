@@ -7,6 +7,8 @@
 #|
 (module m racket
   (require (only-in m f ...) ...)
+  (struct f (x ...))
+  ...
   (define f PV)
   ...
   (provide/contract [f C] ...))
@@ -85,10 +87,12 @@ E
 (define-metafunction λc~
   ann-mod : RM -> M
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
+              RSTRUCT ...
               RDEF ...
               (provide/contract [f_3 RC] ...)))
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
+     RSTRUCT ...
      (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
      ...
      (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
@@ -102,9 +106,11 @@ E
      (provide/contract [f_3 (ann-con RC f () (f_3 ...))] ...))]
   [(ann-mod (module f LANG
               (require (only-in f_1 f_2 ...) ...)
+              STRUCT ...
               (provide/contract [f_3 RC] ...)))
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
+     STRUCT ...
      (define f_3 ☁)
      ...
      (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))])

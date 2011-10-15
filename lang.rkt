@@ -212,16 +212,17 @@ E
   
   (RM (module f LANG RR RDEF ...
         (provide/contract [f RC] ...))
-      (module f LANG RR
+      (module f LANG RR RSTRUCT ... RDEF ...
         (provide/contract [f RC] ...))
       (module f LANG
-        (provide/contract [f RC] ...)))
+        (provide/contract [f RC] ...)))    
   
   (MODENV ((f (f ...)) ...))
   (RR R)
   (RDEF (define f RPV)
         (define (f x ...) RE)
         (define f bullet))
+  (RSTRUCT STRUCT)
     
   (bullet ● • ☁)
   (RL (λ (x ...) RE) (λ x (x ...) RE))
