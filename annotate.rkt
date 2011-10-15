@@ -47,11 +47,14 @@ E
                        (check-req (term any_r))
                        (check-expr (term any_e))))]
   [(ann (RM ...
-         (require (only-in f_4 f_5 ...) ...)
+         RR
          RE))
-   ((ann-mod RM) ...
+   ((ann-mod RM MODENV) ...
     (require (only-in f_4 f_5 ...) ...)
-    (ann-exp RE † ((f_4 (f_5 ...)) ...) ()))])
+    (ann-exp RE † ((f_4 (f_5 ...)) ...) ()))   
+   (where ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...) (RM ...))
+   (where MODENV ([f_nam (f_exp ...)] ...))
+   (where (require (only-in f_4 f_5 ...) ...) (ann-req (RR) MODENV))])
 
 ;; Annotate RE with inside module ℓ, using MODENV module environment and (f ...) local environment.
 (define-metafunction λc~
@@ -106,7 +109,7 @@ E
 (define-metafunction λc~
   ann-req : (RR ...) MODENV -> R
   [(ann-req ((require (only-in f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
-  [(ann-req ((require any ...) ...) MODENV) (ann-req ((require (ann-one-req any MODENV) ...) ...))])
+  [(ann-req ((require any ...) ...) MODENV) (ann-req ((require (ann-one-req any MODENV) ...) ...) MODENV)])
 
 (define-metafunction λc~
   ann-one-req : any MODENV -> any
@@ -130,8 +133,10 @@ E
       R
       RSTRUCT ...
       RDEF ...
-      (provide/contract [f_3 RC] ...)))
-   (where R (ann-req (RR ...) MODENV))]
+      (provide/contract [f_3 RC] ...))
+    MODENV)
+   (where R (ann-req (RR ...) MODENV))
+   (side-condition (not (redex-match λc~ (R) (term (RR ...)))))]
   [(ann-mod (module f LANG
               (provide/contract [f_3 RC] ...))
             MODENV)
@@ -143,7 +148,8 @@ E
   [(ann-mod (module f LANG
               (require (only-in f_1 f_2 ...) ...)
               RSTRUCT ...
-              (provide/contract [f_3 RC] ...)))
+              (provide/contract [f_3 RC] ...))
+            MODENV)
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      RSTRUCT ...
@@ -153,7 +159,8 @@ E
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
               RSTRUCT ...
               RDEF ...
-              (provide/contract [f_3 RC] ...)))
+              (provide/contract [f_3 RC] ...))
+            MODENV)
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      RSTRUCT ...
