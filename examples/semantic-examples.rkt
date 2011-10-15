@@ -1,4 +1,4 @@
-#lang s-exp "verified.rkt" trace
+#lang s-exp "../verified.rkt" ;trace
 
 (define/contract b bool? •)
 (define/contract n nat? •)
@@ -18,13 +18,21 @@
                 #f))
         #f)))
 
-(define/contract czo (cons/c zo? zo?) •)
+(module czo racket
+  (require (only-in zo? zo?))
+  (provide/contract [czo (cons/c zo? zo?)]))
 
-(define/contract zo->zo (zo? -> zo?)
-  (λ (y) y))
+(module zo->zo racket 
+  (require (only-in zo? zo?))
+  (define zo->zo (λ (y) y))
+  (provide/contract [zo->zo (zo? -> zo?)]))
 
-(define/contract z->z ((and/c zero? zo?) -> (or/c zero? zo?))
-  (λ (v) v))
+(module z->z racket 
+  (require (only-in zo? zo?))
+  (define z->z (λ (v) v))
+  (provide/contract [z->z ((and/c zero? zo?) -> (or/c zero? zo?))]))
+
+(require (only-in zo? zo?))
 
 (zo? 7)
 
