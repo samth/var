@@ -52,8 +52,8 @@ E
   
   (MODREF (f ^ ℓ f)) ;; f_1 is occurs in ℓ and is defined in f_2.
   
-  (SV L MODREF o1) ; Syntactic values for pred.
-  (E V PV x MODREF (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let ((x E) ...) E) (begin E E))
+  (SV L MODREF o) ; Syntactic values for pred.
+  (E V PV x MODREF (@ E E ... ℓ) (@ o E E ... ℓ) (if E E E) (let ((x E) ...) E) (begin E E))
   
   (FLAT FLAT* x (and/c FLAT FLAT))
   (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
@@ -84,9 +84,9 @@ E
   
   (x variable-not-otherwise-mentioned)
   (f variable-not-otherwise-mentioned)
-  (ℓ f o † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
-  (nat natural)
-  (o o1 o2)
+  (ℓ f x † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
+  (nat natural) 
+  (o x o1 o2)
   (o1 o? first rest nat->nat)
   (nat->nat add1 sub1)
   ;; Built-in predicates
@@ -229,8 +229,8 @@ E
   (bullet ● • ☁)
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
-  (RSV RL f o1) ; Syntactic values for pred.
-  (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let ((x RE) ...) RE) (begin RE RE))
+  (RSV RL f o) ; Syntactic values for pred.
+  (RE RPV x f (RE RE ...) (if RE RE RE) (o RE RE ...) (let ((x RE) ...) RE) (begin RE RE))
   
   
   (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
