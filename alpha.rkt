@@ -64,12 +64,12 @@
        (@ o E_2 ... ℓ))
    #t
    (where (#t ...) ((≡α E_1 E_2) ...))]  
-  [(≡α (let x_1 E_1 E_2)
-       (let x_2 E_3 E_4))
-   (≡α (subst/α ((x_1 x_fresh)) E_2)
-       (subst/α ((x_2 x_fresh)) E_4))
-   (where #t (≡α E_1 E_3))
-   (where x_fresh ,(variable-not-in (term (E_2 E_4)) (term x_1)))]
+  [(≡α (let ((x_1 E_1) ..._1) E_2)
+       (let ((x_2 E_3) ..._1) E_4))
+   (≡α (subst/α ((x_1 x_fresh) ...) E_2)
+       (subst/α ((x_2 x_fresh) ...) E_4))
+   (where (#t ...) ((≡α E_1 E_3) ...))
+   (where (x_fresh ...) ,(variables-not-in (term (E_2 E_4)) (term (x_1 ...))))]
   [(≡α (begin E_1 E_2)
        (begin E_3 E_4))
    (≡α E_2 E_4)
@@ -102,6 +102,9 @@
  (test-equal (term (≡α 3 4)) #f)
  (test-equal (term (≡α (@ (λ (x) x) 3 f) (@ (λ (y) y) 3 f))) #t)
  (test-equal (term (≡α (@ (λ (x) x) (λ (y) y) f) (@ (λ (y) y) (λ (x) x) f))) #t)
+ (test-equal (term (≡α (let ((x 1) (y 2)) x)
+                       (let ((y 1) (x 2)) y)))
+             #t)
  
  (test-equal (term (≡α (((pred bool? f) --> (λ (x) (pred (λ (y) x) f))) <= f f (-- 0) f (-- (λ (z) z)))
                        (((pred bool? f) --> (λ (q) (pred (λ (y) q) f))) <= f f (-- 0) f (-- (λ (z) z)))))
