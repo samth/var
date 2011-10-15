@@ -1,5 +1,5 @@
 
-#lang s-exp "verified.rkt" trace
+#lang s-exp "../verified.rkt" trace
 
 (module dbl racket
   (require)

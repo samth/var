@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt" cesk
+#lang s-exp "../verified.rkt" ;cesk
 ;; Binary trees
 
 (define-contract nat/c nat?)
@@ -12,37 +12,43 @@
   (cons/c nat/c (cons/c bt/c bt/c)))
 
 ;; Accessors
-(module num (node/c -> nat/c)
+(define/contract num (node/c -> nat/c)
   (λ (nd)
     (first nd)))
 
-(module left (node/c -> bt/c)
+(define/contract left (node/c -> bt/c)
   (λ (nd)
     (first (rest nd))))
 
-(module right (node/c -> bt/c)
+(define/contract right (node/c -> bt/c)
   (λ (nd)
     (rest (rest nd))))
 
 ;; First-order
-(module sum (bt/c -> nat/c)
-  (λ (t)
+(module sum  racket
+  (require (only-in left left) (only-in right right) (only-in num num))
+  (define sum (λ (t)
     (if (nat? t)
         t
         (+ (num t)
            (+ (sum (left t))
               (sum (right t)))))))
+  (provide/contract [sum (bt/c -> nat/c)]))
 
 ;; Higher-order
-(module map ((nat/c -> nat/c) bt/c -> bt/c)
-  (λ (f t)
-    (if (nat? t)
-        (f t)
-        (cons (f (num t))
-              (cons (map f (left t))
-                    (map f (right t)))))))
+(module map racket
+  (require (only-in left left) (only-in right right) (only-in num num))
+  (define map 
+    (λ (f t)
+      (if (nat? t)
+          (f t)
+          (cons (f (num t))
+                (cons (map f (left t))
+                      (map f (right t)))))))
+  (provide/contract [map ((nat/c -> nat/c) bt/c -> bt/c)]))
 
-(module n nat/c ☁)
+(module n racket (provide/contract [n nat/c]))
+(module bt racket (provide/contract [bt bt/c]))
 ;(left (cons n (cons n n)))
 ;(sum (cons n (cons n n)))
 ;=> (-- nat/c)
@@ -61,7 +67,8 @@
 ;=> (-- nat/c)
 
 ;; doesn't work because we haven't got (-- rec/c) yet.
-(module bt bt/c ☁)
+
+(require (only-in sum sum) (only-in bt bt))
 (sum bt)
 
 
