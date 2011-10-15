@@ -6,12 +6,33 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Languages
 
+
+#|
+Grammar of programs:
+
+(module m racket
+  (require (only-in m f ...) ...)
+  (define f PV)
+  ...
+  (provide/contract [f C] ...))
+...
+(require (only-in m f ...) ...)
+E
+|#
+
 (define-language λc-user
   
   ;; Annotated language
-  (P (M ... E))
-  (M (module f C PV))
+  (P (M ... R E))
+  (M (module f LANG R DEF ...
+       (provide/contract [f C] ...)))
+     
+  (R (require (only-in f f ...) ...))
+  (LANG racket racket/base)
+  (DEF (define f PV))
+     
   (L (λ (x ...) E) 
+     ;(letrec ((x (λ (x ...) E))) x)
      (λ x (x ...) E))     
   (W (-- L C* ...))
   (bool #t #f)
@@ -25,7 +46,8 @@
   ((U V) WFV W)
   
   (WFV (-- FV C* ...))
-  (MODREF (f ^ ℓ))
+  
+  (MODREF (f ^ ℓ f)) ;; f_1 is occurs in ℓ and is defined in f_2.
   
   (SV L MODREF o1) ; Syntactic values for pred.
   (E V PV x MODREF (@ E E ... ℓ) (if E E E) (@ o1 E ℓ) (@ o2 E E ℓ) (let x E E) (begin E E))
@@ -145,7 +167,7 @@
   
   (V .... AV blessed-L blessed-A)
      
-  (M .... (module f C ☁))
+  (DEF .... (define f ☁))
 
   (V-or-B V B)
   
@@ -183,9 +205,21 @@
   
   ;; Raw, unannotated language
   (RARR -> →)
-  (RP (RM ... RE))
-  (RM (moddec f RC RPV) (moddec f RC bullet))
-  (moddec module define/contract)
+  (RP (RM ... RR RE))
+  
+  (RM (module f LANG RR RDEF ...
+        (provide/contract [f RC] ...))
+      (module f LANG RR
+        (provide/contract [f RC] ...))
+      (module f LANG
+        (provide/contract [f RC] ...)))
+  
+  (MODENV ((f (f ...)) ...))
+  (RR R)
+  (RDEF (define f RPV)
+        (define (f x ...) RE)
+        (define f bullet))
+    
   (bullet ● • ☁)
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
@@ -469,5 +503,5 @@
                   (redex-match λc~ WFV (term V_1)))                  
               #:attempts 10000))
 
-(define (all-but-last ls)
-  (drop-right ls 1))
+(define (program-modules ls)
+  (drop-right ls 2))

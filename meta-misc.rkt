@@ -175,21 +175,27 @@
  (test-equal (term (∧ (nat/c) (string/c) (empty/c)))
              (term (and/c (nat/c) (and/c (string/c) (empty/c))))))
 
+(define-metafunction λc~
+  modref=? : MODREF MODREF -> #t or #f
+  [(modref=? (f ^ ℓ_1 f_1) (f ^ ℓ_2 f_1)) #t]
+  [(modref=? MODREF MODREF_1) #f])
+
+(define (contract=? a b)
+  (cond [(redex-match λc~ (MODREF MODREF_1) (term (,a ,b)))
+         (term (modref=? ,a ,b))]
+        [else (equal? a b)]))
+
 ;; Removes duplicate remembered contracts.
 (define-metafunction λc~
   normalize : V -> V
-  [(normalize (-- PV C ...)) (-- PV C_1 ...)
+  [(normalize (-- PV C ...))
+   (-- PV C_1 ...)
    (where (C_1 ...)
-          ,(remove-duplicates (term (C ...))
-                              (match-lambda**
-                               [(`(,f ^ _) `(,f ^ _)) #t]
-                               [(a b) (equal? a b)])))]
-  [(normalize (-- C_0 C ...)) (-- C_0 C_1 ...)
+          ,(remove-duplicates (term (C ...)) contract=?))]
+  [(normalize (-- C_0 C ...)) 
+   (-- C_0 C_1 ...)
    (where (C_1 ...)
-          ,(remove-duplicates (term (C ...))
-                              (match-lambda**
-                               [(`(,f ^ _) `(,f ^ _)) #t]
-                               [(a b) (equal? a b)])))]
+          ,(remove-duplicates (term (C ...)) contract=?))]
   
   [(normalize ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a)))
    ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))]

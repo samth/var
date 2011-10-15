@@ -8,11 +8,11 @@
 ;; Evaluation functions
 
 (define (eval_vcΔ P)
-  (apply-reduction-relation* (-->_vcΔ (all-but-last P))
+  (apply-reduction-relation* (-->_vcΔ (program-modules P))
                              (last P)))
 
 (define (eval_vcc~Δ P)
-  (apply-reduction-relation* (-->_vcc~Δ (all-but-last P))
+  (apply-reduction-relation* (-->_vcc~Δ (program-modules P))
                              (last P)))
 
 (test
