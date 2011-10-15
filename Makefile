@@ -7,5 +7,5 @@ testall:
 	done
 
 runall:
-	for x in `find .  -name '*.rkt'`; do racket $$x; done
+	for x in `find .  -name '*.rkt'`; do echo $$x; racket $$x; done
 

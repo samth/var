@@ -1,7 +1,7 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt")
-(provide subst/α subst/β subst/C subst/μ)
+(provide subst/α subst/β subst/C subst/μ replace)
 (test-suite test subst)
 
 ;; There are 4 kinds of substitutions
