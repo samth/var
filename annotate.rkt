@@ -47,11 +47,14 @@ E
                        (check-req (term any_r))
                        (check-expr (term any_e))))]
   [(ann (RM ...
-         (require (only-in f_4 f_5 ...) ...)
+         RR
          RE))
-   ((ann-mod RM) ...
+   ((ann-mod RM MODENV) ...
     (require (only-in f_4 f_5 ...) ...)
-    (ann-exp RE † ((f_4 (f_5 ...)) ...) ()))])
+    (ann-exp RE † ((f_4 (f_5 ...)) ...) ()))   
+   (where ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...) (RM ...))
+   (where MODENV ([f_nam (f_exp ...)] ...))
+   (where (require (only-in f_4 f_5 ...) ...) (ann-req (RR) MODENV))])
 
 ;; Annotate RE with inside module ℓ, using MODENV module environment and (f ...) local environment.
 (define-metafunction λc~
@@ -104,11 +107,39 @@ E
   [(unfold-def RDEF) RDEF])
 
 (define-metafunction λc~
-  ann-mod : RM -> M
-  [(ann-mod (define/contract f RC any))
-   (ann-mod (module f racket (require) (define f any) (provide/contract [f RC])))]
+  ann-req : (RR ...) MODENV -> R
+  [(ann-req ((require (only-in f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
+  [(ann-req ((require any ...) ...) MODENV) (ann-req ((require (ann-one-req any MODENV) ...) ...) MODENV)])
+
+(define-metafunction λc~
+  ann-one-req : any MODENV -> any
+  [(ann-one-req (only-in f f_1 ...) MODENV) (only-in f f_1 ...)]
+  [(ann-one-req f MODENV) 
+   (only-in f f_1 ...)
+   (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)])
+
+(define-metafunction λc~
+  ann-mod : RM MODENV -> M
+  [(ann-mod (define/contract f RC any) MODENV)
+   (ann-mod (module f racket (require) (define f any) (provide/contract [f RC])) MODENV)]
+  [(ann-mod (module f LANG 
+              RR ...
+              RSTRUCT ...
+              RDEF ...
+              (provide/contract [f_3 RC] ...))
+            MODENV)
+   (ann-mod
+    (module f LANG
+      R
+      RSTRUCT ...
+      RDEF ...
+      (provide/contract [f_3 RC] ...))
+    MODENV)
+   (where R (ann-req (RR ...) MODENV))
+   (side-condition (not (redex-match λc~ (R) (term (RR ...)))))]
   [(ann-mod (module f LANG
-              (provide/contract [f_3 RC] ...)))
+              (provide/contract [f_3 RC] ...))
+            MODENV)
    (module f LANG
      (require)
      (define f_3 ☁)
@@ -116,18 +147,20 @@ E
      (provide/contract [f_3 (ann-con RC f () (f_3 ...))] ...))]
   [(ann-mod (module f LANG
               (require (only-in f_1 f_2 ...) ...)
-              STRUCT ...
-              (provide/contract [f_3 RC] ...)))
+              RSTRUCT ...
+              (provide/contract [f_3 RC] ...))
+            MODENV)
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
-     STRUCT ...
+     RSTRUCT ...
      (define f_3 ☁)
      ...
      (provide/contract [f_3 (ann-con RC f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))]
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
               RSTRUCT ...
               RDEF ...
-              (provide/contract [f_3 RC] ...)))
+              (provide/contract [f_3 RC] ...))
+            MODENV)
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      RSTRUCT ...
@@ -156,13 +189,11 @@ E
   ;; We cheat by re-using the expression annotator for module references
   [(ann-con (pred f) ℓ MODENV (f_1 ...))
    (pred MODREF ℓ)
-   (where MODREF (ann-exp f ℓ MODENV (f_1 ...)))]
-  [(ann-con (pred f) ℓ MODENV (f_1 ...)) 
-   (pred (λ (x) "this is the fall-through case") ★)]
+   (where MODREF (ann-exp f ℓ MODENV (f_1 ...)))]  
   [(ann-con f ℓ MODENV (f_1 ...))
    (ann-con (pred f) ℓ MODENV (f_1 ...))
-   (where ((f_s any_2) ...) MODENV)
-   (where (any ... f any_1 ...) (f_s ... f_1 ...))]
+   (where ((any_f (f_s ...)) ...) MODENV)
+   (where (any ... f any_1 ...) (f_s ... ... f_1 ...))]
   [(ann-con (pred o1) ℓ MODENV (f ...))
    (pred o1 ℓ)]
   ;; ---
@@ -182,9 +213,13 @@ E
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (ann-con RC_1 ℓ MODENV (f ...)))]
   [(ann-con (RC_0 ... RARR (λ (x ...) RC_1)) ℓ MODENV (f ...))
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (λ (x ...) (ann-con RC_1 ℓ MODENV (f ...))))]
+  [(ann-con (pred f) ℓ MODENV (f_1 ...)) 
+   (pred (λ (x) "this is the fall-through case") ★)]
   [(ann-con RC ℓ MODENV (f ...)) RC])
 
 (test
+ (test-equal (term (ann-con (even? -> even?) dbl ([e/o (even?)]) (dbl)))
+             (term ((pred (even? ^ dbl e/o) dbl) -> (pred (even? ^ dbl e/o) dbl))))
  (test-equal (term (ann-con f g ((h (f))) ()))
              (term (pred (f ^ g h) g)))
  (test-equal (term (ann-con j g ((h (f))) (j)))
