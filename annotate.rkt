@@ -156,13 +156,11 @@ E
   ;; We cheat by re-using the expression annotator for module references
   [(ann-con (pred f) ℓ MODENV (f_1 ...))
    (pred MODREF ℓ)
-   (where MODREF (ann-exp f ℓ MODENV (f_1 ...)))]
-  [(ann-con (pred f) ℓ MODENV (f_1 ...)) 
-   (pred (λ (x) "this is the fall-through case") ★)]
+   (where MODREF (ann-exp f ℓ MODENV (f_1 ...)))]  
   [(ann-con f ℓ MODENV (f_1 ...))
    (ann-con (pred f) ℓ MODENV (f_1 ...))
-   (where ((f_s any_2) ...) MODENV)
-   (where (any ... f any_1 ...) (f_s ... f_1 ...))]
+   (where ((any_f (f_s ...)) ...) MODENV)
+   (where (any ... f any_1 ...) (f_s ... ... f_1 ...))]
   [(ann-con (pred o1) ℓ MODENV (f ...))
    (pred o1 ℓ)]
   ;; ---
@@ -182,9 +180,13 @@ E
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (ann-con RC_1 ℓ MODENV (f ...)))]
   [(ann-con (RC_0 ... RARR (λ (x ...) RC_1)) ℓ MODENV (f ...))
    ((ann-con RC_0 ℓ MODENV (f ...)) ... -> (λ (x ...) (ann-con RC_1 ℓ MODENV (f ...))))]
+  [(ann-con (pred f) ℓ MODENV (f_1 ...)) 
+   (pred (λ (x) "this is the fall-through case") ★)]
   [(ann-con RC ℓ MODENV (f ...)) RC])
 
 (test
+ (test-equal (term (ann-con (even? -> even?) dbl ([e/o (even?)]) (dbl)))
+             (term ((pred (even? ^ dbl e/o) dbl) -> (pred (even? ^ dbl e/o) dbl))))
  (test-equal (term (ann-con f g ((h (f))) ()))
              (term (pred (f ^ g h) g)))
  (test-equal (term (ann-con j g ((h (f))) (j)))
