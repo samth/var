@@ -215,7 +215,8 @@ E
       (module f LANG RR RSTRUCT ... RDEF ...
         (provide/contract [f RC] ...))
       (module f LANG
-        (provide/contract [f RC] ...)))    
+        (provide/contract [f RC] ...))
+      (define/contract f RC RPV))
   
   (MODENV ((f (f ...)) ...))
   (RR R)
