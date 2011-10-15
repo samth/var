@@ -229,7 +229,7 @@ E
   (RL (λ (x ...) RE) (λ x (x ...) RE))
   (RPV FV RL)  
   (RSV RL f o1) ; Syntactic values for pred.
-  (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let ((x RE) ...) RE RE) (begin RE RE))
+  (RE RPV x f (RE RE ...) (if RE RE RE) (o1 RE) (o2 RE RE) (let ((x RE) ...) RE) (begin RE RE))
   
   
   (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
