@@ -209,42 +209,46 @@ E
   
   ;; Raw, unannotated language
   (RARR -> →)
-  (RP (RM ... RR ... RE))
+  (RP (RMOD ... RREQ ... REXP))
   
-  (RM (module f LANG RR ... RDEF ...
-        (provide/contract [f RC] ...))
-      (module f LANG RR ... RSTRUCT ... RDEF ...
-        (provide/contract [f RC] ...))
-      (module f LANG
-        (provide/contract [f RC] ...))
-      (define/contract f RC RPV)
-      (define/contract f RC bullet))
+  (RMOD (module f LANG REXP ... RDEF ...
+          (provide/contract [f RCON] ...))
+        (module f LANG RREQ ... RSTRUCT ... RDEF ...
+          (provide/contract [f RCON] ...))
+        (module f LANG
+          (provide/contract [f RCON] ...))
+        (define/contract f RCON RPV)
+        (define/contract f RCON bullet))
   
   (MODENV ((f (f ...)) ...))
-  (RR (require RELEM ...))
+  (RREQ (require RELEM ...))
   (RELEM f (only-in f f ...))
   (RDEF (define f RPV)
-        (define (f x ...) RE)
+        (define (f x ...) REXP)
         (define f bullet))
   (RSTRUCT STRUCT)
     
   (bullet ● • ☁)
-  (RL (λ (x ...) RE) (λ x (x ...) RE))
+  (RL (λ (x ...) REXP) (λ x (x ...) REXP))
   (RPV FV RL)  
   (RSV RL f o) ; Syntactic values for pred.
-  (RE RPV x f (RE RE ...) (if RE RE RE) (o RE RE ...) (let ((x RE) ...) RE) (begin RE RE))
-  
+  (REXP RPV x f 
+        (REXP REXP ...) 
+        (if REXP REXP REXP) 
+        (o REXP REXP ...) 
+        (let ((x REXP) ...) REXP) 
+        (begin REXP REXP))  
   
   (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
-  (RCHOC (RC ... RARR RC)
-         (RC ..._1 RARR (λ (x ..._1) RC))
+  (RCHOC (RCON ... RARR RCON)
+         (RCON ..._1 RARR (λ (x ..._1) RCON))
          (or/c RCFLAT RCHOC)
-         (cons/c RCHOC RC) (cons/c RC RCHOC)
-         (and/c RCHOC RC)  (and/c RC RCHOC)
+         (cons/c RCHOC RCON) (cons/c RCON RCHOC)
+         (and/c RCHOC RCON)  (and/c RCON RCHOC)
          (rec/c x RCHOC))
   
-  (RC RCFLAT RCHOC))
+  (RCON RCFLAT RCHOC))
   
 
 (define-metafunction λc~
