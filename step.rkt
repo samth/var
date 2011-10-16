@@ -241,7 +241,7 @@
 (define-metafunction λc~
   lookup-modref/val : f f (M ...) -> PV or bullet
   [(lookup-modref/val f f_1 (M ... 
-                             (module f LANG R DEF ... (define f_1 any_result) DEF_1 ... any_p)
+                             (module f LANG R STRUCT ... DEF ... (define f_1 any_result) DEF_1 ... any_p)
                              M_1 ...))
    any_result]
   [(lookup-modref/val f f_1 any)
@@ -251,11 +251,11 @@
 (define-metafunction λc~
   lookup-modref/con : f f (M ...) -> C
   [(lookup-modref/con f f_1 (M ... 
-                             (module f LANG R DEF ...(provide/contract any_1 ... [f_1 C] any_2 ...))
+                             (module f LANG R STRUCT ... DEF ...(provide/contract any_1 ... [f_1 C] any_2 ...))
                              M_1 ...))
    C]
   [(lookup-modref/con f f_1 any)
-   (pred (λ (x) ,(format "unbound module variable ~a from ~a" (term f_1) (term f))) ★)])
+   (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a" (term f_1) (term f))) ★)])
    
    
   
