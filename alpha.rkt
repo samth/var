@@ -110,12 +110,12 @@
  (test-equal (term (≡α (struct s (-- (λ (x) x)) (-- (λ (y) y)))
                        (struct s (-- (λ (y) y)) (-- (λ (z) z)))))
              #t) 
- (test-equal (term (≡α (((pred bool? f) --> (λ (x) (pred (λ (y) x) f))) <= f f (-- 0) f (-- (λ (z) z)))
-                       (((pred bool? f) --> (λ (q) (pred (λ (y) q) f))) <= f f (-- 0) f (-- (λ (z) z)))))
+ (test-equal (term (≡α (((pred boolean? f) --> (λ (x) (pred (λ (y) x) f))) <= f f (-- 0) f (-- (λ (z) z)))
+                       (((pred boolean? f) --> (λ (q) (pred (λ (y) q) f))) <= f f (-- 0) f (-- (λ (z) z)))))
              #t)
  
- (test-equal (term (≡α/C ((pred bool? f) -> (λ (x) (pred (λ (y) x) f)))
-                         ((pred bool? f) -> (λ (q) (pred (λ (y) q) f)))))
+ (test-equal (term (≡α/C ((pred boolean? f) -> (λ (x) (pred (λ (y) x) f)))
+                         ((pred boolean? f) -> (λ (q) (pred (λ (y) q) f)))))
              #t)
  
  (test-equal (term (≡α (-- 0 (rec/c X (or/c int? (cons/c X X))))

@@ -1,6 +1,6 @@
 #lang var ;trace
 
-(define/contract prime? (-> any? bool?) ☁)
+(define/contract prime? (-> any? boolean?) ☁)
 
 (module keygen racket   
   (require (only-in prime? prime?))

@@ -972,7 +972,7 @@
          (fact input))))
 
 (define fit-ex-prog
-  (term ((simple-module prime? (anything -> bool?) ☁)
+  (term ((simple-module prime? (anything -> boolean?) ☁)
          (simple-module keygen (anything -> (pred prime?)) ☁) 
          (simple-module rsa ((pred prime?) -> (string? -> string?)) ☁)
          (require (only-in keygen keygen) (only-in rsa rsa))

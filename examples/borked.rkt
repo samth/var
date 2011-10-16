@@ -1,7 +1,7 @@
 #lang var cesk ;-trace
 
 
-(define/contract p (-> anything (-> anything bool?)) (λ (x) (λ (y) x)))
+(define/contract p (-> anything (-> anything boolean?)) (λ (x) (λ (y) x)))
 
 (define/contract gen (-> anything (λ (z) (pred (λ (x) (z x))))) ☁)
 

@@ -1,10 +1,10 @@
 #lang var ;trace
 
-(module char? (-> anything bool?) •)
+(module char? (-> anything boolean?) •)
 
 ;; opaque structures
-(module parse-position? (-> anything bool?) •)
-(module parse-results?  (-> anything bool?) •)
+(module parse-position? (-> anything boolean?) •)
+(module parse-results?  (-> anything boolean?) •)
 
 (module top-parse-position 
   (-> string? parse-position?)

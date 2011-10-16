@@ -7,11 +7,11 @@ define-contract list/c
       cons/c exact-nonnegative-integer? X
   
 module sorted-ne? 
-  → list/c bool?
+  → list/c boolean?
   ●
   
 module sorted?
-  → list/c bool?
+  → list/c boolean?
   λ (l) 
     if empty?(l) 
        #t 

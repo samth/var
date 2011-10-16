@@ -3,8 +3,8 @@
   (define even? (λ (n) (if (zero? n) #t (odd? (sub1 n)))))
   (define odd?
     (λ (n) (if (zero? n) #f (even? (sub1 n)))))
-  (provide/contract [even? (-> exact-nonnegative-integer? bool?)]
-                    [odd? (-> exact-nonnegative-integer? bool?)]))
+  (provide/contract [even? (-> exact-nonnegative-integer? boolean?)]
+                    [odd? (-> exact-nonnegative-integer? boolean?)]))
 
 (module dbl racket
   (require e/o)

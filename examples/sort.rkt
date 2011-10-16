@@ -5,12 +5,12 @@
 
 (module sorted-ne? racket
   ; ...
-  (provide/contract [sorted-ne? (-> list/c bool?)]))
+  (provide/contract [sorted-ne? (-> list/c boolean?)]))
 
 (module sorted? racket 
   (require (only-in sorted-ne? sorted-ne?))
   (define (sorted? l) (if (empty? l) #t (sorted-ne? l)))
-  (provide/contract [sorted? (-> list/c bool?)]))
+  (provide/contract [sorted? (-> list/c boolean?)]))
 
 (module insert racket 
   (require (only-in sorted? sorted?))

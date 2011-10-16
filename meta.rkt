@@ -128,7 +128,7 @@
   proves-predicate : o? o? -> #t or #f
   [(proves-predicate o? o?) #t]
   [(proves-predicate zero? exact-nonnegative-integer?) #t]
-  [(proves-predicate false? bool?) #t]
+  [(proves-predicate false? boolean?) #t]
   [(proves-predicate o?_0 o?_1) #f])
 
 ;; Does satisfying C imply (negate o?)
@@ -162,10 +162,10 @@
   [(refutes-predicate exact-nonnegative-integer? o?) #t]
   [(refutes-predicate zero? o?) #t]
   [(refutes-predicate proc? o?) #t]
-  [(refutes-predicate bool? false?) #f]
-  [(refutes-predicate bool? o?) #t]
+  [(refutes-predicate boolean? false?) #f]
+  [(refutes-predicate boolean? o?) #t]
   [(refutes-predicate string? o?) #t]
-  [(refutes-predicate false? bool?) #f]
+  [(refutes-predicate false? boolean?) #f]
   [(refutes-predicate false? o?) #t])
   
 
@@ -310,8 +310,8 @@
   plain-δ : op PV ... ℓ -> V or PV or B  
   [(plain-δ string? string ℓ) #t]
   [(plain-δ string? PV ℓ) #f]
-  [(plain-δ bool? bool ℓ) #t]
-  [(plain-δ bool? PV ℓ) #f]
+  [(plain-δ boolean? bool ℓ) #t]
+  [(plain-δ boolean? PV ℓ) #f]
   [(plain-δ zero? 0 ℓ) #t]
   [(plain-δ zero? nat ℓ) #f]
   [(plain-δ proc? L ℓ) #t]
@@ -576,7 +576,7 @@
  
  (redex-check λc~ WFV (term (∈ #f (δ (@ proc? WFV ℓ)))))
  
- (test-equal (term (proves (-- #t) bool?)) #t)
+ (test-equal (term (proves (-- #t) boolean?)) #t)
  
  ;; Test for δ totalness.
  (redex-check λc~ (o1 V) (or (not (term (valid-value? V)))

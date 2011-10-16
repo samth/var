@@ -1,6 +1,6 @@
 #lang var
 
-(module prime? racket (provide/contract [prime? (-> anything bool?)]))
+(module prime? racket (provide/contract [prime? (-> anything boolean?)]))
 
 (module keygen racket (require (only-in prime? prime?)) (provide/contract [keygen (-> anything prime?)]))
 
