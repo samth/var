@@ -9,18 +9,18 @@
 
 (current-cache-all? #t)
 
-(define exact? #t)
+(define exact? #f)
 
 (define-extended-language CESK* λc~ 
-  (K mt      
-     (ap (clo ...) ((E ρ) ...) ℓ a)
-     (if E E ρ a)
-     (op o clo ... E ... ρ ℓ a)
-     (let x E ρ a)
-     (beg (E ρ) (E ρ) ... a)
-     (chk C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?     
-     (chk-cons C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
-     (chk-or V ρ (or/c FLAT HOC) ρ ℓ ℓ V-or-AE ℓ a)) ;; (if [] (rem V FLAT) (HOC <= V))     
+  (K MT      
+     (AP (clo ...) ((E ρ) ...) ℓ a)
+     (IF E E ρ a)
+     (OP o clo ... E ... ρ ℓ a)
+     (LET x E ρ a)
+     (BEG (E ρ) (E ρ) ... a)
+     (CHK C ρ ℓ ℓ V-or-AE ℓ a)  ;; V?     
+     (CHK-CONS C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
+     (CHK-OR V ρ (or/c FLAT HOC) ρ ℓ ℓ V-or-AE ℓ a)) ;; (if [] (rem V FLAT) (HOC <= V))     
    
   (ρ ((x a) ...))
   (clo (V ρ))
@@ -142,22 +142,22 @@
 (define-metafunction CESK*
   load : E -> ς
   [(load E)
-   (E () () mt)])
+   (E () () MT)])
 
 ;; this will stop working once there's real non-determinism
 (define-metafunction CESK*
   plug : E K -> E
-  [(plug E mt) E]
-  [(plug E (if E_1 E_2 ρ a)) (if E E_1 E_2)]
-  [(plug E (op o (V ρ_1) ... E_1 ... ρ ℓ a))
+  [(plug E MT) E]
+  [(plug E (IF E_1 E_2 ρ a)) (if E E_1 E_2)]
+  [(plug E (OP o (V ρ_1) ... E_1 ... ρ ℓ a))
    (@ o V ... E E_1 ... ℓ)]
-  [(plug E (ap ((V ρ_1) ...) ((E_1 ρ) ...) ℓ a))
+  [(plug E (AP ((V ρ_1) ...) ((E_1 ρ) ...) ℓ a))
    (@ V ... E E_1 ... ℓ)]
-  [(plug E (let x E_1 ρ a))
+  [(plug E (LET x E_1 ρ a))
    (let x E E_1)]
-  [(plug E (beg (E_1 ρ) a)) ;; this is dead anyway
+  [(plug E (BEG (E_1 ρ) a)) ;; this is dead anyway
    (begin E E_1)]
-  [(plug E (chk C ρ ℓ_1 ℓ_2 V ℓ_3 a))
+  [(plug E (CHK C ρ ℓ_1 ℓ_2 V ℓ_3 a))
    (C <= ℓ_1 ℓ_2 V ℓ_3 E)])
 
 (define-metafunction CESK*
@@ -167,7 +167,7 @@
 
 (define-metafunction CESK*
   unload : ς -> E
-  [(unload (E ρ σ mt))
+  [(unload (E ρ σ MT))
    E]
   [(unload (E ρ σ K))
    (unload ((plug E K) ρ σ K_1))
@@ -188,7 +188,7 @@
    (--> (PV ρ σ K) ((-- PV) ρ σ K) wrap)
   
    ;; Blessing
-   (--> (V ρ σ (chk (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (CHK (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_new)) ρ_1 σ_1 K)
         (where (a_new) (alloc σ (V)))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))        
@@ -197,11 +197,11 @@
         chk-fun-pass)
            
    ;; Nullary function application
-   (--> ((-- (λ () E) C ...) ρ σ (ap () () ℓ a))
+   (--> ((-- (λ () E) C ...) ρ σ (AP () () ℓ a))
         (E ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         β-0)
-   (--> ((-- (λ x () E) C ...) ρ σ (ap () () ℓ a))
+   (--> ((-- (λ x () E) C ...) ρ σ (AP () () ℓ a))
         (E (extend-env ρ (x) (a_1))
            (extend-sto1 σ a_1 ((-- (λ x () E) C ...) ρ))
            K)
@@ -211,16 +211,16 @@
    
    ;; BLESSED APPLICATION
    ;; Nullary blessed application
-   (--> (((--> C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (ap () () ℓ a))
-        (V_f ρ_f σ_1 (ap () () ℓ a_k))
-        (where K (chk C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (((--> C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (AP () () ℓ a))
+        (V_f ρ_f σ_1 (AP () () ℓ a_k))
+        (where K (CHK C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
         (where σ_1 (extend-sto1 σ a_k K))
         (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
         nullary-blessed-β)
-   (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (ap () () ℓ a))
-        (V_f ρ_f σ_1 (ap () () ℓ a_k))
-        (where K (chk ρ C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (AP () () ℓ a))
+        (V_f ρ_f σ_1 (AP () () ℓ a_k))
+        (where K (CHK ρ C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
         (where σ_1 (extend-sto1 σ a_k K))
         (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
@@ -228,28 +228,28 @@
    ;; Unary+ blessed application
    ;; FIXME: these two rules are broken with the environments of the argument contracts.
    ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
-   (--> (V_n ρ_n σ (ap ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
+   (--> (V_n ρ_n σ (AP ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
                         (V_1 ρ_1) ...)
                        () 
                        ℓ a))
         (V_f ρ_f σ_1 
-             (ap ()
+             (AP ()
                  (((C_0 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ρ_2) ...)
                  ℓ a_k))
         (side-condition (= (length (term (C_0 ...)))
                            (add1 (length (term ((V_1 ρ_1) ...))))))
         (where (D_0 ... (V_f ρ_f) D_1 ...) (sto-lookup σ a_f))
         (where ((V_2 ρ_2) ...) ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
-        (where K (chk C_1 ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where K (CHK C_1 ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
         (where σ_1 (extend-sto1 σ a_k K))
         unary+-blessed-β)
-   (--> (V_n ρ_n σ (ap ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
+   (--> (V_n ρ_n σ (AP ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
                         (V_1 ρ_1) ...)
                        ()
                        ℓ a))
         (V_f ρ_f σ_1 
-             (ap ()
+             (AP ()
                  (((C_0 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ρ_2) ...)
                  ℓ a_k))
         (side-condition (= (length (term (C_0 ...)))
@@ -258,14 +258,14 @@
         (where (a_1 ...) (alloc σ (x ...)))
         (where ((V_2 ρ_2) ...) ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
         (where ρ_3 (extend-env ρ (x ...) (a_1 ...)))
-        (where K (chk C_1 ρ_3 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where K (CHK C_1 ρ_3 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))        
         (where σ_1 (extend-sto σ (a_k a_1 ...) (K (V_2 ρ_2) ...)))
         unary+-blessed-β-dep)
     
    ;; PLAIN OL' APPLICATION
    ;; Unary+ function application
-   (--> (V ρ σ (ap (((-- (λ (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
+   (--> (V ρ σ (AP (((-- (λ (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
         (E (extend-env ρ_0 (x ...) (a_1 ...))
            (extend-sto σ (a_1 ...) (clo ... (V ρ)))
            K)
@@ -275,7 +275,7 @@
                            (add1 (length (term (clo ...))))))
         β)
    
-   (--> (V ρ σ (ap (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
+   (--> (V ρ σ (AP (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
         (E (extend-env ρ (x_f x ...) (a_1 ...))
            (extend-sto σ (a_1 ...) (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ... (V ρ)))
            K)
@@ -286,7 +286,7 @@
         β-rec)      
    
    ;; APPLICATIONS GONE WRONG
-   (--> (U ρ σ (ap ((V ρ_0) clo ...) () ℓ a))
+   (--> (U ρ σ (AP ((V ρ_0) clo ...) () ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
         (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
         (side-condition (not (equal? (add1 (length (term (clo ...))))
@@ -294,20 +294,20 @@
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         blame-arity)
    
-   (--> (U ρ σ (ap ((V ρ_0) clo ...) () ℓ a))
+   (--> (U ρ σ (AP ((V ρ_0) clo ...) () ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
         (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         blame-not-proc)  
    
    ;; if
-   (--> (V ρ σ (if E_1 E_2 ρ_1 a))
+   (--> (V ρ σ (IF E_1 E_2 ρ_1 a))
         (E_1 ρ_1 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         (side-condition (term (∈ #f (δ (@ false? V ★)))))
         if-t)
    
-   (--> (V ρ σ (if E_1 E_2 ρ_2 a))
+   (--> (V ρ σ (IF E_1 E_2 ρ_2 a))
         (E_2 ρ_2 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         (side-condition (term (∈ #t (δ (@ false? V ★)))))
@@ -315,25 +315,25 @@
    
    ;; δ
    ;; FIXME broken delta rule for things producing closures.
-   (--> (V ρ σ (op o (V_0 ρ_0) ... ρ_1 ℓ a))
-        ((widen o V-or-B) () σ K)
+   (--> (V ρ σ (OP op (V_0 ρ_0) ... ρ_1 ℓ a))
+        ((widen op V-or-B) () σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))         
         (where (V-or-B_1 ... V-or-B V-or-B_2 ...)
-               (δ (@ o V_0 ... V ℓ)))
+               (δ (@ op V_0 ... V ℓ)))
         δ)
    
    ;; begin
-   (--> (V ρ σ (beg (E ρ_0) a))
+   (--> (V ρ σ (BEG (E ρ_0) a))
         (E ρ_0 σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         begin-done)
    
-   (--> (V ρ σ (beg (E ρ_0) (E_1 ρ_1) (E_2 ρ_2) ... a))
-        (E ρ_0 σ (beg (E_1 ρ_1) (E_2 ρ_2) ... a))
+   (--> (V ρ σ (BEG (E ρ_0) (E_1 ρ_1) (E_2 ρ_2) ... a))
+        (E ρ_0 σ (BEG (E_1 ρ_1) (E_2 ρ_2) ... a))
         begin-swap)
    
    ;; let
-   (--> (V ρ σ (let x E ρ_0 a))
+   (--> (V ρ σ (LET x E ρ_0 a))
         (E (extend-env ρ_0 (x) (a_0))
            (extend-sto σ (a_0) ((V ρ)))
            K)
@@ -343,65 +343,65 @@
    
    
    ;; CONTRACT CHECKING   
-   (--> (V ρ σ (chk FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (CHK FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
-           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
+           (AP (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
         (where K
-               (if (remember-contract V (try-close-contract FLAT ρ_1 σ))
+               (IF (remember-contract V (try-close-contract FLAT ρ_1 σ))
                    (blame ℓ_1 ℓ_3 V-or-AE FLAT V)
                    ρ a))
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         flat-check)
    
-   (--> (V ρ σ (chk (rec/c X HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ (chk (unroll (rec/c X HOC)) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (CHK (rec/c X HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V ρ σ (CHK (unroll (rec/c X HOC)) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         chk-unroll)
    
-   (--> (V ρ σ (chk (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (CHK (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
-           (ap (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
-        (where K (chk-or V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+           (AP (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
+        (where K (CHK-OR V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         check-or-pass)
    
-   (--> (V ρ_0 σ (chk-or U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
-        (U ρ σ (chk HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ_0 σ (CHK-OR U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
+        (U ρ σ (CHK HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where #t (∈ #t (δ (@ false? V Λ))))
         check-or-false)
    
-   (--> (V ρ_0 σ (chk-or U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ_0 σ (CHK-OR U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ((remember-contract U (try-close-contract FLAT ρ_1)) ρ σ K)        
         (where #t (∈ #f (δ (@ false? V Λ))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         check-or-true)
    
-   (--> (V ρ σ (chk (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ_1 (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_1))                
+   (--> (V ρ σ (CHK (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V ρ σ_1 (CHK C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_1))                
         (where HOC (and/c C_0 C_1))
-        (where K (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (where K (CHK C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a_1) (alloc σ (K)))        
         (where σ_1 (extend-sto1 σ a_1 K))
         check-and-push)
    
-   (--> ((-- (cons V_0 V_1) C ...) ρ σ (chk (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V_0 ρ σ_new (chk C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
-        (where K (chk-cons C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
+   (--> ((-- (cons V_0 V_1) C ...) ρ σ (CHK (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (V_0 ρ σ_new (CHK C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
+        (where K (CHK-CONS C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         (where HOC (cons/c C_0 C_1))
         check-cons-pass-first)
    
-   (--> (V ρ σ (chk-cons C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
-        (V_1 ρ_2 σ_new (chk C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
-        (where K (op cons (V ρ) () Λ a))
+   (--> (V ρ σ (CHK-CONS C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
+        (V_1 ρ_2 σ_new (CHK C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
+        (where K (OP cons (V ρ) () Λ a))
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
         check-cons-pass-rest)
    
    
-   (--> (V ρ σ (chk (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+   (--> (V ρ σ (CHK (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         ;; NOTE ρ_1 discarded, reported contract not closed
         ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -409,7 +409,7 @@
         chk-fun-fail-flat)
    
    ;; Nullary abstract application
-   (--> (AV ρ_0 σ (ap () () ℓ a))
+   (--> (AV ρ_0 σ (AP () () ℓ a))
         ((remember-contract (-- (any/c)) (try-close-contract C_0 ρ_0 σ) ...) () σ K)
         (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition (equal? 0 (term (arity AV))))        
@@ -419,8 +419,8 @@
         apply-abs0)
    
    ;; applying abstract values   
-   (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((amb (-- 0) (demonic* C_demon U)) ρ_2 σ (beg (E_result ()) a))
+   (--> (V ρ σ (AP ((AV ρ_1) clo ...) () ℓ a))
+        ((amb (-- 0) (demonic* C_demon U)) ρ_2 σ (BEG (E_result ()) a))
         (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition (equal? (length (term (clo ... V)))
@@ -437,8 +437,8 @@
         
         apply-abs-known-arity)
    
-   (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
-        ((amb (-- 0) (demonic* (any/c) U)) ρ_2 σ (beg ((-- (any/c)) ()) a))
+   (--> (V ρ σ (AP ((AV ρ_1) clo ...) () ℓ a))
+        ((amb (-- 0) (demonic* (any/c) U)) ρ_2 σ (BEG ((-- (any/c)) ()) a))
         (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
         (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition ;; this is a proc with no arity, so it could be anything
@@ -459,40 +459,40 @@
    
    ;; Context shuffling
    
-   (--> (V ρ σ (ap (clo ...) ((E_0 ρ_0) (E_1 ρ_1) ...) ℓ a))
-        (E_0 ρ_0 σ (ap (clo ... (V ρ)) ((E_1 ρ_1) ...) ℓ a))
+   (--> (V ρ σ (AP (clo ...) ((E_0 ρ_0) (E_1 ρ_1) ...) ℓ a))
+        (E_0 ρ_0 σ (AP (clo ... (V ρ)) ((E_1 ρ_1) ...) ℓ a))
         ap-next)
    
    (--> ((@ E_0 E_1 ... ℓ) ρ σ K)
-        (E_0 ρ σ_0 (ap () ((E_1 ρ) ...) ℓ a))
+        (E_0 ρ σ_0 (AP () ((E_1 ρ) ...) ℓ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         ap-push)
    
    (--> ((if E_0 E_1 E_2) ρ σ K)
-        (E_0 ρ σ_0 (if E_1 E_2 ρ a))
+        (E_0 ρ σ_0 (IF E_1 E_2 ρ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         if-push)
    
-   (--> (V ρ σ (op o clo ... E_0 E ... ρ_0 ℓ a))
-        (E_0 ρ_0 σ (op o clo ... (V ρ) E ... ρ_0 ℓ a))
+   (--> (V ρ σ (OP o clo ... E_0 E ... ρ_0 ℓ a))
+        (E_0 ρ_0 σ (OP o clo ... (V ρ) E ... ρ_0 ℓ a))
         op-next)
    
-   (--> ((@ o E_0 E_1 ... ℓ) ρ σ K)
-        (E_0 ρ σ_0 (op o E_1 ... ρ ℓ a))
+   (--> ((@ op E_0 E_1 ... ℓ) ρ σ K)
+        (E_0 ρ σ_0 (OP op E_1 ... ρ ℓ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         op-push)
    
    (--> ((begin E_0 E_1) ρ σ K)
-        (E_0 ρ σ_0 (beg (E_1 ρ) a))
+        (E_0 ρ σ_0 (BEG (E_1 ρ) a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         beg-push)
    
    (--> ((let x E_0 E_1) ρ σ K)
-        (E_0 ρ σ_0 (let x E_1 ρ a))
+        (E_0 ρ σ_0 (LET x E_1 ρ a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         let-push)
@@ -504,7 +504,7 @@
         chk-subst)
    
    (--> ((C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E) ρ σ K)
-        (E ρ σ_0 (chk C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+        (E ρ σ_0 (CHK C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (where (a) (alloc σ (K)))
         (where σ_0 (extend-sto1 σ a K))
         chk-push)))
@@ -539,8 +539,8 @@
 (define error-propagate
   (reduction-relation 
    CESK* #:domain ς
-   (--> (B ρ σ K) (B () (gc (B () σ mt)) mt)
-        (side-condition (not (equal? (term K) (term mt))))
+   (--> (B ρ σ K) (B () (gc (B () σ MT)) MT)
+        (side-condition (not (equal? (term K) (term MT))))
         halt-blame)))
 
 (define (stepΔ Ms)
@@ -578,7 +578,7 @@
   [(live-loc-E (loc any)) ((loc any))]
   ;; don't traverse the orig value in any of these
   [(live-loc-E (any_C <= ℓ_1 ℓ_2 any_V ℓ_2 any_E)) (live-loc-E (any_C any_E))]
-  [(live-loc-E (chk any_C any_ρ ℓ_1 ℓ_2 any_V ℓ_2 any_E any_ρ2 any_a)) (live-loc-E (any_C any_ρ any_E any_ρ2 any_a))]
+  [(live-loc-E (CHK any_C any_ρ ℓ_1 ℓ_2 any_V ℓ_2 any_E any_ρ2 any_a)) (live-loc-E (any_C any_ρ any_E any_ρ2 any_a))]
   [(live-loc-E (blame ℓ_1 ℓ_2 any_V any_C any_V2)) (live-loc-E (any_C any_V2))]
   [(live-loc-E (addr a)) (a)]
   [(live-loc-E (any ...))
@@ -594,36 +594,36 @@
 
 (define-metafunction CESK*
   live-loc-K : K -> (a ...) 
-  [(live-loc-K mt) ()]
-  [(live-loc-K (ap (clo ...) ((E ρ) ...) ℓ a))
+  [(live-loc-K MT) ()]
+  [(live-loc-K (AP (clo ...) ((E ρ) ...) ℓ a))
    (a a_0 ... ... a_1 ... ...)
    (where ((a_0 ...) ...) ((live-loc-clo clo) ...))
    (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))]
-  [(live-loc-K (if E_1 E_2 ρ a)) 
+  [(live-loc-K (IF E_1 E_2 ρ a)) 
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-clo (E_1 ρ)))
    (where (a_1 ...) (live-loc-clo (E_2 ρ)))]    
-  [(live-loc-K (op o clo ... E ... ρ ℓ a)) 
+  [(live-loc-K (OP o clo ... E ... ρ ℓ a)) 
    (a a_0 ... ... a_1 ... ...)
    (where ((a_0 ...) ...) ((live-loc-clo clo) ...))
    (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))]
-  [(live-loc-K (let x E ρ a))
+  [(live-loc-K (LET x E ρ a))
    (a a_0 ...)
    (where (a_0 ...) (live-loc-clo (E ρ)))]
-  [(live-loc-K (beg (E ρ) ... a))
+  [(live-loc-K (BEG (E ρ) ... a))
    (a a_0 ... ...)
    (where ((a_0 ...) ...) ((live-loc-clo (E ρ)) ...))]
   ;; Probably want V-or-AE to be a closure and traverse it as well.
-  [(live-loc-K (chk C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
+  [(live-loc-K (CHK C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 a))
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))]
-  [(live-loc-K (chk-or V ρ C ρ_2 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
+  [(live-loc-K (CHK-OR V ρ C ρ_2 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
    (a a_0 ... a_1 ... a_2 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ)))
    (where (a_1 ...) (live-loc-env (restrict ρ_2 (fv/C C))))]
-  [(live-loc-K (chk-cons C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 V ρ_2 a))
+  [(live-loc-K (CHK-CONS C ρ ℓ_0 ℓ_1 V-or-AE ℓ_2 V ρ_2 a))
    (a a_0 ... a_1 ... a_2 ...)
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ_2)))
@@ -698,7 +698,7 @@
                             (displayln (term K)) 
                             (displayln (map car (term σ_1)))
                             (error "missing loc in K")))
-          ;#;
+          #;
           (side-condition (begin (set! count (add1 count))
                                  (set! seen (set-add seen (term (E ρ σ_1 K))))
                                  #;(when (> (size  (term (E ρ σ_1 K))) m)
@@ -717,8 +717,8 @@
                                        [(list 'module n lang (list 'define _ ☁) ... prov) n]
                                        [_ #f]))
                               Ms))
-  (cond [(redex-match CESK* (V any any_1 mt) x) "green"]
-        [(redex-match CESK* (B any any_1 mt) x)
+  (cond [(redex-match CESK* (V any any_1 MT) x) "green"]
+        [(redex-match CESK* (B any any_1 MT) x)
          (redex-let CESK*
                     ([(blame ℓ ℓ_0 V C-ext V_0) (car x)])
                     (cond [(equal? (term ℓ) '★) "pink"]
@@ -740,7 +740,7 @@
 (trace-it example-8)
 (trace-it example-8-opaque)
 (trace-it list-id-example)
-(trace-it (term (ann ,cons/c-example-raw)))
+(trace-it (term (annotator ,cons/c-example-raw)))
 |#
 
 (define-syntax (print-here stx)
@@ -826,15 +826,15 @@
 
 (test 
  ;; testing demonic
- (test-->>pE (term (ann [(simple-module p ((cons/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)                         
+ (test-->>pE (term (annotator [(simple-module p ((cons/c exact-nonnegative-integer? exact-nonnegative-integer?) . -> . exact-nonnegative-integer?) ☁)                         
                          (require (only-in p p))
                          (p (cons 1 2))]))
              (term (-- (pred exact-nonnegative-integer? p)))) 
- (test-->>p (term (ann [(simple-module p ((and/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
+ (test-->>p (term (annotator [(simple-module p ((and/c exact-nonnegative-integer? exact-nonnegative-integer?) . -> . exact-nonnegative-integer?) ☁)
                         (require (only-in p p))
                         (p 1)]))
             (term (-- (pred exact-nonnegative-integer? p))))
- (test-->>p (term (ann [(simple-module p ((or/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
+ (test-->>p (term (annotator [(simple-module p ((or/c exact-nonnegative-integer? exact-nonnegative-integer?) . -> . exact-nonnegative-integer?) ☁)
                         (require (only-in p p))
                         (p 1)]))
             (term (-- (pred exact-nonnegative-integer? p)))) 
@@ -845,13 +845,13 @@
             (term (b ^ o))) 
  (test-->>p (term [(require) (@ (-- (λ (o) (@ 4 5 o))) (-- "") sN)])
             (term (blame o Λ (-- 4) λ (-- 4))))
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? exact-nonnegative-integer?) 1) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? exact-nonnegative-integer?) 1) (require (only-in n n)) n]))
             (term (-- 1))) 
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 7)))) 7) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 7)))) 7) (require (only-in n n)) n]))
             (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) 7) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) 7) (require (only-in n n)) n]))
             (term (blame n n (-- 7) (and/c (pred exact-nonnegative-integer? n) (pred (λ (x) (@ = x 8 n)) n)) (-- 7))))
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) "7") (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) "7") (require (only-in n n)) n]))
             (term (blame n n (-- "7") (and/c (pred exact-nonnegative-integer? n) (pred (λ (x) (@ = x 8 n)) n)) (-- "7"))))
  (test-->>p fit-example (term (-- (pred string? rsa))))
  (test-->>p fit-example-keygen-string
@@ -866,23 +866,23 @@
  (test-->>p list-id-example (term (-- (cons (-- 1) 
                                             (-- (cons (-- 2) 
                                                       (-- (cons (-- 3) (-- empty))))))))) 
- (test-->>p (term (ann ,list-rev-example-raw))
+ (test-->>p (term (annotator ,list-rev-example-raw))
             (term (-- (cons (-- 3)
                             (-- (cons (-- 2)
                                       (-- (cons (-- 1)
                                                 (-- empty)))))))))
  
  ;; Not sure about the remembered contracts in these examples. 
- (test-->>p (term (ann [(simple-module n exact-nonnegative-integer? 5) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n exact-nonnegative-integer? 5) (require (only-in n n)) n]))
             (term (-- 5))) 
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- 1) (-- 2)))
                         (require (only-in p p))
                         p]))
             (term (-- (cons (-- 1) (-- 2)) 
                       (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)))))
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (pred (λ (x) (if (cons? x)
                                            (= (first x)
                                               (rest x))
@@ -898,7 +898,7 @@
                                           p)
                                        #f))
                             p))))
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (and/c (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                                  (pred (λ (x) (= (first x) (rest x)))))
                           (cons (-- 1) (-- 1)))
@@ -909,7 +909,7 @@
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p))))
  
  ;; Swap of and/c arguments above
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (and/c (pred (λ (x) (= (first x) (rest x))))
                                  (cons/c exact-nonnegative-integer? exact-nonnegative-integer?))                                
                           (cons (-- 1) (-- 1)))
@@ -919,21 +919,21 @@
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p)
                       (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)))))
  
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- 1) (-- 2)))
                         (require (only-in p p))
                         (first p)]))
             (term (-- 1)))
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- "hi") (-- 2)))
                         (require (only-in p p))
                         (first p)]))
             (term (blame p p (-- (cons (-- "hi") (-- 2))) (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)) (-- (cons (-- "hi") (-- 2))))))
  
- (test-->>p (term (ann [(simple-module p
-                          (cons/c (anything -> exact-nonnegative-integer?) anything)
+ (test-->>p (term (annotator [(simple-module p
+                          (cons/c (anything . -> . exact-nonnegative-integer?) anything)
                           (cons (-- (λ (x) "hi"))
                                 (-- 7)))
                         (require (only-in p p))
@@ -958,23 +958,23 @@
  )
 
 (define fact-prog
-  (term ((simple-module fact (exact-nonnegative-integer? -> exact-nonnegative-integer?)
+  (term ((simple-module fact (exact-nonnegative-integer? . -> . exact-nonnegative-integer?)
            (λ f (x) (if (= x 0) 1 (* x (f (sub1 x))))))
          (simple-module input exact-nonnegative-integer? ☁)
          (require (only-in input input) (only-in fact fact))
          (fact input))))
 
 (define wrong-prog
-  (term ((simple-module fact (exact-nonnegative-integer? -> exact-nonnegative-integer?)
+  (term ((simple-module fact (exact-nonnegative-integer? . -> . exact-nonnegative-integer?)
            (λ f (x) (if (= (add1 x) (add1 0)) 1 (* x (f (sub1 x))))))
          (simple-module input exact-nonnegative-integer? ☁)
          (require (only-in input input) (only-in fact fact))
          (fact input))))
 
 (define fit-ex-prog
-  (term ((simple-module prime? (anything -> boolean?) ☁)
-         (simple-module keygen (anything -> (pred prime?)) ☁) 
-         (simple-module rsa ((pred prime?) -> (string? -> string?)) ☁)
+  (term ((simple-module prime? (anything . -> . boolean?) ☁)
+         (simple-module keygen (anything . -> . (pred prime?)) ☁) 
+         (simple-module rsa ((pred prime?) . -> . (string? . -> . string?)) ☁)
          (require (only-in keygen keygen) (only-in rsa rsa))
          ((rsa (keygen #f)) "Plain"))))
 
