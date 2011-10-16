@@ -209,11 +209,9 @@ E
   
   ;; Raw, unannotated language
   (RARR -> →)
-  (RP (RMOD ... RREQ ... REXP))
+  (RP (RMOD ... RREQ REXP))
   
-  (RMOD (module f LANG REXP ... RDEF ...
-          (provide/contract [f RCON] ...))
-        (module f LANG RREQ ... RSTRUCT ... RDEF ...
+  (RMOD (module f LANG RREQ ... RSTRUCT ... RDEF ...
           (provide/contract [f RCON] ...))
         (module f LANG
           (provide/contract [f RCON] ...))
@@ -221,6 +219,7 @@ E
         (define/contract f RCON bullet))
   
   (MODENV ((f (f ...)) ...))
+  (STRUCTENV ((f (x x x (x ...)) ...) ...))
   (RREQ (require RELEM ...))
   (RELEM f 'f (only-in 'f f ...) (only-in f f ...))
   (RDEF (define f RPV)

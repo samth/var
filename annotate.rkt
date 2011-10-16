@@ -42,7 +42,10 @@ E
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~
   ann : any -> P
-  [(ann (REXP)) (ann ((require) REXP))]
+  [(ann (REXP)) (ann ((require) REXP))]  
+  ;; This stuff is broken.  Taking it out until it is fixed.
+  ;; Example: (module p racket/base (provide/contract)) -- not a require(!)
+  #;
   [(ann (any_m ... any_r any_e)) ,(error "should never happen")
    (side-condition (or (ormap check-mod (term (any_m ...)))
                        (check-req (term any_r))
@@ -50,12 +53,14 @@ E
   [(ann (RMOD ...
          RREQ
          REXP))
-   ((ann-mod (expand-mod RMOD) MODENV) ...
+   ((ann-mod (expand-mod RMOD) MODENV STRUCTENV) ...
     (require (only-in f_4 f_5 ...) ...)
     (ann-exp REXP † ((f_4 (f_5 ...)) ...) ()))   
    (where ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...) ((expand-mod RMOD) ...))
    (where MODENV ([f_nam (f_exp ...)] ...))
-   (where (require (only-in f_4 f_5 ...) ...) (ann-req (RREQ) MODENV))])
+   (where (require (only-in f_4 f_5 ...) ...) (ann-req (RREQ) MODENV))
+   ;; FIXME BOGUS PLACEHOLDER FOR NOW.
+   (where STRUCTENV ())])
 
 ;; Annotate RE with inside module ℓ, using MODENV module environment and (f ...) local environment.
 (define-metafunction λc~
@@ -122,7 +127,12 @@ E
    (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)]
   [(ann-one-req f MODENV) 
    (only-in f f_1 ...)
-   (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)])
+   (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)]
+  [(ann-one-req f MODENV)  ;; Unbound module reference
+   (only-in f)] 
+  [(ann-one-req 'f MODENV)  ;; Unbound module reference
+   (only-in f)])
+
 
 (define-metafunction λc~
   expand-mod : RMOD -> RMOD
@@ -143,27 +153,30 @@ E
   [(expand-mod RMOD) RMOD])
 
 (define-metafunction λc~
-  ann-mod : RMOD MODENV -> M
+  ann-mod : RMOD MODENV STRUCTENV -> M
   [(ann-mod (module f LANG 
               RREQ ...
               RSTRUCT ...
               RDEF ...
               (provide/contract [f_3 RCON] ...))
-            MODENV)
+            MODENV
+            STRUCTENV)
    (ann-mod
     (module f LANG
       R
       RSTRUCT ...
       RDEF ...
       (provide/contract [f_3 RCON] ...))
-    MODENV)
+    MODENV
+    STRUCTENV)
    (where R (ann-req (RREQ ...) MODENV))
    (side-condition (not (redex-match λc~ (R) (term (RREQ ...)))))]
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
               RSTRUCT ...
               RDEF ...
               (provide/contract [f_3 RCON] ...))
-            MODENV)
+            MODENV
+            STRUCTENV)
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      RSTRUCT ...
@@ -220,8 +233,8 @@ E
    (pred (λ (x) "this is the fall-through case") ★)]
   [(ann-con RCON ℓ MODENV (f ...)) RCON])
 
-(test
- (test-equal (term (ann-con (even? -> even?) dbl ([e/o (even?)]) (dbl)))
+(test 
+ (test-equal (term (ann-con (-> even? even?) dbl ([e/o (even?)]) (dbl)))
              (term ((pred (even? ^ dbl e/o) dbl) -> (pred (even? ^ dbl e/o) dbl))))
  (test-equal (term (ann-con f g ((h (f))) ()))
              (term (pred (f ^ g h) g)))
@@ -232,6 +245,8 @@ E
              (term (pred (f ^ g h) g)))
  
  ;; Totality test
+ ;; BROKEN BY ALL KINDS OF VIOLATED ASSUMPTIONS LIKE SAME NAMES DEFINED IN DIFFERENT MODULES
+ #;
  (redex-check λc~ RP (redex-match λc~ P (term (ann RP))))
  
  ;; Broken by adding realish modules.
@@ -245,4 +260,45 @@ E
              (term ((module f racket (require) (define g 1) (provide/contract [g (pred (λ (x) #t) f)])) 
                     (require)
                     (λ (f) f)))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; structure definitions
+
+(define-metafunction λc~
+  struct-env : RMOD ... -> STRUCTENV
+  [(struct-env (module f LANG RREQ RSTRUCT ... RDEF ...
+                 (provide/contract [f_1 RCON] ...)) ...)
+   ((f (struct-names RSTRUCT) ...) ...)])
+ 
+(define-metafunction λc~
+  struct-names : RSTRUCT -> (x x x (x ...))
+  [(struct-names (struct x_tag (x_fld ...)))
+   (x_tag (tag->cons x_tag) (tag->pred x_tag) ((fld->acc x_tag x_fld) ...))])
+
+;; Change this if you want constructors and tags to be different.
+(define-metafunction λc~
+  tag->cons : x -> x
+  [(tag->cons x) x])
+(define-metafunction λc~
+  tag->pred : x -> x
+  [(tag->pred x) ,(string->symbol (format "~a?" (term x)))])
+(define-metafunction λc~
+  fld->acc : x x -> x
+  [(fld->acc x_tag x_fld) ,(string->symbol (format "~a-~a" (term x_tag) (term x_fld)))])
+        
+        
+(test
+ (test-equal (term (tag->cons posn)) (term posn))
+ (test-equal (term (tag->pred posn)) (term posn?))
+ (test-equal (term (fld->acc posn x)) (term posn-x))
+ (test-equal (term (fld->acc posn y)) (term posn-y))
+ 
+ (test-equal (term (struct-names (struct posn (x y))))                                 
+             (term (posn posn posn? (posn-x posn-y))))
+ 
+ (test-equal (term (struct-env (module p racket
+                                 (require)
+                                 (struct posn (x y))
+                                 (provide/contract))))
+             (term ((p (posn posn posn? (posn-x posn-y)))))))
 
