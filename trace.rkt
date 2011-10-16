@@ -1,5 +1,5 @@
 #lang racket
-(require redex racket/pretty unstable/pretty)
+(require redex/reduction-semantics racket/pretty unstable/pretty)
 (require "lang.rkt" "examples.rkt" "step.rkt" "annotate.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test trace)

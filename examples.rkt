@@ -9,8 +9,8 @@
 
 ;; Modified from Figure 8 in paper (8 -> #f).
 (define example-8-raw
-  (term [(module f racket (require) (define (f x) x) (provide/contract [f (anything -> (anything -> anything))]))
-         (module g racket (require) (define (g x) 0) (provide/contract [g ((pred (λ (x) x)) -> exact-nonnegative-integer?)]))
+  (term [(module f racket (require) (define (f x) x) (provide/contract [f (anything . -> . (anything . -> . anything))]))
+         (module g racket (require) (define (g x) 0) (provide/contract [g ((pred (λ (x) x)) . -> . exact-nonnegative-integer?)]))
          (module h racket (require (only-in f f) (only-in g g)) (define (h z) ((f g) #f)) (provide/contract [h anything]))
          (require (only-in h h))
          (h 0)]))
@@ -22,22 +22,22 @@
    (module f racket (require) (define f any) (provide/contract [f any_C]))])
 
 (define example-8
-  (term [(simple-module f ((any/c) -> ((any/c) -> (any/c))) (λ (x) x))
-         (simple-module g ((pred (λ (x) x) g) -> (nat/c)) (λ (x) 0))
+  (term [(simple-module f ((any/c) -> ((any/c)  ->  (any/c))) (λ (x) x))
+         (simple-module g ((pred (λ (x) x) g)  ->  (nat/c)) (λ (x) 0))
          (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h (any/c)]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
 
 (define example-8-opaque-raw
-  (term [(simple-module f (anything -> (anything -> anything)) ☁)
-         (simple-module g ((pred (λ (x) x)) -> exact-nonnegative-integer?) ☁)
+  (term [(simple-module f (anything . -> . (anything . -> . anything)) ☁)
+         (simple-module g ((pred (λ (x) x)) . -> . exact-nonnegative-integer?) ☁)
          (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) ((f g) #f))) (provide/contract [h anything]))
          (require (only-in h h))
          (h 0)]))
 
 (define example-8-opaque
-  (term [(simple-module f ((any/c) -> ((any/c) -> (any/c))) ☁)
-         (simple-module g ((pred (λ (x) x) g) -> (nat/c)) ☁)
+  (term [(simple-module f ((any/c)  ->  ((any/c)  ->  (any/c))) ☁)
+         (simple-module g ((pred (λ (x) x) g)  ->  (nat/c)) ☁)
          (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h (any/c)]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
@@ -54,20 +54,20 @@
  (test-predicate (redex-match λc~ RP) example-8-raw)
  (test-predicate (redex-match λc~ RP) example-8-opaque-raw) 
 
- (test-predicate (redex-match λc-user C) (term ((pred (λ (x) x) ℓ) -> (nat/c)))))
+ (test-predicate (redex-match λc-user C) (term ((pred (λ (x) x) ℓ)  ->  (nat/c)))))
 
-(define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? -> anything) ☁)))
-(define mod-rsa-raw    (term (simple-module rsa ((pred prime?) -> (string? -> string?)) ☁)))
-(define mod-keygen-raw (term (simple-module keygen (anything -> (pred prime?)) ☁)))
-(define mod-keygen-7-raw (term (simple-module keygen (anything -> (pred prime?)) (λ (x) 7))))
-(define mod-keygen-str-raw (term (simple-module keygen (anything -> (pred prime?)) (λ (x) "Key"))))
+(define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? . -> . anything) ☁)))
+(define mod-rsa-raw    (term (simple-module rsa ((pred prime?) . -> . (string? . -> . string?)) ☁)))
+(define mod-keygen-raw (term (simple-module keygen (anything . -> . (pred prime?)) ☁)))
+(define mod-keygen-7-raw (term (simple-module keygen (anything . -> . (pred prime?)) (λ (x) 7))))
+(define mod-keygen-str-raw (term (simple-module keygen (anything . -> . (pred prime?)) (λ (x) "Key"))))
 (define top-fit-raw (term ((rsa (keygen #f)) "Plain")))
 
-(define mod-prime  (term (simple-module prime? ((pred exact-nonnegative-integer? prime?) -> (pred (λ (x) #t) prime?)) ☁)))
-(define mod-rsa    (term (simple-module rsa ((pred (prime? ^ rsa prime?) rsa) -> ((pred string? rsa) -> (pred string? rsa))) ☁)))
-(define mod-keygen (term (simple-module keygen ((pred (λ (x) #t) keygen) -> (pred (prime? ^ keygen prime?) keygen)) ☁)))
-(define mod-keygen-7 (term (simple-module keygen ((pred (λ (x) #t) keygen) -> (pred (prime? ^ keygen prime?) keygen)) (λ (x) 7))))
-(define mod-keygen-str (term (simple-module keygen ((pred (λ (x) #t) keygen) -> (pred (prime? ^ keygen prime?) keygen)) (λ (x) "Key"))))
+(define mod-prime  (term (simple-module prime? ((pred exact-nonnegative-integer? prime?)  ->  (pred (λ (x) #t) prime?)) ☁)))
+(define mod-rsa    (term (simple-module rsa ((pred (prime? ^ rsa prime?) rsa)  ->  ((pred string? rsa)  ->  (pred string? rsa))) ☁)))
+(define mod-keygen (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) ☁)))
+(define mod-keygen-7 (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) (λ (x) 7))))
+(define mod-keygen-str (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) (λ (x) "Key"))))
 (define top-fit (term (@ (@ (rsa ^ † rsa) (@ (keygen ^ † keygen) #f †) †) "Plain" †)))
 
 (define fit-require (term (require (only-in rsa rsa) (only-in keygen keygen))))
@@ -128,7 +128,7 @@
 
 (define list-id-example-contract
   (term [(simple-module id 
-           (,list-of-nat/c -> ,list-of-nat/c)
+           (,list-of-nat/c  ->  ,list-of-nat/c)
            (λ (ls)
              (if (@ empty? ls id)
                  ls 
@@ -181,12 +181,12 @@
  (test-predicate (redex-match λc~ P) fit-example)
  (test-predicate (redex-match λc~ P) fit-example-alt)
  
- (test-predicate (redex-match λc~ RE) top-fit-raw)
- (test-predicate (redex-match λc~ RM) mod-prime-raw)
- (test-predicate (redex-match λc~ RM) mod-rsa-raw)
- (test-predicate (redex-match λc~ RM) mod-keygen-raw)
- (test-predicate (redex-match λc~ RM) mod-keygen-7-raw)
- (test-predicate (redex-match λc~ RM) mod-keygen-str-raw)
+ (test-predicate (redex-match λc~ REXP) top-fit-raw)
+ (test-predicate (redex-match λc~ RMOD) mod-prime-raw)
+ (test-predicate (redex-match λc~ RMOD) mod-rsa-raw)
+ (test-predicate (redex-match λc~ RMOD) mod-keygen-raw)
+ (test-predicate (redex-match λc~ RMOD) mod-keygen-7-raw)
+ (test-predicate (redex-match λc~ RMOD) mod-keygen-str-raw)
  
  (test-predicate (redex-match λc~ RP) fit-example-raw))
 

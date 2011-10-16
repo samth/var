@@ -1,5 +1,5 @@
 #lang racket
-(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") redex "step.rkt")
+(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") redex/reduction-semantics "step.rkt")
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
@@ -17,51 +17,59 @@
                       (match p
                         [(list 'blame '★ _ (... ...)) #t] [_ #f]))
                     (eval_vcc~Δ  (term-let ([(m (... ...)) (unbox the-module-context)])
-                                           (term (ann/define-contract [m (... ...) e])))))))]))
+                                           (term (annotator [m (... ...) e])))))))]))
+
+(begin-for-syntax 
+  (define-syntax-class verifier-opt
+    [pattern (~datum cesk)
+             #:attr sym 'cesk]
+    [pattern (~datum cesk-trace)
+             #:attr sym 'cesk-trace]
+    [pattern (~datum trace)
+             #:attr sym 'trace]
+    [pattern (~datum count)
+             #:attr sym 'count]))
 
 (define-syntax (#%module-begin stx)
   (syntax-parse stx
     [(_ (~and m ((~datum module) . _)) ...)
-	#`(r:#%module-begin 
-	   (set-box! the-module-context '(m ...)))]
-    [(_ (~optional (~and kw (~or (~datum cesk) (~datum cesk-trace) (~datum trace) (~datum count)))) m ... e)
      #`(r:#%module-begin 
-        (parameterize ([reduction-steps-cutoff 100]) 
-          (set-box! the-module-context '(m ...))
-          ;(step-it -->_vcc~Δ (term (ann [m ... e])))
-          #,(begin
-              (cond 
-                [(and (attribute kw)
-                      (eq? (syntax-e (attribute kw)) 'trace))
-                 #'(trace-it -->_vcc~Δ (term (ann/define-contract [m ... e])))  
-                 ;;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
-                 ]
-                [(and (attribute kw)
-                      (eq? (syntax-e (attribute kw)) 'count))
-                 #'(let ([k 0]) 
-                     (count-it (term (ann/define-contract [m ... e])) k)
-                     (printf "~a terms explored\n" k))]
-                [(and (attribute kw)
-                      (eq? (syntax-e (attribute kw)) 'cesk-trace))
-                 #'(c:trace-it (term (ann/define-contract [m ... e])))]
-                [(and (attribute kw)
-                      (eq? (syntax-e (attribute kw)) 'cesk))
-                 #'(apply values
-                          (filter-not
-                           (λ (p)
-                             (match p
-                               [(list (list 'blame '★ _ (... ...)) _ (... ...)) #t]
-                               [_ #f]))
-                           (c:final (term (ann/define-contract [m ... e])))))]
-                [else 
-                 #'(apply values
-                          (map clean-up
-                                (filter-not
-                                 (λ (p)
-                                   (match p
-                                     [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                                 (map (λ (x) x #;(term (unann-exp ,x)))   
-                                      (eval_vcc~Δ  (term (ann/define-contract [m ... e])))))))]))))]))
+        (set-box! the-module-context '(m ...)))]
+    [(_ (~optional kw:verifier-opt #:defaults ([kw.sym #f]))
+        m ... e)
+     #`(r:#%module-begin
+        ((dynamic-require 'redex 'reduction-steps-cutoff) 100)
+        (set-box! the-module-context '(m ...))
+        (define the-program (term (annotator [m ... e])))
+        ;(step-it -->_vcc~Δ (term (ann [m ... e])))
+        #,(case (attribute kw.sym) 
+            [(trace)
+             #'(trace-it -->_vcc~Δ the-program)  
+             ;;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
+             ]
+            [(count)
+             #'(let ([k 0]) 
+                 (count-it the-program k)
+                 (printf "~a terms explored\n" k))]
+            [(cesk-trace)
+             #'(c:trace-it the-program)]
+            [(cesk)
+             #'(apply values
+                      (filter-not
+                       (λ (p)
+                         (match p
+                           [(list (list 'blame '★ _ (... ...)) _ (... ...)) #t]
+                           [_ #f]))
+                       (c:final the-program)))]
+            [else 
+             #'(apply values
+                      (map clean-up
+                           (filter-not
+                            (λ (p)
+                              (match p
+                                [(list 'blame '★ _ (... ...)) #t] [_ #f]))
+                            (map (λ (x) x #;(term (unann-exp ,x)))   
+                                 (eval_vcc~Δ  the-program)))))]))]))
 
 (define (clean-up r)
   (match r

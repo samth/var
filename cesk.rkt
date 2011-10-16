@@ -1,5 +1,5 @@
 #lang racket
-(require (except-in redex plug))
+(require (except-in redex/reduction-semantics plug))
 (require "lang.rkt" "flat-check.rkt" "meta.rkt" "alpha.rkt" "util.rkt" "annotate.rkt" "examples.rkt" 
          (only-in "step.rkt" lookup-modref/val lookup-modref/con))
 (provide (except-out (all-defined-out) test))

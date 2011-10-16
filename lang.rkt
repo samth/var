@@ -1,5 +1,5 @@
 #lang racket
-(require redex "util.rkt")
+(require redex/reduction-semantics "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test lang)
   

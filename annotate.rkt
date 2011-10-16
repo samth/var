@@ -17,12 +17,39 @@
 E
 |#
 
+#|
+
+Pass 0: insert omitted require 
+Pass 1: expand `define-contract'
+Pass 2: expand shorthands
+ - (define (f x) E)
+ - (require foo)
+ - missing opaque defs
+ - omitted requires
+Pass 3: Annotate expressions/predicates
+ - add @
+ - expand modules references
+
+|#
+
 (define-metafunction λc~
-  ann/define-contract : (any ...) -> P
+  annotator : (any ...) -> P
+  [(annotator (any)) (annotator ((require) any))]
+  [(annotator (any ...))
+   P
+   (where (any_m ... RREQ_1 any_e) (ann/define-contract (any ...)))   
+   (where (RMOD_1 ...) ((expand-mod any_m) ...))
+   (where MODENV (mod-env (RMOD_1 ...)))
+   (where R (ann-req RREQ_1 MODENV))
+   (where (M ...) ((ann-mod RMOD_1 MODENV) ...))
+   (where E (ann-exp any_e † MODENV ()))
+   (where P (M ... R E))])
+
+(define-metafunction λc~
+  ann/define-contract : (any ...) -> (any ...)
   [(ann/define-contract ((define-contract x RCON) any ...))
    (ann/define-contract (replace x RCON (any ...)))]
-  [(ann/define-contract (any ...))
-   (ann (any ...))])
+  [(ann/define-contract (any ...)) (any ...)])
 
 (define (check-mod M)
   (unless (redex-match λc~ RMOD M)
@@ -38,29 +65,12 @@ E
   (unless (redex-match λc~ RREQ R)
     (error 'require "not a require: ~a" R))
   #f)
-           
-;; Annotate a "raw" program with labels, @, etc.
+
 (define-metafunction λc~
-  ann : any -> P
-  [(ann (REXP)) (ann ((require) REXP))]  
-  ;; This stuff is broken.  Taking it out until it is fixed.
-  ;; Example: (module p racket/base (provide/contract)) -- not a require(!)
-  #;
-  [(ann (any_m ... any_r any_e)) ,(error "should never happen")
-   (side-condition (or (ormap check-mod (term (any_m ...)))
-                       (check-req (term any_r))
-                       (check-expr (term any_e))))]
-  [(ann (RMOD ...
-         RREQ
-         REXP))
-   ((ann-mod (expand-mod RMOD) MODENV STRUCTENV) ...
-    (require (only-in f_4 f_5 ...) ...)
-    (ann-exp REXP † ((f_4 (f_5 ...)) ...) ()))   
-   (where ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...) ((expand-mod RMOD) ...))
-   (where MODENV ([f_nam (f_exp ...)] ...))
-   (where (require (only-in f_4 f_5 ...) ...) (ann-req (RREQ) MODENV))
-   ;; FIXME BOGUS PLACEHOLDER FOR NOW.
-   (where STRUCTENV ())])
+  mod-env : (RMOD ...) -> MODENV
+  [(mod-env ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...))
+   MODENV
+   (where MODENV ([f_nam (f_exp ...)] ...))])
 
 ;; Annotate RE with inside module ℓ, using MODENV module environment and (f ...) local environment.
 (define-metafunction λc~
@@ -113,39 +123,37 @@ E
   [(unfold-def RDEF) RDEF])
 
 (define-metafunction λc~
-  ann-req : (RREQ ...) MODENV -> R
-  [(ann-req ((require (only-in f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
-  [(ann-req ((require (only-in 'f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
-  [(ann-req ((require any ...) ...) MODENV) (ann-req ((require (ann-one-req any MODENV) ...) ...) MODENV)])
+  ann-req : RREQ MODENV -> R  
+  [(ann-req (require any ...) MODENV) (require (ann-one-req any MODENV) ...)])
 
 (define-metafunction λc~
   ann-one-req : any MODENV -> any
   [(ann-one-req (only-in f f_1 ...) MODENV) (only-in f f_1 ...)]
   [(ann-one-req (only-in 'f f_1 ...) MODENV) (only-in f f_1 ...)] 
-  [(ann-one-req 'f MODENV) 
-   (only-in f f_1 ...)
-   (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)]
+  [(ann-one-req 'f MODENV) (ann-one-req f MODENV)]
   [(ann-one-req f MODENV) 
    (only-in f f_1 ...)
    (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)]
   [(ann-one-req f MODENV)  ;; Unbound module reference
-   (only-in f)] 
-  [(ann-one-req 'f MODENV)  ;; Unbound module reference
    (only-in f)])
 
 
 (define-metafunction λc~
   expand-mod : RMOD -> RMOD
+  ;; define/contract as shorthand
   [(expand-mod (define/contract f RCON any))
    (module f racket (require) (define f any) (provide/contract [f RCON]))]
-  [(expand-mod (module f LANG RSTRUCT ... RDEF ... (provide/contract [f_3 RCON] ...)))
-   (expand-mod (module f LANG (require) RSTRUCT ... RDEF ... (provide/contract [f_3 RCON] ...)))]
+  ;; combine requires into one, add if missing
+  [(expand-mod (module f LANG (require any_relem ...) ... RSTRUCT ... RDEF ... (provide/contract [f_3 RCON] ...)))
+   (expand-mod (module f LANG (require any_relem ... ...) RSTRUCT ... RDEF ... (provide/contract [f_3 RCON] ...)))
+   (side-condition (not (= 1 (length (term ((require any_relem ...) ...))))))]
+  ;; fill in definitions if there are no definitions
   [(expand-mod (module f LANG
-                 (require (only-in f_1 f_2 ...) ...)
+                 (require any_relem ...)
                  RSTRUCT ...
                  (provide/contract [f_3 RCON] ...)))
    (module f LANG
-     (require (only-in f_1 f_2 ...) ...)
+     (require any_relem ...)
      RSTRUCT ...
      (define f_3 •)
      ...
@@ -153,36 +161,20 @@ E
   [(expand-mod RMOD) RMOD])
 
 (define-metafunction λc~
-  ann-mod : RMOD MODENV STRUCTENV -> M
+  ann-mod : RMOD MODENV -> M  
   [(ann-mod (module f LANG 
-              RREQ ...
+              RREQ
               RSTRUCT ...
               RDEF ...
               (provide/contract [f_3 RCON] ...))
-            MODENV
-            STRUCTENV)
-   (ann-mod
-    (module f LANG
-      R
-      RSTRUCT ...
-      RDEF ...
-      (provide/contract [f_3 RCON] ...))
-    MODENV
-    STRUCTENV)
-   (where R (ann-req (RREQ ...) MODENV))
-   (side-condition (not (redex-match λc~ (R) (term (RREQ ...)))))]
-  [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
-              RSTRUCT ...
-              RDEF ...
-              (provide/contract [f_3 RCON] ...))
-            MODENV
-            STRUCTENV)
+            MODENV)
    (module f LANG
      (require (only-in f_1 f_2 ...) ...)
      RSTRUCT ...
      (define f_4 (ann-rhs any f ((f_1 (f_2 ...)) ...) (f_4 ...)))
      ...
      (provide/contract [f_3 (ann-con RCON f ((f_1 (f_2 ...)) ...) (f_4 ...))] ...))
+   (where (require (only-in f_1 f_2 ...) ...) (ann-req RREQ MODENV))
    (where ((define f_4 any) ...) ((unfold-def RDEF) ...))])
 
 (define-metafunction λc~
@@ -254,9 +246,9 @@ E
  (test-equal (term (ann ,fit-example-raw)) fit-example)
  (test-equal (term (ann ,list-id-example-raw)) list-id-example)
  |#
- (test-equal (term (ann ((module f racket (require) (define g 1) (provide/contract [g anything]))
-                         (require)
-                         (λ (f) f))))
+ (test-equal (term (annotator ((module f racket (require) (define g 1) (provide/contract [g anything]))
+                               (require)
+                               (λ (f) f))))
              (term ((module f racket (require) (define g 1) (provide/contract [g (pred (λ (x) #t) f)])) 
                     (require)
                     (λ (f) f)))))
