@@ -1,8 +1,7 @@
 #lang var trace
-(module m racket
-  (require) 
+(module m racket 
   (struct s (x y z))
-  (provide/contract [make-s any]))
+  (provide/contract [s any?]))
 
-(require (only-in m make-s))
-(make-s 7)
+(require m)
+(s 7)
