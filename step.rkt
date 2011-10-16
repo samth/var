@@ -20,13 +20,13 @@
         β-rec)
    (--> (@ V U ... ℓ)
         (blame ℓ  Λ V λ V)
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
         (side-condition (not (equal? (length (term (U ...)))
                                      (term (arity V)))))
         wrong-arity)
    (--> (@ V U ... ℓ)
         (blame ℓ Λ V λ V)
-        (side-condition (term (∈ #f (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
         wrong-not-proc)
    (--> (if V E_1 E_2) E_1
         (side-condition (term (∈ #f (δ (@ false? V ★)))))
@@ -55,10 +55,10 @@
  (test--> v (term (if (-- #t) 1 2)) (term 1))
  (test--> v (term (if (-- #f) 1 2)) (term 2))
  (test--> v (term (@ add1 (-- 0) †)) (term (-- 1)))
- (test--> v (term (@ proc? (-- #f) †)) (term (-- #f)))
- (test--> v (term (@ proc? (-- (λ (x) x)) †)) (term (-- #t)))
- (test--> v (term (@ proc? (-- (λ f (x) x)) †)) (term (-- #t)))
- (test--> v (term (@ proc? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
+ (test--> v (term (@ procedure? (-- #f) †)) (term (-- #f)))
+ (test--> v (term (@ procedure? (-- (λ (x) x)) †)) (term (-- #t)))
+ (test--> v (term (@ procedure? (-- (λ f (x) x)) †)) (term (-- #t)))
+ (test--> v (term (@ procedure? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
  (test--> v (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
  
  (test-->> -->_v (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
@@ -67,7 +67,7 @@
  (test-->> -->_v (term (if #t 1 2)) (term (-- 1)))
  (test-->> -->_v (term (if #f 1 2)) (term (-- 2)))
  (test-->> -->_v (term (@ add1 0 †))  (term (-- 1)))
- (test-->> -->_v (term (@ proc? #f †)) (term (-- #f)))
+ (test-->> -->_v (term (@ procedure? #f †)) (term (-- #f)))
  (test-->> -->_v (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
 
 (define flat? (redex-match λc~ FLAT))
@@ -138,14 +138,14 @@
    
    ;; BLESSING
    (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        ((C_1 ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (remember-contract V (pred proc? Λ)))
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        ((C_1 ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (remember-contract V (pred procedure? Λ)))
+        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
         chk-fun-pass)   
    
    ;; DAMNING
    (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> any) V)
-        (side-condition (term (∈ #f (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
         chk-fun-fail-flat)))
 
 (test
@@ -191,7 +191,7 @@
         ;; do bad things in case of a concrete value
         (amb E_result
              (begin (demonic* C_demon V_demon) E_result) ...)
-        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition (equal? (length (term (V ...)))
                                 (term (arity AV))))
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
@@ -209,7 +209,7 @@
              (begin (demonic* (any/c) V) (-- (any/c)))
              ...)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
-        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition (not (term (arity AV))))
         apply-abs-no-arity)
    

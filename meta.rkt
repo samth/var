@@ -42,7 +42,7 @@
   demonic : C -> L
   [(demonic FC) (λ (x) #t)]
   [(demonic (pred SV ℓ)) ;; MAYBE improve me: special case o?
-   (λ f (x) (if (@ proc? x ★) 
+   (λ f (x) (if (@ procedure? x ★) 
                 (@ f (@ x (-- (any/c)) ★) ★)  ;; want to add fact that x is a proc.
                 (if (@ cons? x ★)
                     (amb (@ f (@ first x ★) ★)
@@ -86,7 +86,7 @@
 
 (test
  (test-equal (term (proves (-- "Hi") string?)) #t)
- (test-equal (term (proves ((--> (any/c)) <= f g (-- 0) h (-- (pred proc? Λ))) proc?)) #t))
+ (test-equal (term (proves ((--> (any/c)) <= f g (-- 0) h (-- (pred procedure? Λ))) procedure?)) #t))
 
 ;; Does (negate o?) hold on all values abstracted by AV
 (define-metafunction λc~
@@ -99,7 +99,7 @@
    (where #f (plain-δ o? PV Λ))]
   [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_1) o?)
    #t
-   (side-condition (not (eq? 'proc? (term o?))))]
+   (side-condition (not (eq? 'procedure? (term o?))))]
   [(refutes ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) o?)
    (refutes V o?)]
   [(refutes V o?) #f])
@@ -107,7 +107,7 @@
 (test
  (test-equal (term (refutes (-- 0) empty?)) #t)
  (test-equal (term (refutes (-- (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p))) cons?)) #f)
- (test-equal (term (refutes ((--> (any/c)) <= f g (-- 0) h (-- (pred exact-nonnegative-integer? Λ))) proc?)) #t))
+ (test-equal (term (refutes ((--> (any/c)) <= f g (-- 0) h (-- (pred exact-nonnegative-integer? Λ))) procedure?)) #t))
 
 ;; Does satisfying C imply o?
 (define-metafunction λc~
@@ -121,7 +121,7 @@
    ,(or (term (proves-con C_0 o?))
         (term (proves-con C_1 o?)))]
   [(proves-con (cons/c C_0 C_1) cons?) #t]
-  [(proves-con (C_0 ... -> any) proc?) #t]
+  [(proves-con (C_0 ... -> any) procedure?) #t]
   [(proves-con C o?) #f])
 
 (define-metafunction λc~
@@ -134,7 +134,7 @@
 ;; Does satisfying C imply (negate o?)
 (define-metafunction λc~
   refutes-con : C o? -> #t or #f
-  [(refutes-con (C_0 ... -> any) proc?) #f]
+  [(refutes-con (C_0 ... -> any) procedure?) #f]
   [(refutes-con (C_0 ... -> any) o?) #t]
   [(refutes-con (pred o?_0 ℓ) o?_1) 
    (refutes-predicate o?_0 o?_1)]
@@ -161,7 +161,7 @@
   [(refutes-predicate zero? exact-nonnegative-integer?) #f]
   [(refutes-predicate exact-nonnegative-integer? o?) #t]
   [(refutes-predicate zero? o?) #t]
-  [(refutes-predicate proc? o?) #t]
+  [(refutes-predicate procedure? o?) #t]
   [(refutes-predicate boolean? false?) #f]
   [(refutes-predicate boolean? o?) #t]
   [(refutes-predicate string? o?) #t]
@@ -256,7 +256,7 @@
    ]
   [(contract-not-in/cache FC V any)
    #t
-   (where #t (proves V proc?))]
+   (where #t (proves V procedure?))]
   [(contract-not-in/cache (and/c C_1 C_2) V ((C_3 V_3) ...))
    ,(or (term (contract-not-in/cache C_1 V (((and/c C_1 C_2) V) (C_3 V_3) ...)))
         (term (contract-not-in/cache C_2 V (((and/c C_1 C_2) V) (C_3 V_3) ...))))]
@@ -271,7 +271,7 @@
   
   [(contract-not-in/cache (C_1 ... -> any) V any_1)
    #t
-   (where #t (refutes V proc?))]
+   (where #t (refutes V procedure?))]
   
   [(contract-not-in/cache C V any) #f])
 
@@ -294,7 +294,7 @@
 (define-metafunction λc~
   δ : (@ op V ... ℓ) -> (V-or-B V-or-B ...)
   [(δ (@ cons V_0 V_1 ℓ)) ((-- (cons V_0 V_1)))]  
-  [(δ (@ proc? ((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 any_1) ℓ)) ((-- #t))]
+  [(δ (@ procedure? ((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 any_1) ℓ)) ((-- #t))]
   [(δ (@ op V_0 ... ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) V_1 ... ℓ))
    (δ (@ op V_0 ... V V_1 ... ℓ))]
   [(δ (@ op (-- PV C ...) ... ℓ)) (wrap (plain-δ op PV ... ℓ))]
@@ -314,8 +314,8 @@
   [(plain-δ boolean? PV ℓ) #f]
   [(plain-δ zero? 0 ℓ) #t]
   [(plain-δ zero? nat ℓ) #f]
-  [(plain-δ proc? L ℓ) #t]
-  [(plain-δ proc? PV ℓ) #f]
+  [(plain-δ procedure? L ℓ) #t]
+  [(plain-δ procedure? PV ℓ) #f]
   [(plain-δ empty? empty ℓ) #t]
   [(plain-δ empty? PV ℓ) #f]
   [(plain-δ cons? (cons V_0 V_1) ℓ) #t]
@@ -551,13 +551,13 @@
  (test-equal (term (δ (@ cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0) q)))
              (term ((-- (cons ((--> (nat/c)) <= f g (-- 0) h (-- (λ () 0))) (-- 0))))))
  
- (test-equal (term (δ (@ proc? (-- ((any/c) -> (any/c))) †)))
+ (test-equal (term (δ (@ procedure? (-- ((any/c) -> (any/c))) †)))
              (term ((-- #t))))
  
  (test-equal (term (δ (@ cons (-- 1) (-- 2) †)))
              (term ((-- (cons (-- 1) (-- 2))))))
  
- (test-equal (term (δ (@ proc? (-- (nat/c)) ★)))
+ (test-equal (term (δ (@ procedure? (-- (nat/c)) ★)))
              (term ((-- #f))))
  
  (test-equal (term (δ (@ rest (-- (cons/c (any/c) (any/c))) f))) 
@@ -568,13 +568,13 @@
  (test-equal (term (proj-right (-- (cons/c (any/c) (or/c (nat/c) (string/c))))))
              (term ((-- (nat/c)) (-- (string/c)))))
  
- (test-equal (term (refutes (-- (nat/c)) proc?))
+ (test-equal (term (refutes (-- (nat/c)) procedure?))
              #t)
              
- (test-equal (term (refutes-con (nat/c) proc?))
+ (test-equal (term (refutes-con (nat/c) procedure?))
              #t)
  
- (redex-check λc~ WFV (term (∈ #f (δ (@ proc? WFV ℓ)))))
+ (redex-check λc~ WFV (term (∈ #f (δ (@ procedure? WFV ℓ)))))
  
  (test-equal (term (proves (-- #t) boolean?)) #t)
  

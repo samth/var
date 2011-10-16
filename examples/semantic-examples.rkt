@@ -6,7 +6,7 @@
 (define/contract g (-> zero? exact-nonnegative-integer?) •)
 (define/contract f (-> (-> exact-nonnegative-integer? exact-nonnegative-integer?) boolean?) •)
 (define/contract q (-> any? any?) •)
-(define/contract p proc? •)
+(define/contract p procedure? •)
 
 (define/contract zo? (-> any? boolean?)
   (λ (x)
@@ -39,7 +39,7 @@
 ;n
 ;(if b 7 "fred")
 ;(add1 n)
-;(proc? g)
+;(procedure? g)
 ;(g 7)
 ;(g n)
 ;(q q)

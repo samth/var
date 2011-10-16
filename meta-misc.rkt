@@ -27,7 +27,7 @@
  (test-equal (term (arity (-- ((nat/c) (nat/c) -> (nat/c))))) 2)
  (test-equal (term (arity (-- ((nat/c) (nat/c) -> (λ (x y) (nat/c)))))) 2)
  (test-equal (term (arity (-- (string/c) ((nat/c) (nat/c) -> (nat/c))))) 2)
- (test-equal (term (arity (-- (pred proc? f)))) #f))
+ (test-equal (term (arity (-- (pred procedure? f)))) #f))
 
 
 (define-metafunction λc~ 
@@ -97,7 +97,7 @@
  (test-equal (term (remember-contract ((--> (any/c)) <= f g (-- 0) h (-- (any/c))) (nat/c)))
              (term ((--> (any/c)) <= f g (-- 0) h (-- (nat/c)))))
  
- (test-equal (term (remember-contract (-- (λ (x) x)) (pred proc? Λ)))
+ (test-equal (term (remember-contract (-- (λ (x) x)) (pred procedure? Λ)))
              (term (-- (λ (x) x))))
  (test-equal (term (remember-contract (-- 1) (nat/c)))
              (term (-- 1)))
@@ -132,7 +132,7 @@
 
 (test
  (redex-check λc~ AV
-              (if (term (∈ #t (δ (@ proc? AV ★))))
+              (if (term (∈ #t (δ (@ procedure? AV ★))))
                   (= (term (arity AV))
                      (length (term (domain-contracts ,(cdr (term AV))))))
                   #t))

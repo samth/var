@@ -91,7 +91,7 @@ E
   (o1 o? first rest nat->nat)
   (nat->nat add1 sub1)
   ;; Built-in predicates
-  (o? zero? proc? empty? cons? exact-nonnegative-integer? string? boolean? false?)
+  (o? zero? procedure? empty? cons? exact-nonnegative-integer? string? boolean? false?)
   (o2 nat*nat->nat nat*nat->bool cons string*string->bool)
   (nat*nat->nat + - * expt)
   (nat*nat->bool = < <= > >=)
@@ -178,7 +178,7 @@ E
   ;; Definite procedure contract
   (WC! WC!* (and/c C WC!) (and/c WC! C))
   (WC!* WC!*-top (rec/c x WC!))
-  (WC!*-top (C ... -> C) (C ..._1 -> (λ (x ..._1) C)) (pred proc? ℓ))
+  (WC!*-top (C ... -> C) (C ..._1 -> (λ (x ..._1) C)) (pred procedure? ℓ))
   
   ;; Definite procedure  
   (W .... 
@@ -198,7 +198,7 @@ E
         (or/c FVC! WC!)
         (or/c WC! FVC!)       
         (rec/c x WC?))  
-  (WC?*-top (pred (side-condition SV_1 (not (equal? (term SV_1) 'proc?))) ℓ))
+  (WC?*-top (pred (side-condition SV_1 (not (equal? (term SV_1) 'procedure?))) ℓ))
 
   ;; Maybe procedure
   (W? W (-- C*-top ... WC?*-top C*-top ...))

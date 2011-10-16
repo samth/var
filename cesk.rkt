@@ -193,7 +193,7 @@
         (where (a_new) (alloc σ (V)))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))        
         (where σ_1 (extend-sto1 σ a_new (V ρ)))        
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
         chk-fun-pass)
            
    ;; Nullary function application
@@ -288,7 +288,7 @@
    ;; APPLICATIONS GONE WRONG
    (--> (U ρ σ (ap ((V ρ_0) clo ...) () ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
-        (side-condition (term (∈ #t (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
         (side-condition (not (equal? (add1 (length (term (clo ...))))
                                      (term (arity V)))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
@@ -296,7 +296,7 @@
    
    (--> (U ρ σ (ap ((V ρ_0) clo ...) () ℓ a))
         ((blame ℓ  Λ V λ V) ρ_0 σ K)
-        (side-condition (term (∈ #f (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
         blame-not-proc)  
    
@@ -405,13 +405,13 @@
         ;; NOTE ρ_1 discarded, reported contract not closed
         ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
         (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (side-condition (term (∈ #f (δ (@ proc? V ★)))))
+        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
         chk-fun-fail-flat)
    
    ;; Nullary abstract application
    (--> (AV ρ_0 σ (ap () () ℓ a))
         ((remember-contract (-- (any/c)) (try-close-contract C_0 ρ_0 σ) ...) () σ K)
-        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition (equal? 0 (term (arity AV))))        
         (where (-- C ...) AV)
         (where (C_0 ...) (range-contracts (C ...) ()))
@@ -422,7 +422,7 @@
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
         ((amb (-- 0) (demonic* C_demon U)) ρ_2 σ (beg (E_result ()) a))
         (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
-        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition (equal? (length (term (clo ... V)))
                                 (term (arity AV))))
         (where (-- C ...) AV)
@@ -440,7 +440,7 @@
    (--> (V ρ σ (ap ((AV ρ_1) clo ...) () ℓ a))
         ((amb (-- 0) (demonic* (any/c) U)) ρ_2 σ (beg ((-- (any/c)) ()) a))
         (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
-        (side-condition (term (∈ #t (δ (@ proc? AV ★)))))
+        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
         (side-condition ;; this is a proc with no arity, so it could be anything
          (not (term (arity AV))))
         apply-abs-no-arity)
@@ -778,10 +778,10 @@
  (test-->>c step-gc (term (if (-- #t) 1 2)) (term (-- 1)))
  (test-->>c step-gc (term (if (-- #f) 1 2)) (term (-- 2)))
  (test-->>c step-gc (term (@ add1 (-- 0) †)) (term (-- 1)))
- (test-->>c step-gc (term (@ proc? (-- #f) †)) (term (-- #f)))
- (test-->>c step-gc (term (@ proc? (-- (λ (x) x)) †)) (term (-- #t)))
- (test-->>c step-gc (term (@ proc? (-- (λ f (x) x)) †)) (term (-- #t)))
- (test-->>c step-gc (term (@ proc? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
+ (test-->>c step-gc (term (@ procedure? (-- #f) †)) (term (-- #f)))
+ (test-->>c step-gc (term (@ procedure? (-- (λ (x) x)) †)) (term (-- #t)))
+ (test-->>c step-gc (term (@ procedure? (-- (λ f (x) x)) †)) (term (-- #t)))
+ (test-->>c step-gc (term (@ procedure? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
  (test-->>c step-gc (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
  
  (test-->>c step-gc (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
@@ -790,7 +790,7 @@
  (test-->>c step-gc (term (if #t 1 2)) (term (-- 1)))
  (test-->>c step-gc (term (if #f 1 2)) (term (-- 2)))
  (test-->>c step-gc (term (@ add1 0 †))  (term (-- 1)))
- (test-->>c step-gc (term (@ proc? #f †)) (term (-- #f)))
+ (test-->>c step-gc (term (@ procedure? #f †)) (term (-- #f)))
  (test-->>c step-gc (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
 
 
