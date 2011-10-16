@@ -50,10 +50,10 @@ E
   [(ann (RMOD ...
          RREQ
          REXP))
-   ((ann-mod RMOD MODENV) ...
+   ((ann-mod (expand-mod RMOD) MODENV) ...
     (require (only-in f_4 f_5 ...) ...)
     (ann-exp REXP † ((f_4 (f_5 ...)) ...) ()))   
-   (where ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...) (RMOD ...))
+   (where ((module f_nam LANG any ... (provide/contract [f_exp any_c] ...)) ...) ((expand-mod RMOD) ...))
    (where MODENV ([f_nam (f_exp ...)] ...))
    (where (require (only-in f_4 f_5 ...) ...) (ann-req (RREQ) MODENV))])
 
@@ -125,9 +125,25 @@ E
    (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)])
 
 (define-metafunction λc~
+  expand-mod : RMOD -> RMOD
+  [(expand-mod (define/contract f RCON any))
+   (module f racket (require) (define f any) (provide/contract [f RCON]))]
+  [(expand-mod (module f LANG RSTRUCT ... RDEF ... (provide/contract [f_3 RCON] ...)))
+   (expand-mod (module f LANG (require) RSTRUCT ... RDEF ... (provide/contract [f_3 RCON] ...)))]
+  [(expand-mod (module f LANG
+                 (require (only-in f_1 f_2 ...) ...)
+                 RSTRUCT ...
+                 (provide/contract [f_3 RCON] ...)))
+   (module f LANG
+     (require (only-in f_1 f_2 ...) ...)
+     RSTRUCT ...
+     (define f_3 •)
+     ...
+     (provide/contract [f_3 RCON] ...))]
+  [(expand-mod RMOD) RMOD])
+
+(define-metafunction λc~
   ann-mod : RMOD MODENV -> M
-  [(ann-mod (define/contract f RCON any) MODENV)
-   (ann-mod (module f racket (require) (define f any) (provide/contract [f RCON])) MODENV)]
   [(ann-mod (module f LANG 
               RREQ ...
               RSTRUCT ...
@@ -143,25 +159,6 @@ E
     MODENV)
    (where R (ann-req (RREQ ...) MODENV))
    (side-condition (not (redex-match λc~ (R) (term (RREQ ...)))))]
-  [(ann-mod (module f LANG
-              (provide/contract [f_3 RCON] ...))
-            MODENV)
-   (module f LANG
-     (require)
-     (define f_3 ☁)
-     ...
-     (provide/contract [f_3 (ann-con RCON f () (f_3 ...))] ...))]
-  [(ann-mod (module f LANG
-              (require (only-in f_1 f_2 ...) ...)
-              RSTRUCT ...
-              (provide/contract [f_3 RCON] ...))
-            MODENV)
-   (module f LANG
-     (require (only-in f_1 f_2 ...) ...)
-     RSTRUCT ...
-     (define f_3 ☁)
-     ...
-     (provide/contract [f_3 (ann-con RCON f ((f_1 (f_2 ...)) ...) (f_3 ...))] ...))]
   [(ann-mod (module f LANG (require (only-in f_1 f_2 ...) ...) 
               RSTRUCT ...
               RDEF ...

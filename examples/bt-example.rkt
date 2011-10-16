@@ -26,7 +26,7 @@
 
 ;; First-order
 (module sum  racket
-  (require (only-in left left) (only-in right right) (only-in num num))
+  (require 'left 'right 'num)
   (define sum (λ (t)
     (if (exact-nonnegative-integer? t)
         t
@@ -37,7 +37,7 @@
 
 ;; Higher-order
 (module map racket
-  (require (only-in left left) (only-in right right) (only-in num num))
+  (require 'left 'right 'num)
   (define map 
     (λ (f t)
       (if (exact-nonnegative-integer? t)
@@ -68,7 +68,7 @@
 
 ;; doesn't work because we haven't got (-- rec/c) yet.
 
-(require (only-in sum sum) (only-in bt bt))
+(require 'sum 'bt)
 (sum bt)
 
 

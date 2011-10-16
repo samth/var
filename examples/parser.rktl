@@ -1,39 +1,41 @@
 #lang var ;trace
 
-(module char? (-> anything boolean?) •)
+(define/contract char? (-> anything boolean?) •)
 
 ;; opaque structures
-(module parse-position? (-> anything boolean?) •)
-(module parse-results?  (-> anything boolean?) •)
+(define/contract parse-position? (-> anything boolean?) •)
+(define/contract parse-results?  (-> anything boolean?) •)
 
-(module top-parse-position 
+(define/contract top-parse-position 
   (-> string? parse-position?)
   •)
 
-(module update-parse-position 
+(define/contract update-parse-position 
   (-> parse-position? char? parse-position?)
   •)
 
-(module empty-results
+(define/contract empty-results
   (-> (or/c parse-position? false?) parse-results?)
   •)
 
-(module make-results
+(define/contract make-results
   (-> (or/c parse-position? false?)
       (or/c false? (cons/c anything anything))
       (-> parse-results?)   
       parse-results?)
   •)
 
-(module make-error-expected
+(define/contract make-error-expected
   (-> (or/c parse-position? false?) anything parse-error?)
   •)
 
-(module make-error-message
+(define/contract make-error-message
   (-> (or/c parse-position? false?) string? parse-error?)
   •)
   
-(module m string? "f")
+(define/contract m string? "f")
+
+(require 'empty-results)
 
 (empty-results #f)
 #;m
