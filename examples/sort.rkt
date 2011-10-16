@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt"  ;count ;trace
+#lang var  ;count ;trace
 
 (define-contract list/c
   (rec/c X (or/c empty? (cons/c nat? X))))

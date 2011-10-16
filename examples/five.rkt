@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt"
+#lang var
 ;; Mostly useful as a ground benchmark
 (require)
 5

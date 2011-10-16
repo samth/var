@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt" ;trace
+#lang var ;trace
 
 (define/contract prime? (any? -> bool?) ☁)
 

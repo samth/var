@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt" ;trace
+#lang var ;trace
 
 ;(module prime? (any/c -> bool/c) ☁)
 (define/contract prime? (any? -> bool?) (λ (z) (if (nat? z) (= z 7) false)))

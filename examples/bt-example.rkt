@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt" ;cesk
+#lang var ;cesk
 ;; Binary trees
 
 (define-contract nat/c nat?)

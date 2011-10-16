@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt" ;trace
+#lang var ;trace
 
 (module char? (anything -> bool?) •)
 

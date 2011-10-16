@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt"
+#lang var
 (module e/o racket
   (define even? (λ (n) (if (zero? n) #t (odd? (sub1 n)))))
   (define odd?

@@ -1,4 +1,4 @@
-#lang planet asumu/sweet "../verified.rkt"
+#lang planet asumu/sweet var
 
 define-contract list/c
   rec/c X

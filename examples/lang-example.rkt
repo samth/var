@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt"
+#lang var
 
 (define-contract any/c any?)
 

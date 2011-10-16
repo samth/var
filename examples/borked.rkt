@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt" cesk ;-trace
+#lang var cesk ;-trace
 
 
 (define/contract p (anything -> (anything -> bool?)) (λ (x) (λ (y) x)))

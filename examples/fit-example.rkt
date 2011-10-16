@@ -1,4 +1,4 @@
-#lang s-exp "../verified.rkt"
+#lang var
 
 (module prime? racket (provide/contract [prime? (anything -> bool?)]))
 
