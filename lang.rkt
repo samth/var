@@ -222,7 +222,7 @@ E
   
   (MODENV ((f (f ...)) ...))
   (RREQ (require RELEM ...))
-  (RELEM f (only-in f f ...))
+  (RELEM f 'f (only-in 'f f ...) (only-in f f ...))
   (RDEF (define f RPV)
         (define (f x ...) REXP)
         (define f bullet))

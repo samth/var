@@ -110,11 +110,16 @@ E
 (define-metafunction λc~
   ann-req : (RREQ ...) MODENV -> R
   [(ann-req ((require (only-in f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
+  [(ann-req ((require (only-in 'f ...) ...) ...) MODENV) (require (only-in f ...) ... ...)]
   [(ann-req ((require any ...) ...) MODENV) (ann-req ((require (ann-one-req any MODENV) ...) ...) MODENV)])
 
 (define-metafunction λc~
   ann-one-req : any MODENV -> any
   [(ann-one-req (only-in f f_1 ...) MODENV) (only-in f f_1 ...)]
+  [(ann-one-req (only-in 'f f_1 ...) MODENV) (only-in f f_1 ...)] 
+  [(ann-one-req 'f MODENV) 
+   (only-in f f_1 ...)
+   (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)]
   [(ann-one-req f MODENV) 
    (only-in f f_1 ...)
    (where (any_1 ... (f [f_1 ...]) any_2 ...) MODENV)])

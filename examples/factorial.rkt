@@ -1,13 +1,12 @@
 #lang var ;trace
 (module factorial racket 
-  (define (fact m) 
-    ((λ g (n)
-       (if (zero? n)
-           1
-           (* n (g (sub1 n)))))
-     m))
+  (define (fact n) 
+    (if (zero? n)
+        1
+        (* n (fact (sub1 n)))))
   
-  (provide/contract [fact (-> exact-nonnegative-integer? exact-nonnegative-integer?)]))
+  (provide/contract 
+   [fact (-> exact-nonnegative-integer? exact-nonnegative-integer?)]))
     
-(require factorial)
+(require 'factorial)
 (fact 5)
