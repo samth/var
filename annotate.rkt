@@ -69,8 +69,8 @@ E
    (if (ann-exp RE_0 ℓ MODENV (f ...))
        (ann-exp RE_1 ℓ MODENV (f ...))
        (ann-exp RE_2 ℓ MODENV (f ...)))]
-  [(ann-exp (o RE ...) ℓ MODENV (f ...))
-   (@ o (ann-exp RE ℓ MODENV (f ...)) ... ℓ)]
+  [(ann-exp (op RE ...) ℓ MODENV (f ...))
+   (@ op (ann-exp RE ℓ MODENV (f ...)) ... ℓ)]
   [(ann-exp (let ((x RE_0) ...) RE_1) ℓ MODENV (f ...))
    (let ((x (ann-exp RE_0 ℓ MODENV (f ...))) ...)
      (ann-exp RE_1 ℓ (mod-env-minus MODENV (x ...)) (set-minus (f ...) (x ...))))]
