@@ -1,7 +1,7 @@
 #lang var  ;count ;trace
 
 (define-contract list/c
-  (rec/c X (or/c empty? (cons/c nat? X))))
+  (rec/c X (or/c empty? (cons/c exact-nonnegative-integer? X))))
 
 (module sorted-ne? racket
   ; ...
@@ -15,7 +15,7 @@
 (module insert racket 
   (require (only-in sorted? sorted?))
   ; ...
-  (provide/contract [insert (-> nat? (and/c list/c sorted?) (and/c list/c sorted?))]))
+  (provide/contract [insert (-> exact-nonnegative-integer? (and/c list/c sorted?) (and/c list/c sorted?))]))
 
 (module insertion-sort racket  
   (require (only-in insert insert) (only-in sorted? sorted?))

@@ -106,8 +106,8 @@
 
 (test
  (test-equal (term (refutes (-- 0) empty?)) #t)
- (test-equal (term (refutes (-- (cons/c (pred nat? p) (pred nat? p))) cons?)) #f)
- (test-equal (term (refutes ((--> (any/c)) <= f g (-- 0) h (-- (pred nat? Λ))) proc?)) #t))
+ (test-equal (term (refutes (-- (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p))) cons?)) #f)
+ (test-equal (term (refutes ((--> (any/c)) <= f g (-- 0) h (-- (pred exact-nonnegative-integer? Λ))) proc?)) #t))
 
 ;; Does satisfying C imply o?
 (define-metafunction λc~
@@ -127,7 +127,7 @@
 (define-metafunction λc~
   proves-predicate : o? o? -> #t or #f
   [(proves-predicate o? o?) #t]
-  [(proves-predicate zero? nat?) #t]
+  [(proves-predicate zero? exact-nonnegative-integer?) #t]
   [(proves-predicate false? bool?) #t]
   [(proves-predicate o?_0 o?_1) #f])
 
@@ -157,9 +157,9 @@
   [(refutes-predicate o? o?) #f]
   [(refutes-predicate empty? o?) #t]
   [(refutes-predicate cons? o?) #t]
-  [(refutes-predicate nat? zero?) #f]
-  [(refutes-predicate zero? nat?) #f]
-  [(refutes-predicate nat? o?) #t]
+  [(refutes-predicate exact-nonnegative-integer? zero?) #f]
+  [(refutes-predicate zero? exact-nonnegative-integer?) #f]
+  [(refutes-predicate exact-nonnegative-integer? o?) #t]
   [(refutes-predicate zero? o?) #t]
   [(refutes-predicate proc? o?) #t]
   [(refutes-predicate bool? false?) #f]
@@ -182,7 +182,7 @@
 
   
 ;; Note: (proves-con C o?) and (refutes-con C o?) *both* hold
-;; when C is inconsistent, e.g. (and/c nat? cons?).
+;; when C is inconsistent, e.g. (and/c exact-nonnegative-integer? cons?).
 
 (test
  (test-equal (term (proves-con (pred empty? ℓ) empty?)) #t)
@@ -279,11 +279,11 @@
 
 (test
  ;; testing termination
- (term (contract-not-in (cons/c (pred nat? Λ) (rec/c X (or/c (pred empty? Λ) (cons/c (pred nat? Λ) X))))
+ (term (contract-not-in (cons/c (pred exact-nonnegative-integer? Λ) (rec/c X (or/c (pred empty? Λ) (cons/c (pred exact-nonnegative-integer? Λ) X))))
                         (-- (cons/c (any/c) (rec/c Y (or/c (empty/c) (cons/c (any/c) Y)))))))
  (test-equal (term (contract-not-in (cons/c (any/c) (any/c))  (-- 0)))
              #t)
- (test-equal (term (contract-not-in (rec/c x (or/c (pred empty? Λ) (cons/c (pred nat? Λ) x))) (-- 0)))
+ (test-equal (term (contract-not-in (rec/c x (or/c (pred empty? Λ) (cons/c (pred exact-nonnegative-integer? Λ) x))) (-- 0)))
              #t))
 
 
@@ -320,8 +320,8 @@
   [(plain-δ empty? PV ℓ) #f]
   [(plain-δ cons? (cons V_0 V_1) ℓ) #t]
   [(plain-δ cons? PV ℓ) #f]
-  [(plain-δ nat? nat ℓ) #t]
-  [(plain-δ nat? PV ℓ) #f]
+  [(plain-δ exact-nonnegative-integer? nat ℓ) #t]
+  [(plain-δ exact-nonnegative-integer? PV ℓ) #f]
   [(plain-δ false? #f ℓ) #t]
   [(plain-δ false? PV ℓ) #f]
   [(plain-δ add1 nat ℓ) ,(add1 (term nat))]
@@ -400,13 +400,13 @@
   
   ;; nat->nat
   [(abstract-δ nat->nat V ℓ)
-   ((-- (pred nat? Λ)))
-   (where #t (proves V nat?))]
+   ((-- (pred exact-nonnegative-integer? Λ)))
+   (where #t (proves V exact-nonnegative-integer?))]
   [(abstract-δ nat->nat V ℓ)
    ((blame ℓ nat->nat V λ V))
-   (where #t (refutes V nat?))]
+   (where #t (refutes V exact-nonnegative-integer?))]
   [(abstract-δ nat->nat V ℓ)
-   ((-- (pred nat? Λ))
+   ((-- (pred exact-nonnegative-integer? Λ))
     (blame ℓ nat->nat V λ V))]
   
   ;; first
@@ -434,22 +434,22 @@
   ;; nat*nat->nat
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
    ((-- (nat/c)))
-   (where #t (proves V_0 nat?))
-   (where #t (proves V_1 nat?))]
+   (where #t (proves V_0 exact-nonnegative-integer?))
+   (where #t (proves V_1 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
    ((blame ℓ nat*nat->nat V_0 λ V_0))
-   (where #t (refutes V_0 nat?))]
+   (where #t (refutes V_0 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
    ((blame ℓ nat*nat->nat V_1 λ V_1))
-   (where #t (refutes V_1 nat?))]
+   (where #t (refutes V_1 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
    ((-- (nat/c))
     (blame ℓ nat*nat->nat V_1 λ V_1))
-   (where #t (proves V_0 nat?))]  
+   (where #t (proves V_0 exact-nonnegative-integer?))]  
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
    ((-- (nat/c))
     (blame ℓ nat*nat->nat V_0 λ V_0))
-   (where #t (proves V_1 nat?))]
+   (where #t (proves V_1 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->nat V_0 V_1 ℓ)
    ((-- (nat/c))
     (blame ℓ nat*nat->nat V_0 λ V_0)
@@ -458,24 +458,24 @@
   ;; nat*nat->bool
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
    ((-- #t) (-- #f))
-   (where #t (proves V_0 nat?))
-   (where #t (proves V_1 nat?))]
+   (where #t (proves V_0 exact-nonnegative-integer?))
+   (where #t (proves V_1 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
    ((blame ℓ nat*nat->bool V_0 λ V_0))
-   (where #t (refutes V_0 nat?))]
+   (where #t (refutes V_0 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
    ((blame ℓ nat*nat->bool V_1 λ V_1))
-   (where #t (refutes V_1 nat?))]    
+   (where #t (refutes V_1 exact-nonnegative-integer?))]    
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
    ((-- #t) 
     (-- #f)
     (blame ℓ nat*nat->bool V_1 λ V_1))
-   (where #t (proves V_0 nat?))]  
+   (where #t (proves V_0 exact-nonnegative-integer?))]  
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
    ((-- #t) 
     (-- #f)
     (blame ℓ nat*nat->bool V_0 λ V_0))
-   (where #t (proves V_1 nat?))]
+   (where #t (proves V_1 exact-nonnegative-integer?))]
   [(abstract-δ nat*nat->bool V_0 V_1 ℓ)
    ((-- #t) 
     (-- #f)
@@ -511,8 +511,8 @@
 
 
 ;; Project an AV to the left
-;; (proj-left (-- (cons/c nat? string?) (cons/c zero? string?)))
-;; ≡ (-- nat? zero?)
+;; (proj-left (-- (cons/c exact-nonnegative-integer? string?) (cons/c zero? string?)))
+;; ≡ (-- exact-nonnegative-integer? zero?)
 (define-metafunction λc~
   proj-left : AV -> (V ...)
   [(proj-left (-- C_0 C ...))

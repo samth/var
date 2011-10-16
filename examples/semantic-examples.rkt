@@ -1,16 +1,16 @@
 #lang var ;trace
 
 (define/contract b bool? •)
-(define/contract n nat? •)
-(define/contract c (cons/c nat? nat?) •)
-(define/contract g (-> zero? nat?) •)
-(define/contract f (-> (-> nat? nat?) bool?) •)
+(define/contract n exact-nonnegative-integer? •)
+(define/contract c (cons/c exact-nonnegative-integer? exact-nonnegative-integer?) •)
+(define/contract g (-> zero? exact-nonnegative-integer?) •)
+(define/contract f (-> (-> exact-nonnegative-integer? exact-nonnegative-integer?) bool?) •)
 (define/contract q (-> any? any?) •)
 (define/contract p proc? •)
 
 (define/contract zo? (-> any? bool?)
   (λ (x)
-    (if (nat? x)
+    (if (exact-nonnegative-integer? x)
         (if (zero? x)
             #t
             (if (= x 1)

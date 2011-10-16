@@ -1,7 +1,7 @@
 #lang var ;trace
 
 ;(module prime? (-> any/c bool/c) ☁)
-(define/contract prime? (-> any? bool?) (λ (z) (if (nat? z) (= z 7) false)))
+(define/contract prime? (-> any? bool?) (λ (z) (if (exact-nonnegative-integer? z) (= z 7) false)))
 ;(module keygen (-> any/c prime?) ☁) 
 (module keygen racket
   (require (only-in prime? prime?)) 

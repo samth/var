@@ -65,7 +65,7 @@ E
         (cons/c HOC C) (cons/c C HOC)
         (rec/c x HOC))
      
-  (FC (pred nat? ℓ)
+  (FC (pred exact-nonnegative-integer? ℓ)
       (pred bool? ℓ)
       (pred string? ℓ)
       (pred empty? ℓ)
@@ -74,7 +74,7 @@ E
   (C* FLAT* HOC*)  
   (C FLAT HOC
      ;; Redundant [for random dist only]
-     (pred nat? ℓ)
+     (pred exact-nonnegative-integer? ℓ)
      (pred bool? ℓ)
      (pred string? ℓ)
      (pred empty? ℓ)
@@ -91,7 +91,7 @@ E
   (o1 o? first rest nat->nat)
   (nat->nat add1 sub1)
   ;; Built-in predicates
-  (o? zero? proc? empty? cons? nat? string? bool? false?)
+  (o? zero? proc? empty? cons? exact-nonnegative-integer? string? bool? false?)
   (o2 nat*nat->nat nat*nat->bool cons string*string->bool)
   (nat*nat->nat + - * expt)
   (nat*nat->bool = < <= > >=)
@@ -281,7 +281,7 @@ E
     [(name) (pred p Λ)]))
 
 (/c any/c (λ (x) #t))
-(/c nat/c nat?)
+(/c nat/c exact-nonnegative-integer?)
 (/c string/c string?)
 (/c empty/c empty?)
 (/c bool/c bool?)

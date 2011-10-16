@@ -68,7 +68,7 @@
  (redex-check λc~ ((side-condition FLAT_1 (term (valid? FLAT_1))) V)
               (redex-match λc~ E (term (flat-check FLAT_1 V))))
   
- (test-equal (term (flat-check (and/c (pred nat? f) (pred empty? f)) (-- #t)))
+ (test-equal (term (flat-check (and/c (pred exact-nonnegative-integer? f) (pred empty? f)) (-- #t)))
              '(λ (x) #f))
  (test-equal (term (flat-check (string/c) (-- "Plain"))) '(λ (x) #t))
  (test-equal (term (flat-check (bool/c) (-- #t))) '(λ (x) #t))

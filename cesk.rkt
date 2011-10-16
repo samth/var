@@ -826,18 +826,18 @@
 
 (test 
  ;; testing demonic
- (test-->>pE (term (ann [(simple-module p ((cons/c nat? nat?) -> nat?) ☁)                         
+ (test-->>pE (term (ann [(simple-module p ((cons/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)                         
                          (require (only-in p p))
                          (p (cons 1 2))]))
-             (term (-- (pred nat? p)))) 
- (test-->>p (term (ann [(simple-module p ((and/c nat? nat?) -> nat?) ☁)
+             (term (-- (pred exact-nonnegative-integer? p)))) 
+ (test-->>p (term (ann [(simple-module p ((and/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
                         (require (only-in p p))
                         (p 1)]))
-            (term (-- (pred nat? p))))
- (test-->>p (term (ann [(simple-module p ((or/c nat? nat?) -> nat?) ☁)
+            (term (-- (pred exact-nonnegative-integer? p))))
+ (test-->>p (term (ann [(simple-module p ((or/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
                         (require (only-in p p))
                         (p 1)]))
-            (term (-- (pred nat? p)))) 
+            (term (-- (pred exact-nonnegative-integer? p)))) 
  (test-->>p (term [(require) ((string/c) <= |†| rsa (-- "Plain") rsa (-- "Plain"))])
             (term (-- "Plain"))) 
  #; ;; unbound module var
@@ -845,17 +845,17 @@
             (term (b ^ o))) 
  (test-->>p (term [(require) (@ (-- (λ (o) (@ 4 5 o))) (-- "") sN)])
             (term (blame o Λ (-- 4) λ (-- 4))))
- (test-->>p (term (ann [(simple-module n (and/c nat? nat?) 1) (require (only-in n n)) n]))
+ (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? exact-nonnegative-integer?) 1) (require (only-in n n)) n]))
             (term (-- 1))) 
- (test-->>p (term (ann [(simple-module n (and/c nat? (pred (λ (x) (= x 7)))) 7) (require (only-in n n)) n]))
+ (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 7)))) 7) (require (only-in n n)) n]))
             (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
- (test-->>p (term (ann [(simple-module n (and/c nat? (pred (λ (x) (= x 8)))) 7) (require (only-in n n)) n]))
-            (term (blame n n (-- 7) (and/c (pred nat? n) (pred (λ (x) (@ = x 8 n)) n)) (-- 7))))
- (test-->>p (term (ann [(simple-module n (and/c nat? (pred (λ (x) (= x 8)))) "7") (require (only-in n n)) n]))
-            (term (blame n n (-- "7") (and/c (pred nat? n) (pred (λ (x) (@ = x 8 n)) n)) (-- "7"))))
+ (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) 7) (require (only-in n n)) n]))
+            (term (blame n n (-- 7) (and/c (pred exact-nonnegative-integer? n) (pred (λ (x) (@ = x 8 n)) n)) (-- 7))))
+ (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) "7") (require (only-in n n)) n]))
+            (term (blame n n (-- "7") (and/c (pred exact-nonnegative-integer? n) (pred (λ (x) (@ = x 8 n)) n)) (-- "7"))))
  (test-->>p fit-example (term (-- (pred string? rsa))))
  (test-->>p fit-example-keygen-string
-            (term (blame keygen prime? (-- "Key") (pred nat? prime?) (-- "Key"))))
+            (term (blame keygen prime? (-- "Key") (pred exact-nonnegative-integer? prime?) (-- "Key"))))
  (test-->>p fit-example-rsa-7
             (term (-- (pred string? rsa)))
             (term (blame keygen keygen (-- (λ (x) 7)) (pred (prime? ^ keygen prime?) keygen) (-- 7))))
@@ -873,15 +873,15 @@
                                                 (-- empty)))))))))
  
  ;; Not sure about the remembered contracts in these examples. 
- (test-->>p (term (ann [(simple-module n nat? 5) (require (only-in n n)) n]))
+ (test-->>p (term (ann [(simple-module n exact-nonnegative-integer? 5) (require (only-in n n)) n]))
             (term (-- 5))) 
  (test-->>p (term (ann [(simple-module p
-                          (cons/c nat? nat?)
+                          (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- 1) (-- 2)))
                         (require (only-in p p))
                         p]))
             (term (-- (cons (-- 1) (-- 2)) 
-                      (cons/c (pred nat? p) (pred nat? p)))))
+                      (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)))))
  (test-->>p (term (ann [(simple-module p
                           (pred (λ (x) (if (cons? x)
                                            (= (first x)
@@ -899,48 +899,48 @@
                                        #f))
                             p))))
  (test-->>p (term (ann [(simple-module p
-                          (and/c (cons/c nat? nat?)
+                          (and/c (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                                  (pred (λ (x) (= (first x) (rest x)))))
                           (cons (-- 1) (-- 1)))
                         (require (only-in p p))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
-                      (cons/c (pred nat? p) (pred nat? p)) 
+                      (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)) 
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p))))
  
  ;; Swap of and/c arguments above
  (test-->>p (term (ann [(simple-module p
                           (and/c (pred (λ (x) (= (first x) (rest x))))
-                                 (cons/c nat? nat?))                                
+                                 (cons/c exact-nonnegative-integer? exact-nonnegative-integer?))                                
                           (cons (-- 1) (-- 1)))
                         (require (only-in p p))
                         p]))
             (term (-- (cons (-- 1) (-- 1))
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p)
-                      (cons/c (pred nat? p) (pred nat? p)))))
+                      (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)))))
  
  (test-->>p (term (ann [(simple-module p
-                          (cons/c nat? nat?)
+                          (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- 1) (-- 2)))
                         (require (only-in p p))
                         (first p)]))
             (term (-- 1)))
  (test-->>p (term (ann [(simple-module p
-                          (cons/c nat? nat?)
+                          (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- "hi") (-- 2)))
                         (require (only-in p p))
                         (first p)]))
-            (term (blame p p (-- (cons (-- "hi") (-- 2))) (cons/c (pred nat? p) (pred nat? p)) (-- (cons (-- "hi") (-- 2))))))
+            (term (blame p p (-- (cons (-- "hi") (-- 2))) (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)) (-- (cons (-- "hi") (-- 2))))))
  
  (test-->>p (term (ann [(simple-module p
-                          (cons/c (anything -> nat?) anything)
+                          (cons/c (anything -> exact-nonnegative-integer?) anything)
                           (cons (-- (λ (x) "hi"))
                                 (-- 7)))
                         (require (only-in p p))
                         ((first p) 7)]))
             (term (blame p p (-- (cons (-- (λ (x) "hi"))
                                        (-- 7)))
-                         (pred nat? p)
+                         (pred exact-nonnegative-integer? p)
                          (-- "hi"))))
  
  
@@ -958,16 +958,16 @@
  )
 
 (define fact-prog
-  (term ((simple-module fact (nat? -> nat?)
+  (term ((simple-module fact (exact-nonnegative-integer? -> exact-nonnegative-integer?)
            (λ f (x) (if (= x 0) 1 (* x (f (sub1 x))))))
-         (simple-module input nat? ☁)
+         (simple-module input exact-nonnegative-integer? ☁)
          (require (only-in input input) (only-in fact fact))
          (fact input))))
 
 (define wrong-prog
-  (term ((simple-module fact (nat? -> nat?)
+  (term ((simple-module fact (exact-nonnegative-integer? -> exact-nonnegative-integer?)
            (λ f (x) (if (= (add1 x) (add1 0)) 1 (* x (f (sub1 x))))))
-         (simple-module input nat? ☁)
+         (simple-module input exact-nonnegative-integer? ☁)
          (require (only-in input input) (only-in fact fact))
          (fact input))))
 

@@ -4,7 +4,7 @@ define-contract list/c
   rec/c X
     or/c
       empty? 
-      cons/c nat? X
+      cons/c exact-nonnegative-integer? X
   
 module sorted-ne? 
   → list/c bool?
@@ -18,7 +18,7 @@ module sorted?
        sorted-ne?(l)    
 
 module insert 
-  → nat? {list/c and/c sorted?} {list/c and/c sorted?}
+  → exact-nonnegative-integer? {list/c and/c sorted?} {list/c and/c sorted?}
   ●
 
 module insertion-sort

@@ -7,7 +7,7 @@
            (* n (g (sub1 n)))))
      m))
   
-  (provide/contract [fact (-> nat? nat?)]))
+  (provide/contract [fact (-> exact-nonnegative-integer? exact-nonnegative-integer?)]))
     
 (require factorial)
 (fact 5)

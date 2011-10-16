@@ -1,7 +1,7 @@
 #lang var ;cesk
 ;; Binary trees
 
-(define-contract nat/c nat?)
+(define-contract nat/c exact-nonnegative-integer?)
 
 (define-contract bt/c
   (rec/c X 
@@ -28,7 +28,7 @@
 (module sum  racket
   (require (only-in left left) (only-in right right) (only-in num num))
   (define sum (λ (t)
-    (if (nat? t)
+    (if (exact-nonnegative-integer? t)
         t
         (+ (num t)
            (+ (sum (left t))
@@ -40,7 +40,7 @@
   (require (only-in left left) (only-in right right) (only-in num num))
   (define map 
     (λ (f t)
-      (if (nat? t)
+      (if (exact-nonnegative-integer? t)
           (f t)
           (cons (f (num t))
                 (cons (map f (left t))

@@ -47,12 +47,12 @@ WE RESPONDED:
 |#
 
 (module foo racket 
-  (provide/contract [foo (-> (-> nat? nat?) nat?)]))
+  (provide/contract [foo (-> (-> exact-nonnegative-integer? exact-nonnegative-integer?) exact-nonnegative-integer?)]))
 
 (module addone racket 
   (require) 
   (define (addone n) (add1 n)) 
-  (provide/contract [addone (-> nat? nat?)]))
+  (provide/contract [addone (-> exact-nonnegative-integer? exact-nonnegative-integer?)]))
 
 (require (only-in foo foo) (only-in addone addone))
 (foo addone)

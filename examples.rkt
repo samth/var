@@ -10,7 +10,7 @@
 ;; Modified from Figure 8 in paper (8 -> #f).
 (define example-8-raw
   (term [(module f racket (require) (define (f x) x) (provide/contract [f (anything -> (anything -> anything))]))
-         (module g racket (require) (define (g x) 0) (provide/contract [g ((pred (λ (x) x)) -> nat?)]))
+         (module g racket (require) (define (g x) 0) (provide/contract [g ((pred (λ (x) x)) -> exact-nonnegative-integer?)]))
          (module h racket (require (only-in f f) (only-in g g)) (define (h z) ((f g) #f)) (provide/contract [h anything]))
          (require (only-in h h))
          (h 0)]))
@@ -30,7 +30,7 @@
 
 (define example-8-opaque-raw
   (term [(simple-module f (anything -> (anything -> anything)) ☁)
-         (simple-module g ((pred (λ (x) x)) -> nat?) ☁)
+         (simple-module g ((pred (λ (x) x)) -> exact-nonnegative-integer?) ☁)
          (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) ((f g) #f))) (provide/contract [h anything]))
          (require (only-in h h))
          (h 0)]))
@@ -56,14 +56,14 @@
 
  (test-predicate (redex-match λc-user C) (term ((pred (λ (x) x) ℓ) -> (nat/c)))))
 
-(define mod-prime-raw  (term (simple-module prime? (nat? -> anything) ☁)))
+(define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? -> anything) ☁)))
 (define mod-rsa-raw    (term (simple-module rsa ((pred prime?) -> (string? -> string?)) ☁)))
 (define mod-keygen-raw (term (simple-module keygen (anything -> (pred prime?)) ☁)))
 (define mod-keygen-7-raw (term (simple-module keygen (anything -> (pred prime?)) (λ (x) 7))))
 (define mod-keygen-str-raw (term (simple-module keygen (anything -> (pred prime?)) (λ (x) "Key"))))
 (define top-fit-raw (term ((rsa (keygen #f)) "Plain")))
 
-(define mod-prime  (term (simple-module prime? ((pred nat? prime?) -> (pred (λ (x) #t) prime?)) ☁)))
+(define mod-prime  (term (simple-module prime? ((pred exact-nonnegative-integer? prime?) -> (pred (λ (x) #t) prime?)) ☁)))
 (define mod-rsa    (term (simple-module rsa ((pred (prime? ^ rsa prime?) rsa) -> ((pred string? rsa) -> (pred string? rsa))) ☁)))
 (define mod-keygen (term (simple-module keygen ((pred (λ (x) #t) keygen) -> (pred (prime? ^ keygen prime?) keygen)) ☁)))
 (define mod-keygen-7 (term (simple-module keygen ((pred (λ (x) #t) keygen) -> (pred (prime? ^ keygen prime?) keygen)) (λ (x) 7))))
@@ -154,17 +154,17 @@
 
 (define cons/c-example-raw
   (term [(simple-module p
-           (cons/c nat? nat?)
+           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
            (cons (-- 1) (-- 2)))
          (require (only-in p p))
          (first p)]))
 
 (define nat/c-example-raw
-  (term [(simple-module n nat? 5) (require (only-in n n)) n]))
+  (term [(simple-module n exact-nonnegative-integer? 5) (require (only-in n n)) n]))
 
 (define rec/c-example-raw
-  (term [(simple-module n nat? 5)
-         (simple-module l (flat-rec/c X (or/c empty? (cons/c nat? X)))
+  (term [(simple-module n exact-nonnegative-integer? 5)
+         (simple-module l (flat-rec/c X (or/c empty? (cons/c exact-nonnegative-integer? X)))
            (cons 1 (cons n empty)))
          (require (only-in l l))
          l]))

@@ -3,7 +3,7 @@
 (define-contract any/c any?)
 
 (define/contract f (-> any/c (-> any/c any/c)) ☁)
-(define/contract g (-> (pred (λ (x) x)) nat?) ☁ )
+(define/contract g (-> (pred (λ (x) x)) exact-nonnegative-integer?) ☁ )
 (module h racket
   (require (only-in f f) (only-in g g))
   (define h (λ (z) ((f g) #f)))

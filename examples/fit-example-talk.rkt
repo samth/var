@@ -13,9 +13,9 @@
         acc
         (fact-acc (sub1 x) (* acc x))))
   (define (fact in) (fact-acc in 1))
-  (provide/contract [fact (-> nat? nat?)]))
+  (provide/contract [fact (-> exact-nonnegative-integer? exact-nonnegative-integer?)]))
 
-(define/contract input nat? ☁)
+(define/contract input exact-nonnegative-integer? ☁)
 (require (only-in fact fact) (only-in input input))
 
 (fact input)

@@ -8,7 +8,7 @@
 (module f racket 
   (require)
   (define (f x) 7)
-  (provide/contract [f (-> zero? nat?)]))
+  (provide/contract [f (-> zero? exact-nonnegative-integer?)]))
 
 (require (only-in f f) (only-in dbl dbl))
 ((dbl f) 0)
