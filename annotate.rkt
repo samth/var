@@ -156,11 +156,9 @@ Pass 3: Annotate expressions/predicates
   ;; fill in definitions if there are no definitions
   [(expand-mod (module f LANG
                  (require any_relem ...)
-                 RSTRUCT ...
                  (provide/contract [f_3 RCON] ...)))
    (module f LANG
      (require any_relem ...)
-     RSTRUCT ...
      (define f_3 •)
      ...
      (provide/contract [f_3 RCON] ...))]
