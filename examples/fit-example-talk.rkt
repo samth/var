@@ -2,8 +2,8 @@
 ;; This program runs forever.
 
 #;#;
-(define/contract mul (nat/c -> (nat/c -> nat/c)) ☁)
-(define/contract 1- (nat/c -> nat/c) ☁)
+(define/contract mul (-> nat/c (nat/c -> nat/c)) ☁)
+(define/contract 1- (-> nat/c nat/c) ☁)
 
 
 (module fact racket
@@ -13,7 +13,7 @@
         acc
         (fact-acc (sub1 x) (* acc x))))
   (define (fact in) (fact-acc in 1))
-  (provide/contract [fact (nat? -> nat?)]))
+  (provide/contract [fact (-> nat? nat?)]))
 
 (define/contract input nat? ☁)
 (require (only-in fact fact) (only-in input input))
@@ -22,10 +22,10 @@
 
 #|
 
-;(module mul (nat/c -> (nat/c -> nat/c)) ☁)
-;(module 1- (nat/c -> nat/c) ☁)
+;(module mul (-> nat/c (-> nat/c nat/c)) ☁)
+;(module 1- (-> nat/c nat/c) ☁)
 
-(module fact (nat/c -> nat/c)
+(module fact (-> nat/c nat/c)
   (λ x
     (if (= x 0)
         1

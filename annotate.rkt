@@ -42,6 +42,7 @@ E
 ;; Annotate a "raw" program with labels, @, etc.
 (define-metafunction λc~
   ann : any -> P
+  [(ann (REXP)) (ann ((require) REXP))]
   [(ann (any_m ... any_r any_e)) ,(error "should never happen")
    (side-condition (or (ormap check-mod (term (any_m ...)))
                        (check-req (term any_r))
@@ -209,9 +210,9 @@ E
   [(ann-con (rec/c x RCON) ℓ MODENV (f ...))
    (rec/c x (ann-con RCON ℓ MODENV (f ...)))]
   
-  [(ann-con (RCON_0 ... RARR RCON_1) ℓ MODENV (f ...))
+  [(ann-con (RARR RCON_0 ... RCON_1) ℓ MODENV (f ...))
    ((ann-con RCON_0 ℓ MODENV (f ...)) ... -> (ann-con RCON_1 ℓ MODENV (f ...)))]
-  [(ann-con (RCON_0 ... RARR (λ (x ...) RCON_1)) ℓ MODENV (f ...))
+  [(ann-con (RARR RCON_0 ... (λ (x ...) RCON_1)) ℓ MODENV (f ...))
    ((ann-con RCON_0 ℓ MODENV (f ...)) ... -> (λ (x ...) (ann-con RCON_1 ℓ MODENV (f ...))))]
   [(ann-con (pred f) ℓ MODENV (f_1 ...)) 
    (pred (λ (x) "this is the fall-through case") ★)]

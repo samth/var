@@ -1,6 +1,5 @@
-#lang var trace
+#lang var ;trace
 (module factorial racket 
-  (require) 
   (define (fact m) 
     ((λ g (n)
        (if (zero? n)
@@ -8,7 +7,7 @@
            (* n (g (sub1 n)))))
      m))
   
-  (provide/contract [fact (nat? -> nat?)]))
+  (provide/contract [fact (-> nat? nat?)]))
     
-(require (only-in factorial fact))
+(require factorial)
 (fact 5)

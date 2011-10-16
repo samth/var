@@ -241,8 +241,8 @@ E
   
   (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
           (rec/c x RCFLAT) x)
-  (RCHOC (RCON ... RARR RCON)
-         (RCON ..._1 RARR (λ (x ..._1) RCON))
+  (RCHOC (RARR RCON ... RCON)
+         (RARR RCON ..._1 (λ (x ..._1) RCON))         
          (or/c RCFLAT RCHOC)
          (cons/c RCHOC RCON) (cons/c RCON RCHOC)
          (and/c RCHOC RCON)  (and/c RCON RCHOC)

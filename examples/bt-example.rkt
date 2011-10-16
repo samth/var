@@ -12,15 +12,15 @@
   (cons/c nat/c (cons/c bt/c bt/c)))
 
 ;; Accessors
-(define/contract num (node/c -> nat/c)
+(define/contract num (-> node/c nat/c)
   (λ (nd)
     (first nd)))
 
-(define/contract left (node/c -> bt/c)
+(define/contract left (-> node/c bt/c)
   (λ (nd)
     (first (rest nd))))
 
-(define/contract right (node/c -> bt/c)
+(define/contract right (-> node/c bt/c)
   (λ (nd)
     (rest (rest nd))))
 
@@ -33,7 +33,7 @@
         (+ (num t)
            (+ (sum (left t))
               (sum (right t)))))))
-  (provide/contract [sum (bt/c -> nat/c)]))
+  (provide/contract [sum (-> bt/c nat/c)]))
 
 ;; Higher-order
 (module map racket
@@ -45,7 +45,7 @@
           (cons (f (num t))
                 (cons (map f (left t))
                       (map f (right t)))))))
-  (provide/contract [map ((nat/c -> nat/c) bt/c -> bt/c)]))
+  (provide/contract [map (-> (-> nat/c nat/c) bt/c bt/c)]))
 
 (module n racket (provide/contract [n nat/c]))
 (module bt racket (provide/contract [bt bt/c]))

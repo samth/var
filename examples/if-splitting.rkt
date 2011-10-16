@@ -4,7 +4,7 @@
   (require)
   (define (f v)
     (if (cons? v) (first v) 7))
-  (provide/contract [f (anything #;(rec/c X (or/c empty? (cons/c nat? X))) -> anything)]))
+  (provide/contract [f (-> anything #;(rec/c X (or/c empty? (cons/c nat? X))) anything)]))
 
 (module m racket
   (provide/contract [ls anything #;(rec/c X (or/c empty? (cons/c nat? X)))]))

@@ -3,12 +3,12 @@
 (define/contract b bool? •)
 (define/contract n nat? •)
 (define/contract c (cons/c nat? nat?) •)
-(define/contract g (zero? -> nat?) •)
-(define/contract f ((nat? -> nat?) -> bool?) •)
-(define/contract q (any? -> any?) •)
+(define/contract g (-> zero? nat?) •)
+(define/contract f (-> (-> nat? nat?) bool?) •)
+(define/contract q (-> any? any?) •)
 (define/contract p proc? •)
 
-(define/contract zo? (any? -> bool?)
+(define/contract zo? (-> any? bool?)
   (λ (x)
     (if (nat? x)
         (if (zero? x)
@@ -25,12 +25,12 @@
 (module zo->zo racket 
   (require (only-in zo? zo?))
   (define zo->zo (λ (y) y))
-  (provide/contract [zo->zo (zo? -> zo?)]))
+  (provide/contract [zo->zo (-> zo? zo?)]))
 
 (module z->z racket 
   (require (only-in zo? zo?))
   (define z->z (λ (v) v))
-  (provide/contract [z->z ((and/c zero? zo?) -> (or/c zero? zo?))]))
+  (provide/contract [z->z (-> (and/c zero? zo?) (or/c zero? zo?))]))
 
 (require (only-in zo? zo?))
 

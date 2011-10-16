@@ -5,22 +5,22 @@
 
 (module sorted-ne? racket
   ; ...
-  (provide/contract [sorted-ne? (list/c -> bool?)]))
+  (provide/contract [sorted-ne? (-> list/c bool?)]))
 
 (module sorted? racket 
   (require (only-in sorted-ne? sorted-ne?))
   (define (sorted? l) (if (empty? l) #t (sorted-ne? l)))
-  (provide/contract [sorted? (list/c -> bool?)]))
+  (provide/contract [sorted? (-> list/c bool?)]))
 
 (module insert racket 
   (require (only-in sorted? sorted?))
   ; ...
-  (provide/contract [insert (nat? (and/c list/c sorted?) -> (and/c list/c sorted?))]))
+  (provide/contract [insert (-> nat? (and/c list/c sorted?) (and/c list/c sorted?))]))
 
 (module insertion-sort racket  
   (require (only-in insert insert) (only-in sorted? sorted?))
   (define (insertion-sort l acc) (if (empty? l) acc (insertion-sort (rest l) (insert (first l) acc))))
-  (provide/contract [insertion-sort (list/c (and/c list/c sorted?) -> (and/c list/c sorted?))]))
+  (provide/contract [insertion-sort (-> list/c (and/c list/c sorted?) (and/c list/c sorted?))]))
 
 (module fold racket
   (require)
@@ -40,8 +40,8 @@
   (require (only-in insertion-sort insertion-sort) (only-in insert insert) (only-in sorted? sorted?))
   (define sort.0 (λ (l) (insertion-sort l empty)))
   (define sort.1 (λ (l) (foldl insert empty l)))
-  (provide/contract [sort.0 (list/c -> (and/c list/c sorted?))]
-                    [sort.1 (list/c -> (and/c list/c sorted?))]))
+  (provide/contract [sort.0 (-> list/c (and/c list/c sorted?))]
+                    [sort.1 (-> list/c (and/c list/c sorted?))]))
 
 (define/contract l list/c •)
 (require (only-in sort sort.0 sort.1) (only-in l l))
