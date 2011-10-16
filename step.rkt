@@ -1,7 +1,7 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "flat-check.rkt" "meta.rkt" "subst.rkt" 
-         "examples.rkt" "annotate.rkt" "util.rkt")
+         "examples.rkt" "util.rkt" "annotate.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test step)
 
@@ -360,17 +360,17 @@
  (test-->>p (term [(require) (@ (-- (-> (nat/c))) f)]) (term (-- (nat/c))))
  
  ;; testing demonic
- (test-->>p (term (ann [(simple-module p ((cons/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
-                        (require (only-in p p))
-                        (p (cons 1 2))]))
+ (test-->>p (term (annotator [(simple-module p ((cons/c exact-nonnegative-integer? exact-nonnegative-integer?) . -> . exact-nonnegative-integer?) ☁)
+                              (require (only-in p p))
+                              (p (cons 1 2))]))
             (term (-- (pred exact-nonnegative-integer? p)))) 
- (test-->>p (term (ann [(simple-module p ((and/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
-                        (require (only-in p p))
-                        (p 1)]))
+ (test-->>p (term (annotator [(simple-module p ((and/c exact-nonnegative-integer? exact-nonnegative-integer?) . -> . exact-nonnegative-integer?) ☁)
+                              (require (only-in p p))
+                              (p 1)]))
             (term (-- (pred exact-nonnegative-integer? p))))
- (test-->>p (term (ann [(simple-module p ((or/c exact-nonnegative-integer? exact-nonnegative-integer?) -> exact-nonnegative-integer?) ☁)
-                        (require (only-in p p))
-                        (p 1)]))
+ (test-->>p (term (annotator [(simple-module p ((or/c exact-nonnegative-integer? exact-nonnegative-integer?) . -> . exact-nonnegative-integer?) ☁)
+                              (require (only-in p p))
+                              (p 1)]))
             (term (-- (pred exact-nonnegative-integer? p)))) 
  (test-->>p (term [(require) ((string/c) <= |†| rsa (-- "Plain") rsa (-- "Plain"))])
             (term (-- "Plain"))) 
@@ -379,13 +379,13 @@
             (term (b ^ o b))) 
  (test-->>p (term [(require) (@ (-- (λ (o) (@ 4 5 o))) (-- "") sN)])
             (term (blame o Λ (-- 4) λ (-- 4)))) 
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? exact-nonnegative-integer?) 1) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? exact-nonnegative-integer?) 1) (require (only-in n n)) n]))
             (term (-- 1))) 
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 7)))) 7) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 7)))) 7) (require (only-in n n)) n]))
             (term (-- 7 (pred (λ (x) (@ = x 7 n)) n)))) 
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) 7) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) 7) (require (only-in n n)) n]))
             (term (blame n n (-- 7) (and/c (pred exact-nonnegative-integer? n) (pred (λ (x) (@ = x 8 n)) n)) (-- 7))))
- (test-->>p (term (ann [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) "7") (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n (and/c exact-nonnegative-integer? (pred (λ (x) (= x 8)))) "7") (require (only-in n n)) n]))
             (term (blame n n (-- "7") (and/c (pred exact-nonnegative-integer? n) (pred (λ (x) (@ = x 8 n)) (require (only-in n n)) n)) (-- "7"))))
  (test-->>p fit-example (term (-- (pred string? rsa))))
  (test-->>p fit-example-keygen-string
@@ -400,23 +400,23 @@
  (test-->>p list-id-example (term (-- (cons (-- 1) 
                                             (-- (cons (-- 2) 
                                                       (-- (cons (-- 3) (-- empty))))))))) 
- (test-->>p (term (ann ,list-rev-example-raw))
+ (test-->>p (term (annotator ,list-rev-example-raw))
             (term (-- (cons (-- 3)
                             (-- (cons (-- 2)
                                       (-- (cons (-- 1)
                                                 (-- empty)))))))))
  
  ;; Not sure about the remembered contracts in these examples. 
- (test-->>p (term (ann [(simple-module n exact-nonnegative-integer? 5) (require (only-in n n)) n]))
+ (test-->>p (term (annotator [(simple-module n exact-nonnegative-integer? 5) (require (only-in n n)) n]))
             (term (-- 5))) 
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- 1) (-- 2)))
                         (require (only-in p p))
                         p]))
             (term (-- (cons (-- 1) (-- 2)) 
                       (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)))))
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (pred (λ (x) (if (cons? x)
                                            (= (first x)
                                               (rest x))
@@ -432,7 +432,7 @@
                                           p)
                                        #f))
                             p))))
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (and/c (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                                  (pred (λ (x) (= (first x) (rest x)))))
                           (cons (-- 1) (-- 1)))
@@ -443,7 +443,7 @@
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p))))
  
  ;; Swap of and/c arguments above
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (and/c (pred (λ (x) (= (first x) (rest x))))
                                  (cons/c exact-nonnegative-integer? exact-nonnegative-integer?))                                
                           (cons (-- 1) (-- 1)))
@@ -453,13 +453,13 @@
                       (pred (λ (x) (@ = (@ first x p) (@ rest x p) p)) p)
                       (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p)))))
  
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- 1) (-- 2)))
                         (require (only-in p p))
                         (first p)]))
             (term (-- 1)))
- (test-->>p (term (ann [(simple-module p
+ (test-->>p (term (annotator [(simple-module p
                           (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
                           (cons (-- "hi") (-- 2)))
                         (require (only-in p p))
@@ -469,8 +469,8 @@
                          (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p))
                          (-- (cons (-- "hi") (-- 2))))))
  
- (test-->>p (term (ann [(simple-module p
-                          (cons/c (anything -> exact-nonnegative-integer?) anything)
+ (test-->>p (term (annotator [(simple-module p
+                          (cons/c (anything . -> . exact-nonnegative-integer?) anything)
                           (cons (-- (λ (x) "hi"))
                                 (-- 7)))
                         (require (only-in p p))

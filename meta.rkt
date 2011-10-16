@@ -350,7 +350,7 @@
   [(plain-δ string-ci<=? string_0 string_1 ℓ) ,(string-ci<=? (term string_0) (term string_1))]
   [(plain-δ string-ci>=? string_0 string_1 ℓ) ,(string-ci>=? (term string_0) (term string_1))]
   [(plain-δ op PV PV_0 ... ℓ)       ;; catches domain errors
-   (blame ℓ op (-- PV) λ (-- PV))]) ;; FIXME: Not right value
+   (blame ℓ Λ (-- PV) op (-- PV))]) ;; FIXME: Not right value
 
 (define-metafunction λc~
   impossible? : V -> #t or #f

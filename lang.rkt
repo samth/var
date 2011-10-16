@@ -103,7 +103,7 @@ E
 
 ;; Figure 5, gray (cont).
 (define-extended-language λc λc-user
-  (B (blame ℓ ℓ V C V))
+  (B (blame ℓ ℓ V C V) (blame ℓ Λ V op V))
   (E .... (C <= ℓ ℓ V ℓ E) B)
   (𝓔 .... (C <= ℓ ℓ V ℓ 𝓔)))
 
