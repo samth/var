@@ -232,7 +232,8 @@ E
   (RPV FV RL)  
   (RSV RL f o) ; Syntactic values for pred.
   (REXP RPV x f 
-        (REXP REXP ...) 
+        (REXP REXP ...)
+        (cond [REXP REXP] ... [else REXP])
         (if REXP REXP REXP) 
         (o REXP REXP ...) 
         (let ((x REXP) ...) REXP) 

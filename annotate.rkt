@@ -81,6 +81,12 @@ Pass 3: Annotate expressions/predicates
    (f_1 ^ ℓ f_3)]
   
   [(ann-exp x ℓ MODENV any) x]
+  [(ann-exp (cond [else REXP]) ℓ MODENV any)
+   (ann-exp REXP ℓ MODENV any)]
+  [(ann-exp (cond [REXP REXP_1] [REXP_2 REXP_3] ... [else REXP_4]) ℓ MODENV any)
+   (ann-exp (if REXP REXP_1
+                (cond [REXP_2 REXP_3] ... [else REXP_4]))
+            ℓ MODENV any)]
   [(ann-exp (if REXP_0 REXP_1 REXP_2) ℓ MODENV (f ...))
    (if (ann-exp REXP_0 ℓ MODENV (f ...))
        (ann-exp REXP_1 ℓ MODENV (f ...))
