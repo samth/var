@@ -1,6 +1,6 @@
 #lang racket
-(require (except-in redex/reduction-semantics plug))
-(require "lang.rkt" "flat-check.rkt" "meta.rkt" "alpha.rkt" "util.rkt" "annotate.rkt" "examples.rkt" 
+(require (except-in redex/reduction-semantics plug) (for-syntax syntax/parse))
+(require (except-in "lang.rkt" final-state?) "flat-check.rkt" "meta.rkt" "alpha.rkt" "util.rkt" "annotate.rkt" "examples.rkt" 
          (only-in "step.rkt" lookup-modref/val lookup-modref/con))
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
@@ -181,13 +181,19 @@
 (struct st (c e s k) #:prefab)
 (struct S (name results) #:prefab)
 
+(define V? (redex-match CESK* V))
+
+(define-match-expander V:
+  (syntax-parser
+   [(_ pat) #'(? V? pat)]))
+
 (define (step* state)
   (match state    
     
-    [(st (? (redex-match CESK* V) V) ρ σ `(AP ,clo ((,E_0 ,ρ_0) ,rest ...) ,ℓ ,a))
+    [(st (V: V) ρ σ `(AP ,clo ((,E_0 ,ρ_0) ,rest ...) ,ℓ ,a))
      (S 'ap-next
         (list (st E_0 ρ_0 σ `(AP (,@clo (,V ,ρ)) ,rest ,ℓ ,a))))]
-    [(st (? (redex-match CESK* V) V) ρ σ `(OP ,o ,clo (,E_0 ,rest ...) ,ρ_0 ,ℓ ,a))
+    [(st (V: V) ρ σ `(OP ,o ,clo (,E_0 ,rest ...) ,ρ_0 ,ℓ ,a))
      (S 'op-next
         (list (st E_0 ρ_0 σ `(OP ,o (,@clo (,V ,ρ)) ,rest ,ρ_0 ,ℓ ,a))))]
     
@@ -211,17 +217,17 @@
     
     
     ;; begin
-   [(st (? (redex-match CESK* V) V) ρ σ `(BEG (,E ,ρ_0) ,a))
+   [(st (V: V) ρ σ `(BEG (,E ,ρ_0) ,a))
     (S 'begin-done
        (for/list ([K (term (sto-lookup ,σ ,a))])
          (st E ρ_0 σ K)))]
    
-   [(st (? (redex-match CESK* V) V) ρ σ `(BEG (,E ,ρ_0) ,rest ... ,a))
+   [(st (V: V) ρ σ `(BEG (,E ,ρ_0) ,rest ... ,a))
     (S 'begin-swap 
        (list (st E ρ_0 σ `(BEG ,@rest ,a))))]
    
    ;; let
-    [(st (? (redex-match CESK* V) V) ρ σ `(LET . ,_)) (error "let is broken in the machine")]
+    [(st (V: V) ρ σ `(LET . ,_)) (error "let is broken in the machine")]
     
     [(st (? symbol? x) ρ σ K)
      (S 'var
@@ -230,7 +236,7 @@
             [(list V ρ_0) (st V ρ_0 σ K)])))]
     [(st (? (redex-match CESK* PV) pv) ρ σ K)
      (S 'wrap (list (st `(-- ,pv) ρ σ K)))]
-    [(st (? (redex-match CESK* V) V) ρ σ `(AP (((-- (λ (,x ...) ,E) ,C ...) ,ρ_0) ,clo ...) () ,ℓ ,a))
+    [(st (V: V) ρ σ `(AP (((-- (λ (,x ...) ,E) ,C ...) ,ρ_0) ,clo ...) () ,ℓ ,a))
      (cond 
        [(= (length x) (add1 (length clo)))
         (define a1s (term (alloc ,σ ,x)))
@@ -247,7 +253,7 @@
         (for/list ([K (term (sto-lookup ,σ ,a))])
           (st E ρ σ K)))]
     ;; rec
-    [(st (? (redex-match CESK* V) V) ρ σ `(AP (((-- (λ ,rec (,x ...) ,E) ,C ...) ,ρ_0) ,clo ...) () ,ℓ ,a))
+    [(st (V: V) ρ σ `(AP (((-- (λ ,rec (,x ...) ,E) ,C ...) ,ρ_0) ,clo ...) () ,ℓ ,a))
      (cond 
        [(= (length x) (add1 (length clo)))
         (define a1s (term (alloc ,σ ,(cons rec x))))        
@@ -269,22 +275,18 @@
               (term (extend-sto1 ,σ ,a_1 ,(list fun ρ)))
               K)))]
     
-    [(st (? (redex-match CESK* V) V) ρ σ `(IF ,E_1 ,E_2 ,ρ_1 ,a))
-     (printf "a: ~a\n" a)
+    [(st (V: V) ρ σ `(IF ,E_1 ,E_2 ,ρ_1 ,a))     
      (S 'if
         (for*/list ([K (term (sto-lookup ,σ ,a))]
-                    #:when (printf "K V: ~a ~a\n" K V)
                     [r (term (δ (@ false? ,V ★)))]
                     [r* (in-value (match r [`(-- ,(? boolean? a)) a] [else 0]))]
-                    #:when (printf "r: ~a\n" r*)
                     #:when (boolean? r*))
           (st (if (not r*) E_1 E_2) ρ_1 σ K)))]
     ;; δ
    ;; FIXME broken delta rule for things producing closures.
-    [(st (? (redex-match CESK* V) V) ρ σ `(OP ,op ,(list (list V_0 ρ_0) ...) () ,ρ_1 ,ℓ ,a))
+    [(st (V: V) ρ σ `(OP ,op ,(list (list V_0 ρ_0) ...) () ,ρ_1 ,ℓ ,a))
      (S 'δ
         (for*/list ([K (term (sto-lookup ,σ ,a))]
-                    #:when (printf "delta: ~a\n" `(@ ,op ,@V_0 ,V ,ℓ))
                     [V-or-B (term (δ ,`(@ ,op ,@V_0 ,V ,ℓ)))])
           (st (term (widen ,op ,V-or-B)) '() σ K)))]
     
@@ -565,16 +567,22 @@
         (where σ_0 (extend-sto1 σ a K))
         chk-push)))
 
+(define (st->list s)
+  (match s
+    [(st a b c d) (list a b c d)]))
+
 
 (define (∆ Ms)
   (reduction-relation
-   CESK* #:domain ς
-   (--> ((f_1 ^ f f) ρ σ K)
-        ((-- PV) ρ σ K)
+   CESK* 
+   (--> any_in
+        ,(st (term (-- PV)) (st-e (term any_in)) (st-s (term any_in)) (st-k (term any_in)))
+        (where (f_1 ^ f f) ,(st-c (term any_in)))
         (where PV (lookup-modref/val f f_1 ,Ms))
         Δ-self)
-   (--> ((f_1 ^ ℓ f) ρ σ K)
-        ((C <= f ℓ (-- PV) f_1 (-- PV)) ρ σ K)
+   (--> any_in
+        ,(st (term (C <= f ℓ (-- PV) f_1 (-- PV))) (st-e (term any_in)) (st-s (term any_in)) (st-k (term any_in)))
+        (where (f_1 ^ ℓ f) ,(st-c (term any_in)))
         (where C (lookup-modref/con f f_1 ,Ms))
         (where PV (lookup-modref/val f f_1 ,Ms))
         (side-condition (not (eq? (term f) (term ℓ))))
@@ -584,9 +592,11 @@
   (union-reduction-relations
    (∆ Ms)
    (reduction-relation
-    CESK* #:domain ς
-    (--> ((f_1 ^ ℓ f) ρ σ K)
-         ((C <= f ℓ (-- C) f_1 (remember-contract (-- (any/c)) C)) ρ σ K)
+    CESK*
+    (--> any_in
+         ,(st (term (C <= f ℓ (-- C) f_1 (remember-contract (-- (any/c)) C)))
+              (st-e (term any_in)) (st-s (term any_in)) (st-k (term any_in)))
+         (where (f_1 ^ ℓ f) ,(st-c (term any_in)))
          (where bullet (lookup-modref/val f f_1 ,Ms))
          (where C (lookup-modref/con f f_1 ,Ms))
          (side-condition (not (eq? (term f) (term ℓ))))
@@ -595,8 +605,10 @@
 (define error-propagate
   (reduction-relation 
    CESK* #:domain ς
-   (--> (B ρ σ K) (B () (gc (B () σ MT)) MT)
-        (side-condition (not (equal? (term K) (term MT))))
+   (--> any_in 
+        ,(st (term B) '() (term (gc (B () σ MT))) 'MT)
+        (where B ,(st-e (term any_in)))
+        (side-condition (not (equal? (st-k (term any_in)) (term MT))))
         halt-blame)))
 
 (define (stepΔ Ms)
@@ -659,7 +671,7 @@
    (a a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-clo (E_1 ρ)))
    (where (a_1 ...) (live-loc-clo (E_2 ρ)))]    
-  [(live-loc-K (OP o clo ... E ... ρ ℓ a)) 
+  [(live-loc-K (OP o (clo ...) (E ...) ρ ℓ a)) 
    (a a_0 ... ... a_1 ... ...)
    (where ((a_0 ...) ...) ((live-loc-clo clo) ...))
    (where ((a_1 ...) ...) ((live-loc-clo (E ρ)) ...))]
@@ -730,42 +742,26 @@
 
 
 (define step-gc  
-  (let ((count 0)
-        (m 0)
-        (seen (set)))    
-    (reduction-relation 
-     CESK* #:domain ς
-     [--> ς_old (E ρ_1 σ_1 K)
-          ;(side-condition (printf "state: ~a\n" (term ς_old)))
-          (where ((any_1 ς_1) ... (any_name (E ρ σ K))  (any_2 ς_2) ...)
-                 ,(apply-reduction-relation/tag-with-names step (term ς_old)))
-          (where σ_1 (gc (E ρ σ K)))
-          (where ρ_1 (restrict ρ (fv E)))          
-          ;(side-condition (printf "rule: ~a\n" (term any_name)))
-          #;(side-condition (unless (subset-of (term (live-loc-E E)) (map car (term σ_1)))
-                            (displayln (term (live-loc-E E)))
-                            (error "missing loc in E")))          
-          #;(side-condition (when (and (member '(loc 0) (term (live-loc-K K)))
-                                     (not (member '(loc 0) (map car (term σ_1)))))
-                            (displayln "=============================")
-                            (displayln (term any_name))
-                            (displayln (term (live-loc-K K)))
-                            (displayln (term (live-loc-E K)))
-                            (displayln (term K)) 
-                            (displayln (map car (term σ_1)))
-                            (error "missing loc in K")))
-          #;
-          (side-condition (begin (set! count (add1 count))
-                                 (set! seen (set-add seen (term (E ρ σ_1 K))))
-                                 #;(when (> (size  (term (E ρ σ_1 K))) m)
-                                   (printf "state: ~a~n" (term (E ρ σ_1 K))))                    
-                                 (set! m (max m (size (term (E ρ σ_1 K)))))
-                                 (when (zero? (modulo count 100))
-                                   (printf "c: ~a, m: ~a, |s|: ~a ~n" count m (set-count seen)))))
-          (computed-name (term any_name))])))
+  (reduction-relation 
+   CESK*
+   [--> any_old ,(st (term E) (term ρ_1) (term σ_1) (term K))
+        (where (any_name (any_1 ... any_state any_2 ...))
+               ,(match (step* (term any_old)) [(S n r) (displayln (list n r)) (list n r)]))
+        (where (E ρ σ K) ,(match (term any_state) [(struct st (E1 ρ1 σ1 K1))
+                                                   (displayln (list E1 ρ1 σ1 K1))
+                                                   (list E1 ρ1 σ1 K1)]))
+        (where σ_1 (gc (E ρ σ K)))
+        (where ρ_1 (restrict ρ (fv E)))
+        (computed-name (term any_name))]))
 
-(define (stepΔ-gc Ms)
+(define (stepΔ-gc Ms) step-gc
+  #;
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
+
+(define (final-state? s)
+  (and (eq? 'MT (st-k s))
+       (or (redex-match CESK* V (st-c s))
+           (redex-match CESK* B (st-c s)))))
 
 
 (define ((colorize Ms) x node)
@@ -786,17 +782,24 @@
         [(null? (term-node-children node)) "blue"]
         [else #t]))
 
-(define-syntax-rule (trace-it* P . rest)
-  (traces step
-          (term (load* ,(last P)))
-          #:pred (colorize (program-modules P))
-          . rest))
-
 (define-syntax-rule (trace-it P . rest)
-  (traces (stepΔ-gc (program-modules P))
-          (term (load ,(last P)))
-          #:pred (colorize (program-modules P))
-          . rest))
+  (let ([P* (term (annotator ,P))])
+    (traces (stepΔ-gc (program-modules P*))
+            (term (load* ,(last P*)))
+            #:pred (colorize (program-modules P*))
+            . rest)))
+
+
+
+(define (step-fixpoint P)
+  (let ([l (term (load* ,(last P)))])
+    (let loop ([terms (list l)] [finals (set)])
+      (cond [(null? terms) (remove-duplicates (for/list ([f finals]) (st-c f)))]
+            [else
+             (define new-terms
+               (append-map (λ (t) (S-results (step* t))) terms))
+             (define-values (f t) (partition final-state? new-terms))
+             (loop (remove-duplicates t) (set-union finals (apply set f)))]))))
 
 #|
 (trace-it fit-example)
