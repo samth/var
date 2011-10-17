@@ -257,44 +257,5 @@ Pass 3: Annotate expressions/predicates
                     (require)
                     (λ (f) f)))))
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; structure definitions
 
-(define-metafunction λc~
-  struct-env : RMOD ... -> STRUCTENV
-  [(struct-env (module f LANG RREQ RSTRUCT ... RDEF ...
-                 (provide/contract [f_1 RCON] ...)) ...)
-   ((f (struct-names RSTRUCT) ...) ...)])
- 
-(define-metafunction λc~
-  struct-names : RSTRUCT -> (x x x (x ...))
-  [(struct-names (struct x_tag (x_fld ...)))
-   (x_tag (tag->cons x_tag) (tag->pred x_tag) ((fld->acc x_tag x_fld) ...))])
-
-;; Change this if you want constructors and tags to be different.
-(define-metafunction λc~
-  tag->cons : x -> x
-  [(tag->cons x) x])
-(define-metafunction λc~
-  tag->pred : x -> x
-  [(tag->pred x) ,(string->symbol (format "~a?" (term x)))])
-(define-metafunction λc~
-  fld->acc : x x -> x
-  [(fld->acc x_tag x_fld) ,(string->symbol (format "~a-~a" (term x_tag) (term x_fld)))])
-        
-        
-(test
- (test-equal (term (tag->cons posn)) (term posn))
- (test-equal (term (tag->pred posn)) (term posn?))
- (test-equal (term (fld->acc posn x)) (term posn-x))
- (test-equal (term (fld->acc posn y)) (term posn-y))
- 
- (test-equal (term (struct-names (struct posn (x y))))                                 
-             (term (posn posn posn? (posn-x posn-y))))
- 
- (test-equal (term (struct-env (module p racket
-                                 (require)
-                                 (struct posn (x y))
-                                 (provide/contract))))
-             (term ((p (posn posn posn? (posn-x posn-y)))))))
 

@@ -257,7 +257,69 @@
   [(lookup-modref/con f f_1 any)
    (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a" (term f_1) (term f))) ★)])
    
-   
+(define (Σ Ms)
+  (redex-let 
+   λc~ ([STRUCTENV (term (struct-env ,Ms))])
+   (reduction-relation
+    λc~ #:domain E
+    (--> (@ (f_cons ^ ℓ_use f_def) V ..._1 ℓ)
+         (-- (struct f_tag V ...))         
+         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred (f_acc ..._1)) any_3 ...) any_1 ...)
+                STRUCTENV))
+    (--> (@ (f_pred ^ ℓ_use f_def) (-- (struct f_tag V_1 ...) C ...) ℓ)
+         (-- PV)
+         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred* (f_acc ...)) any_3 ...) any_1 ...)
+                STRUCTENV)
+         ;; ensures f_pred is a predicate
+         (where (any_0 ... (f_def any_2* ... (f_tag* f_cons* f_pred (f_acc* ...)) any_3* ...) any_1 ...)
+                STRUCTENV)
+         (where PV ,(eq? (term f_tag) (term f_tag*))))    
+    (--> (@ (f_pred ^ ℓ_use f_def) V ℓ)
+         (-- #f)
+         (side-condition (not (redex-match λc~ STRUCTV (term V))))
+         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred (f_acc ...)) any_3 ...) any_1 ...)
+                STRUCTENV))
+    (--> (@ (f_acc ^ ℓ_use f_def) (-- (struct f_tag V_1 ...) C ...) ℓ)
+         V
+         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred (f_acc* ...)) any_3 ...) any_1 ...)
+                STRUCTENV)         
+         (where ((f_acc1 ..._1 f_acc f_acc2 ..._2)
+                 (V_2 ..._1 V V_3 ..._2))
+                ((f_acc* ...)
+                 (V_1 ...)))))))
+         
+
+(test
+ (define Ms
+   (term [(module f racket (require) 
+            (struct posn (x y))
+            (struct pair (x y))
+            (provide/contract [posn (any/c)]))]))   
+ (test--> (Σ Ms)
+          (term (@ (posn ^ † f) (-- 1) (-- 2) †))
+          (term (-- (struct posn (-- 1) (-- 2)))))
+ (test--> (Σ Ms)
+          (term (@ (posn? ^ † f) (-- (struct posn (-- 1) (-- 2))) †))
+          (term (-- #t)))
+ (test--> (Σ Ms)
+          (term (@ (posn? ^ † f) (-- (struct pair (-- 1) (-- 2))) †))
+          (term (-- #f)))
+ (test--> (Σ Ms)
+          (term (@ (posn? ^ † f) (-- 3) †))
+          (term (-- #f)))
+ (test--> (Σ Ms)
+          (term (@ (posn-x ^ † f) (-- (struct posn (-- 1) (-- 2))) †))
+          (term (-- 1)))
+ (test--> (Σ Ms)
+          (term (@ (posn-y ^ † f) (-- (struct posn (-- 1) (-- 2))) †))
+          (term (-- 2))))
+ 
+
+
+
+ 
+
+                  
   
 (define (∆ Ms)
   (reduction-relation
