@@ -139,15 +139,16 @@
   [(env-lookup ((x_0 a_0) (x_1 a_1) ...) x)
    (env-lookup ((x_1 a_1) ...) x)])
 
+#;
 (define-metafunction CESK*
   load : E -> ς
   [(load E)
    (E () () MT)])
 
 (define-metafunction CESK*
-  load* : E -> any
-  [(load* E)
-   ,(st (term E) '() '() 'MT)])
+  load : any -> any
+  [(load any)
+   ,(st (term any) '() '() 'MT)])
 
 ;; this will stop working once there's real non-determinism
 (define-metafunction CESK*
@@ -189,6 +190,9 @@
 
 (define (combine-S . ss)
   (match ss
+    [(list) (S #f null)]
+    [(list (S name results))
+     (S name results)]
     [(list (S name results) ...)
      (S 'multi-rule
         (apply append results))]))
@@ -306,20 +310,23 @@
               (for/list ([K (term (sto-lookup ,σ ,a))])
                 (st E 
                     (term (extend-env ,ρ_0 ,x ,a1s))
-                    (term (extend-sto ,σ ,a1s ,(cons ρ_0 (append clo (list (list V ρ))))))
+                    (term (extend-sto ,σ ,a1s ,(append clo (list (list V ρ)))))
                     K)))]
           [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
-           (match-let* ([(list (list V_2 ρ_2) ...) (cons (list V ρ) clo)]
-                        [K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+           (printf "got here \n")
+           (match-let* ([K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
                         [(list a_k) (term (alloc ,σ (,K)))]
-                        [σ_1 (term (extend-sto1 ,σ ,a_k ,K))])
+                        [σ_1 (term (extend-sto1 ,σ ,a_k ,K))]
+                        [K2 `(AP ()
+                                 ,(for/list ([clo_1 (cons (list V ρ) clo)]
+                                             [C_0* C_0])
+                                    (match-let ([(list V_2 ρ_2) clo_1])
+                                      `((,C_0* <= ,ℓ_2 ,ℓ_1 ,V_2 ,ℓ_3 ,V_2) ,ρ_2)))
+                                 ,ℓ ,a_k)])
              (S 'unary+-blessed-β
-                (for/list ([clo_1 (term (sto-lookup σ a_f))])
+                (for/list ([clo_1 (term (sto-lookup ,σ ,a_f))])
                   (match-define (list V_f ρ_f) clo_1)
-                  (st V_f ρ_f σ_1 
-                      `(AP ()
-                           (((C_0 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ρ_2) ...)
-                           ℓ a_k)))))]
+                  (st V_f ρ_f σ_1 K2))))]
           [_ "abstract beta"])]
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
              (not (equal? (add1 (length (term ,clo)))
@@ -361,7 +368,41 @@
           (define σ_0 (term `(extend-sto1 ,σ ,a ,K)))
           (st E_0 ρ σ_0 `(LET ,x ,E_1 ,ρ ,a))))]
     
+    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,E) ρ σ K)
+     (match-let* ([`(,a) (term (alloc ,σ (,K)))]
+                  [σ_0 (term (extend-sto1 ,σ ,a ,K))])
+         (S 'chk-push 
+            (list (st E ρ σ_0
+                      `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]
+    
+    [(st (V: V) ρ σ `(CHK (,C ... -> ,result) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (choose
+      [(term (∈ #t (δ (@ procedure? ,V ★))))
+       (S 'chk-fun-pass
+        (match-let* ([(list a_new) (term (alloc ,σ (,V)))]
+                     [σ_1 (term (extend-sto1 ,σ ,a_new (,V ,ρ)))])
+          (for/list ([K (term (sto-lookup ,σ ,a))])
+            (st `((,@C --> ,result) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_new)) ρ_1 σ_1 K))))]
+      [(term (∈ #f (δ (@ procedure? ,V ★))))
+       (S 'chk-fun-fail-fail
+          (for/list ([K (term (sto-lookup ,σ ,a))])
+            (st `(blame ,ℓ_1 ,ℓ_3 ,V-or-AE (,@C -> ,result) ,V) ρ σ K)))])]
+    
+    [(st (V: V) ρ σ `(CHK ,(? (redex-match CESK* FLAT) FLAT) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (match-let* ([K
+                   `(IF ,(term (remember-contract ,V (try-close-contract ,FLAT ,ρ_1 ,σ)))
+                       (blame ,ℓ_1 ,ℓ_3 ,V-or-AE ,FLAT ,V)
+                       ,ρ ,a)]
+                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
+       (S 'flat-check
+          (list (st V ρ σ_new
+                    `(AP (((-- ,(term (flat-check ,FLAT ,V))) ,ρ_1)) () Λ ,a_k)))))]
+    
     [a (printf "catchall: ~a\n" a) (S #f null)]))
+
+(define (factorial n)
+  (if (zero? n) 1 (* n (factorial (sub1 n)))))
 
 (define step
   (reduction-relation
@@ -379,13 +420,7 @@
       
   
    ;; Blessing
-   (--> (V ρ σ (CHK (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (((C ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_new)) ρ_1 σ_1 K)
-        (where (a_new) (alloc σ (V)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (where σ_1 (extend-sto1 σ a_new (V ρ)))
-        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
-        chk-fun-pass)
+   
            
    
    ;; BLESSED APPLICATION
@@ -422,16 +457,7 @@
         unary+-blessed-β-dep)
              
    ;; CONTRACT CHECKING   
-   (--> (V ρ σ (CHK FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ_new
-           (AP (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
-        (where K
-               (IF (remember-contract V (try-close-contract FLAT ρ_1 σ))
-                   (blame ℓ_1 ℓ_3 V-or-AE FLAT V)
-                   ρ a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_new (extend-sto1 σ a_k K))
-        flat-check)
+   
    
    (--> (V ρ σ (CHK (rec/c X HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ (CHK (unroll (rec/c X HOC)) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
@@ -544,11 +570,7 @@
                (sto-lookup σ (env-lookup ρ x)))
         chk-subst)
    
-   (--> ((C <= ℓ_1 ℓ_2 V-or-AE ℓ_3 E) ρ σ K)
-        (E ρ σ_0 (CHK C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto1 σ a K))
-        chk-push)))
+   ))
 
 (define (st->list s)
   (match s
@@ -587,7 +609,7 @@
 
 (define error-propagate
   (reduction-relation 
-   CESK* #:domain ς
+   CESK*
    (--> any_in 
         ,(st (term B) '() (term (gc (B () σ MT))) 'MT)
         (where B ,(st-e (term any_in)))
@@ -737,8 +759,7 @@
         (where ρ_1 (restrict ρ (fv E)))
         (computed-name (term any_name))]))
 
-(define (stepΔ-gc Ms) step-gc
-  #;
+(define (stepΔ-gc Ms) 
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
 
 (define (final-state? s)
@@ -766,11 +787,10 @@
         [else #t]))
 
 (define-syntax-rule (trace-it P . rest)
-  (let ([P* (term (annotator ,P))])
-    (traces (stepΔ-gc (program-modules P*))
-            (term (load* ,(last P*)))
-            #:pred (colorize (program-modules P*))
-            . rest)))
+  (traces (stepΔ-gc (program-modules P))
+          (term (load ,(last P)))
+          #:pred (colorize (program-modules P))
+          . rest))
 
 
 
