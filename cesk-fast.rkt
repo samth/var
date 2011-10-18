@@ -187,6 +187,16 @@
   (syntax-parser
    [(_ pat) #'(? V? pat)]))
 
+(define (combine-S . ss)
+  (match ss
+    [(list (S name results) ...)
+     (S 'multi-rule
+        (apply append results))]))
+
+(define-syntax-rule (choose [tst . rhs] ...)
+  (apply combine-S
+         (filter values (list (and tst (let () . rhs)) ...))))
+
 (define (step* state)
   (match state    
     
@@ -236,44 +246,93 @@
             [(list V ρ_0) (st V ρ_0 σ K)])))]
     [(st (? (redex-match CESK* PV) pv) ρ σ K)
      (S 'wrap (list (st `(-- ,pv) ρ σ K)))]
-    [(st (V: V) ρ σ `(AP (((-- (λ (,x ...) ,E) ,C ...) ,ρ_0) ,clo ...) () ,ℓ ,a))
-     (cond 
-       [(= (length x) (add1 (length clo)))
-        (define a1s (term (alloc ,σ ,x)))
-        (define Ks (term (sto-lookup ,σ ,a)))
-        (S 'β
-         (for/list ([K Ks])
-           (st E 
-               (term (extend-env ,ρ_0 ,x ,a1s))
-               (term (extend-sto ,σ ,a1s ,(append clo (list (list V ρ)))))
-               K)))]
-       [else (error 'arity)])]
-    [(st `(-- (λ () ,E) ,C ...) ρ σ `(AP () () ,ℓ ,a))
-     (S 'β-0 
-        (for/list ([K (term (sto-lookup ,σ ,a))])
-          (st E ρ σ K)))]
-    ;; rec
-    [(st (V: V) ρ σ `(AP (((-- (λ ,rec (,x ...) ,E) ,C ...) ,ρ_0) ,clo ...) () ,ℓ ,a))
-     (cond 
-       [(= (length x) (add1 (length clo)))
-        (define a1s (term (alloc ,σ ,(cons rec x))))        
-        (S 'β-rec
-         (for/list ([K (term (sto-lookup ,σ ,a))])
-           (st E 
-               (term (extend-env ,ρ_0 ,(cons rec x) ,a1s))
-               (term (extend-sto ,σ ,a1s ,(cons `((-- (λ ,rec ,x ,E) ,@C) ,ρ_0)
-                                                (append clo (list (list V ρ))))))
-               K)))]
-       [else (error 'arity)])]
+    
+    ;; nullary application
+    [(st (V: V-proc) ρ σ `(AP () () ,ℓ ,a))
+     (match V-proc
+       [`(-- (λ ,rec () ,E) ,C ...)
+        (S 'β-0 
+           (for/list ([K (term (sto-lookup ,σ ,a))])
+             (st E ρ σ K)))]
+       [(and fun `(-- (λ ,rec () ,E) ,C ...))
+        (S 'β-rec-0 
+           (for*/list ([K (term (sto-lookup ,σ ,a))]
+                       [a_1 (term (alloc ,σ (,rec)))])          
+             (st E
+                 (term (extend-env ,ρ (,rec) (,a_1)))
+                 (term (extend-sto1 ,σ ,a_1 ,(list fun ρ)))
+                 K)))]
+       [`((--> ,C) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
+        (S 'nullary-blessed-β
+           (for/list ([clo (term (sto-lookup ,σ ,a_f))])
+             (match-let* ([K `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+                          [`(,V_f ,ρ_f) clo]
+                          [`(,a_k) (term (alloc ,σ (,K)))]
+                          [σ_1 (term (extend-sto1 ,σ ,a_k ,K))])
+               (st V_f ρ_f σ_1 `(AP () () ,ℓ ,a_k)))))]
+       [_ 
+        (choose [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
+                      (equal? 0 (term (arity ,V-proc))))
+                 "abstract beta-0"]
+                [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
+                      (not (equal? 0 (term (arity ,V-proc)))))
+                 (S 'blame-arity
+                    (for/list ([K (term (sto-lookup ,σ ,a))])
+                      (st `(blame ,ℓ  Λ ,V-proc λ ,V-proc) ρ σ K)))]
+                [(and (term (∈ #f (δ (@ procedure? ,V-proc ★)))))
+                 (S 'blame-not-proc
+                    (for/list ([K (term (sto-lookup ,σ ,a))])
+                      (st `(blame ,ℓ  Λ ,V-proc λ ,V-proc) ρ σ K)))])])]
+    
+    ;; unary+ application
+    [(st (V: V) ρ σ `(AP ((,(V: V-proc) ,ρ_0) ,clo ...) () ,ℓ ,a))
+     (choose 
+       [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
+             (equal? (add1 (length (term ,clo)))
+                     (term (arity ,V-proc))))
+        (match V-proc
+          [`(-- (λ ,rec (,x ...) ,E) ,C ...)
+           (define a1s (term (alloc ,σ ,(cons rec x))))        
+           (S 'β-rec
+              (for/list ([K (term (sto-lookup ,σ ,a))])
+                (st E 
+                    (term (extend-env ,ρ_0 ,(cons rec x) ,a1s))
+                    (term (extend-sto ,σ ,a1s ,(cons `((-- (λ ,rec ,x ,E) ,@C) ,ρ_0)
+                                                     (append clo (list (list V ρ))))))
+                    K)))]
+          [`(-- (λ (,x ...) ,E) ,C ...)
+           (define a1s (term (alloc ,σ ,x)))
+           (S 'β
+              (for/list ([K (term (sto-lookup ,σ ,a))])
+                (st E 
+                    (term (extend-env ,ρ_0 ,x ,a1s))
+                    (term (extend-sto ,σ ,a1s ,(cons ρ_0 (append clo (list (list V ρ))))))
+                    K)))]
+          [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
+           (match-let* ([(list (list V_2 ρ_2) ...) (cons (list V ρ) clo)]
+                        [K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+                        [(list a_k) (term (alloc ,σ (,K)))]
+                        [σ_1 (term (extend-sto1 ,σ ,a_k ,K))])
+             (S 'unary+-blessed-β
+                (for/list ([clo_1 (term (sto-lookup σ a_f))])
+                  (match-define (list V_f ρ_f) clo_1)
+                  (st V_f ρ_f σ_1 
+                      `(AP ()
+                           (((C_0 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ρ_2) ...)
+                           ℓ a_k)))))]
+          [_ "abstract beta"])]
+       [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
+             (not (equal? (add1 (length (term ,clo)))
+                          (term (arity ,V-proc)))))
+        (S 'blame-arity
+           (for/list ([K (term (sto-lookup ,σ ,a))])
+             (st `(blame ,ℓ  Λ ,V-proc λ ,V-proc) ρ_0 σ K)))]
+       [(term (∈ #f (δ (@ procedure? ,V-proc ★)))) 
+        (S 'blame-not-proc
+           (for/list ([K (term (sto-lookup ,σ ,a))])
+             (st `(blame ,ℓ  Λ ,V-proc λ ,V-proc) ρ_0 σ K)))])]
 
-    [(st (and fun `(-- (λ ,rec () ,E) ,C ...)) ρ σ `(AP () () ,ℓ ,a))
-     (S 'β-rec-0 
-        (for*/list ([K (term (sto-lookup ,σ ,a))]
-                    [a_1 (term (alloc ,σ (,rec)))])          
-          (st E
-              (term (extend-env ,ρ (,rec) (,a_1)))
-              (term (extend-sto1 ,σ ,a_1 ,(list fun ρ)))
-              K)))]
+    
     
     [(st (V: V) ρ σ `(IF ,E_1 ,E_2 ,ρ_1 ,a))     
      (S 'if
@@ -289,6 +348,18 @@
         (for*/list ([K (term (sto-lookup ,σ ,a))]
                     [V-or-B (term (δ ,`(@ ,op ,@V_0 ,V ,ℓ)))])
           (st (term (widen ,op ,V-or-B)) '() σ K)))]
+    
+    [(st `(begin ,E_0 ,E_1) ρ σ K)
+     (S 'beg-push
+        (match-let ([(list a) (term (alloc ,σ (,K)))])
+          (define σ_0 (term `(extend-sto1 ,σ ,a ,K)))
+          (st E_0 ρ σ_0 `(BEG (,E_1 ρ) ,a))))]
+    
+    [(st `(let ,x ,E_0 ,E_1) ρ σ K)
+     (S 'let-push
+        (match-let ([(list a) (term (alloc ,σ (,K)))])
+          (define σ_0 (term `(extend-sto1 ,σ ,a ,K)))
+          (st E_0 ρ σ_0 `(LET ,x ,E_1 ,ρ ,a))))]
     
     [a (printf "catchall: ~a\n" a) (S #f null)]))
 
@@ -316,28 +387,10 @@
         (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
         chk-fun-pass)
            
-   ;; Nullary function application
-   (--> ((-- (λ () E) C ...) ρ σ (AP () () ℓ a))
-        (E ρ σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        β-0)
-   (--> ((-- (λ x () E) C ...) ρ σ (AP () () ℓ a))
-        (E (extend-env ρ (x) (a_1))
-           (extend-sto1 σ a_1 ((-- (λ x () E) C ...) ρ))
-           K)
-        (where (a_1) (alloc σ (x)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        β-rec0)
    
    ;; BLESSED APPLICATION
    ;; Nullary blessed application
-   (--> (((--> C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (AP () () ℓ a))
-        (V_f ρ_f σ_1 (AP () () ℓ a_k))
-        (where K (CHK C ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_1 (extend-sto1 σ a_k K))
-        (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
-        nullary-blessed-β)
+   
    (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (AP () () ℓ a))
         (V_f ρ_f σ_1 (AP () () ℓ a_k))
         (where K (CHK ρ C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
@@ -348,22 +401,7 @@
    ;; Unary+ blessed application
    ;; FIXME: these two rules are broken with the environments of the argument contracts.
    ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
-   (--> (V_n ρ_n σ (AP ((((C_0 ... --> C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
-                        (V_1 ρ_1) ...)
-                       () 
-                       ℓ a))
-        (V_f ρ_f σ_1 
-             (AP ()
-                 (((C_0 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ρ_2) ...)
-                 ℓ a_k))
-        (side-condition (= (length (term (C_0 ...)))
-                           (add1 (length (term ((V_1 ρ_1) ...))))))
-        (where (D_0 ... (V_f ρ_f) D_1 ...) (sto-lookup σ a_f))
-        (where ((V_2 ρ_2) ...) ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
-        (where K (CHK C_1 ρ ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_1 (extend-sto1 σ a_k K))
-        unary+-blessed-β)
+   
    (--> (V_n ρ_n σ (AP ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
                         (V_1 ρ_1) ...)
                        ()
@@ -382,50 +420,7 @@
         (where (a_k) (alloc σ (K)))        
         (where σ_1 (extend-sto σ (a_k a_1 ...) (K (V_2 ρ_2) ...)))
         unary+-blessed-β-dep)
-    
-   ;; PLAIN OL' APPLICATION
-   ;; Unary+ function application
-   (--> (V ρ σ (AP (((-- (λ (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
-        (E (extend-env ρ_0 (x ...) (a_1 ...))
-           (extend-sto σ (a_1 ...) (clo ... (V ρ)))
-           K)
-        (where (a_1 ...) (alloc σ (x ...)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (side-condition (= (length (term (x ...)))
-                           (add1 (length (term (clo ...))))))
-        β)
-   
-   (--> (V ρ σ (AP (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ...) () ℓ a))
-        (E (extend-env ρ (x_f x ...) (a_1 ...))
-           (extend-sto σ (a_1 ...) (((-- (λ x_f (x ...) E) C ...) ρ_0) clo ... (V ρ)))
-           K)
-        (where (a_1 ...) (alloc σ (x_f x ...)))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))    
-        (side-condition (= (length (term (x ...)))
-                           (add1 (length (term (clo ...))))))
-        β-rec)      
-   
-   ;; APPLICATIONS GONE WRONG
-   (--> (U ρ σ (AP ((V ρ_0) clo ...) () ℓ a))
-        ((blame ℓ  Λ V λ V) ρ_0 σ K)
-        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
-        (side-condition (not (equal? (add1 (length (term (clo ...))))
-                                     (term (arity V)))))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        blame-arity)
-   
-   (--> (U ρ σ (AP ((V ρ_0) clo ...) () ℓ a))
-        ((blame ℓ  Λ V λ V) ρ_0 σ K)
-        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        blame-not-proc)  
-      
-   
-   
-   
-     
-   
-   
+             
    ;; CONTRACT CHECKING   
    (--> (V ρ σ (CHK FLAT ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
@@ -542,18 +537,6 @@
         abs-rec/c-unroll)   
    
    ;; Context shuffling   
-   
-   (--> ((begin E_0 E_1) ρ σ K)
-        (E_0 ρ σ_0 (BEG (E_1 ρ) a))
-        (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto1 σ a K))
-        beg-push)
-   
-   (--> ((let x E_0 E_1) ρ σ K)
-        (E_0 ρ σ_0 (LET x E_1 ρ a))
-        (where (a) (alloc σ (K)))
-        (where σ_0 (extend-sto1 σ a K))
-        let-push)
    
    (--> ((C <= ℓ_1 ℓ_2 x ℓ_3 E) ρ σ K)
         ((C <= ℓ_1 ℓ_2 V ℓ_3 E) ρ σ K)
