@@ -266,6 +266,15 @@
                  (term (extend-env ,ρ (,rec) (,a_1)))
                  (term (extend-sto1 ,σ ,a_1 ,(list fun ρ)))
                  K)))]
+       ;; these next two cases are identical
+       [`((--> (λ () ,C)) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
+        (S 'nullary-blessed-β-dep
+           (for/list ([clo (term (sto-lookup ,σ ,a_f))])
+             (match-let* ([K `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+                          [`(,V_f ,ρ_f) clo]
+                          [`(,a_k) (term (alloc ,σ (,K)))]
+                          [σ_1 (term (extend-sto1 ,σ ,a_k ,K))])
+               (st V_f ρ_f σ_1 `(AP () () ,ℓ ,a_k)))))]
        [`((--> ,C) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
         (S 'nullary-blessed-β
            (for/list ([clo (term (sto-lookup ,σ ,a_f))])
@@ -388,6 +397,10 @@
           (for/list ([K (term (sto-lookup ,σ ,a))])
             (st `(blame ,ℓ_1 ,ℓ_3 ,V-or-AE (,@C -> ,result) ,V) ρ σ K)))])]
     
+    [(st (V: V) ρ σ `(CHK (rec/c ,X ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (S 'chk-unroll
+        (list (st V ρ σ `(CHK ,(term (unroll (rec/c ,X ,HOC))) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))))]
+    
     [(st (V: V) ρ σ `(CHK ,(? (redex-match CESK* FLAT) FLAT) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K
                    `(IF ,(term (remember-contract ,V (try-close-contract ,FLAT ,ρ_1 ,σ)))
@@ -426,13 +439,7 @@
    ;; BLESSED APPLICATION
    ;; Nullary blessed application
    
-   (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (AP () () ℓ a))
-        (V_f ρ_f σ_1 (AP () () ℓ a_k))
-        (where K (CHK ρ C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_1 (extend-sto1 σ a_k K))
-        (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
-        nullary-blessed-β-dep)
+   
    ;; Unary+ blessed application
    ;; FIXME: these two rules are broken with the environments of the argument contracts.
    ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
@@ -459,9 +466,7 @@
    ;; CONTRACT CHECKING   
    
    
-   (--> (V ρ σ (CHK (rec/c X HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ (CHK (unroll (rec/c X HOC)) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        chk-unroll)
+   
    
    (--> (V ρ σ (CHK (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
         (V ρ σ_new
@@ -503,15 +508,7 @@
         (where K (OP cons (V ρ) () Λ a))
         (where (a_k) (alloc σ (K)))
         (where σ_new (extend-sto1 σ a_k K))
-        check-cons-pass-rest)
-   
-   
-   (--> (V ρ σ (CHK (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ;; NOTE ρ_1 discarded, reported contract not closed
-        ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
-        chk-fun-fail-flat)
+        check-cons-pass-rest)   
    
    ;; Nullary abstract application
    (--> (AV ρ_0 σ (AP () () ℓ a))
