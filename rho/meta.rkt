@@ -180,20 +180,19 @@
   
   
   [(contract-in ((pred OP LAB) ρ) V)
-   (proves V OP)]
-  
-  #|
-  [(contract-in (and/c C_1 C_2) V)
-   ,(and (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
-  [(contract-in (or/c C_1 C_2) V)
-   ,(or (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
-  [(contract-in (cons/c C_1 C_2) (-- (cons V_1 V_2) C ...))
-   ,(and (term (contract-in C_1 V_1)) (term (contract-in C_2 V_2)))]
+   (proves V OP)]    
+  [(contract-in ((and/c CON_1 CON_2) ρ) V)
+   ,(and (term (contract-in (CON_1 ρ) V)) (term (contract-in (CON_2 ρ) V)))]
+  [(contract-in ((or/c CON_1 CON_2) ρ) V)
+   ,(or (term (contract-in (CON_1 ρ) V)) (term (contract-in (CON_2 ρ) V)))]    
+  [(contract-in ((cons/c CON_1 CON_2) ρ) (-- (cons V_1 V_2) C ...))
+   ,(and (term (contract-in (CON_1 ρ) V_1)) (term (contract-in (CON_2 ρ) V_2)))]
+  ;; FIXME: Add back when ABSTRACT values go in.
+  #;
   [(contract-in (cons/c C_1 C_2) AV)
    ,(and (andmap (λ (x) (term (contract-in C_1 ,x))) (term (proj-left AV)))
          (andmap (λ (x) (term (contract-in C_2 ,x))) (term (proj-right AV))))]
   [(contract-in C V) #f]
-|#
   )
 
 (test
@@ -205,7 +204,24 @@
  (test-equal (term (contract-in ((pred (prime? ^ f g) †) ()) (-- (clos "a" ()) ((pred (prime? ^ f g) †) ()))))
              #t)
  (test-equal (term (contract-in ((pred (prime? ^ g f) †) ()) (-- (clos "a" ()) ((pred (prime? ^ h f) †) ()))))
-             #t))
+             #t)
+ (test-equal (term (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) ())
+                                (-- (clos 0 ()))))
+             #t)
+ (test-equal (term (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) ())
+                                (-- (clos 1 ()))))
+             #f)
+ (test-equal (term (contract-in ((or/c (pred zero? †) (pred exact-nonnegative-integer? †)) ())
+                                (-- (clos 1 ()))))
+             #t)
+ (test-equal (term (contract-in ((cons/c (pred zero? †) (pred string? †)) ())
+                                (-- (cons (-- (clos 0 ())) (-- (clos "s" ()))))))
+             #t)
+ (test-equal (term (contract-in ((cons/c (pred zero? †) (pred string? †)) ())
+                                (-- (cons (-- (clos 0 ())) (-- (clos 2 ()))))))
+             #f))
+
+
 
 
 
