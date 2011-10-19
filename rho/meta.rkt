@@ -170,7 +170,9 @@
 ;; Does this value definitely pass this contract?
 (define-metafunction λcρ
   contract-in : C V -> #t or #f
-  [(contract-in C (-- any ... C C_1 ...)) #t]  ; Wary of syntactic equality and envs.
+  ;; Wary of syntactic equality and envs.
+  ;; Getting this case right is crucial for soundness.
+  [(contract-in C (-- any ... C C_1 ...)) #t]
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
   [(contract-in ((pred MODREF LAB) ρ)
@@ -236,6 +238,48 @@
                                           (-- (clos empty ()))))))
              #t))
 
+;; Does this value *definitely* fail this contract?
+(define-metafunction λcρ
+  contract-not-in : C V -> #t or #f  
+  [(contract-not-in C V)
+   (contract-not-in/cache C V ())])
+
+(define-metafunction λcρ
+  contract-not-in/cache : C V ((C V) ...) -> #t or #f
+  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]  
+  [(contract-not-in/cache C (BARROW <= LAB_0 LAB_1 V_b LAB_2 V) any)
+   (contract-not-in/cache C V any)] 
+  [(contract-not-in/cache ((pred OP LAB) ρ) V any)
+   (refutes V OP)] 
+  [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
+   ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
+   (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V ★))))
+   (where (V_cdr ...) ,(filter (redex-match λcρ V) (term (δ cdr V ★))))
+   (where bool_cars ,(andmap values (term ((contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))
+   (where bool_cdrs ,(andmap values (term ((contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))]
+  #|
+  [(contract-not-in/cache FC V any)
+   #t
+   (where #t (proves V procedure?))]
+  [(contract-not-in/cache (and/c C_1 C_2) V ((C_3 V_3) ...))
+   ,(or (term (contract-not-in/cache C_1 V (((and/c C_1 C_2) V) (C_3 V_3) ...)))
+        (term (contract-not-in/cache C_2 V (((and/c C_1 C_2) V) (C_3 V_3) ...))))]
+  [(contract-not-in/cache (or/c C_1 C_2) V ((C_3 V_3) ...))
+   ,(and (term (contract-not-in/cache C_1 V (((or/c C_1 C_2) V) (C_3 V_3) ...)))
+         (term (contract-not-in/cache C_2 V (((or/c C_1 C_2) V) (C_3 V_3) ...))))]
+  
+  [(contract-not-in/cache (rec/c x C) V ((C_3 V_3) ...))
+   (contract-not-in/cache (unroll (rec/c x C)) V (((rec/c x C) V) (C_3 V_3) ...))
+   (where #t (productive? (rec/c x C)))]
+                    
+  
+  [(contract-not-in/cache (C_1 ... -> any) V any_1)
+   #t
+   (where #t (refutes V procedure?))]
+    
+  [(contract-not-in/cache C V any) #f])
+|#
+  )
 
 ;; Does OP hold on all values abstracted by V
 ;; [Gives an approximate answer: #f means "failed to prove"]
@@ -267,6 +311,39 @@
                                                       (-- (pred procedure? Λ)))
                            procedure?))
              #t))
+
+;; Does (negate o?) hold on all values abstracted by AV
+(define-metafunction λcρ
+  refutes : V OP -> #t or #f
+  ;; FIXME: add back when ABSTRACT
+  #;
+  [(refutes (-- C_0 ... C C_1 ...) OP) 
+   #t
+   (where #t (refutes-con C OP))]  
+  [(refutes (-- PREVAL C ...) OP)
+   #t
+   (where FALSE (plain-δ OP (-- PREVAL C ...) ★))]  
+  [(refutes (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 any_1) OP)
+   #t
+   (side-condition (not (eq? 'procedure? (term OP))))]
+  [(refutes (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) OP)
+   (refutes V OP)]
+  [(refutes V OP) #f])
+
+(test
+ (test-equal (term (refutes (-- (clos 0 ())) empty?)) #t)
+ (test-equal (term (refutes (-- (cons (-- (clos 0 ())) (-- (clos 1 ())))) cons?)) #f)
+ (test-equal (term (refutes (-- (cons (-- (clos 0 ())) (-- (clos 1 ())))) string?)) #t)
+ (test-equal (term (refutes ((--> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ () 1) ()))) string?))
+             #t)
+ (test-equal (term (refutes ((--> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ () 1) ()))) procedure?))
+             #f)
+                   
+ #;
+ (test-equal (term (refutes (-- (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p))) cons?)) #f)
+ )
+
+
 
 (define-metafunction λcρ
   modref=? : MODREF MODREF -> #t or #f

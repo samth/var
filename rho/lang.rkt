@@ -153,7 +153,9 @@
   (string-string->bool string=? string<? string>? string<=? string>=?
                        string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
   
+  (bool #t #f)
   (TRUE (-- (clos #t ρ) C* ...))
+  (FALSE (-- (clos #f ρ) C* ...))
   
   ) 
 
