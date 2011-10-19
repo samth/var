@@ -1,5 +1,5 @@
 #lang racket
-(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") redex/reduction-semantics "step.rkt")
+(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" (prefix-in c: "cesk.rkt") (prefix-in f: "cesk-fast.rkt") redex/reduction-semantics "step.rkt")
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
@@ -25,6 +25,8 @@
              #:attr sym 'cesk]
     [pattern (~datum cesk-trace)
              #:attr sym 'cesk-trace]
+    [pattern (~datum fast-trace)
+             #:attr sym 'fast-trace]
     [pattern (~datum trace)
              #:attr sym 'trace]
     [pattern (~datum count)
@@ -53,6 +55,8 @@
                  (printf "~a terms explored\n" k))]
             [(cesk-trace)
              #'(c:trace-it the-program)]
+            [(fast-trace)
+             #'(f:trace-it the-program)]
             [(cesk)
              #'(apply values
                       (filter-not
