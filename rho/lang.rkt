@@ -56,7 +56,7 @@
        (and/c HOC CON) 
        (and/c CON HOC)
        #;X)  ;; Not sure about x or no x.    
-  (PREDV L MODREF OP)
+  (PREDV LAM MODREF OP)
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
@@ -77,13 +77,13 @@
   ;; Closures
   (D (clos EXP ρ)
      V
-     ;MODREF 
+     MODREF 
      (@ D D ... LAB)     
      (if D D D)
      (let ((X D) ...) (clos EXP ρ))
      (begin D (clos EXP ρ))
-     BLAME)
-  
+     (CON ρ <= LAB LAB V X D)
+     BLAME)    
   
   ;; Note, both
   ;; (-- (cons 1 2)) and (-- (cons (-- (clos 1 ())) (-- (clos 2 ()))))
@@ -102,21 +102,27 @@
         BLESSED)  
         
         
-  (BLESSED (CARROW <= LAB LAB V LAB (-- (clos LAM ρ) C* ...))
-           (CARROW <= LAB LAB V LAB BLESSED))
+  (BLESSED (BARROW ρ <= LAB LAB V LAB (-- (clos LAM ρ) C* ...))
+           (BARROW ρ <= LAB LAB V LAB BLESSED))
     
-  (CARROW (C ... -> C ρ)
-          (C ..._1 -> (λ (X ..._1) C) ρ))
+  (BARROW (CON ... --> CON)
+          (CON ..._1 --> (λ (X ..._1) CON)))
+          
+  (CARROW (CON ... -> CON)
+          (CON ..._1 -> (λ (X ..._1) CON)))
   
   (C  (CON ρ))
   (C* (FLAT* ρ) (HOC* ρ))
   
-  (FLAT* (pred SV LAB) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c X FLAT))
-  (HOC* (C ... -> C)
-        (C ..._1 -> (λ (X ..._1) C))
+  (FLAT* (pred PREDV LAB) 
+         (cons/c FLAT FLAT) 
+         (or/c FLAT FLAT) 
+         (rec/c X FLAT))
+  (HOC* (CON ... -> CON)
+        (CON ..._1 -> (λ (X ..._1) CON))
         (or/c FLAT HOC)
-        (cons/c HOC C) (cons/c C HOC)
-        (rec/c X HOC))   
+        (cons/c HOC CON) (cons/c CON HOC)
+        (rec/c X HOC))
   
   (BLAME (blame LAB LAB V C V)
          (blame LAB LAB V OP V)
@@ -141,10 +147,15 @@
        string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
        procedure-arity-includes?)
   
+  (natural->natural add1 sub1)
   (natural-natural->natural + - * expt)
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
                        string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
   
+  (TRUE (-- (clos #t ρ) C* ...))
+  
   ) 
+
+
 

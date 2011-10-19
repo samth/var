@@ -19,10 +19,10 @@
    (-- (clos #t ()))]
   [(plain-δ procedure? V LAB)
    (-- (clos #f ()))]
-  [(plain-δ string? (clos string ρ) LAB) 
+  [(plain-δ string? (-- (clos string ρ)) LAB) 
    (-- (clos #t ()))]
   [(plain-δ string? V LAB) 
-   (-- (clos #t ()))]
+   (-- (clos #f ()))]
   [(plain-δ boolean? (-- (clos bool ρ) C ...) LAB) 
    (-- (clos #f ()))]
   [(plain-δ boolean? V LAB) 
@@ -47,12 +47,11 @@
    (-- (clos #t ()))]
   [(plain-δ false? V LAB) 
    (-- (clos #f ()))]
-  [(plain-δ add1 (-- (clos natural ρ) C ...) LAB)
-   (-- (clos ,(add1 (term nat)) ()))]
-  [(plain-δ sub1 (-- (clos 0 ρ) C ...) LAB)
-   (-- (clos 0 ()))]
+  ;; Interpreted different than Racket's `sub1'.
   [(plain-δ sub1 (-- (clos natural ρ) C ...) LAB)
-   (-- (clos ,(sub1 (term natural)) ()))]
+   (-- (clos ,(max 0 (sub1 (term natural))) ()))]
+  [(plain-δ natural->natural (-- (clos natural ρ) C ...) LAB)
+   (meta-apply natural->natural natural)]
   [(plain-δ car (-- (cons V_0 V_1) C ...) LAB) V_0]
   [(plain-δ cdr (-- (cons V_0 V_1) C ...) LAB) V_1]
   [(plain-δ procedure-arity-includes? PROC (-- (clos natural ρ) C ...) LAB)
@@ -69,7 +68,7 @@
             (-- (clos natural_2 ρ_2) C_2 ...)
             LAB)
    (meta-apply natural-natural->natural natural_1 natural_2)]   
-  [(plain-δ natural-natural->boolean
+  [(plain-δ natural-natural->bool
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...)
             LAB)
@@ -82,6 +81,36 @@
   [(plain-δ OP V V_1 ... LAB)       ;; catches domain errors
    (blame LAB Λ V OP V)])
 
+(test 
+ (test-equal (term (plain-δ add1 (-- (clos 5 ())) †))
+             (term (-- (clos 6 ()))))
+ (test-equal (term (plain-δ sub1 (-- (clos 5 ())) †))
+             (term (-- (clos 4 ()))))
+ (test-equal (term (plain-δ sub1 (-- (clos 0 ())) †))
+             (term (-- (clos 0 ())))) 
+ (test-equal (term (plain-δ +
+                            (-- (clos 3 ()))
+                            (-- (clos 3 ()))
+                            †))
+             (term (-- (clos 6 ()))))
+ (test-equal (term (plain-δ string=? 
+                            (-- (clos "Hi" ()))
+                            (-- (clos "Hi" ()))
+                            †))
+             (term (-- (clos #t ()))))
+ (test-equal (term (plain-δ =
+                            (-- (clos 3 ()))
+                            (-- (clos 3 ()))
+                            †))
+             (term (-- (clos #t ()))))
+ (test-equal (term (plain-δ = 
+                            (-- (clos "Hi" ()))
+                            (-- (clos 7 ()))
+                            †))
+             (term (blame † Λ (-- (clos "Hi" ())) = (-- (clos "Hi" ())))))
+ )
+
+
 (define-metafunction λcρ
   meta-apply : OP any ... -> D
   [(meta-apply OP any ...)
@@ -92,7 +121,7 @@
     (syntax-rules ()
       [(reflect id ...)
        (case f [(id) id] ...)]))
-  (reflect + - * expt = < <= > >=               
+  (reflect add1 + * = < <= > >=               
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
@@ -137,3 +166,115 @@
  #;(test-equal (term (arity (-- (pred procedure? f)))) #f)
  ;; FIXME: add blessed case
  )
+
+;; Does this value definitely pass this contract?
+(define-metafunction λcρ
+  contract-in : C V -> #t or #f
+  [(contract-in C (-- any ... C C_1 ...)) #t]  
+  [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
+   (contract-in C V)]
+  [(contract-in ((pred MODREF LAB_2) ρ)
+                (-- any ... ((pred MODREF_1 LAB_3) ρ_1) C_1 ...))
+   #t
+   (where #t (modref=? MODREF MODREF_1))]  
+  
+  
+  [(contract-in ((pred OP LAB) ρ) V)
+   (proves V OP)]
+  
+  #|
+  [(contract-in (and/c C_1 C_2) V)
+   ,(and (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
+  [(contract-in (or/c C_1 C_2) V)
+   ,(or (term (contract-in C_1 V)) (term (contract-in C_2 V)))]
+  [(contract-in (cons/c C_1 C_2) (-- (cons V_1 V_2) C ...))
+   ,(and (term (contract-in C_1 V_1)) (term (contract-in C_2 V_2)))]
+  [(contract-in (cons/c C_1 C_2) AV)
+   ,(and (andmap (λ (x) (term (contract-in C_1 ,x))) (term (proj-left AV)))
+         (andmap (λ (x) (term (contract-in C_2 ,x))) (term (proj-right AV))))]
+  [(contract-in C V) #f]
+|#
+  )
+
+(test
+ (test-equal (term (contract-in ((pred procedure? †) ()) (-- (clos (λ (x) x) ())))) #t)
+ (test-equal (term (contract-in ((pred zero? †) ()) (-- (clos 0 ())))) #t)
+ (test-equal (term (contract-in ((pred procedure? †) ())
+                                ((--> (pred (λ (x) x) †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ (x) x) ())))))
+             #t)
+ (test-equal (term (contract-in ((pred (prime? ^ f g) †) ()) (-- (clos "a" ()) ((pred (prime? ^ f g) †) ()))))
+             #t)
+ (test-equal (term (contract-in ((pred (prime? ^ g f) †) ()) (-- (clos "a" ()) ((pred (prime? ^ h f) †) ()))))
+             #t))
+
+
+
+
+;; Does OP hold on all values abstracted by V
+;; [Gives an approximate answer: #f means "failed to prove"]
+(define-metafunction λcρ
+  proves : V OP -> #t or #f
+  [(proves (-- PREVAL C ...) OP)
+   #t
+   (where TRUE (plain-δ OP (-- PREVAL C ...) ★))]
+  ;; FIXME: Add when ABSTRACT values go in.
+  #;
+  [(proves (-- C_0 ... C C_1 ...) OP)
+   #t
+   (where #t (proves-con C OP))]  
+  [(proves (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) OP)
+   (proves V OP)] 
+  [(proves V OP) #f])
+
+(test
+ (test-equal (term (proves (-- (clos "Hi" ())) string?)) #t)
+ (test-equal (term (proves ((--> (pred (λ (x) #t) f)) () <= f g 
+                                                      (-- (clos 0 ())) h 
+                                                      (-- (clos (λ (x) x) ())))
+                           procedure?))
+             #t)
+ ;; FIXME: Add when ABSTRACT values go in.
+ #;
+ (test-equal (term (proves ((--> (pred (λ (x) #t) f)) () <= f g 
+                                                      (-- (clos 0 ())) h 
+                                                      (-- (pred procedure? Λ)))
+                           procedure?))
+             #t))
+
+(define-metafunction λcρ
+  modref=? : MODREF MODREF -> #t or #f
+  [(modref=? (X ^ LAB_1 X_1) (X ^ LAB_2 X_1)) #t]
+  [(modref=? MODREF MODREF_1) #f])
+
+;; modulename x valuename x modules -> value
+(define-metafunction λc-user
+  lookup-modref/val : X X (MOD ...) -> VAL ;or bullet
+  [(lookup-modref/val X X_1 (MOD ... 
+                             (module X LANG REQ STRUCT ... DEF ... (define X_1 any_result) DEF_1 ... any_p)
+                             MOD_1 ...))
+   any_result]
+  [(lookup-modref/val X X_1 any)
+   ,(format "unbound module variable ~a from ~a" (term X_1) (term X))])
+          
+;; modulename x valuename x modules -> contract
+(define-metafunction λc-user
+  lookup-modref/con : X X (MOD ...) -> CON
+  [(lookup-modref/con X X_1 (MOD ... 
+                             (module X LANG REQ STRUCT ... DEF ... 
+                               (provide/contract any_1 ... [X_1 CON] any_2 ...))
+                             MOD_1 ...))
+   CON]
+  [(lookup-modref/con X X_1 any)
+   (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a" (term X_1) (term X))) ★)])
+   
+(test
+ (define Ms 
+   (term [(module m racket (require) (define f 1) (provide/contract [f (pred string? m)]))]))
+ (test-equal (term (lookup-modref/val m f ,Ms)) 1)
+ (test-equal (term (lookup-modref/val m g ,Ms)) "unbound module variable g from m")
+ (test-equal (term (lookup-modref/con m f ,Ms)) (term (pred string? m)))
+ (test-equal (term (lookup-modref/con m g ,Ms)) 
+             (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
+ 
+ 
+
