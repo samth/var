@@ -172,7 +172,9 @@
   [(addr-of (any ... a)) a])
 
 (define-metafunction CESK*
-  unload : ς -> E
+  unload : any -> E
+  [(unload (side-condition any_1 (st? (term any_1))))
+   ,(st-c (term any_1))]
   [(unload (E ρ σ MT))
    E]
   [(unload (E ρ σ K))
@@ -243,7 +245,7 @@
    ;; let
     [(st (V: V) ρ σ `(LET . ,_)) (error "let is broken in the machine")]
     
-    [(st (? symbol? x) ρ σ K)
+    [(st (? (redex-match CESK* x) x) ρ σ K)
      (S 'var
         (for/list ([D (in-list (term (sto-lookup ,σ (env-lookup ,ρ ,x))))])
           (match D
@@ -254,7 +256,7 @@
     ;; nullary application
     [(st (V: V-proc) ρ σ `(AP () () ,ℓ ,a))
      (match V-proc
-       [`(-- (λ ,rec () ,E) ,C ...)
+       [`(-- (λ () ,E) ,C ...)
         (S 'β-0 
            (for/list ([K (term (sto-lookup ,σ ,a))])
              (st E ρ σ K)))]
@@ -288,7 +290,7 @@
                       (equal? 0 (term (arity ,V-proc)))
                       (redex-match CESK* AV V-proc))
                  (S 'apply-abs0
-                    (for/list ([K (term (sto-lookup σ a))])
+                    (for/list ([K (term (sto-lookup ,σ ,a))])
                       (match-let* ([`(-- ,C ...) V-proc]
                                    [C_0 (term (range-contracts ,C ()))])
                         (st (term (remember-contract (-- (any/c)) ,@(for/list ([c C_0])
@@ -329,7 +331,7 @@
                     (term (extend-sto ,σ ,a1s ,(append clo (list (list V ρ)))))
                     K)))]
           [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
-           (printf "got here \n")
+           ;(printf "got here \n")
            (match-let* ([K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
                         [(list a_k) (term (alloc ,σ (,K)))]
                         [σ_1 (term (extend-sto1 ,σ ,a_k ,K))]
@@ -354,8 +356,9 @@
                                ;; because we don't have contract closures.
                                [V_0c (for/list ([v V_0] [ρ ρ_0]) 
                                        (term (try-close-value ,v ,ρ ,σ)))]
-                               [C_0 (for/list ([C_0 (term (range-contracts ,C ,V_0c))])
-                                      (term (try-close-contract ,C_0 ,ρ_0 ,σ)))]
+                               [C_0 (for/list ([C_0 (term (range-contracts ,C ,V_0c))]
+                                               [ρ ρ_0])
+                                      (term (try-close-contract ,C_0 ,ρ ,σ)))]
                                [E_result (term (remember-contract (-- (any/c)) ,@C_0))])                    
                     (st (term (amb (-- 0) (demonic* ,C_demon ,U))) ρ_2 σ `(BEG (,E_result ()) ,a))))))])]
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
@@ -465,7 +468,7 @@
           (list (st V ρ σ_1 `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st `(-- (cons ,V_0 ,V_1) ,C ...) ρ σ `(CHK (cons/c ,C_0 ,C_1) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
-     (match-let* ([K `(CHK-CONS C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a)]                   
+     (match-let* ([K `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ ,a)]                   
                   [(list a_k) (term (alloc ,σ (,K)))]
                   [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
        (S 'check-cons-pass-first 
@@ -500,7 +503,7 @@
         (side-condition (term (valid? (rec/c x C_1))))
         abs-rec/c-unroll)
     
-    [a (printf "catchall: ~a\n" a) (S #f null)]))
+    [a #;(printf "catchall: ~a\n" a) (S #f null)]))
 
 (define (factorial n)
   (if (zero? n) 1 (* n (factorial (sub1 n)))))
@@ -756,9 +759,9 @@
    CESK*
    [--> any_old ,(st (term E) (term ρ_1) (term σ_1) (term K))
         (where (any_name (any_1 ... any_state any_2 ...))
-               ,(match (step* (term any_old)) [(S n r) (displayln (list n r)) (list n r)]))
+               ,(match (step* (term any_old)) [(S n r) #;(displayln (list n r)) (list n r)]))
         (where (E ρ σ K) ,(match (term any_state) [(struct st (E1 ρ1 σ1 K1))
-                                                   (displayln (list E1 ρ1 σ1 K1))
+                                                   #;(displayln (list E1 ρ1 σ1 K1))
                                                    (list E1 ρ1 σ1 K1)]))
         (where σ_1 (gc (E ρ σ K)))
         (where ρ_1 (restrict ρ (fv E)))
