@@ -254,6 +254,9 @@
    (where bool_cars ,(andmap values (term ((contract-not-in/cache C_1 V_car (((cons/c C_1 C_2) V) (C_3 V_3) ...)) ...))))
    (where bool_cdrs ,(andmap values (term ((contract-not-in/cache C_2 V_cdr (((cons/c C_1 C_2) V) (C_3 V_3) ...)) ...))))
    ]
+  ;; This case is killed by the above (pred o? ℓ) case -- surely we meant
+  ;; something else; like FC + cons/c.  Ugh.  Who knows.
+  #;
   [(contract-not-in/cache FC V any)
    #t
    (where #t (proves V procedure?))]
