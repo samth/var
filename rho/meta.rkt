@@ -170,40 +170,46 @@
 ;; Does this value definitely pass this contract?
 (define-metafunction λcρ
   contract-in : C V -> #t or #f
-  [(contract-in C (-- any ... C C_1 ...)) #t]  
+  [(contract-in C (-- any ... C C_1 ...)) #t]  ; Wary of syntactic equality and envs.
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
-  [(contract-in ((pred MODREF LAB_2) ρ)
-                (-- any ... ((pred MODREF_1 LAB_3) ρ_1) C_1 ...))
+  [(contract-in ((pred MODREF LAB) ρ)
+                (-- any ... ((pred MODREF_1 LAB_1) ρ) C_1 ...))
    #t
-   (where #t (modref=? MODREF MODREF_1))]  
-  
-  
+   (where #t (modref=? MODREF MODREF_1))]    
   [(contract-in ((pred OP LAB) ρ) V)
    (proves V OP)]    
   [(contract-in ((and/c CON_1 CON_2) ρ) V)
-   ,(and (term (contract-in (CON_1 ρ) V)) (term (contract-in (CON_2 ρ) V)))]
+   ,(and (term (contract-in (CON_1 ρ) V))
+         (term (contract-in (CON_2 ρ) V)))]
   [(contract-in ((or/c CON_1 CON_2) ρ) V)
-   ,(or (term (contract-in (CON_1 ρ) V)) (term (contract-in (CON_2 ρ) V)))]    
+   ,(or (term (contract-in (CON_1 ρ) V)) 
+        (term (contract-in (CON_2 ρ) V)))]
   [(contract-in ((cons/c CON_1 CON_2) ρ) (-- (cons V_1 V_2) C ...))
-   ,(and (term (contract-in (CON_1 ρ) V_1)) (term (contract-in (CON_2 ρ) V_2)))]
+   ,(and (term (contract-in (CON_1 ρ) V_1)) 
+         (term (contract-in (CON_2 ρ) V_2)))]
   ;; FIXME: Add back when ABSTRACT values go in.
   #;
-  [(contract-in (cons/c C_1 C_2) AV)
-   ,(and (andmap (λ (x) (term (contract-in C_1 ,x))) (term (proj-left AV)))
-         (andmap (λ (x) (term (contract-in C_2 ,x))) (term (proj-right AV))))]
-  [(contract-in C V) #f]
-  )
+  [(contract-in ((cons/c CON_1 CON_2) ρ) AV)
+   ,(and (andmap (λ (x) (term (contract-in (CON_1 ρ) ,x))) (term (proj-left AV)))
+         (andmap (λ (x) (term (contract-in (CON_2 ρ) ,x))) (term (proj-right AV))))] 
+  [(contract-in C V) #f])
 
 (test
- (test-equal (term (contract-in ((pred procedure? †) ()) (-- (clos (λ (x) x) ())))) #t)
- (test-equal (term (contract-in ((pred zero? †) ()) (-- (clos 0 ())))) #t)
+ (test-equal (term (contract-in ((pred procedure? †) ())
+                                (-- (clos (λ (x) x) ())))) 
+             #t)
+ (test-equal (term (contract-in ((pred zero? †) ())
+                                (-- (clos 0 ())))) 
+             #t)
  (test-equal (term (contract-in ((pred procedure? †) ())
                                 ((--> (pred (λ (x) x) †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ (x) x) ())))))
              #t)
- (test-equal (term (contract-in ((pred (prime? ^ f g) †) ()) (-- (clos "a" ()) ((pred (prime? ^ f g) †) ()))))
+ (test-equal (term (contract-in ((pred (prime? ^ f g) †) ())
+                                (-- (clos "a" ()) ((pred (prime? ^ f g) †) ()))))
              #t)
- (test-equal (term (contract-in ((pred (prime? ^ g f) †) ()) (-- (clos "a" ()) ((pred (prime? ^ h f) †) ()))))
+ (test-equal (term (contract-in ((pred (prime? ^ g f) †) ())
+                                (-- (clos "a" ()) ((pred (prime? ^ h f) †) ()))))
              #t)
  (test-equal (term (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) ())
                                 (-- (clos 0 ()))))
@@ -219,11 +225,16 @@
              #t)
  (test-equal (term (contract-in ((cons/c (pred zero? †) (pred string? †)) ())
                                 (-- (cons (-- (clos 0 ())) (-- (clos 2 ()))))))
-             #f))
-
-
-
-
+             #f)
+ ;; We should really get true here, but it requires more work.
+ ;; FIXME known to fail
+ (test-equal (term (contract-in ((rec/c x 
+                                        (or/c (pred empty? †)
+                                              (cons/c (pred zero? †) x))) 
+                                 ())
+                                (-- (cons (-- (clos 0 ()))
+                                          (-- (clos empty ()))))))
+             #t))
 
 
 ;; Does OP hold on all values abstracted by V
