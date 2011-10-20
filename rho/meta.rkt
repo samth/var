@@ -1,8 +1,8 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt")
+(require "lang.rkt" "util.rkt" "meta-misc.rkt")
 (provide (except-out (all-defined-out) test))
-;(provide (all-from-out "meta-misc.rkt"))
+(provide (all-from-out "meta-misc.rkt"))
 (test-suite test meta)
 
 (define-metafunction λcρ
@@ -125,48 +125,6 @@
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
-(define-metafunction λcρ 
-  ∈ : any (any ...) -> #t or #f
-  [(∈ any (any_0 ... (-- any) any_1 ...)) #t]
-  [(∈ any (any_0 ... (-- (clos any ρ) C ...) any_1 ...)) #t]
-  [(∈ any_0 any_1) #f])
-
-;; If there are multiple arrows, we (arbitrarily) take the first arity.
-(define-metafunction λcρ
-  arity : PROC -> number or #f
-  
-  [(arity (-- (clos OP1 ρ) C ...)) 1]
-  [(arity (-- (clos OP2 ρ) C ...)) 2]  
-  
-  [(arity (-- (clos (λ X (X_0 ...) EXP) ρ) C ...))
-   ,(length (term (X_0 ...)))]
-  [(arity (-- (clos (λ (X ...) EXP) ρ) C ...))
-   ,(length (term (X ...)))]
-  ;; ABSTRACT VALUES
-  #|
-  [(arity (-- (C_0 ... -> C_1) C ...))
-   ,(length (term (C_0 ...)))]
-  [(arity (-- (C_0 ... -> (λ (x ...) C_1)) C ...))
-   ,(length (term (C_0 ...)))]
-  [(arity (-- C)) #f]
-  [(arity (-- C_0 C ...))
-   (arity (-- C ...))]
-  |#
-  [(arity ((C ... --> any) <= LAB_0 LAB_1 V_b LAB_2 any_0))
-   ,(length (term (C ...)))])
-  
-(test
- (test-equal (term (arity (-- (clos (λ () x) ())))) 0)
- (test-equal (term (arity (-- (clos (λ (x y z) x) ())))) 3)
- (test-equal (term (arity (-- (clos (λ f (x y z) x) ())))) 3)
- ;; FIXME: uncomment when doing ABSTRACT values
- #;(test-equal (term (arity (-- ((nat/c) (nat/c) -> (nat/c))))) 2)
- #;(test-equal (term (arity (-- ((nat/c) (nat/c) -> (λ (x y) (nat/c)))))) 2)
- #;(test-equal (term (arity (-- (string/c) ((nat/c) (nat/c) -> (nat/c))))) 2)
- #;(test-equal (term (arity (-- (pred procedure? f)))) #f)
- ;; FIXME: add blessed case
- )
-
 ;; Does this value definitely pass this contract?
 (define-metafunction λcρ
   contract-in : C V -> #t or #f
@@ -244,10 +202,33 @@
   [(contract-not-in C V)
    (contract-not-in/cache C V ())])
 
+(test
+ (test-equal (term (contract-not-in ((pred string? †) ()) 
+                                    (-- (clos 3 ()))))
+             #t)
+ (test-equal (term (contract-not-in ((pred string? †) ()) 
+                                    ((--> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ (x) x) ())))))
+             #t)
+ (test-equal (term (contract-not-in ((cons/c (pred string? †) (pred zero? †)) ())
+                                    (-- (cons (-- (clos "" ())) (-- (clos 0 ()))))))
+             #f)
+ (test-equal (term (contract-not-in ((cons/c (pred string? †) (pred zero? †)) ())
+                                    (-- (cons (-- (clos "" ())) (-- (clos 2 ()))))))
+             #t)
+ (test-equal (term (contract-not-in ((rec/c x (or/c (pred empty? †) (cons/c (pred string? †) x))) ())
+                                    (-- (clos (λ (x) x) ()))))
+             #t))
+
+
 (define-metafunction λcρ
   contract-not-in/cache : C V ((C V) ...) -> #t or #f
-  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]  
-  [(contract-not-in/cache C (BARROW <= LAB_0 LAB_1 V_b LAB_2 V) any)
+  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]
+  ;; Pretty sure this is not needed
+  #;
+  [(contract-not-in/cache (CON-INAPPLICABLE ρ) V any)
+   #t
+   (where #t (proves V procedure?))]
+  [(contract-not-in/cache C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) any)
    (contract-not-in/cache C V any)] 
   [(contract-not-in/cache ((pred OP LAB) ρ) V any)
    (refutes V OP)] 
@@ -256,23 +237,22 @@
    (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V ★))))
    (where (V_cdr ...) ,(filter (redex-match λcρ V) (term (δ cdr V ★))))
    (where bool_cars ,(andmap values (term ((contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))
-   (where bool_cdrs ,(andmap values (term ((contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))]
-  #|
-  [(contract-not-in/cache FC V any)
-   #t
-   (where #t (proves V procedure?))]
-  [(contract-not-in/cache (and/c C_1 C_2) V ((C_3 V_3) ...))
-   ,(or (term (contract-not-in/cache C_1 V (((and/c C_1 C_2) V) (C_3 V_3) ...)))
-        (term (contract-not-in/cache C_2 V (((and/c C_1 C_2) V) (C_3 V_3) ...))))]
-  [(contract-not-in/cache (or/c C_1 C_2) V ((C_3 V_3) ...))
-   ,(and (term (contract-not-in/cache C_1 V (((or/c C_1 C_2) V) (C_3 V_3) ...)))
-         (term (contract-not-in/cache C_2 V (((or/c C_1 C_2) V) (C_3 V_3) ...))))]
+   (where bool_cdrs ,(andmap values (term ((contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))]      
+  [(contract-not-in/cache ((and/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
+   ,(or (term (contract-not-in/cache (CON_1 ρ) V ((((and/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)))
+        (term (contract-not-in/cache (CON_2 ρ) V ((((and/c CON_1 CON_2) ρ) V) (C_3 V_3) ...))))]
   
-  [(contract-not-in/cache (rec/c x C) V ((C_3 V_3) ...))
-   (contract-not-in/cache (unroll (rec/c x C)) V (((rec/c x C) V) (C_3 V_3) ...))
+  [(contract-not-in/cache ((or/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
+   ,(and (term (contract-not-in/cache (CON_1 ρ) V ((((or/c C_1 C_2) ρ) V) (C_3 V_3) ...)))
+         (term (contract-not-in/cache (CON_2 ρ) V ((((or/c C_1 C_2) ρ) V) (C_3 V_3) ...))))]
+  
+  [(contract-not-in/cache ((rec/c X CON) ρ) V ((C_3 V_3) ...))
+   (contract-not-in/cache ((unroll (rec/c X CON)) ρ) V ((((rec/c X CON) ρ) V) (C_3 V_3) ...))
+   ;; Can't we just assume this?
+   #;
    (where #t (productive? (rec/c x C)))]
                     
-  
+  #|
   [(contract-not-in/cache (C_1 ... -> any) V any_1)
    #t
    (where #t (refutes V procedure?))]
