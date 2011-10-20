@@ -41,14 +41,18 @@
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Contracts
-  (CON X
-       (pred PREDV LAB) 
-       (rec/c X CON)       
-       (cons/c CON CON) 
-       (and/c CON CON)
-       (or/c CON CON)
-       (CON ... -> CON)
-       (CON ..._1 -> (λ (X ..._1) CON)))
+  (CON FLAT HOC)
+  (PRECON X
+          (pred PREDV LAB) 
+          (rec/c X PRECON)       
+          (cons/c PRECON PRECON) 
+          (and/c PRECON PRECON)
+          (or/c PRECON PRECON)
+          (PRECON ... -> PRECON)
+          (PRECON ..._1 -> (λ (X ..._1) PRECON)))  
+  
+  (FLAT (side-condition (name x PRECON) (term (flat? x))))
+  (HOC  (side-condition (name x PRECON) (term (not (flat? x)))))  
   (PREDV LAM MODREF OP)
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -107,10 +111,7 @@
   
   (C  (CON ρ))
   (C* (FLAT* ρ) (HOC* ρ))
-  
-  (FLAT (side-condition (name x CON) (term (flat? x))))
-  (HOC  (side-condition (name x CON) (term (not (flat? x)))))
-  
+    
   (FLAT* (pred PREDV LAB) 
          (cons/c FLAT FLAT) 
          (or/c FLAT FLAT) 
@@ -157,19 +158,19 @@
   ) 
 
 ;; A flat contract can be checked immediately.
-(define-metafunction λcρ
-  flat? : CON -> #t or #f
+(define-metafunction λc-user
+  flat? : PRECON -> #t or #f
   [(flat? X) #t]
-  [(flat? (pred PREDV LAB)) #t]
-  [(flat? (rec/c X CON)) (flat? CON)]
-  [(flat? (cons/c CON_1 CON_2))
-   ,(and (term (flat? CON_1))
-         (term (flat? CON_2)))]
-  [(flat? (and/c CON_1 CON_2))
-   ,(and (term (flat? CON_1))
-         (term (flat? CON_2)))]  
-  [(flat? (or/c CON_1 CON_2))
-   ,(and (term (flat? CON_1))
-         (term (flat? CON_2)))]
-  [(flat? (CON ... -> any)) #f])
+  [(flat? (pred PREDV any)) #t]
+  [(flat? (rec/c X PRECON)) (flat? PRECON)]
+  [(flat? (cons/c PRECON_1 PRECON_2))
+   ,(and (term (flat? PRECON_1))
+         (term (flat? PRECON_2)))]
+  [(flat? (and/c PRECON_1 PRECON_2))
+   ,(and (term (flat? PRECON_1))
+         (term (flat? PRECON_2)))]  
+  [(flat? (or/c CON_1 PRECON_2))
+   ,(and (term (flat? PRECON_1))
+         (term (flat? PRECON_2)))]
+  [(flat? (PRECON ... -> any)) #f])
 
