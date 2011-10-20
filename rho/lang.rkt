@@ -41,21 +41,14 @@
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Contracts
-  (CON FLAT HOC)
-  (FLAT X 
-        (pred PREDV LAB) 
-        (cons/c FLAT FLAT) 
-        (or/c FLAT FLAT) 
-        (rec/c X FLAT)
-        (and/c FLAT FLAT))
-  (HOC (CON ... -> CON)
-       (CON ..._1 -> (λ (X ..._1) CON))
-       (or/c FLAT HOC)
-       (cons/c HOC CON) (cons/c CON HOC)
-       (rec/c X HOC)
-       (and/c HOC CON) 
-       (and/c CON HOC)
-       #;X)  ;; Not sure about x or no x.    
+  (CON X
+       (pred PREDV LAB) 
+       (rec/c X CON)       
+       (cons/c CON CON) 
+       (and/c CON CON)
+       (or/c CON CON)
+       (CON ... -> CON)
+       (CON ..._1 -> (λ (X ..._1) CON)))
   (PREDV LAM MODREF OP)
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -69,6 +62,7 @@
       string=? string<? string<=? string>? string>=? 
       string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
       procedure-arity-includes?))
+
 
 (define-extended-language λcρ λc-user
   ;; Environments
@@ -113,6 +107,9 @@
   
   (C  (CON ρ))
   (C* (FLAT* ρ) (HOC* ρ))
+  
+  (FLAT (side-condition (name x CON) (term (flat? x))))
+  (HOC  (side-condition (name x CON) (term (not (flat? x)))))
   
   (FLAT* (pred PREDV LAB) 
          (cons/c FLAT FLAT) 
@@ -159,5 +156,20 @@
   
   ) 
 
-
+;; A flat contract can be checked immediately.
+(define-metafunction λcρ
+  flat? : CON -> #t or #f
+  [(flat? X) #t]
+  [(flat? (pred PREDV LAB)) #t]
+  [(flat? (rec/c X CON)) (flat? CON)]
+  [(flat? (cons/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]
+  [(flat? (and/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]  
+  [(flat? (or/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]
+  [(flat? (CON ... -> any)) #f])
 
