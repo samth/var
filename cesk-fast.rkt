@@ -407,12 +407,6 @@
           (define σ_0 (term `(extend-sto1 ,σ ,a ,K)))
           (st E_0 ρ σ_0 `(LET ,x ,E_1 ,ρ ,a))))]
     
-    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,E) ρ σ K)
-     (match-let* ([`(,a) (term (alloc ,σ (,K)))]
-                  [σ_0 (term (extend-sto1 ,σ ,a ,K))])
-         (S 'chk-push 
-            (list (st E ρ σ_0
-                      `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]
     
     [(st (V: V) ρ σ `(CHK (,C ... -> ,result) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (choose
@@ -475,11 +469,19 @@
           (list (st V_0 ρ σ_new `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st (V: V) ρ σ `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ_2 ,a))
-     (match-let* ([K `(OP cons (,V ,ρ) () Λ ,a)]                   
+     (match-let* ([K `(OP cons ((,V ,ρ)) () Λ ,a)]
                   [(list a_k) (term (alloc ,σ (,K)))]
                   [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
      (S 'check-cons-pass-rest
         (list (st V_1 ρ_2 σ_new `(CHK ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
+    
+    
+    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,E) ρ σ K)
+     (match-let* ([`(,a) (term (alloc ,σ (,K)))]
+                  [σ_0 (term (extend-sto1 ,σ ,a ,K))])
+         (S 'chk-push 
+            (list (st E ρ σ_0
+                      `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]
     
     
     [(st `(,C <= ,ℓ_1 ,ℓ_2 ,x ,ℓ_3 ,E) ρ σ K)
@@ -619,8 +621,8 @@
   (reduction-relation 
    CESK*
    (--> any_in 
-        ,(st (term B) '() (term (gc (B () σ MT))) 'MT)
-        (where B ,(st-e (term any_in)))
+        ,(st (term B) '() (term (gc (B () ,(st-s (term any_in)) MT))) 'MT)
+        (where B ,(st-c (term any_in)))
         (side-condition (not (equal? (st-k (term any_in)) (term MT))))
         halt-blame)))
 
@@ -640,7 +642,7 @@
    (a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E E))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv E))))])
-
+#;
 (test
  (redex-check CESK* (E ρ)
               (redex-match CESK* (a ...) (term (live-loc-clo (E ρ))))))
@@ -649,7 +651,7 @@
   live-loc-env : ρ -> (a ...)
   [(live-loc-env ((x a) ...))
    (a ...)])
-
+#;
 (test
  (redex-check CESK* ρ
               (redex-match CESK* (a ...) (term (live-loc-env ρ)))))
@@ -666,7 +668,7 @@
    (a ... ...)
    (where ((a ...) ...) ((live-loc-E any) ...))]
   [(live-loc-E any) ()])
-
+#;
 (test
  (redex-check CESK* E
               (redex-match CESK* (a ...) (term (live-loc-E E)))))  
@@ -709,7 +711,7 @@
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ_2)))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))])
-
+#;
 (test
  (redex-check CESK* K
               (redex-match CESK* (a ...) (term (live-loc-K K)))))
@@ -725,7 +727,7 @@
    (a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-K K))
    (where (a_1 ...) (live-loc-Ds (D ...)))])
-
+#;
 (test
  (redex-check CESK* (D ...)
               (redex-match CESK* (a ...) (term (live-loc-Ds (D ...))))))
@@ -770,6 +772,10 @@
 (define (stepΔ-gc Ms) 
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
 
+(define (run P)
+  (define P* P #;(term (annotator ,P)))
+  (apply-reduction-relation* (stepΔ-gc (program-modules P*)) (term (load ,(last P*)))))
+
 (define (final-state? s)
   (and (eq? 'MT (st-k s))
        (or (redex-match CESK* V (st-c s))
@@ -781,13 +787,14 @@
                                        [(list 'module n lang (list 'define _ ☁) ... prov) n]
                                        [_ #f]))
                               Ms))
-  (cond [(redex-match CESK* (V any any_1 MT) x) "green"]
-        [(and (st? x) 
+  (define x* (if (st? x) (st->list x) x))
+  (cond [(redex-match CESK* (V any any_1 MT) x*) "green"]
+        #;[(and (st? x) 
               (eq? 'MT (st-k x))
               (redex-match CESK* V (st-c x))) "green"]
-        [(redex-match CESK* (B any any_1 MT) x)
+        [(redex-match CESK* (B any any_1 MT) x*)
          (redex-let CESK*
-                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x)])
+                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x*)])
                     (cond [(equal? (term ℓ) '★) "pink"]
                           [(member (term ℓ) opaques) "pink"]
                           [else "red"]))]
@@ -803,12 +810,13 @@
 
 
 (define (step-fixpoint P)
-  (let ([l (term (load* ,(last P)))])
+  (let ([l (term (load ,(last P)))])
     (let loop ([terms (list l)] [finals (set)])
-      (cond [(null? terms) (remove-duplicates (for/list ([f finals]) (st-c f)))]
-            [else
-             (define new-terms
-               (append-map (λ (t) (S-results (step* t))) terms))
+      (define new-terms
+        (append-map (λ (t) (S-results (step* t))) terms))            
+      (cond [(empty? new-terms)
+             (values terms (remove-duplicates (for/list ([f finals]) (st-c f))))]
+            [else 
              (define-values (f t) (partition final-state? new-terms))
              (loop (remove-duplicates t) (set-union finals (apply set f)))]))))
 
