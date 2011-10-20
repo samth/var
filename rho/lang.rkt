@@ -13,7 +13,7 @@
   ;; Programs
   (PROG (MOD ... REQ EXP))
   (MOD (module X LANG REQ STRUCT ... DEF ... PROV))
-  (PROV (provide/contract [X CON] ...))         
+  (PROV (provide/contract [X PCON] ...))         
   (REQ (require (only-in X X ...) ...))
   (LANG racket racket/base)
   (STRUCT (struct X (X ...)))
@@ -41,19 +41,18 @@
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Contracts
-  (CON FLAT HOC)
-  (PRECON X
-          (pred PREDV LAB) 
-          (rec/c X PRECON)       
-          (cons/c PRECON PRECON) 
-          (and/c PRECON PRECON)
-          (or/c PRECON PRECON)
-          (PRECON ... -> PRECON)
-          (PRECON ..._1 -> (λ (X ..._1) PRECON)))  
-  
-  (FLAT (side-condition (name x PRECON) (term (flat? x))))
-  (HOC  (side-condition (name x PRECON) (term (not (flat? x)))))  
+  (PCON  (side-condition (name c CON) (term (valid? c)))) 
+  (FLAT (side-condition (name c CON) (term (flat? c))))
+  (HOC  (side-condition (name c CON) (term (not (flat? c)))))
   (PREDV LAM MODREF OP)
+  (CON X
+       (pred PREDV LAB) 
+       (rec/c X CON)       
+       (cons/c CON CON) 
+       (and/c CON CON)
+       (or/c CON CON)
+       (CON ... -> CON)
+       (CON ..._1 -> (λ (X ..._1) CON)))
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
@@ -157,20 +156,79 @@
   
   ) 
 
+;; A valid provide contract is closed and has the or/c invariant.
+(define-metafunction λc-user
+  valid? : CON -> #t or #f
+  [(valid? X) #f]
+  [(valid? (pred PREDV any)) #t]
+  [(valid? (rec/c X CON))
+   (valid? (subst/μ X (subst/μ X (pred string? f) CON) CON))]
+  [(valid? (cons/c CON_1 CON_2))
+   ,(and (term (valid? CON_1))
+         (term (valid? CON_2)))]
+  [(valid? (and/c CON_1 CON_2))
+   ,(and (term (valid? CON_1))
+         (term (valid? CON_2)))]  
+  [(valid? (or/c CON_1 CON_2))
+   ,(and (term (valid? CON_1))
+         (term (flat? CON_1))
+         (term (valid? CON_2)))]
+  [(valid? (CON_1 ... -> CON_2))
+   ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))]
+  [(valid? (CON_1 ... -> (λ (X ...) CON_2)))
+   ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))])
+
 ;; A flat contract can be checked immediately.
 (define-metafunction λc-user
-  flat? : PRECON -> #t or #f
+  flat? : CON -> #t or #f
   [(flat? X) #t]
   [(flat? (pred PREDV any)) #t]
-  [(flat? (rec/c X PRECON)) (flat? PRECON)]
-  [(flat? (cons/c PRECON_1 PRECON_2))
-   ,(and (term (flat? PRECON_1))
-         (term (flat? PRECON_2)))]
-  [(flat? (and/c PRECON_1 PRECON_2))
-   ,(and (term (flat? PRECON_1))
-         (term (flat? PRECON_2)))]  
-  [(flat? (or/c CON_1 PRECON_2))
-   ,(and (term (flat? PRECON_1))
-         (term (flat? PRECON_2)))]
-  [(flat? (PRECON ... -> any)) #f])
+  [(flat? (rec/c X CON)) (flat? CON)]
+  [(flat? (cons/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]
+  [(flat? (and/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]  
+  [(flat? (or/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]
+  [(flat? (CON ... -> any)) #f])
+
+(define-metafunction λc-user
+  subst/μ : X CON CON -> CON
+  [(subst/μ X CON X) CON]
+  [(subst/μ X CON X_0) X_0]
+  [(subst/μ X CON (and/c CON_0 CON_1))
+   (and/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (or/c CON_0 CON_1))
+   (or/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (cons/c CON_0 CON_1))
+   (cons/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]  
+  [(subst/μ X CON (rec/c X CON_1))
+   (rec/c X CON_1)]
+  [(subst/μ X CON (rec/c X_1 CON_1))
+   (rec/c X_1 (subst/μ X CON CON_1))]  
+  [(subst/μ X CON (CON_1 ... -> CON_2))
+   ((subst/μ X CON CON_1) ... -> (subst/μ X CON CON_2))]  
+  [(subst/μ X CON (CON_1 ... -> (λ (X_1 ...) CON_2))) ; distinct class of variables
+   ((subst/μ X CON CON_1) ... -> (λ (X_1 ...) (subst/μ X CON CON_2)))]   
+  [(subst/μ X CON (pred any any_0))
+   (pred any any_0)])
+
+
+(test
+ ;; totality test
+ (redex-check λcρ (X PCON_1 PCON_2) (term (subst/μ X PCON_1 PCON_2))))
+
+
+;; https://github.com/samth/var/issues/3
+(test 
+ (define CON? (redex-match λcρ CON))
+ (define PCON? (redex-match λcρ PCON))
+ (test-predicate (negate PCON?) (term (rec/c X (or/c (cons/c X X) (-> (pred string? †))))))           
+ (test-predicate CON? (term (rec/c X (or/c (cons/c X X) (-> (pred string? †))))))            
+ (test-predicate CON? (term X))
+ (test-predicate (negate PCON?) (term X)))
+ 
 
