@@ -172,7 +172,9 @@
   [(addr-of (any ... a)) a])
 
 (define-metafunction CESK*
-  unload : ς -> E
+  unload : any -> E
+  [(unload (side-condition any_1 (st? (term any_1))))
+   ,(st-c (term any_1))]
   [(unload (E ρ σ MT))
    E]
   [(unload (E ρ σ K))
@@ -243,7 +245,7 @@
    ;; let
     [(st (V: V) ρ σ `(LET . ,_)) (error "let is broken in the machine")]
     
-    [(st (? symbol? x) ρ σ K)
+    [(st (? (redex-match CESK* x) x) ρ σ K)
      (S 'var
         (for/list ([D (in-list (term (sto-lookup ,σ (env-lookup ,ρ ,x))))])
           (match D
@@ -254,7 +256,7 @@
     ;; nullary application
     [(st (V: V-proc) ρ σ `(AP () () ,ℓ ,a))
      (match V-proc
-       [`(-- (λ ,rec () ,E) ,C ...)
+       [`(-- (λ () ,E) ,C ...)
         (S 'β-0 
            (for/list ([K (term (sto-lookup ,σ ,a))])
              (st E ρ σ K)))]
@@ -266,6 +268,15 @@
                  (term (extend-env ,ρ (,rec) (,a_1)))
                  (term (extend-sto1 ,σ ,a_1 ,(list fun ρ)))
                  K)))]
+       ;; these next two cases are identical
+       [`((--> (λ () ,C)) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
+        (S 'nullary-blessed-β-dep
+           (for/list ([clo (term (sto-lookup ,σ ,a_f))])
+             (match-let* ([K `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+                          [`(,V_f ,ρ_f) clo]
+                          [`(,a_k) (term (alloc ,σ (,K)))]
+                          [σ_1 (term (extend-sto1 ,σ ,a_k ,K))])
+               (st V_f ρ_f σ_1 `(AP () () ,ℓ ,a_k)))))]
        [`((--> ,C) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
         (S 'nullary-blessed-β
            (for/list ([clo (term (sto-lookup ,σ ,a_f))])
@@ -276,8 +287,15 @@
                (st V_f ρ_f σ_1 `(AP () () ,ℓ ,a_k)))))]
        [_ 
         (choose [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
-                      (equal? 0 (term (arity ,V-proc))))
-                 "abstract beta-0"]
+                      (equal? 0 (term (arity ,V-proc)))
+                      (redex-match CESK* AV V-proc))
+                 (S 'apply-abs0
+                    (for/list ([K (term (sto-lookup ,σ ,a))])
+                      (match-let* ([`(-- ,C ...) V-proc]
+                                   [C_0 (term (range-contracts ,C ()))])
+                        (st (term (remember-contract (-- (any/c)) ,@(for/list ([c C_0])
+                                                                      (term (try-close-contract ,c ,ρ ,σ)))))
+                            '() σ K))))]
                 [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
                       (not (equal? 0 (term (arity ,V-proc)))))
                  (S 'blame-arity
@@ -313,7 +331,7 @@
                     (term (extend-sto ,σ ,a1s ,(append clo (list (list V ρ)))))
                     K)))]
           [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
-           (printf "got here \n")
+           ;(printf "got here \n")
            (match-let* ([K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
                         [(list a_k) (term (alloc ,σ (,K)))]
                         [σ_1 (term (extend-sto1 ,σ ,a_k ,K))]
@@ -327,7 +345,28 @@
                 (for/list ([clo_1 (term (sto-lookup ,σ ,a_f))])
                   (match-define (list V_f ρ_f) clo_1)
                   (st V_f ρ_f σ_1 K2))))]
-          [_ "abstract beta"])]
+          [`(-- ,C ...) 
+           (S 'apply-abs-known-arity
+              (match-let ([dom-con (term (domain-contracts ,C))])
+                (for/list ([clo_1 `((,V ,ρ) . ,clo)]
+                           [C_demon (for/list ([C_D dom-con]) (term (∧ . ,C_D)))])
+                  (match-let* ([`(,U ,ρ_2) clo_1]
+                               [(list (list V_0 ρ_0) ...) (append clo (list (list V ρ)))]
+                               ;; FIXME, closing contracts in their environments
+                               ;; because we don't have contract closures.
+                               [V_0c (for/list ([v V_0] [ρ ρ_0]) 
+                                       (term (try-close-value ,v ,ρ ,σ)))]
+                               [C_0 (for/list ([C_0 (term (range-contracts ,C ,V_0c))]
+                                               [ρ ρ_0])
+                                      (term (try-close-contract ,C_0 ,ρ ,σ)))]
+                               [E_result (term (remember-contract (-- (any/c)) ,@C_0))])                    
+                    (st (term (amb (-- 0) (demonic* ,C_demon ,U))) ρ_2 σ `(BEG (,E_result ()) ,a))))))])]
+       [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
+             (not (term (arity ,V-proc))))
+        (S 'apply-abs-no-arity
+           (for/list ([clo* (cons (list V ρ) clo)])
+             (match-define `(,U ,ρ_2) clo*)
+             (st (term (amb (-- 0) (demonic* (any/c) ,U))) ρ_2 σ (term (BEG ((-- (any/c)) ()) ,a)))))]
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
              (not (equal? (add1 (length (term ,clo)))
                           (term (arity ,V-proc)))))
@@ -368,12 +407,6 @@
           (define σ_0 (term `(extend-sto1 ,σ ,a ,K)))
           (st E_0 ρ σ_0 `(LET ,x ,E_1 ,ρ ,a))))]
     
-    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,E) ρ σ K)
-     (match-let* ([`(,a) (term (alloc ,σ (,K)))]
-                  [σ_0 (term (extend-sto1 ,σ ,a ,K))])
-         (S 'chk-push 
-            (list (st E ρ σ_0
-                      `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]
     
     [(st (V: V) ρ σ `(CHK (,C ... -> ,result) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (choose
@@ -388,6 +421,10 @@
           (for/list ([K (term (sto-lookup ,σ ,a))])
             (st `(blame ,ℓ_1 ,ℓ_3 ,V-or-AE (,@C -> ,result) ,V) ρ σ K)))])]
     
+    [(st (V: V) ρ σ `(CHK (rec/c ,X ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (S 'chk-unroll
+        (list (st V ρ σ `(CHK ,(term (unroll (rec/c ,X ,HOC))) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))))]
+    
     [(st (V: V) ρ σ `(CHK ,(? (redex-match CESK* FLAT) FLAT) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K
                    `(IF ,(term (remember-contract ,V (try-close-contract ,FLAT ,ρ_1 ,σ)))
@@ -399,7 +436,76 @@
           (list (st V ρ σ_new
                     `(AP (((-- ,(term (flat-check ,FLAT ,V))) ,ρ_1)) () Λ ,a_k)))))]
     
-    [a (printf "catchall: ~a\n" a) (S #f null)]))
+    [(st (V: V) ρ σ `(CHK (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (match-let* ([K `(CHK-OR ,V ,ρ (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]                   
+                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
+       (S 'check-or-pass
+        (list
+         (st V ρ σ_new
+             `(AP (((-- ,(term (flat-check ,FLAT ,V))) ,ρ_1)) () Λ ,a_k)))))]
+   
+   [(st (V: V) ρ_0 σ `(CHK-OR ,U ,ρ (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+    (choose 
+     [(term (∈ #t (δ (@ false? ,V Λ))))
+      (S 'check-or-false (list (st U ρ σ `(CHK ,HOC ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))))]
+     [(term (∈ #f (δ (@ false? ,V Λ))))
+      (S 'check-or-true
+         (for/list ([K (term (sto-lookup ,σ ,a))])
+           (st `(remember-contract ,U (try-close-contract ,FLAT ,ρ_1)) ρ σ K)))])]
+    
+    [(st (V: V) ρ σ `(CHK (and/c ,C_0 ,C_1) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (match-let* ([K `(CHK ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]                   
+                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [σ_1 (term (extend-sto1 ,σ ,a_k ,K))])
+       (S 'check-and-push 
+          (list (st V ρ σ_1 `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
+   
+    [(st `(-- (cons ,V_0 ,V_1) ,C ...) ρ σ `(CHK (cons/c ,C_0 ,C_1) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (match-let* ([K `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ ,a)]                   
+                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
+       (S 'check-cons-pass-first 
+          (list (st V_0 ρ σ_new `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
+   
+    [(st (V: V) ρ σ `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ_2 ,a))
+     (match-let* ([K `(OP cons ((,V ,ρ)) () Λ ,a)]
+                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
+     (S 'check-cons-pass-rest
+        (list (st V_1 ρ_2 σ_new `(CHK ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
+    
+    
+    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,E) ρ σ K)
+     (match-let* ([`(,a) (term (alloc ,σ (,K)))]
+                  [σ_0 (term (extend-sto1 ,σ ,a ,K))])
+         (S 'chk-push 
+            (list (st E ρ σ_0
+                      `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]
+    
+    
+    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,x ,ℓ_3 ,E) ρ σ K)
+     (S 'chk-subst 
+        (for/list ([clo (term (sto-lookup ,σ (env-lookup ,ρ ,x)))])
+          (match-define (list V ρ_0) clo)
+          (st `(,C <= ,ℓ_1 ,ℓ_2 ,V ,ℓ_3 ,E) ρ σ K)))]
+    
+    #; ;; fixme -- this is busted
+    [(st `(-- ,C ...) ρ σ K)
+     (define-values (ors others) (partition (redex-match CESK* (or/c C ...)) C))
+     (for*/list ([C ors]
+                 [elem (match C [`(or/c ,C2 ...) C2])])
+       )
+     (term ((remember-contract (-- (any/c) C_0 ... C ...) C_2) ρ σ K))
+     (side-condition (term (valid? C_2)))
+     #;abs-or/c-split]
+   #;
+   (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)  ;; Productivity implies this doesn't loop.
+        ((remember-contract (-- (any/c) C_0 ... C ...) (unroll (rec/c x C_1))) ρ σ K)
+        (side-condition (term (valid? (rec/c x C_1))))
+        abs-rec/c-unroll)
+    
+    [a #;(printf "catchall: ~a\n" a) (S #f null)]))
 
 (define (factorial n)
   (if (zero? n) 1 (* n (factorial (sub1 n)))))
@@ -426,13 +532,7 @@
    ;; BLESSED APPLICATION
    ;; Nullary blessed application
    
-   (--> (((--> (λ () C)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ σ (AP () () ℓ a))
-        (V_f ρ_f σ_1 (AP () () ℓ a_k))
-        (where K (CHK ρ C ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_1 (extend-sto1 σ a_k K))
-        (where (D_1 ... (V_f ρ_f) D_2 ...) (sto-lookup σ a_f))
-        nullary-blessed-β-dep)
+   
    ;; Unary+ blessed application
    ;; FIXME: these two rules are broken with the environments of the argument contracts.
    ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
@@ -459,116 +559,26 @@
    ;; CONTRACT CHECKING   
    
    
-   (--> (V ρ σ (CHK (rec/c X HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ (CHK (unroll (rec/c X HOC)) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        chk-unroll)
-   
-   (--> (V ρ σ (CHK (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ_new
-           (AP (((-- (flat-check FLAT V)) ρ_1)) () Λ a_k))        
-        (where K (CHK-OR V ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_new (extend-sto1 σ a_k K))
-        check-or-pass)
-   
-   (--> (V ρ_0 σ (CHK-OR U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))        
-        (U ρ σ (CHK HOC ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where #t (∈ #t (δ (@ false? V Λ))))
-        check-or-false)
-   
-   (--> (V ρ_0 σ (CHK-OR U ρ (or/c FLAT HOC) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ((remember-contract U (try-close-contract FLAT ρ_1)) ρ σ K)        
-        (where #t (∈ #f (δ (@ false? V Λ))))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        check-or-true)
-   
-   (--> (V ρ σ (CHK (and/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V ρ σ_1 (CHK C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_1))                
-        (where HOC (and/c C_0 C_1))
-        (where K (CHK C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_1) (alloc σ (K)))        
-        (where σ_1 (extend-sto1 σ a_1 K))
-        check-and-push)
-   
-   (--> ((-- (cons V_0 V_1) C ...) ρ σ (CHK (cons/c C_0 C_1) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (V_0 ρ σ_new (CHK C_0 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
-        (where K (CHK-CONS C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_new (extend-sto1 σ a_k K))
-        (where HOC (cons/c C_0 C_1))
-        check-cons-pass-first)
-   
-   (--> (V ρ σ (CHK-CONS C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 V_1 ρ_2 a))
-        (V_1 ρ_2 σ_new (CHK C_1 ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a_k))
-        (where K (OP cons (V ρ) () Λ a))
-        (where (a_k) (alloc σ (K)))
-        (where σ_new (extend-sto1 σ a_k K))
-        check-cons-pass-rest)
    
    
-   (--> (V ρ σ (CHK (C ... -> any) ρ_1 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        ;; NOTE ρ_1 discarded, reported contract not closed
-        ((blame ℓ_1 ℓ_3 V-or-AE (C ... -> any) V) ρ σ K)
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
-        chk-fun-fail-flat)
+   
+   
+   
    
    ;; Nullary abstract application
-   (--> (AV ρ_0 σ (AP () () ℓ a))
-        ((remember-contract (-- (any/c)) (try-close-contract C_0 ρ_0 σ) ...) () σ K)
-        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
-        (side-condition (equal? 0 (term (arity AV))))        
-        (where (-- C ...) AV)
-        (where (C_0 ...) (range-contracts (C ...) ()))
-        (where {D_0 ... K D_1 ...} (sto-lookup σ a))
-        apply-abs0)
+   
    
    ;; applying abstract values   
-   (--> (V ρ σ (AP ((AV ρ_1) clo ...) () ℓ a))
-        ((amb (-- 0) (demonic* C_demon U)) ρ_2 σ (BEG (E_result ()) a))
-        (where (clo_0 ..._1 (U ρ_2) clo_1 ..._2) ((V ρ) clo ...))
-        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
-        (side-condition (equal? (length (term (clo ... V)))
-                                (term (arity AV))))
-        (where (-- C ...) AV)
-        (where ((C_D ...) ...) (domain-contracts (C ...)))
-        (where (C_demon0 ..._1 C_demon C_demon1 ..._2) ((∧ C_D ...) ...))
-        (where ((V_0 ρ_0) ...) (clo ... (V ρ)))
-        (where (V_0c ...) ((try-close-value V_0 ρ_0 σ) ...))
-        (where (C_0 ...) (range-contracts (C ...) (V_0c ...)))
-        (where E_result (remember-contract (-- (any/c)) (try-close-contract C_0 ρ_1 σ) ...))
-        ;; FIXME, closing contracts in their environments
-        ;; because we don't have contract closures.
-        
-        apply-abs-known-arity)
    
-   (--> (V ρ σ (AP ((AV ρ_1) clo ...) () ℓ a))
-        ((amb (-- 0) (demonic* (any/c) U)) ρ_2 σ (BEG ((-- (any/c)) ()) a))
-        (where (clo_0 ... (U ρ_2) clo_1 ...) ((V ρ) clo ...))
-        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
-        (side-condition ;; this is a proc with no arity, so it could be anything
-         (not (term (arity AV))))
-        apply-abs-no-arity)
+   
+   
    
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
-   (--> ((-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...) ρ σ K)
-        ((remember-contract (-- (any/c) C_0 ... C ...) C_2) ρ σ K)
-        (side-condition (term (valid? C_2)))
-        abs-or/c-split)
-   
-   (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)  ;; Productivity implies this doesn't loop.
-        ((remember-contract (-- (any/c) C_0 ... C ...) (unroll (rec/c x C_1))) ρ σ K)
-        (side-condition (term (valid? (rec/c x C_1))))
-        abs-rec/c-unroll)   
+      
    
    ;; Context shuffling   
    
-   (--> ((C <= ℓ_1 ℓ_2 x ℓ_3 E) ρ σ K)
-        ((C <= ℓ_1 ℓ_2 V ℓ_3 E) ρ σ K)
-        (where (D_0 ... (V ρ_0) D_1 ...)
-               (sto-lookup σ (env-lookup ρ x)))
-        chk-subst)
    
    ))
 
@@ -611,8 +621,8 @@
   (reduction-relation 
    CESK*
    (--> any_in 
-        ,(st (term B) '() (term (gc (B () σ MT))) 'MT)
-        (where B ,(st-e (term any_in)))
+        ,(st (term B) '() (term (gc (B () ,(st-s (term any_in)) MT))) 'MT)
+        (where B ,(st-c (term any_in)))
         (side-condition (not (equal? (st-k (term any_in)) (term MT))))
         halt-blame)))
 
@@ -632,7 +642,7 @@
    (a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E E))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv E))))])
-
+#;
 (test
  (redex-check CESK* (E ρ)
               (redex-match CESK* (a ...) (term (live-loc-clo (E ρ))))))
@@ -641,7 +651,7 @@
   live-loc-env : ρ -> (a ...)
   [(live-loc-env ((x a) ...))
    (a ...)])
-
+#;
 (test
  (redex-check CESK* ρ
               (redex-match CESK* (a ...) (term (live-loc-env ρ)))))
@@ -658,7 +668,7 @@
    (a ... ...)
    (where ((a ...) ...) ((live-loc-E any) ...))]
   [(live-loc-E any) ()])
-
+#;
 (test
  (redex-check CESK* E
               (redex-match CESK* (a ...) (term (live-loc-E E)))))  
@@ -701,7 +711,7 @@
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ_2)))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))])
-
+#;
 (test
  (redex-check CESK* K
               (redex-match CESK* (a ...) (term (live-loc-K K)))))
@@ -717,7 +727,7 @@
    (a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-K K))
    (where (a_1 ...) (live-loc-Ds (D ...)))])
-
+#;
 (test
  (redex-check CESK* (D ...)
               (redex-match CESK* (a ...) (term (live-loc-Ds (D ...))))))
@@ -751,9 +761,9 @@
    CESK*
    [--> any_old ,(st (term E) (term ρ_1) (term σ_1) (term K))
         (where (any_name (any_1 ... any_state any_2 ...))
-               ,(match (step* (term any_old)) [(S n r) (displayln (list n r)) (list n r)]))
+               ,(match (step* (term any_old)) [(S n r) #;(displayln (list n r)) (list n r)]))
         (where (E ρ σ K) ,(match (term any_state) [(struct st (E1 ρ1 σ1 K1))
-                                                   (displayln (list E1 ρ1 σ1 K1))
+                                                   #;(displayln (list E1 ρ1 σ1 K1))
                                                    (list E1 ρ1 σ1 K1)]))
         (where σ_1 (gc (E ρ σ K)))
         (where ρ_1 (restrict ρ (fv E)))
@@ -761,6 +771,10 @@
 
 (define (stepΔ-gc Ms) 
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
+
+(define (run P)
+  (define P* P #;(term (annotator ,P)))
+  (apply-reduction-relation* (stepΔ-gc (program-modules P*)) (term (load ,(last P*)))))
 
 (define (final-state? s)
   (and (eq? 'MT (st-k s))
@@ -773,13 +787,14 @@
                                        [(list 'module n lang (list 'define _ ☁) ... prov) n]
                                        [_ #f]))
                               Ms))
-  (cond [(redex-match CESK* (V any any_1 MT) x) "green"]
-        [(and (st? x) 
+  (define x* (if (st? x) (st->list x) x))
+  (cond [(redex-match CESK* (V any any_1 MT) x*) "green"]
+        #;[(and (st? x) 
               (eq? 'MT (st-k x))
               (redex-match CESK* V (st-c x))) "green"]
-        [(redex-match CESK* (B any any_1 MT) x)
+        [(redex-match CESK* (B any any_1 MT) x*)
          (redex-let CESK*
-                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x)])
+                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x*)])
                     (cond [(equal? (term ℓ) '★) "pink"]
                           [(member (term ℓ) opaques) "pink"]
                           [else "red"]))]
@@ -795,12 +810,13 @@
 
 
 (define (step-fixpoint P)
-  (let ([l (term (load* ,(last P)))])
+  (let ([l (term (load ,(last P)))])
     (let loop ([terms (list l)] [finals (set)])
-      (cond [(null? terms) (remove-duplicates (for/list ([f finals]) (st-c f)))]
-            [else
-             (define new-terms
-               (append-map (λ (t) (S-results (step* t))) terms))
+      (define new-terms
+        (append-map (λ (t) (S-results (step* t))) terms))            
+      (cond [(empty? new-terms)
+             (values terms (remove-duplicates (for/list ([f finals]) (st-c f))))]
+            [else 
              (define-values (f t) (partition final-state? new-terms))
              (loop (remove-duplicates t) (set-union finals (apply set f)))]))))
 
