@@ -185,6 +185,7 @@
 (struct S (name results) #:prefab)
 
 (define V? (redex-match CESK* V))
+(define AV? (redex-match CESK* AV))
 
 (define-match-expander V:
   (syntax-parser
@@ -205,6 +206,15 @@
 
 (define (step* state)
   (match state    
+    [(st (? AV? (cons '-- (list-no-order `(or/c ,C1 ...) C ...))) ρ σ K) 
+     (S 'or-split
+        (for/list ([c C1])
+          (st (term (remember-contract (-- (any/c) ,@C) ,c)) ρ σ K)))]
+    
+    [(st (? AV? (cons '-- (list-no-order `(rec/c ,x ,body) C ...))) ρ σ K)
+     (S 'rec-unroll
+        (list (st (term (remember-contract (-- (any/c) ,@C) (unroll (rec/c ,x ,body))))
+                  ρ σ K)))]
     
     [(st (V: V) ρ σ `(AP ,clo ((,E_0 ,ρ_0) ,rest ...) ,ℓ ,a))
      (S 'ap-next
@@ -421,9 +431,7 @@
           (for/list ([K (term (sto-lookup ,σ ,a))])
             (st `(blame ,ℓ_1 ,ℓ_3 ,V-or-AE (,@C -> ,result) ,V) ρ σ K)))])]
     
-    [(st (V: V) ρ σ `(CHK (rec/c ,X ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
-     (S 'chk-unroll
-        (list (st V ρ σ `(CHK ,(term (unroll (rec/c ,X ,HOC))) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))))]
+    
     
     [(st (V: V) ρ σ `(CHK ,(? (redex-match CESK* FLAT) FLAT) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K
@@ -435,6 +443,10 @@
        (S 'flat-check
           (list (st V ρ σ_new
                     `(AP (((-- ,(term (flat-check ,FLAT ,V))) ,ρ_1)) () Λ ,a_k)))))]
+    
+    [(st (V: V) ρ σ `(CHK (rec/c ,X ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
+     (S 'chk-unroll
+        (list (st V ρ σ `(CHK ,(term (unroll (rec/c ,X ,HOC))) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))))]
     
     [(st (V: V) ρ σ `(CHK (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K `(CHK-OR ,V ,ρ (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]                   
@@ -469,7 +481,7 @@
           (list (st V_0 ρ σ_new `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st (V: V) ρ σ `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ_2 ,a))
-     (match-let* ([K `(OP cons ((,V ,ρ)) () Λ ,a)]
+     (match-let* ([K `(OP cons ((,V ,ρ)) () () Λ ,a)]
                   [(list a_k) (term (alloc ,σ (,K)))]
                   [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
      (S 'check-cons-pass-rest
@@ -794,7 +806,7 @@
               (redex-match CESK* V (st-c x))) "green"]
         [(redex-match CESK* (B any any_1 MT) x*)
          (redex-let CESK*
-                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x*)])
+                    ([(blame ℓ ℓ_0 V any V_0) (car x*)])
                     (cond [(equal? (term ℓ) '★) "pink"]
                           [(member (term ℓ) opaques) "pink"]
                           [else "red"]))]
