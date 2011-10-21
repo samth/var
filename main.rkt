@@ -27,6 +27,8 @@
              #:attr sym 'cesk-trace]
     [pattern (~datum fast-trace)
              #:attr sym 'fast-trace]
+    [pattern (~datum fast)
+             #:attr sym 'fast]
     [pattern (~datum trace)
              #:attr sym 'trace]
     [pattern (~datum count)
@@ -65,6 +67,14 @@
                            [(list (list 'blame '★ _ (... ...)) _ (... ...)) #t]
                            [_ #f]))
                        (c:final the-program)))]
+            [(fast)
+             #'(apply values
+                      (filter-not
+                       (λ (p)
+                         (match p
+                           [(f:st (list 'blame '★ _ (... ...)) _ _ _) #t]
+                           [_ #f]))
+                       (f:step-fixpoint the-program)))]
             [else 
              #'(apply values
                       (map clean-up

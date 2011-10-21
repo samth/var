@@ -52,7 +52,7 @@
   (ρ ((x a) ...))
   (clo (V ρ))
   (D clo K)
-  (σ ((a {D ...}) ...))
+  (σ ((a {D ...}) ...) any)
   (ς (E ρ σ K)))
 
 (define-metafunction CESK*
@@ -140,8 +140,13 @@
    ,(sort (remove-duplicates (term (any_1 ... any_2 ...)))
           < #:key equal-hash-code)])
 
+(require srfi/1)
+
 (define-metafunction CESK*
   extend-sto1 : σ a D -> σ
+  [(extend-sto1 any_s any_a any_d)
+   ,(dict-update (term any_s) (term any_a) (λ (e) (list (lset-union equal? (car e) (list (term any_d))))) (list null))]
+  #; #;
   [(extend-sto1 ((a_0 {D_0 ...}) ... (a {D_2 ...}) (a_1 {D_1 ...}) ...) a D)
    ((a_0 {D_0 ...}) ... (a (extend-set {D} {D_2 ...}))  (a_1 {D_1 ...}) ...)]
   [(extend-sto1 ((a_0 {D_0 ...}) ...) a D)
@@ -157,7 +162,9 @@
    (extend-sto (extend-sto1 σ a D) (a_1 ...) (D_1 ...))])
 
 (define-metafunction CESK*
-  sto-lookup : σ a -> {D ...}
+  sto-lookup : any any -> any
+  [(sto-lookup any any_1) ,(car (dict-ref (term any) (term any_1)))]
+  #;
   [(sto-lookup ((a_0 {D_0 ...}) ... (a {D ...}) (a_1 {D_1 ...}) ...) a) {D ...}])
 
 (define-metafunction CESK*
@@ -549,6 +556,7 @@
 (define (factorial n)
   (if (zero? n) 1 (* n (factorial (sub1 n)))))
 
+#;
 (define step
   (reduction-relation
    CESK*
@@ -629,7 +637,7 @@
   (match s 
     [(st `(,f_1 ^ ,f ,f) ρ σ K)
      (S 'Δ-self
-        (list (st (term (-- (lookup-modref/val ,f ,f_1 ,Ms))))))]
+        (list (st (term (-- (lookup-modref/val ,f ,f_1 ,Ms))) ρ σ K)))]
     [(st `(,f_1 ^ ,ℓ ,f) ρ σ K)
      (define V (term (lookup-modref/val ,f ,f_1 ,Ms)))
      (define C (term (lookup-modref/con ,f ,f_1 ,Ms)))
@@ -640,56 +648,12 @@
                     ρ σ K)))]
            [else
             (S '∆-other
-               (st (term (,C <= ,f ,ℓ (-- ,V) ,f_1 (-- ,V)))
-                   ρ σ K))])]
-    [(st (? (redex-match CESK* B) b) ρ σ K)
-     (S 'halt-blame (list (st b (term (gc (,b () ,σ MT))) '() 'MT)))]
+               (list (st (term (,C <= ,f ,ℓ (-- ,V) ,f_1 (-- ,V)))
+                         ρ σ K)))])]
+    [(st (? (redex-match CESK* B) b) ρ σ (and (not 'MT) K))
+     (S 'halt-blame (list (st b '() (term (gc (,b () ,σ MT))) 'MT)))]
     [_ (step* s)]))
 
-#;
-(define (∆ Ms)
-  (reduction-relation
-   CESK* 
-   (--> any_in
-        ,(st (term (-- PV)) (st-e (term any_in)) (st-s (term any_in)) (st-k (term any_in)))
-        (where (f_1 ^ f f) ,(st-c (term any_in)))
-        (where PV (lookup-modref/val f f_1 ,Ms))
-        Δ-self)
-   (--> any_in
-        ,(st (term (C <= f ℓ (-- PV) f_1 (-- PV))) (st-e (term any_in)) (st-s (term any_in)) (st-k (term any_in)))
-        (where (f_1 ^ ℓ f) ,(st-c (term any_in)))
-        (where C (lookup-modref/con f f_1 ,Ms))
-        (where PV (lookup-modref/val f f_1 ,Ms))
-        (side-condition (not (eq? (term f) (term ℓ))))
-        Δ-other)))
-#;
-(define (Δ~ Ms)
-  (union-reduction-relations
-   (∆ Ms)
-   (reduction-relation
-    CESK*
-    (--> any_in
-         ,(st (term (C <= f ℓ (-- C) f_1 (remember-contract (-- (any/c)) C)))
-              (st-e (term any_in)) (st-s (term any_in)) (st-k (term any_in)))
-         (where (f_1 ^ ℓ f) ,(st-c (term any_in)))
-         (where bullet (lookup-modref/val f f_1 ,Ms))
-         (where C (lookup-modref/con f f_1 ,Ms))
-         (side-condition (not (eq? (term f) (term ℓ))))
-         ∆-opaque))))
-
-#;
-(define error-propagate
-  (reduction-relation 
-   CESK*
-   (--> any_in 
-        ,(st (term B) '() (term (gc (B () ,(st-s (term any_in)) MT))) 'MT)
-        (where B ,(st-c (term any_in)))
-        (side-condition (not (equal? (st-k (term any_in)) (term MT))))
-        halt-blame)))
-
-#;
-(define (stepΔ Ms)
-  (union-reduction-relations error-propagate step (Δ~ Ms)))
 
 (define-metafunction CESK*
   restrict : ((any any) ...) (any ...) -> ((any any) ...)
@@ -818,7 +782,7 @@
          1)))
 
 
-(define (step∆-gc  Ms)
+(define (step∆-gc-R Ms)
   (define step (step∆ Ms))
   (reduction-relation 
    CESK*
@@ -832,15 +796,22 @@
         (where ρ_1 (restrict ρ (fv E)))
         (computed-name (term any_name))]))
 
-(define step-gc (step∆-gc null))
+(define (step∆-gc Ms)
+  (define step (step∆ Ms))
+  (λ (s)
+    (match-define (S name results) (step s))
+    (S name
+       (for/list ([r results])
+         (match-define (st E ρ σ K) r)
+         (define σ_1 (term (gc ,(list E ρ σ K))))
+         (define ρ_1 (term (restrict ,ρ (fv ,E))))
+         (st E ρ_1 σ_1 K)))))
+
+(define step-gc-R (step∆-gc-R null))
 
 #;
 (define (step∆-gc Ms) 
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
-
-(define (run P)
-  (define P* P #;(term (annotator ,P)))
-  (apply-reduction-relation* (step∆-gc (program-modules P*)) (term (load ,(last P*)))))
 
 (define (final-state? s)
   (and (eq? 'MT (st-k s))
@@ -876,15 +847,26 @@
 
 
 (define (step-fixpoint P)
-  (let ([l (term (load ,(last P)))])
-    (let loop ([terms (list l)] [finals (set)])
-      (define new-terms
-        (append-map (λ (t) (S-results (step* t))) terms))            
-      (cond [(empty? new-terms)
-             (values terms (remove-duplicates (for/list ([f finals]) (st-c f))))]
-            [else 
-             (define-values (f t) (partition final-state? new-terms))
-             (loop (remove-duplicates t) (set-union finals (apply set f)))]))))
+  (define l (term (load ,(last P))))
+  (define f (step∆-gc (program-modules P)))
+  (let loop ([terms (list l)] [finals (set)] [seen (set)])
+    (define rs (for/list ([t (in-list terms)])
+                 (list t (S-results (f t)))))
+    (define-values
+      (new-seen new-finals new-terms)
+      (for/fold ([s seen] [f finals] [new-terms (list)])
+        ([r (in-list rs)])
+        (values (set-union s (list->set (second r)))
+                (if (null? (second r))
+                    (set-add f (first r))
+                    f)
+                (append new-terms
+                        (filter-not (λ (e) (set-member? s e)) (second r))))))
+    ;(printf "new-seen: ~a\nnew-terms: ~a\n" (set-count new-seen) (length new-terms))
+    (cond [(empty? new-terms)
+           (remove-duplicates (for/list ([f new-finals]) f))]
+          [else             
+           (loop (remove-duplicates new-terms) new-finals new-seen)])))
 
 #|
 (trace-it fit-example)
@@ -903,14 +885,14 @@
 
 (define-syntax-rule (test-->>p P e ...)
   (begin (print-here P)
-  (test-->>E (step∆-gc (program-modules P))
+  (test-->>E (step∆-gc-R (program-modules P))
             ;#:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
             ;#:cycles-ok
             (term (load ,(last P)))
             (term (load ,e))) ...))
 
 (define-syntax-rule (test-->>pE P e ...)
-  (test-->>E (step∆-gc (program-modules P))
+  (test-->>E (step∆-gc-R (program-modules P))
              #;#;
              #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
              (term (load ,(last P)))
@@ -920,55 +902,55 @@
   (test-->> r #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2)))) (term (load ,t1)) (term (load ,t2))))
 
 (test
- (test-->>c step-gc (term (@ (-- (λ (x) 0)) (-- 1) †)) (term (-- 0)))
+ (test-->>c step-gc-R (term (@ (-- (λ (x) 0)) (-- 1) †)) (term (-- 0)))
  #; ;; this loops
  (test-->>c v 
             (term (@ (-- (λ f (x) (@ f x †))) (-- 0) †))
             (term (@ (-- (λ f (x) (@ f x †))) (-- 0) †))) 
  
- (test-->>c step-gc (term (@ (-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
- (test-->>c step-gc (term (if (-- 0) 1 2)) (term (-- 1)))
- (test-->>c step-gc (term (if (-- #t) 1 2)) (term (-- 1)))
- (test-->>c step-gc (term (if (-- #f) 1 2)) (term (-- 2)))
- (test-->>c step-gc (term (@ add1 (-- 0) †)) (term (-- 1)))
- (test-->>c step-gc (term (@ procedure? (-- #f) †)) (term (-- #f)))
- (test-->>c step-gc (term (@ procedure? (-- (λ (x) x)) †)) (term (-- #t)))
- (test-->>c step-gc (term (@ procedure? (-- (λ f (x) x)) †)) (term (-- #t)))
- (test-->>c step-gc (term (@ procedure? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
- (test-->>c step-gc (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
+ (test-->>c step-gc-R (term (@ (-- 0) (-- 1) †)) (term (blame † Λ (-- 0) λ (-- 0))))
+ (test-->>c step-gc-R (term (if (-- 0) 1 2)) (term (-- 1)))
+ (test-->>c step-gc-R (term (if (-- #t) 1 2)) (term (-- 1)))
+ (test-->>c step-gc-R (term (if (-- #f) 1 2)) (term (-- 2)))
+ (test-->>c step-gc-R (term (@ add1 (-- 0) †)) (term (-- 1)))
+ (test-->>c step-gc-R (term (@ procedure? (-- #f) †)) (term (-- #f)))
+ (test-->>c step-gc-R (term (@ procedure? (-- (λ (x) x)) †)) (term (-- #t)))
+ (test-->>c step-gc-R (term (@ procedure? (-- (λ f (x) x)) †)) (term (-- #t)))
+ (test-->>c step-gc-R (term (@ procedure? (-- ((any/c) -> (any/c))) †)) (term (-- #t)))
+ (test-->>c step-gc-R (term (@ cons (-- 1) (-- 2) †)) (term (-- (cons (-- 1) (-- 2)))))
  
- (test-->>c step-gc (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
- (test-->>c step-gc (term (@ 0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
- (test-->>c step-gc (term (if 0 1 2)) (term (-- 1)))
- (test-->>c step-gc (term (if #t 1 2)) (term (-- 1)))
- (test-->>c step-gc (term (if #f 1 2)) (term (-- 2)))
- (test-->>c step-gc (term (@ add1 0 †))  (term (-- 1)))
- (test-->>c step-gc (term (@ procedure? #f †)) (term (-- #f)))
- (test-->>c step-gc (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
+ (test-->>c step-gc-R (term (@ (λ (x) 0) 1 †)) (term (-- 0)))                
+ (test-->>c step-gc-R (term (@ 0 1 †)) (term (blame † Λ (-- 0) λ (-- 0))))
+ (test-->>c step-gc-R (term (if 0 1 2)) (term (-- 1)))
+ (test-->>c step-gc-R (term (if #t 1 2)) (term (-- 1)))
+ (test-->>c step-gc-R (term (if #f 1 2)) (term (-- 2)))
+ (test-->>c step-gc-R (term (@ add1 0 †))  (term (-- 1)))
+ (test-->>c step-gc-R (term (@ procedure? #f †)) (term (-- #f)))
+ (test-->>c step-gc-R (term (@ cons 1 2 †)) (term (-- (cons (-- 1) (-- 2))))))
 
 
 (test
- (test-->>c step-gc (term (@ (λ () 4) f)) (term (-- 4)))
- (test-->>c step-gc (term (@ (λ z () 4) f)) (term (-- 4)))
- (test-->>c step-gc (term (@ (-- (-> (nat/c))) f)) (term (-- (nat/c))))
- (test-->>c step-gc (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
- (test-->>c step-gc 
+ (test-->>c step-gc-R (term (@ (λ () 4) f)) (term (-- 4)))
+ (test-->>c step-gc-R (term (@ (λ z () 4) f)) (term (-- 4)))
+ (test-->>c step-gc-R (term (@ (-- (-> (nat/c))) f)) (term (-- (nat/c))))
+ (test-->>c step-gc-R (term ((nat/c) <= f g (-- 0) f (-- 5))) (term (-- 5)))
+ (test-->>c step-gc-R 
             (term ((nat/c) <= f g (-- 0) f (-- (λ (x) x))))
             (term (blame f f (-- 0) (nat/c) (-- (λ (x) x)))))
- (test-->>c step-gc 
+ (test-->>c step-gc-R 
             (term ((nat/c) <= f g (-- 0) f (-- #t))) 
             (term (blame f f (-- 0) (nat/c) (-- #t))))
- (test-->>c step-gc 
+ (test-->>c step-gc-R 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
             ;; kind of a giant hack
             (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ([(loc 0) (((-- 0) ()))]) ((-- (λ (x) x))))))))))
- (test-->>c step-gc 
+ (test-->>c step-gc-R 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
- (test-->>c step
+ (test-->>c step-gc-R
             (term ((pred (λ (x) 0) ℓ) <= f g (-- 0) f (-- 5)))
             (term (-- 5 (pred (λ (x) 0) ℓ))))
- (test-->>c step
+ (test-->>c step-gc-R
             (term ((and/c (nat/c) (empty/c)) <= f g (-- 0) f (-- #t)))
             (term (blame f f (-- 0) (and/c (nat/c) (empty/c)) (-- #t)))))
 
@@ -1132,7 +1114,7 @@
          ((rsa (keygen #f)) "Plain"))))
 
 (define (final P)
-  (apply-reduction-relation* (step∆-gc (program-modules P))
+  (apply-reduction-relation* (step∆-gc-R (program-modules P))
                              (term (load ,(last P)))
                              #:cache-all? #t))
 #;#;
