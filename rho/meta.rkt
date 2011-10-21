@@ -120,8 +120,10 @@
   (define-syntax reflect
     (syntax-rules ()
       [(reflect id ...)
-       (case f [(id) id] ...)]))
-  (reflect add1 + * = < <= > >=               
+       (case f 
+         [(id) id] ...
+         [else (error 'lift "unknown procedure: ~a" f)])]))
+  (reflect add1 + * expt = < <= > >=               
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
@@ -219,7 +221,6 @@
                                     (-- (clos (λ (x) x) ()))))
              #t))
 
-
 (define-metafunction λcρ
   contract-not-in/cache : C V ((C V) ...) -> #t or #f
   [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]
@@ -256,10 +257,8 @@
   [(contract-not-in/cache (C_1 ... -> any) V any_1)
    #t
    (where #t (refutes V procedure?))]
-    
+    |#
   [(contract-not-in/cache C V any) #f])
-|#
-  )
 
 ;; Does OP hold on all values abstracted by V
 ;; [Gives an approximate answer: #f means "failed to prove"]

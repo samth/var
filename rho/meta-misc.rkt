@@ -55,3 +55,68 @@
  #;(test-equal (term (arity (-- (pred procedure? f)))) #f)
  ;; FIXME: add blessed case
  )
+
+
+(define-metafunction λcρ
+  remember-contract : V C ... -> V
+  [(remember-contract V C ...) V])  ;; FIXME placeholder
+#|
+(define-metafunction λc~
+  remember-contract : V-or-AE C ... -> V or AE
+  ;; Expand away and/c
+  [(remember-contract V-or-AE (and/c C_1 C_2) C ...)
+   (remember-contract V-or-AE C_1 C_2 C ...)]
+  ;; drop boring contracts on concrete flat values
+  [(remember-contract (-- FV C_1 ...) FC C ...)
+   (remember-contract (-- FV C_1 ...) C ...)]
+  [(remember-contract (-- PV C_0 ...) (pred o? ℓ) C ...)
+   (remember-contract (-- PV C_0 ...) C ...)]
+  ;; drop any/c on the floor when possible
+  [(remember-contract (-- anyc C C_1 ...) C_2 ...)
+   (remember-contract (-- C C_1 ...) C_2 ...)]
+  [(remember-contract (-- anyc) C C_2 ...)
+   (remember-contract (-- C) C_2 ...)]
+  [(remember-contract V anyc C_2 ...)
+   (remember-contract V C_2 ...)]
+  ;; do the real work
+  ;; forget duplicates
+  [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
+   (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
+  [(remember-contract (-- C_0 ... C C_1 ...) C C_2 ...)
+   (remember-contract (-- C_0 ... C C_1 ...) C_2 ...)]
+  ;; add feasible non-duplicates
+  [(remember-contract (-- C_1 ...) C_2 C ...)
+   (remember-contract (-- C_1 ... C_2) C ...)
+   (where (#t ...) ((feasible C_2 C_1) ...))] 
+  [(remember-contract (-- PV C_1 ...) C_2 C ...)
+   (remember-contract (-- PV C_1 ... C_2) C ...)
+   (where (#t ...) ((feasible C_2 C_1) ...))]
+  ;; drop infeasible contracts
+  [(remember-contract (-- any_0 C_1 ...) C_2 C ...)
+   (remember-contract (-- any_0 C_1 ...) C ...)]  
+  ;; push remembered contracts past blessed arrows
+  [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V) C_0 ...)
+   ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2
+                     (remember-contract V C_0 ...))]
+  [(remember-contract ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_1) C_0 ...)
+   ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 any_1)]
+  ;; we're done
+  [(remember-contract V-or-AE) V-or-AE])
+
+(test 
+ (test-equal (term (remember-contract ((--> (any/c)) <= f g (-- 0) h (-- (any/c))) (nat/c)))
+             (term ((--> (any/c)) <= f g (-- 0) h (-- (nat/c)))))
+ 
+ (test-equal (term (remember-contract (-- (λ (x) x)) (pred procedure? Λ)))
+             (term (-- (λ (x) x))))
+ (test-equal (term (remember-contract (-- 1) (nat/c)))
+             (term (-- 1)))
+ (test-equal (term (remember-contract (-- (any/c) (nat/c))))
+             (term (-- (nat/c))))
+ 
+ ;; check that remember-contract is total and produces the right type
+ (redex-check λc~ (V C ...)              
+              (or (not (term (valid-value? V)))
+                  (ormap not (term ((valid? C) ...)))
+                  (redex-match λc~ V-or-AE (term (remember-contract V C ...))))))
+|#

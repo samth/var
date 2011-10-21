@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "flat-check.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test step)
 
@@ -172,18 +172,17 @@
 
 (define c
   (reduction-relation
-   λcρ #:domain E
+   λcρ #:domain D
    
    ;; FLAT CONTRACTS   
-   (--> (FLAT <= LAB_1 LAB_2 V_1 LAB_3 V)  ; FIXME: first V_1 was V-or-AE
-        (if (@ (flat-check FLAT V) V Λ)
-            (remember-contract V FLAT)
-            (blame ℓ_1 ℓ_3 V-or-AE FLAT V))        
+   (--> (FLAT ρ <= LAB_1 LAB_2 V_1 LAB_3 V)  ; FIXME: first V_1 was V-or-AE
+        (if (@ (flat-check (FLAT ρ) V) V Λ)
+            (remember-contract V (FLAT ρ))
+            (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
         flat-check)
 
    ))
-   
-   #|
+   #|   
    ;; HIGHER-ORDER CONTRACTS   
    (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (if (@ (flat-check FLAT V) V Λ)
@@ -246,6 +245,18 @@
         chk-fun-fail-flat)))
 
 |#
+
+(test
+ (test--> c ; (nat? <= 5)   -- provable
+          (term ((pred exact-nonnegative-integer? f) () <= f g (-- (clos 0 ())) f (-- (clos 5 ()))))
+          (term (if (@ (-- (clos (λ (x) #t) ())) (-- (clos 5 ())) Λ)
+                    (remember-contract (-- (clos 5 ())) ((pred exact-nonnegative-integer? f) ()))
+                    (blame f f (-- (clos 0 ())) ((pred exact-nonnegative-integer? f) ()) (-- (clos 5 ()))))))
+ (test--> c ; (prime? <= 5)   -- runable
+          (term ((pred (prime? ^ h j) f) () <= f g (-- (clos 0 ())) f (-- (clos 5 ()))))
+          (term (if (@ (-- (clos (λ (x) (@ (prime? ^ h j) x f)) ())) (-- (clos 5 ())) Λ)
+                    (remember-contract (-- (clos 5 ())) ((pred exact-nonnegative-integer? f) ()))
+                    (blame f f (-- (clos 0 ())) ((pred (prime? ^ h j) f) ()) (-- (clos 5 ())))))))
 
 
 (define (∆ Ms)

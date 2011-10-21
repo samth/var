@@ -5,43 +5,44 @@
 (test-suite test fc)
 
 (define-metafunction λcρ
-  flat-check : FLAT V -> E
-  [(flat-check FLAT V) 
-   (fc/c x () FLAT V)
-   (where x ,(variable-not-in (term (FLAT V)) 'x))])
+  flat-check : (FLAT ρ) V -> D
+  [(flat-check (FLAT ρ) V) 
+   (-- (clos (fc/c X () FLAT ρ V) ρ))
+   (where X ,(variable-not-in (term (FLAT V)) 'x))])
 
-#|
 (define-metafunction λcρ
-  fc/c : x ((C V) ...) FLAT V -> E
-  [(fc/c x (any_1 ... (C V) any_2 ...) C V) (λ (x) #t)]
-  [(fc/c x any anyc V) (λ (x) #t)]
-  [(fc/c x any C V)
-   (λ (x) #t)
-   (where #t (contract-in C V))]
-  [(fc/c x any C V)
-   (λ (x) #f)
-   (where #t (contract-not-in C V))]
-  [(fc/c x any (and/c FLAT_0 FLAT_1) V)
-   (λ (x)
-     (if (@ (fc/c x any FLAT_0 V) x Λ)
-         (@ (fc/c x any FLAT_1 V) x Λ)
+  fc/c : X ((CON V) ...) FLAT ρ V -> EXP
+  [(fc/c X (any_1 ... (CON V) any_2 ...) CON ρ V) (λ (x) #t)]
+  ;; Why did we bother with something like this?
+  ;;[(fc/c X any anyc V) (λ (x) #t)]  
+  [(fc/c X any CON ρ V)
+   (λ (X) #t)
+   (where #t (contract-in (CON ρ) V))]
+  [(fc/c X any CON ρ V)
+   (λ (X) #f)
+   (where #t (contract-not-in (CON ρ) V))] 
+  [(fc/c X any (and/c FLAT_0 FLAT_1) ρ V)
+   (λ (X)
+     (if (@ (fc/c X any FLAT_0 ρ V) X Λ)
+         (@ (fc/c X any FLAT_1 ρ V) X Λ)
          #f))]
-  [(fc/c x any (cons/c FLAT_0 FLAT_1)
+  [(fc/c X any (cons/c FLAT_0 FLAT_1) ρ
          (-- (cons V_0 V_1) C ...))
-   (λ (x)
-     (if (@ (fc/c x any FLAT_0 V_0) (@ first x Λ) Λ)
-         (@ (fc/c x any FLAT_1 V_1) (@ rest x Λ) Λ)
-         #f))]  
-  [(fc/c x any (pred SV ℓ) V)
-   (λ (x) (@ SV x ℓ))]  
-  [(fc/c x any (or/c FLAT_0 FLAT_1) V)
-   (λ (x)
-     (if (@ (fc/c x any FLAT_0 V) x Λ) 
+   (λ (X)
+     (if (@ (fc/c X any FLAT_0 ρ V_0) (@ car X Λ) Λ)
+         (@ (fc/c X any FLAT_1 ρ V_1) (@ cdr X Λ) Λ)
+         #f))] 
+  [(fc/c X any (pred PREDV LAB) ρ V)
+   (λ (X) (@ PREDV X LAB))]  
+  [(fc/c X any (or/c FLAT_0 FLAT_1) ρ V)
+   (λ (X)
+     (if (@ (fc/c X any FLAT_0 ρ V) X Λ) 
          #t
-         (@ (fc/c x any FLAT_1 V) x Λ)))]  
-  [(fc/c x_1 any (rec/c x C) V)   
-   (fc/c x_1 (((rec/c x C) V) . any) (unroll (rec/c x C)) V)]
-  
+         (@ (fc/c X any FLAT_1 ρ V) X Λ)))]  
+  [(fc/c X_1 any (rec/c X C) ρ V)   
+   (fc/c X_1 (((rec/c X C) V) . any) (unroll (rec/c X C)) ρ V)]
+  )
+  #|
   [(fc/c x any (cons/c C_1 C_2) AV)
    (amb E_r ...)
    (where (E_r ...)
@@ -62,14 +63,21 @@
    (where #f (proves AV cons?))
    (where #f (refutes AV cons?))]
   )
+|#
+
 
 (test
- 
+ ;; FIXME uncomment
+ #;
  (redex-check λcρ ((side-condition FLAT_1 (term (valid? FLAT_1))) V)
               (redex-match λcρ E (term (flat-check FLAT_1 V))))
-  
- (test-equal (term (flat-check (and/c (pred exact-nonnegative-integer? f) (pred empty? f)) (-- #t)))
+ 
+
+ (test-equal (term (flat-check ((and/c (pred exact-nonnegative-integer? f) (pred empty? f)) ())
+                               (-- (clos #t ()))))
              '(λ (x) #f))
+ )
+#|
  (test-equal (term (flat-check (string/c) (-- "Plain"))) '(λ (x) #t))
  (test-equal (term (flat-check (bool/c) (-- #t))) '(λ (x) #t))
  (test-equal (term (≡α (flat-check (any/c) (-- 0)) (λ (x) #t)))
