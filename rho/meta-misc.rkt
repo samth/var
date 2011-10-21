@@ -41,9 +41,9 @@
   [(arity (-- C_0 C ...))
    (arity (-- C ...))]
   |#
-  [(arity ((C ... --> any) <= LAB_0 LAB_1 V_b LAB_2 any_0))
-   ,(length (term (C ...)))])
-  
+  [(arity ((CON ... --> any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0))
+   ,(length (term (CON ...)))])
+
 (test
  (test-equal (term (arity (-- (clos (λ () x) ())))) 0)
  (test-equal (term (arity (-- (clos (λ (x y z) x) ())))) 3)
@@ -53,7 +53,7 @@
  #;(test-equal (term (arity (-- ((nat/c) (nat/c) -> (λ (x y) (nat/c)))))) 2)
  #;(test-equal (term (arity (-- (string/c) ((nat/c) (nat/c) -> (nat/c))))) 2)
  #;(test-equal (term (arity (-- (pred procedure? f)))) #f)
- ;; FIXME: add blessed case
+ (test-equal (term (arity ((--> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ () 1) ()))))) 0)
  )
 
 
