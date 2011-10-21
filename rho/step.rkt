@@ -284,4 +284,37 @@
           (term (f ^ † m))
           (term ((pred string? m) () <= m † (-- (clos 1 ())) f (-- (clos 1 ()))))))
 
- 
+
+;; when we get blame, discard the context
+(define error-propagate
+  (reduction-relation 
+   λcρ #:domain D
+   ;; if we reduce to blame, we halt the program
+   (--> (in-hole 𝓔 BLAME) BLAME
+        (side-condition (not (equal? (term hole) (term 𝓔))))
+        halt-blame)
+     
+   ;; FIXME TODO
+   #;
+   ;; normalize abstract values at the end to make testing easier
+   (--> V V_norm
+        (where V_norm (normalize V))
+        (side-condition (not (equal? (term V) (term V_norm))))
+        normalize-abstract)))
+
+(test--> error-propagate
+         (term (@ (blame f f (-- (clos 0 ())) ((pred exact-nonnegative-integer? f) ()) (-- (clos 5 ())))
+                  (clos (@ string? 3 †) ())
+                  †))
+         (term (blame f f (-- (clos 0 ())) ((pred exact-nonnegative-integer? f) ()) (-- (clos 5 ())))))
+
+
+(define (-->_vcΔ Ms)
+  (union-reduction-relations error-propagate 
+                             (context-closure (union-reduction-relations v c (∆ Ms)) λcρ 𝓔)))
+
+;; FIXME TODO
+#;
+(define (-->_vcc~Δ Ms)
+  (union-reduction-relations error-propagate 
+                             (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
