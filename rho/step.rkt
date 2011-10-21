@@ -21,6 +21,8 @@
    (--> (clos (begin EXP ...) ρ)
         (begin (clos EXP ρ) ...)
         ρ-begin)
+   ;; Environment elimination
+   (--> (clos MODREF ρ) MODREF elim-ρ)
    ;; Variable lookup
    (--> (clos X ((X_1 V_1) ... (X V) (X_2 V_2) ...))
         V
@@ -179,9 +181,7 @@
         (if (@ (flat-check (FLAT ρ) V) V Λ)
             (remember-contract V (FLAT ρ))
             (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
-        flat-check)
-
-   ))
+        flat-check)   
    #|   
    ;; HIGHER-ORDER CONTRACTS   
    (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
@@ -231,13 +231,14 @@
              (@ (remember-contract V (C_arity ... -> (any/c))) (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
         (where (C_arity ...) ,(map (λ _ (term (any/c))) (term (C_0 ...))))
         blessed-β)
-   
+   |#
    ;; BLESSING
-   (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        ((C_1 ... --> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (remember-contract V (pred procedure? Λ)))
-        (side-condition (term (∈ #t (δ (@ procedure? V ★)))))
-        chk-fun-pass)   
-   
+   (--> ((CON_1 ... -> any) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        ((CON_1 ... --> any) ρ <= LAB_1 LAB_2 V_1 LAB_3
+                             (remember-contract V ((pred procedure? Λ) ())))
+        (side-condition (term (∈ #t (δ procedure? V ★))))
+        chk-fun-pass) 
+   #|
    ;; DAMNING
    (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> any) V)
@@ -245,6 +246,7 @@
         chk-fun-fail-flat)))
 
 |#
+   ))
 
 (test
  (test--> c ; (nat? <= 5)   -- provable
@@ -309,9 +311,37 @@
          (term (blame f f (-- (clos 0 ())) ((pred exact-nonnegative-integer? f) ()) (-- (clos 5 ())))))
 
 
-(define (-->_vcΔ Ms)
+(define (-->_vc∆ Ms)
   (union-reduction-relations error-propagate 
                              (context-closure (union-reduction-relations v c (∆ Ms)) λcρ 𝓔)))
+
+(test
+ (define Ms (term [(module m racket 
+                     (require) 
+                     (define n 7)
+                     (provide/contract 
+                      [n (pred exact-nonnegative-integer? m)]))]))
+ (test-->> (-->_vc∆ Ms)
+           (term (n ^ † m))
+           (term (-- (clos 7 ())))))
+
+(test
+ (define Ms (term [(module f racket 
+                     (require) 
+                     (define fact 
+                       (λ ! (n) 
+                         (if (@ zero? n f) 1
+                             (@ * n (@ ! (@ sub1 n f) f) f))))
+                     (provide/contract 
+                      [fact ((pred exact-nonnegative-integer? f) 
+                             ->
+                             (pred exact-nonnegative-integer? f))]))])) 
+ (test-->> (-->_vc∆ Ms)
+           (term (clos (@ (fact ^ † f) 5 †) ()))
+           (term (-- (clos 120 ())))))
+
+
+     
 
 ;; FIXME TODO
 #;
