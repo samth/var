@@ -1,7 +1,8 @@
 #lang racket
 (require (except-in redex/reduction-semantics plug) (for-syntax syntax/parse))
 (require (except-in "lang.rkt" final-state?) "flat-check.rkt" "meta.rkt" "alpha.rkt" "util.rkt" "annotate.rkt" "examples.rkt" 
-         (only-in "step.rkt" lookup-modref/val lookup-modref/con))
+         (only-in "step.rkt" lookup-modref/val lookup-modref/con) (prefix-in s: "step.rkt"))
+(require (prefix-in ce: "cesk.rkt"))
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
@@ -10,6 +11,32 @@
 (current-cache-all? #t)
 
 (define exact? #t)
+
+(define list-id-example-contract2
+  (term [(simple-module id 
+           (,list-of-nat/c  ->  ,list-of-nat/c)
+           (λ (ls)
+             (if (@ empty? ls id)
+                 ls 
+                 (@ cons 
+                    (@ first ls id)
+                    (@ (id ^ id id) (@ rest ls id) id)
+                    id))))
+         (require (only-in id id))
+         (@ (id ^ † id) (@ cons 1 empty †) †)]))
+
+(define list-id-example-contract3
+  (term [(simple-module id 
+           (,list-of-nat/c  ->  ,list-of-nat/c)
+           (λ (ls)
+             (if (@ empty? ls id)
+                 ls 
+                 (@ cons 
+                    (@ first ls id)
+                    (@ (id ^ id id) (@ rest ls id) id)
+                    id))))
+         (require (only-in id id))
+         (@ (id ^ † id) empty †)]))
 
 (define-extended-language CESK* λc~ 
   (K MT      
@@ -598,7 +625,28 @@
   (match s
     [(st a b c d) (list a b c d)]))
 
+(define ((step∆ Ms) s)
+  (match s 
+    [(st `(,f_1 ^ ,f ,f) ρ σ K)
+     (S 'Δ-self
+        (list (st (term (-- (lookup-modref/val ,f ,f_1 ,Ms))))))]
+    [(st `(,f_1 ^ ,ℓ ,f) ρ σ K)
+     (define V (term (lookup-modref/val ,f ,f_1 ,Ms)))
+     (define C (term (lookup-modref/con ,f ,f_1 ,Ms)))
+     (cond [(redex-match CESK* bullet V)
+            (S '∆-opaque 
+               (list
+                (st (term (,C <= ,f ,ℓ (-- ,C) ,f_1 (remember-contract (-- (any/c)) ,C)))
+                    ρ σ K)))]
+           [else
+            (S '∆-other
+               (st (term (,C <= ,f ,ℓ (-- ,V) ,f_1 (-- ,V)))
+                   ρ σ K))])]
+    [(st (? (redex-match CESK* B) b) ρ σ K)
+     (S 'halt-blame (list (st b (term (gc (,b () ,σ MT))) '() 'MT)))]
+    [_ (step* s)]))
 
+#;
 (define (∆ Ms)
   (reduction-relation
    CESK* 
@@ -614,7 +662,7 @@
         (where PV (lookup-modref/val f f_1 ,Ms))
         (side-condition (not (eq? (term f) (term ℓ))))
         Δ-other)))
-
+#;
 (define (Δ~ Ms)
   (union-reduction-relations
    (∆ Ms)
@@ -629,6 +677,7 @@
          (side-condition (not (eq? (term f) (term ℓ))))
          ∆-opaque))))
 
+#;
 (define error-propagate
   (reduction-relation 
    CESK*
@@ -638,6 +687,7 @@
         (side-condition (not (equal? (st-k (term any_in)) (term MT))))
         halt-blame)))
 
+#;
 (define (stepΔ Ms)
   (union-reduction-relations error-propagate step (Δ~ Ms)))
 
@@ -768,12 +818,13 @@
          1)))
 
 
-(define step-gc  
+(define (step∆-gc  Ms)
+  (define step (step∆ Ms))
   (reduction-relation 
    CESK*
    [--> any_old ,(st (term E) (term ρ_1) (term σ_1) (term K))
         (where (any_name (any_1 ... any_state any_2 ...))
-               ,(match (step* (term any_old)) [(S n r) #;(displayln (list n r)) (list n r)]))
+               ,(match (step (term any_old)) [(S n r) (list n r)]))
         (where (E ρ σ K) ,(match (term any_state) [(struct st (E1 ρ1 σ1 K1))
                                                    #;(displayln (list E1 ρ1 σ1 K1))
                                                    (list E1 ρ1 σ1 K1)]))
@@ -781,12 +832,15 @@
         (where ρ_1 (restrict ρ (fv E)))
         (computed-name (term any_name))]))
 
-(define (stepΔ-gc Ms) 
+(define step-gc (step∆-gc null))
+
+#;
+(define (step∆-gc Ms) 
   (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
 
 (define (run P)
   (define P* P #;(term (annotator ,P)))
-  (apply-reduction-relation* (stepΔ-gc (program-modules P*)) (term (load ,(last P*)))))
+  (apply-reduction-relation* (step∆-gc (program-modules P*)) (term (load ,(last P*)))))
 
 (define (final-state? s)
   (and (eq? 'MT (st-k s))
@@ -814,7 +868,7 @@
         [else #t]))
 
 (define-syntax-rule (trace-it P . rest)
-  (traces (stepΔ-gc (program-modules P))
+  (traces (step∆-gc (program-modules P))
           (term (load ,(last P)))
           #:pred (colorize (program-modules P))
           . rest))
@@ -849,14 +903,14 @@
 
 (define-syntax-rule (test-->>p P e ...)
   (begin (print-here P)
-  (test-->>E (stepΔ-gc (program-modules P))
+  (test-->>E (step∆-gc (program-modules P))
             ;#:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
             ;#:cycles-ok
             (term (load ,(last P)))
             (term (load ,e))) ...))
 
 (define-syntax-rule (test-->>pE P e ...)
-  (test-->>E (stepΔ-gc (program-modules P))
+  (test-->>E (step∆-gc (program-modules P))
              #;#;
              #:equiv (λ (e1 e2) (term (≡α (unload ,e1) (unload ,e2))))
              (term (load ,(last P)))
@@ -1078,7 +1132,7 @@
          ((rsa (keygen #f)) "Plain"))))
 
 (define (final P)
-  (apply-reduction-relation* (stepΔ-gc (program-modules P))
+  (apply-reduction-relation* (step∆-gc (program-modules P))
                              (term (load ,(last P)))
                              #:cache-all? #t))
 #;#;
@@ -1087,10 +1141,10 @@
 #;
 (define (single P)
   (set! next (λ () 
-               (define r (append-map (λ (p) (apply-reduction-relation (stepΔ-gc (program-modules P)) p)) result))
+               (define r (append-map (λ (p) (apply-reduction-relation (step∆-gc (program-modules P)) p)) result))
                (set! result r)
                r))
-  (let ([r (apply-reduction-relation (stepΔ-gc (program-modules P))
+  (let ([r (apply-reduction-relation (step∆-gc (program-modules P))
                                      (term (load ,(last P))))])
     (set! result r)
     r))
