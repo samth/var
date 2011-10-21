@@ -185,6 +185,7 @@
 (struct S (name results) #:prefab)
 
 (define V? (redex-match CESK* V))
+(define AV? (redex-match CESK* AV))
 
 (define-match-expander V:
   (syntax-parser
@@ -205,6 +206,14 @@
 
 (define (step* state)
   (match state    
+    [(st (? AV? (cons '-- (list-no-order `(or/c ,C1 ...) C ...))) ρ σ K) 
+     (S 'or-split
+        (for/list ([c C1])
+          (st `(-- ,c ,@C) ρ σ K)))]
+    
+    [(st (? AV? (cons '-- (list-no-order `(rec/c ,x ,body) C ...))) ρ σ K)
+     (S 'rec-unroll
+        (list (st `(-- ,(term (unroll (rec/c ,x ,body))) ,@C) ρ σ K)))]
     
     [(st (V: V) ρ σ `(AP ,clo ((,E_0 ,ρ_0) ,rest ...) ,ℓ ,a))
      (S 'ap-next
@@ -469,7 +478,7 @@
           (list (st V_0 ρ σ_new `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st (V: V) ρ σ `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ_2 ,a))
-     (match-let* ([K `(OP cons ((,V ,ρ)) () Λ ,a)]
+     (match-let* ([K `(OP cons ((,V ,ρ)) () () Λ ,a)]
                   [(list a_k) (term (alloc ,σ (,K)))]
                   [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
      (S 'check-cons-pass-rest
