@@ -98,10 +98,11 @@
   ;; Types of values
   (PROC (-- (clos LAM ρ) C* ...) 
         (-- (clos OP ρ) C* ...)
+        (-- C* ...) ;; FIXME: could be more restrictive
         BLESSED)  
         
         
-  (BLESSED (BARROW ρ <= LAB LAB V LAB (-- (clos LAM ρ) C* ...))
+  (BLESSED (BARROW ρ <= LAB LAB V LAB PROC)
            (BARROW ρ <= LAB LAB V LAB BLESSED))
     
   (BARROW (CON ... --> CON)
