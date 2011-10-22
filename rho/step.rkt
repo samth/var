@@ -189,13 +189,13 @@
             (remember-contract V FLAT)
             (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
         or/c-hoc)
-   
-   (--> ((and/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)        
-        (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-             (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
-        (where HOC (and/c C_0 C_1))
+   |#
+   (--> ((and/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 
+             (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
+        (where HOC (and/c CON_0 CON_1))
         and/c-hoc)
-   
+   #|
    (--> ((rec/c x C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         ((unroll HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
         (where HOC (rec/c x C))
@@ -217,18 +217,21 @@
         (where HOC (cons/c C_0 C_1))
         (where #t (∈ #f (δ (@ cons? V Λ))))
         check-cons-fail)
-   
-   ;; PROCEDURE CONTRACTS      
-   (--> (@ ((C_0 ..._1 --> (λ (x ..._1) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V) V_1 ..._1 ℓ)        
-        ((subst/C ((x (C_0 <= ℓ_2 ℓ_3 V_1 ℓ_2 V_1)) ...) C_1)
-         <= ℓ_1 ℓ_2 V-or-AE ℓ_3 
-         (@ (remember-contract V (C_arity ... -> (any/c))) (C_0 <= ℓ_2 ℓ_1 V_1 ℓ_3 V_1) ... Λ))
-        (where (C_arity ...) ,(map (λ _ (term (any/c))) (term (C_0 ...))))
-        blessed-β-dep)
    |#
+   ;; PROCEDURE CONTRACTS      
+   (--> (@ ((CON_0 ..._1 --> (λ (X ..._1) CON_1)) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB)        
+        (CON_1 (env-extend ρ (X V_1) ...) ; indy
+               <= LAB_1 LAB_2 V_2 LAB_3 
+               (@ (remember-contract V ((CON_a0 ... -> CON_a1) ()) )
+                  (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
+        (where (CON_a0 ... CON_a1) 
+               ,(map (λ _ (term (pred (λ (x) #t) Λ))) 
+                     (term (CON_0 ... CON_1))))
+        blessed-β-dep)
+   
    (--> (@ ((CON_0 ..._1 --> CON_1) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB)        
         (CON_1 ρ <= LAB_1 LAB_2 V_2 LAB_3 
-             (@ (remember-contract V ((CON_arity ... -> (pred (λ (x) #t) Λ)) ρ))
+             (@ (remember-contract V ((CON_arity ... -> (pred (λ (x) #t) Λ)) ()))
                 (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
         (where (CON_arity ...) ,(map (λ _ (term (pred (λ (x) #t) Λ))) (term (CON_0 ...))))
         blessed-β)
@@ -317,26 +320,47 @@
                              (context-closure (union-reduction-relations v c (∆ Ms)) λcρ 𝓔)))
 
 (test
- (define Ms (term [(module m racket 
-                     (require) 
-                     (define n 7)
-                     (provide/contract 
-                      [n (pred exact-nonnegative-integer? m)]))]))
+ (define Ms 
+   (term [(module m racket 
+            (require) 
+            (define n 7)
+            (provide/contract 
+             [n (pred exact-nonnegative-integer? m)]))]))
  (test-->> (-->_vc∆ Ms)
            (term (n ^ † m))
            (term (-- (clos 7 ())))))
 
 (test
- (define Ms (term [(module f racket 
-                     (require) 
-                     (define fact 
-                       (λ ! (n) 
-                         (if (@ zero? n f) 1
-                             (@ * n (@ ! (@ sub1 n f) f) f))))
-                     (provide/contract 
-                      [fact ((pred exact-nonnegative-integer? f) 
-                             ->
-                             (pred exact-nonnegative-integer? f))]))])) 
+ (define Ms 
+   ;; Factorial with type-like contract
+   (term [(module f racket 
+            (require) 
+            (define fact 
+              (λ ! (n) 
+                (if (@ zero? n f) 1
+                    (@ * n (@ ! (@ sub1 n f) f) f))))
+            (provide/contract 
+             [fact ((pred exact-nonnegative-integer? f) 
+                    -> (pred exact-nonnegative-integer? f))]))]))
+ (test-->> (-->_vc∆ Ms)
+           (term (clos (@ (fact ^ † f) 5 †) ()))
+           (term (-- (clos 120 ())))))
+
+(test
+ ;; Factorial with simple dependent contract
+ (define Ms 
+   (term [(module f racket 
+            (require) 
+            (define fact 
+              (λ ! (n) 
+                (if (@ zero? n f) 1
+                    (@ * n (@ ! (@ sub1 n f) f) f))))
+            (provide/contract 
+             [fact ((pred exact-nonnegative-integer? f) 
+                    ->
+                    (λ (x)
+                      (and/c (pred exact-nonnegative-integer? f)
+                             (pred (λ (y) (@ <= x y f)) f))))]))]))
  (test-->> (-->_vc∆ Ms)
            (term (clos (@ (fact ^ † f) 5 †) ()))
            (term (-- (clos 120 ())))))
