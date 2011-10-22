@@ -75,7 +75,7 @@
 
  (test-equal (term (flat-check ((and/c (pred exact-nonnegative-integer? f) (pred empty? f)) ())
                                (-- (clos #t ()))))
-             '(λ (x) #f))
+             (term (-- (clos (λ (x) #f) ()))))
  )
 #|
  (test-equal (term (flat-check (string/c) (-- "Plain"))) '(λ (x) #t))
