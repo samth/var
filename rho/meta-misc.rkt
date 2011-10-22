@@ -31,16 +31,14 @@
    ,(length (term (X_0 ...)))]
   [(arity (-- (clos (λ (X ...) EXP) ρ) C ...))
    ,(length (term (X ...)))]
-  ;; ABSTRACT VALUES
-  #|
-  [(arity (-- (C_0 ... -> C_1) C ...))
-   ,(length (term (C_0 ...)))]
-  [(arity (-- (C_0 ... -> (λ (x ...) C_1)) C ...))
-   ,(length (term (C_0 ...)))]
+  ;; ABSTRACT VALUES  
+  [(arity (-- ((CON_0 ... -> CON_1) ρ) C ...))
+   ,(length (term (CON_0 ...)))]
+  [(arity (-- ((CON_0 ... -> (λ (X ...) CON_1)) ρ) C ...))
+   ,(length (term (CON_0 ...)))]
   [(arity (-- C)) #f]
   [(arity (-- C_0 C ...))
    (arity (-- C ...))]
-  |#
   [(arity ((CON ... --> any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0))
    ,(length (term (CON ...)))])
 
@@ -49,10 +47,10 @@
  (test-equal (term (arity (-- (clos (λ (x y z) x) ())))) 3)
  (test-equal (term (arity (-- (clos (λ f (x y z) x) ())))) 3)
  ;; FIXME: uncomment when doing ABSTRACT values
- #;(test-equal (term (arity (-- ((nat/c) (nat/c) -> (nat/c))))) 2)
- #;(test-equal (term (arity (-- ((nat/c) (nat/c) -> (λ (x y) (nat/c)))))) 2)
- #;(test-equal (term (arity (-- (string/c) ((nat/c) (nat/c) -> (nat/c))))) 2)
- #;(test-equal (term (arity (-- (pred procedure? f)))) #f)
+ (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (pred string? h)) ())))) 2)
+ (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (λ (x y) (pred string? h))) ())))) 2)
+ (test-equal (term (arity (-- ((pred string? h) ()) (((pred string? f) (pred string? g) -> (pred string? h)) ())))) 2)
+ (test-equal (term (arity (-- ((pred procedure? f) ())))) #f)
  (test-equal (term (arity ((--> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ () 1) ()))))) 0)
  )
 
