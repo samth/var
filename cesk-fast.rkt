@@ -2,7 +2,7 @@
 (require (except-in redex/reduction-semantics plug) (for-syntax syntax/parse))
 (require (except-in "lang.rkt" final-state?) "flat-check.rkt" "meta.rkt" "alpha.rkt" "util.rkt" "annotate.rkt" "examples.rkt" 
          (only-in "step.rkt" lookup-modref/val lookup-modref/con) (prefix-in s: "step.rkt"))
-(require (prefix-in ce: "cesk.rkt"))
+(require (prefix-in ce: "cesk.rkt") (only-in unstable/match ==))
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 
@@ -49,10 +49,11 @@
      (CHK-CONS C ρ ℓ ℓ V-or-AE ℓ V ρ a) ;; i hate the environment
      (CHK-OR V ρ (or/c FLAT HOC) ρ ℓ ℓ V-or-AE ℓ a)) ;; (if [] (rem V FLAT) (HOC <= V))     
    
-  (ρ ((x a) ...))
+  (ρ (side-condition any_1 (hash? (term any_1))))
   (clo (V ρ))
   (D clo K)
-  (σ ((a {D ...}) ...) any)
+  (Ds (side-condition any_1 (set? (term any_1))))
+  (σ (side-condition any_1 (hash? (term any_1))))
   (ς (E ρ σ K)))
 
 (define-metafunction CESK*
@@ -96,11 +97,11 @@
 (define-metafunction CESK*
   alloc-addr : σ (any ..._1) -> (any ..._1)
   [(alloc-addr σ (any ...))
-   ,(variables-not-in* (term σ) (term (any ...)))
+   ,(variables-not-in* (hash-keys (term σ)) (term (any ...)))
    (side-condition exact?)]
   [(alloc-addr σ (x ...)) 
    (x ...) #;
-   ,(variables-not-in (term σ) (term (x ...)))]
+   ,(variables-not-in (hash-keys (term σ)) (term (x ...)))]
   [(alloc-addr σ (K ...))
    ,(map (λ (p) (if (and (pair? p)) (car p) p)) (term (K ...)))]
   [(alloc-addr σ (V ...))
@@ -129,60 +130,31 @@
   [(try-close-value V ρ σ) (-- (any/c))])
 
 
-(define-metafunction CESK*
-  extend-env : ρ (x ..._1) (a ..._1) -> ρ
-  [(extend-env ((x_0 a_0) ...) (x ..._1) (a ..._1))
-   ((x a) ... (x_0 a_0) ...)])
+(define (extend-env ρ xs as)
+  (for/fold ([ρ ρ]) ([x (in-list xs)] [a (in-list as)])
+    (hash-set ρ x a)))
 
 (define-metafunction CESK*
-  extend-set : (any ...) (any ...) ->  (any ...)
-  [(extend-set (any_1 ...) (any_2 ...))
-   ,(sort (remove-duplicates (term (any_1 ... any_2 ...)))
-          < #:key equal-hash-code)])
-
-(require srfi/1)
-
-(define-metafunction CESK*
-  extend-sto1 : σ a D -> σ
+  extend-sto1 : σ a any -> σ
   [(extend-sto1 any_s any_a any_d)
-   ,(dict-update (term any_s) (term any_a) (λ (e) (list (lset-union equal? (car e) (list (term any_d))))) (list null))]
-  #; #;
-  [(extend-sto1 ((a_0 {D_0 ...}) ... (a {D_2 ...}) (a_1 {D_1 ...}) ...) a D)
-   ((a_0 {D_0 ...}) ... (a (extend-set {D} {D_2 ...}))  (a_1 {D_1 ...}) ...)]
-  [(extend-sto1 ((a_0 {D_0 ...}) ...) a D)
-   ((a_0 {D_0 ...}) ... (a {D}))])
+   ,(hash-update (term any_s) (term any_a) (λ (e) (set-add e (term any_d))) (set))])
 
-(define (addr< a b)
-  (< (equal-hash-code a) (equal-hash-code a)))
-
-(define-metafunction CESK*
-  extend-sto : σ (a ..._1) (D ..._1) -> σ
-  [(extend-sto σ () ()) ,(sort (term σ) addr< #:key car)]
-  [(extend-sto σ (a a_1 ...) (D D_1 ...))
-   (extend-sto (extend-sto1 σ a D) (a_1 ...) (D_1 ...))])
+(define (extend-sto σ as ds)
+  (for/fold ([σ σ]) ([a (in-list as)] [d (in-list ds)])
+    (hash-update σ a (λ (e) (set-add e d)) (set))))
 
 (define-metafunction CESK*
   sto-lookup : any any -> any
-  [(sto-lookup any any_1) ,(car (dict-ref (term any) (term any_1)))]
-  #;
-  [(sto-lookup ((a_0 {D_0 ...}) ... (a {D ...}) (a_1 {D_1 ...}) ...) a) {D ...}])
+  [(sto-lookup any any_1) ,(hash-ref (term any) (term any_1))])
 
 (define-metafunction CESK*
   env-lookup : ρ x -> a
-  [(env-lookup ((x a) (x_0 a_0) ...) x) a]
-  [(env-lookup ((x_0 a_0) (x_1 a_1) ...) x)
-   (env-lookup ((x_1 a_1) ...) x)])
-
-#;
-(define-metafunction CESK*
-  load : E -> ς
-  [(load E)
-   (E () () MT)])
+  [(env-lookup any_e any_x) ,(hash-ref (term any_e) (term any_x))])
 
 (define-metafunction CESK*
   load : any -> any
   [(load any)
-   ,(st (term any) '() '() 'MT)])
+   ,(st (term any) #hash() #hash() 'MT)])
 
 ;; this will stop working once there's real non-determinism
 (define-metafunction CESK*
@@ -291,7 +263,7 @@
     
     [(st (? (redex-match CESK* x) x) ρ σ K)
      (S 'var
-        (for/list ([D (in-list (term (sto-lookup ,σ (env-lookup ,ρ ,x))))])
+        (for/list ([D (term (sto-lookup ,σ (env-lookup ,ρ ,x)))])
           (match D
             [(list V ρ_0) (st V ρ_0 σ K)])))]
     [(st (? (redex-match CESK* PV) pv) ρ σ K)
@@ -308,8 +280,8 @@
         (S 'β-rec-0 
            (for*/list ([K (term (sto-lookup ,σ ,a))]
                        [a_1 (term (alloc ,σ (,rec)))])          
-             (st E
-                 (term (extend-env ,ρ (,rec) (,a_1)))
+             (st E 
+                 (extend-env ρ (list rec) (list a_1))
                  (term (extend-sto1 ,σ ,a_1 ,(list fun ρ)))
                  K)))]
        ;; these next two cases are identical
@@ -339,7 +311,7 @@
                                    [C_0 (term (range-contracts ,C ()))])
                         (st (term (remember-contract (-- (any/c)) ,@(for/list ([c C_0])
                                                                       (term (try-close-contract ,c ,ρ ,σ)))))
-                            '() σ K))))]
+                            '#hash() σ K))))]
                 [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
                       (not (equal? 0 (term (arity ,V-proc)))))
                  (S 'blame-arity
@@ -362,17 +334,17 @@
            (S 'β-rec
               (for/list ([K (term (sto-lookup ,σ ,a))])
                 (st E 
-                    (term (extend-env ,ρ_0 ,(cons rec x) ,a1s))
-                    (term (extend-sto ,σ ,a1s ,(cons `((-- (λ ,rec ,x ,E) ,@C) ,ρ_0)
-                                                     (append clo (list (list V ρ))))))
+                    (extend-env ρ_0 (cons rec x) a1s)
+                    (extend-sto σ a1s (cons `((-- (λ ,rec ,x ,E) ,@C) ,ρ_0)
+                                            (append clo (list (list V ρ)))))
                     K)))]
           [`(-- (λ (,x ...) ,E) ,C ...)
            (define a1s (term (alloc ,σ ,x)))
            (S 'β
               (for/list ([K (term (sto-lookup ,σ ,a))])
                 (st E 
-                    (term (extend-env ,ρ_0 ,x ,a1s))
-                    (term (extend-sto ,σ ,a1s ,(append clo (list (list V ρ)))))
+                    (extend-env ρ_0 x a1s)
+                    (extend-sto σ a1s (append clo (list (list V ρ))))
                     K)))]
           [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
            ;(printf "got here \n")
@@ -404,13 +376,13 @@
                                                [ρ ρ_0])
                                       (term (try-close-contract ,C_0 ,ρ ,σ)))]
                                [E_result (term (remember-contract (-- (any/c)) ,@C_0))])                    
-                    (st (term (amb (-- 0) (demonic* ,C_demon ,U))) ρ_2 σ `(BEG (,E_result ()) ,a))))))])]
+                    (st (term (amb (-- 0) (demonic* ,C_demon ,U))) ρ_2 σ `(BEG (,E_result #hash()) ,a))))))])]
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
              (not (term (arity ,V-proc))))
         (S 'apply-abs-no-arity
            (for/list ([clo* (cons (list V ρ) clo)])
              (match-define `(,U ,ρ_2) clo*)
-             (st (term (amb (-- 0) (demonic* (any/c) ,U))) ρ_2 σ (term (BEG ((-- (any/c)) ()) ,a)))))]
+             (st (term (amb (-- 0) (demonic* (any/c) ,U))) ρ_2 σ (term (BEG ((-- (any/c)) #hash()) ,a)))))]
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
              (not (equal? (add1 (length (term ,clo)))
                           (term (arity ,V-proc)))))
@@ -437,7 +409,7 @@
      (S 'δ
         (for*/list ([K (term (sto-lookup ,σ ,a))]
                     [V-or-B (term (δ ,`(@ ,op ,@V_0 ,V ,ℓ)))])
-          (st (term (widen ,op ,V-or-B)) '() σ K)))]
+          (st (term (widen ,op ,V-or-B)) '#hash() σ K)))]
     
     [(st `(begin ,E_0 ,E_1) ρ σ K)
      (S 'beg-push
@@ -515,7 +487,7 @@
           (list (st V_0 ρ σ_new `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st (V: V) ρ σ `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ_2 ,a))
-     (match-let* ([K `(OP cons ((,V ,ρ)) () () Λ ,a)]
+     (match-let* ([K `(OP cons ((,V ,ρ)) () #hash() Λ ,a)]
                   [(list a_k) (term (alloc ,σ (,K)))]
                   [σ_new (term (extend-sto1 ,σ ,a_k ,K))])
      (S 'check-cons-pass-rest
@@ -555,15 +527,6 @@
 
 (define (factorial n)
   (if (zero? n) 1 (* n (factorial (sub1 n)))))
-
-#;
-(define step
-  (reduction-relation
-   CESK*
-   (--> any_in any_out
-        (where any_S ,(step* (term any_in)))
-        (where (any_1 ... any_out any_2 ...) ,(S-results (term any_S)))
-        (computed-name (S-name (term any_S))))))
 #;
 (define step
   (reduction-relation
@@ -651,16 +614,16 @@
                (list (st (term (,C <= ,f ,ℓ (-- ,V) ,f_1 (-- ,V)))
                          ρ σ K)))])]
     [(st (? (redex-match CESK* B) b) ρ σ (and (not 'MT) K))
-     (S 'halt-blame (list (st b '() (term (gc (,b () ,σ MT))) 'MT)))]
+     (S 'halt-blame (list (st b '#hash() (term (gc (,b #hash() ,σ MT))) 'MT)))]
     [_ (step* s)]))
 
 
 (define-metafunction CESK*
-  restrict : ((any any) ...) (any ...) -> ((any any) ...)
+  restrict : any (any ...) -> any
   [(restrict any_l any_keys)
-   ,(for/list ([e (in-list (term any_l))]
-               #:when (member (car e) (term any_keys)))
-      e)])
+   ,(for/hash ([(k v) (in-hash (term any_l))]
+               #:when (member k (term any_keys)))
+      (values k v))])
 
 (define-metafunction CESK*
   live-loc-clo : (E ρ) -> (a ...)
@@ -675,8 +638,8 @@
 
 (define-metafunction CESK*
   live-loc-env : ρ -> (a ...)
-  [(live-loc-env ((x a) ...))
-   (a ...)])
+  [(live-loc-env ρ)
+   ,(hash-values (term ρ))])
 #;
 (test
  (redex-check CESK* ρ
@@ -743,16 +706,14 @@
               (redex-match CESK* (a ...) (term (live-loc-K K)))))
 
 (define-metafunction CESK*
-  live-loc-Ds : (D ...) -> (a ...)
-  [(live-loc-Ds ()) ()]
-  [(live-loc-Ds ((V ρ) D ...))
-   (a_0 ... a_1 ...)
-   (where (a_0 ...) (live-loc-clo (V ρ)))
-   (where (a_1 ...) (live-loc-Ds (D ...)))]
-  [(live-loc-Ds (K D ...))
-   (a_0 ... a_1 ...)
-   (where (a_0 ...) (live-loc-K K))
-   (where (a_1 ...) (live-loc-Ds (D ...)))])
+  live-loc-Ds : any -> (a ...)
+  [(live-loc-Ds any_d)
+   ,(apply append
+           (for/list ([d (in-set (term any_d))])
+             (match d
+               [`(,V ,ρ) (term (live-loc-clo (,V ,ρ)))]
+               [K (term (live-loc-K ,K))])))])
+
 #;
 (test
  (redex-check CESK* (D ...)
@@ -772,7 +733,7 @@
   [(gc (E ρ σ K)) 
    (restrict σ (reachable (a_0 ... a_1 ...) () σ))
    (where (a_0 ...) (live-loc-clo (E ρ)))
-   (where (a_1 ...) (live-loc-K K))])     
+   (where (a_1 ...) (live-loc-K K))])
 
 (define (size sexp)
   (if (not (cons? sexp))
@@ -943,7 +904,7 @@
  (test-->>c step-gc-R 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
             ;; kind of a giant hack
-            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ([(loc 0) (((-- 0) ()))]) ((-- (λ (x) x))))))))))
+            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ,(hash '(loc 0) (set '((-- 0) ()))) ((-- (λ (x) x))))))))))
  (test-->>c step-gc-R 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
