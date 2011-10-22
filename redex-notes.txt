@@ -42,5 +42,6 @@ f: (f 6 fred) is not in my domain
 - why does the #;equiv predicate get called in both directions?
 - -->E tests should print what they did reduce to
 - ,@ in (term)
+- test--> R T1 T2 should check that T2 is in the domain of R.
 
 - run FASTER!
