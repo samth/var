@@ -14,14 +14,13 @@
             (remember-contract V (FLAT ρ))
             (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
         flat-check)   
-   #|   
+   
    ;; HIGHER-ORDER CONTRACTS   
-   (--> ((or/c FLAT HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (if (@ (flat-check FLAT V) V Λ)
-            (remember-contract V FLAT)
-            (HOC <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V))
+   (--> ((or/c FLAT HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        (if (@ (flat-check (FLAT ρ) V) V Λ)
+            (remember-contract V (FLAT ρ))
+            (HOC ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
         or/c-hoc)
-   |#
    
    (--> ((and/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
         (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 
@@ -108,13 +107,7 @@
                     (blame f f (-- (clos 0 ())) 
                            ((pred (prime? ^ h j) f) ())
                            (-- (clos 5 ()))))))
- 
- (test--> c ; ((-> string?) <= 5)
-          (term ((-> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos 5 ()))))
-          (term (blame f f (-- (clos 0 ())) 
-                       ((-> (pred string? †)) ())
-                       (-- (clos 5 ())))))
- 
+   
  (test--> c ; ((-> string?) <= 5)
           (term ((-> (pred string? †))
                  () <= f g (-- (clos 0 ())) f 
@@ -122,6 +115,23 @@
           (term (blame f f (-- (clos 0 ())) 
                        ((-> (pred string? †)) ())
                        (-- (clos 5 ())))))
+ 
+ (test--> c ; ((or/c string? (-> string?)) <= (λ () "x")))
+          (term ((or/c (pred string? f)
+                       (-> (pred string? f)))
+                 () <= f g (-- (clos 0 ())) f 
+                 (-- (clos (λ () "x") ()))))
+          
+          (term (if (@ (flat-check ((pred string? f) ())
+                                   (-- (clos (λ () "x") ())))
+                       (-- (clos (λ () "x") ()))
+                       Λ)
+                    (remember-contract (-- (clos (λ () "x") ()))
+                                       ((pred string? f) ()))
+                    ((-> (pred string? f)) 
+                     () <= f g 
+                     (-- (clos 0 ())) f
+                     (-- (clos (λ () "x") ()))))))
  
  (test--> c ; ((and/c (-> string?) (-> string?)) <= (λ () "x")))
            (term ((and/c (-> (pred string? f)) 
