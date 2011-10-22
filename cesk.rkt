@@ -9,7 +9,7 @@
 
 (current-cache-all? #t)
 
-(define exact? #f)
+(define exact? #t)
 
 (define-extended-language CESK* λc~ 
   (K MT      
@@ -720,7 +720,7 @@
   (cond [(redex-match CESK* (V any any_1 MT) x) "green"]
         [(redex-match CESK* (B any any_1 MT) x)
          (redex-let CESK*
-                    ([(blame ℓ ℓ_0 V C-ext V_0) (car x)])
+                    ([(blame ℓ ℓ_0 V any V_0) (car x)])
                     (cond [(equal? (term ℓ) '★) "pink"]
                           [(member (term ℓ) opaques) "pink"]
                           [else "red"]))]
