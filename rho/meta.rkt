@@ -360,4 +360,7 @@
              (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
  
  
-
+(define-metafunction λcρ
+  env-extend : ρ (X V) ... -> ρ
+  [(env-extend ((X_1 V_1) ...) (X_2 V_2) ...)
+   ((X_2 V_2) ... (X_1 V_1) ...)])
