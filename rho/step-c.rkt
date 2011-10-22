@@ -27,12 +27,12 @@
              (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
         (where HOC (and/c CON_0 CON_1))
         and/c-hoc)
-   #|
-   (--> ((rec/c x C) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        ((unroll HOC) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (where HOC (rec/c x C))
-        unroll-HOC)
    
+   (--> ((rec/c X CON) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        ((unroll HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        (where HOC (rec/c X CON))
+        unroll-HOC)
+   #|
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
    (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
@@ -107,6 +107,23 @@
                     (blame f f (-- (clos 0 ())) 
                            ((pred (prime? ^ h j) f) ())
                            (-- (clos 5 ()))))))
+ 
+  (test--> c ; ((or/c prime? string?) <= 5)
+          (term ((or/c (pred (prime? ^ f g) f) (pred string? f)) 
+                 () <= f g (-- (clos 0 ())) f 
+                 (-- (clos 5 ()))))
+          (term (if (@ (flat-check ((or/c (pred (prime? ^ f g) f) 
+                                          (pred string? f)) 
+                                    ())
+                                   (-- (clos 5 ()))) 
+                       (-- (clos 5 ())) 
+                       Λ)
+                    (-- (clos 5 ()) 
+                        ;; FIXME: why isn't this contract remembered?
+                        #;((or/c (pred (prime? ^ f g) f) (pred string? f)) ()))
+                    (blame f f (-- (clos 0 ()))
+                           ((or/c (pred (prime? ^ f g) f) (pred string? f)) ())
+                           (-- (clos 5 ()))))))
    
  (test--> c ; ((-> string?) <= 5)
           (term ((-> (pred string? †))
@@ -144,23 +161,17 @@
                    () <= f g 
                    (-- (clos 0 ())) f
                    (-- (clos (λ () "x") ()))))))
-            
- (test--> c ; ((or/c prime? string?) <= 5)
-          (term ((or/c (pred (prime? ^ f g) f) (pred string? f)) 
-                 () <= f g (-- (clos 0 ())) f 
-                 (-- (clos 5 ()))))
-          (term (if (@ (flat-check ((or/c (pred (prime? ^ f g) f) (pred string? f)) ())
-                                   (-- (clos 5 ()))) 
-                       (-- (clos 5 ())) 
-                       Λ)
-                    (-- (clos 5 ()) 
-                        ;; FIXME: why isn't this contract remembered?
-                        #;((or/c (pred (prime? ^ f g) f) (pred string? f)) ()))
-                    (blame f f (-- (clos 0 ()))
-                           ((or/c (pred (prime? ^ f g) f) (pred string? f)) ())
-                           (-- (clos 5 ()))))))
  
-  (test--> c ; (@ ((string? --> (λ (x) (pred (λ (y) x)))) <= (λ (x) x)) "q")
+ (test--> c ; ((rec/c x (or/c string? (-> x)) <= "x")
+          (term ((rec/c x (or/c (pred string? f) (-> x)))
+                 () <= f g (-- (clos 0 ())) f
+                 (-- (clos "x" ()))))
+          (term ((or/c (pred string? f) 
+                       (-> (rec/c x (or/c (pred string? f) (-> x)))))
+                 () <= f g (-- (clos 0 ())) f
+                 (-- (clos "x" ())))))
+ 
+ (test--> c ; (@ ((string? --> (λ (x) (pred (λ (y) x)))) <= (λ (x) x)) "q")
           (term (@ (((pred string? g) --> (λ (x) (pred (λ (y) x) f))) 
                     () <= f g (-- (clos 0 ())) f 
                     (-- (clos (λ (x) x) ())))
