@@ -32,24 +32,28 @@
         ((unroll HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
         (where HOC (rec/c X CON))
         unroll-HOC)
-   #|
+   
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
-   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (@ cons 
-           (C_0 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (@ first (remember-contract V (pred cons? Λ)) Λ))
-           (C_1 <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (@ rest (remember-contract V (pred cons? Λ)) Λ))
+   (--> ((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        (@ (-- (clos cons ()))
+           (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 
+                  (@ (-- (clos car ()))
+                     (remember-contract V ((pred cons? Λ) ())) Λ))
+           (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 
+                  (@ (-- (clos cdr ()))
+                     (remember-contract V ((pred cons? Λ) ())) Λ))
            Λ)
-        (where HOC (cons/c C_0 C_1))
-        (where #t (∈ #t (δ (@ cons? V Λ))))
+        (where HOC (cons/c CON_0 CON_1))
+        (where #t (∈ #t (δ cons? V Λ)))
         check-cons-pass)
    
-   (--> ((cons/c C_0 C_1) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (blame ℓ_1 ℓ_3 V-or-AE HOC V)
-        (where HOC (cons/c C_0 C_1))
-        (where #t (∈ #f (δ (@ cons? V Λ))))
+   (--> ((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        (blame LAB_1 LAB_3 V_1 (HOC ρ) V)
+        (where HOC (cons/c CON_0 CON_1))
+        (where #t (∈ #f (δ cons? V Λ)))
         check-cons-fail)
-   |#
+   
    ;; PROCEDURE CONTRACTS      
    (--> (@ ((CON_0 ..._1 --> (λ (X ..._1) CON_1)) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB)        
         (CON_1 (env-extend ρ (X V_1) ...) ; indy
@@ -63,9 +67,11 @@
    
    (--> (@ ((CON_0 ..._1 --> CON_1) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB)        
         (CON_1 ρ <= LAB_1 LAB_2 V_2 LAB_3 
-             (@ (remember-contract V ((CON_arity ... -> (pred (λ (x) #t) Λ)) ()))
+             (@ (remember-contract V ((CON_a0 ... -> CON_a1) ()))
                 (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
-        (where (CON_arity ...) ,(map (λ _ (term (pred (λ (x) #t) Λ))) (term (CON_0 ...))))
+        (where (CON_a0 ... CON_a1)
+               ,(map (λ _ (term (pred (λ (x) #t) Λ))) 
+                     (term (CON_0 ... CON_1))))
         blessed-β)
    
    ;; BLESSING
@@ -171,6 +177,38 @@
                  () <= f g (-- (clos 0 ())) f
                  (-- (clos "x" ())))))
  
+ (test--> c ; ((cons/c (-> string?) (-> string?)) <= (cons (λ () "x") (λ () "y")))
+          (term ((cons/c (-> (pred string? f)) 
+                         (-> (pred string? g)))
+                 () <= f g (-- (clos 0 ())) f
+                 (-- (cons (-- (clos (λ () "x") ()))
+                           (-- (clos (λ () "y") ()))))))
+          (term (@ (-- (clos cons ()))
+                   ((-> (pred string? f)) 
+                    () <= f g (-- (clos 0 ())) f 
+                    (@ (-- (clos car ())) 
+                       (-- (cons (-- (clos (λ () "x") ())) 
+                                 (-- (clos (λ () "y") ())))) 
+                       Λ))
+                   ((-> (pred string? g)) 
+                    () <= f g (-- (clos 0 ())) f 
+                    (@ (-- (clos cdr ())) 
+                       (-- (cons (-- (clos (λ () "x") ())) 
+                                 (-- (clos (λ () "y") ())))) 
+                       Λ))
+                   Λ)))
+ 
+ (test--> c ; ((cons/c (-> string?) (-> string?)) <= 3)
+          (term ((cons/c (-> (pred string? f)) 
+                         (-> (pred string? g)))
+                 () <= f g (-- (clos 0 ())) f
+                 (-- (clos 3 ()))))
+          (term (blame f f (-- (clos 0 ())) 
+                       ((cons/c (-> (pred string? f)) 
+                                (-> (pred string? g))) 
+                        ()) 
+                       (-- (clos 3 ())))))
+          
  (test--> c ; (@ ((string? --> (λ (x) (pred (λ (y) x)))) <= (λ (x) x)) "q")
           (term (@ (((pred string? g) --> (λ (x) (pred (λ (y) x) f))) 
                     () <= f g (-- (clos 0 ())) f 
