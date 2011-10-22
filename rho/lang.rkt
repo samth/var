@@ -131,7 +131,8 @@
      (@ V ... 𝓔 D ... LAB)
      (if 𝓔 D D) 
      (let ((X V) ... (X 𝓔) (X D) ...) D)
-     (begin 𝓔 D))
+     (begin 𝓔 D)
+     (CON ρ <= LAB LAB V LAB 𝓔))
   
   ;; Conveniences
   (OP1 car cdr add1 sub1
