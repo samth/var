@@ -43,7 +43,7 @@
   ;; Contracts
   (PCON  (side-condition (name c CON) (term (valid? c)))) 
   (FLAT (side-condition (name c CON) (term (flat? c))))
-  (HOC  (side-condition (name c CON) (term (not (flat? c)))))
+  (HOC  (side-condition (name c CON) (not (term (flat? c)))))
   (PREDV LAM MODREF OP)
   (CON X
        (pred PREDV LAB) 
