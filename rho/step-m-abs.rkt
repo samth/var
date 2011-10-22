@@ -2,7 +2,7 @@
 (require redex/reduction-semantics)
 (require "lang.rkt" "meta.rkt" "util.rkt")
 (provide m~)
-(test-suite test step-m~)
+(test-suite test step-m-abs)
 
 (define (m~ Ms)
   (reduction-relation

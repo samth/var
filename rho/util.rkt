@@ -1,5 +1,5 @@
 #lang racket
-(provide (all-defined-out))
+(provide (except-out (all-defined-out) test))
 (require redex/reduction-semantics)
 
 (define-syntax-rule (test-suite test suite)
@@ -16,3 +16,5 @@
 (define-syntax-rule (stepper . args) ((dynamic-require 'redex 'stepper) . args))
 (define (term-node-children . args)
   (apply (dynamic-require 'redex 'term-node-children) args))
+
+(test-suite test util)

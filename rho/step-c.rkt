@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "flat-check.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "check.rkt" "util.rkt")
 (provide c)
 (test-suite test step-c)
 

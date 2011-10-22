@@ -2,7 +2,7 @@
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt" "meta.rkt" #;"alpha.rkt")
 (provide (except-out (all-defined-out) test))
-(test-suite test fc)
+(test-suite test check)
 
 (define-metafunction λcρ
   flat-check : (FLAT ρ) V -> D
