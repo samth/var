@@ -242,15 +242,12 @@
                              (remember-contract V ((pred procedure? Λ) ())))
         (side-condition (term (∈ #t (δ procedure? V ★))))
         chk-fun-pass) 
-   #|
+   
    ;; DAMNING
-   (--> ((C_1 ... -> any) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 V)
-        (blame ℓ_1 ℓ_3 V-or-AE (C_1 ... -> any) V)
-        (side-condition (term (∈ #f (δ (@ procedure? V ★)))))
+   (--> ((CON_1 ... -> any) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+        (blame LAB_1 LAB_3 V_1 ((CON_1 ... -> any) ()) V)
+        (side-condition (term (∈ #f (δ procedure? V ★))))
         chk-fun-fail-flat)))
-
-|#
-   ))
 
 (test
  (test--> c ; (nat? <= 5)   -- provable
@@ -262,7 +259,12 @@
           (term ((pred (prime? ^ h j) f) () <= f g (-- (clos 0 ())) f (-- (clos 5 ()))))
           (term (if (@ (-- (clos (λ (x) (@ (prime? ^ h j) x f)) ())) (-- (clos 5 ())) Λ)
                     (remember-contract (-- (clos 5 ())) ((pred exact-nonnegative-integer? f) ()))
-                    (blame f f (-- (clos 0 ())) ((pred (prime? ^ h j) f) ()) (-- (clos 5 ())))))))
+                    (blame f f (-- (clos 0 ())) ((pred (prime? ^ h j) f) ()) (-- (clos 5 ()))))))
+ (test--> c 
+          (term ((-> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos 0 ()))))
+          (term (blame f f (-- (clos 0 ())) 
+                       ((-> (pred string? †)) ())
+                       (-- (clos 0 ()))))))
 
 
 (define (∆ Ms)
