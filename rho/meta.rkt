@@ -331,7 +331,7 @@
 
 ;; modulename x valuename x modules -> value
 (define-metafunction λc-user
-  lookup-modref/val : X X (MOD ...) -> VAL ;or bullet
+  lookup-modref/val : X X (MOD ...) -> VAL or •
   [(lookup-modref/val X X_1 (MOD ... 
                              (module X LANG REQ STRUCT ... DEF ... (define X_1 any_result) DEF_1 ... any_p)
                              MOD_1 ...))

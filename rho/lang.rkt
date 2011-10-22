@@ -17,7 +17,8 @@
   (REQ (require (only-in X X ...) ...))
   (LANG racket racket/base)
   (STRUCT (struct X (X ...)))
-  (DEF (define X VAL))
+  (DEF (define X VAL)
+       (define X •))
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Expressions  
@@ -90,7 +91,8 @@
   (PREVAL (clos VAL ρ)
           (cons V V)
           (struct X V))
-  ((V U) (-- PREVAL C* ...) BLESSED)
+  ((V U) (-- PREVAL C* ...) AV BLESSED)
+  (AV (-- C* ...))
   (A V BLAME)
   
   ;; Types of values
