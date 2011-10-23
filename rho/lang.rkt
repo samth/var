@@ -149,6 +149,8 @@
      (CON ρ <= LAB LAB V LAB 𝓔))
   
   ;; Conveniences
+  (STRUCTENV ((X (X X X (X ...)) ...) ...))
+  
   (OP1 car cdr add1 sub1
        zero? procedure? empty? cons? 
        exact-nonnegative-integer? string? boolean? false?)
