@@ -74,6 +74,11 @@
   [(implies false? boolean?) #t]
   [(implies ATOM?_1 ATOM?_2) #f])
 
+(define-metafunction λcρ
+  join-contracts : C ... -> AV
+  [(join-contracts C ...)
+   (remember-contract (-- (pred (λ (x) #t) Λ)) C ...)])
+
 ;; FIXME: this should rely on a ≡C metafunction that, eg.
 ;; compares modrefs without regard to use sites.
 ;; FIXME: don't need to remember arity-like contracts on arity-known procedures.
