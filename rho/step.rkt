@@ -54,7 +54,9 @@
                              (pred (λ (y) (@ <= x y f)) f))))]))]))
  (test-->> (-->_vc∆ Ms)
            (term (clos (@ (fact ^ † f) 5 †) ()))
-           (term (-- (clos 120 ())))))
+           (term (-- (clos 120 ())
+                     ((pred (λ (y) (@ <= x y f)) f)
+                      ((x (-- (clos 5 ())))))))))
 
 
      

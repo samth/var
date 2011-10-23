@@ -9,7 +9,7 @@
    λcρ #:domain D
    (--> (X_1 ^ LAB X)
         (CON () <= X LAB (-- (CON ())) X_1 
-             (remember-contract (-- (clos (λ (x) #t) ())) (CON ())))
+             (remember-contract (-- ((pred (λ (x) #t) Λ) ())) (CON ())))
         (where • (lookup-modref/val X X_1 ,Ms))
         (where CON (lookup-modref/con X X_1 ,Ms))
         (side-condition (not (eq? (term X) (term LAB))))

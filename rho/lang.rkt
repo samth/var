@@ -124,6 +124,17 @@
         (cons/c HOC CON) (cons/c CON HOC)
         (rec/c X HOC))
   
+  (ATOM? exact-nonnegative-integer?
+         boolean?
+         zero?
+         string?
+         empty?
+         false?)
+  (ATOMC ((pred ATOM? LAB) ρ))
+  (CONSC ((pred cons? LAB) ρ)
+         ((cons/c CON_1 CON_2) ρ))
+  (NOTPROCC ATOMC CONSC)
+  
   (BLAME (blame LAB LAB V C V)
          (blame LAB LAB V OP V)
          (blame LAB LAB V λ V))

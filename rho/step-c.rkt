@@ -109,7 +109,7 @@
                        (-- (clos 5 ())) 
                        Λ)
                     (remember-contract (-- (clos 5 ())) 
-                                       ((pred exact-nonnegative-integer? f) ()))
+                                       ((pred (prime? ^ h j) f) ()))
                     (blame f f (-- (clos 0 ())) 
                            ((pred (prime? ^ h j) f) ())
                            (-- (clos 5 ()))))))
@@ -125,8 +125,7 @@
                        (-- (clos 5 ())) 
                        Λ)
                     (-- (clos 5 ()) 
-                        ;; FIXME: why isn't this contract remembered?
-                        #;((or/c (pred (prime? ^ f g) f) (pred string? f)) ()))
+                        ((or/c (pred (prime? ^ f g) f) (pred string? f)) ()))
                     (blame f f (-- (clos 0 ()))
                            ((or/c (pred (prime? ^ f g) f) (pred string? f)) ())
                            (-- (clos 5 ()))))))
@@ -218,7 +217,8 @@
           (term ((pred (λ (y) x) f)
                  ((x (-- (clos "q" ()))))
                  <= f g (-- (clos 0 ())) f 
-                 (@ (-- (clos (λ (x) x) ()))
+                 (@ (-- (clos (λ (x) x) ())
+                        (((pred (λ (x) #t) Λ) -> (pred (λ (x) #t) Λ)) ()))
                     ((pred string? g)
                      () <= g f (-- (clos "q" ())) f
                      (-- (clos "q" ())))
@@ -231,7 +231,8 @@
                    †))
           (term ((pred string? f) 
                  () <= f g (-- (clos 0 ())) f 
-                 (@ (-- (clos (λ (x) x) ()))
+                 (@ (-- (clos (λ (x) x) ())
+                        (((pred (λ (x) #t) Λ) -> (pred (λ (x) #t) Λ)) ()))
                     ((pred string? g)
                      () <= g f (-- (clos "x" ())) f
                      (-- (clos "x" ())))
