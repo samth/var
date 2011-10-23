@@ -6,9 +6,9 @@
 
 (define (s Ms)
   (redex-let 
-   λcρ-s ([STRUCTENV (term (struct-env ,Ms))])
+   λcρ ([STRUCTENV (term (struct-env ,Ms))])
    (reduction-relation
-    λcρ-s #:domain D
+    λcρ #:domain D
     (--> (@ (X_cons ^ LAB_use X_def) V ..._1 LAB)
          (-- (struct X_tag V ...))
          (where (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ..._1)) any_3 ...) any_1 ...)
@@ -63,21 +63,18 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; structure definitions
 
-(define-extended-language λcρ-s λcρ
-  (STRUCTENV ((X (X X X (X ...)) ...) ...)))  
-
-(define-metafunction λcρ-s
+(define-metafunction λcρ
   struct-env : (MOD ...) -> STRUCTENV
   [(struct-env ((module X_m LANG REQ STRUCT ... DEF ... PROV) ...))
    ((X_m (struct-names STRUCT) ...) ...)])
  
-(define-metafunction λcρ-s
+(define-metafunction λcρ
   struct-names : STRUCT -> (X X X (X ...))
   [(struct-names (struct X_tag (X_fld ...)))
    (X_tag (tag->cons X_tag) (tag->pred X_tag) ((fld->acc X_tag X_fld) ...))])
 
 ;; Change this if you want constructors and tags to be different.
-(define-metafunction λcρ-s
+(define-metafunction λcρ
   tag->cons : X -> X
   [(tag->cons X) X])
 (define-metafunction λcρ

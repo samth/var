@@ -71,6 +71,7 @@
 (define-extended-language λcρ λc-user
   ;; Environments
   (ρ ((X V) ...))
+  (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
   ;; Closures
   (D (clos EXP ρ)
