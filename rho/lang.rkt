@@ -90,10 +90,12 @@
   ;; Values (semantic)
   (PREVAL (clos VAL ρ)
           (cons V V)
-          (struct X V))
+          (struct X V ...))
   ((V U) (-- PREVAL C* ...) AV BLESSED)
   (AV (-- C* ...))
   (A V BLAME)
+  
+  (STRUCTV (-- (struct X V ...) C* ...))
   
   ;; Types of values
   (PROC (-- (clos LAM ρ) C* ...) 
@@ -148,9 +150,7 @@
      (begin 𝓔 D)
      (CON ρ <= LAB LAB V LAB 𝓔))
   
-  ;; Conveniences
-  (STRUCTENV ((X (X X X (X ...)) ...) ...))
-  
+  ;; Conveniences  
   (OP1 car cdr add1 sub1
        zero? procedure? empty? cons? 
        exact-nonnegative-integer? string? boolean? false?)

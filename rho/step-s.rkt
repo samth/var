@@ -1,40 +1,38 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "meta.rkt" "util.rkt")
-(provide #;s) ;; FIXME
+(provide s)
 (test-suite test step-s)
 
-;; FIXME
-#|
 (define (s Ms)
   (redex-let 
-   λcρ ([STRUCTENV (term (struct-env ,Ms))])
+   λcρ-s ([STRUCTENV (term (struct-env ,Ms))])
    (reduction-relation
-    λcρ #:domain D
-    (--> (@ (f_cons ^ ℓ_use f_def) V ..._1 ℓ)
-         (-- (struct f_tag V ...))         
-         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred (f_acc ..._1)) any_3 ...) any_1 ...)
-                STRUCTENV))
-    (--> (@ (f_pred ^ ℓ_use f_def) (-- (struct f_tag V_1 ...) C ...) ℓ)
-         (-- PV)
-         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred* (f_acc ...)) any_3 ...) any_1 ...)
+    λcρ-s #:domain D
+    (--> (@ (X_cons ^ LAB_use X_def) V ..._1 LAB)
+         (-- (struct X_tag V ...))
+         (where (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ..._1)) any_3 ...) any_1 ...)
+                STRUCTENV))    
+    (--> (@ (X_pred ^ LAB_use X_def) (-- (struct X_tag V_1 ...) C ...) LAB)
+         (-- (clos any_result ()))
+         (where (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred* (X_acc ...)) any_3 ...) any_1 ...)
                 STRUCTENV)
          ;; ensures f_pred is a predicate
-         (where (any_0 ... (f_def any_2* ... (f_tag* f_cons* f_pred (f_acc* ...)) any_3* ...) any_1 ...)
+         (where (any_0 ... (X_def any_2* ... (X_tag* X_cons* X_pred (X_acc* ...)) any_3* ...) any_1 ...)
                 STRUCTENV)
-         (where PV ,(eq? (term f_tag) (term f_tag*))))    
-    (--> (@ (f_pred ^ ℓ_use f_def) V ℓ)
-         (-- #f)
+         (where any_result ,(eq? (term X_tag) (term X_tag*))))    
+    (--> (@ (X_pred ^ LAB_use X_def) V LAB)
+         (-- (clos #f ()))
          (side-condition (not (redex-match λcρ STRUCTV (term V))))
-         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred (f_acc ...)) any_3 ...) any_1 ...)
+         (where (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ...)) any_3 ...) any_1 ...)
                 STRUCTENV))
-    (--> (@ (f_acc ^ ℓ_use f_def) (-- (struct f_tag V_1 ...) C ...) ℓ)
+    (--> (@ (X_acc ^ LAB_use X_def) (-- (struct X_tag V_1 ...) C ...) LAB)
          V
-         (where (any_0 ... (f_def any_2 ... (f_tag f_cons f_pred (f_acc* ...)) any_3 ...) any_1 ...)
+         (where (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc* ...)) any_3 ...) any_1 ...)
                 STRUCTENV)         
-         (where ((f_acc1 ..._1 f_acc f_acc2 ..._2)
+         (where ((X_acc1 ..._1 X_acc X_acc2 ..._2)
                  (V_2 ..._1 V V_3 ..._2))
-                ((f_acc* ...)
+                ((X_acc* ...)
                  (V_1 ...)))))))
 
 (test
@@ -42,41 +40,44 @@
    (term [(module f racket (require) 
             (struct posn (x y))
             (struct pair (x y))
-            (provide/contract [posn (any/c)]))]))   
+            (provide/contract [posn (pred (λ (x) #t) Λ)]))]))
  (test--> (s Ms)
-          (term (@ (posn ^ † f) (-- 1) (-- 2) †))
-          (term (-- (struct posn (-- 1) (-- 2)))))
+          (term (@ (posn ^ † f) (-- (clos 1 ())) (-- (clos 2 ())) †))
+          (term (-- (struct posn (-- (clos 1 ())) (-- (clos 2 ()))))))
  (test--> (s Ms)
-          (term (@ (posn? ^ † f) (-- (struct posn (-- 1) (-- 2))) †))
-          (term (-- #t)))
+          (term (@ (posn? ^ † f) (-- (struct posn (-- (clos 1 ())) (-- (clos 2 ())))) †))
+          (term (-- (clos #t ()))))
  (test--> (s Ms)
-          (term (@ (posn? ^ † f) (-- (struct pair (-- 1) (-- 2))) †))
-          (term (-- #f)))
+          (term (@ (posn? ^ † f) (-- (struct pair (-- (clos 1 ())) (-- (clos 2 ())))) †))
+          (term (-- (clos #f ()))))
  (test--> (s Ms)
-          (term (@ (posn? ^ † f) (-- 3) †))
-          (term (-- #f)))
+          (term (@ (posn? ^ † f) (-- (clos 3 ())) †))
+          (term (-- (clos #f ()))))
  (test--> (s Ms)
-          (term (@ (posn-x ^ † f) (-- (struct posn (-- 1) (-- 2))) †))
-          (term (-- 1)))
+          (term (@ (posn-x ^ † f) (-- (struct posn (-- (clos 1 ())) (-- (clos 2 ())))) †))
+          (term (-- (clos 1 ()))))
  (test--> (s Ms)
-          (term (@ (posn-y ^ † f) (-- (struct posn (-- 1) (-- 2))) †))
-          (term (-- 2))))
-|#
+          (term (@ (posn-y ^ † f) (-- (struct posn (-- (clos 1 ())) (-- (clos 2 ())))) †))
+          (term (-- (clos 2 ())))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; structure definitions
 
-(define-metafunction λcρ
+(define-extended-language λcρ-s λcρ
+  (STRUCTENV ((X (X X X (X ...)) ...) ...)))  
+
+(define-metafunction λcρ-s
   struct-env : (MOD ...) -> STRUCTENV
   [(struct-env ((module X_m LANG REQ STRUCT ... DEF ... PROV) ...))
    ((X_m (struct-names STRUCT) ...) ...)])
  
-(define-metafunction λcρ
+(define-metafunction λcρ-s
   struct-names : STRUCT -> (X X X (X ...))
   [(struct-names (struct X_tag (X_fld ...)))
    (X_tag (tag->cons X_tag) (tag->pred X_tag) ((fld->acc X_tag X_fld) ...))])
 
 ;; Change this if you want constructors and tags to be different.
-(define-metafunction λcρ
+(define-metafunction λcρ-s
   tag->cons : X -> X
   [(tag->cons X) X])
 (define-metafunction λcρ
