@@ -180,3 +180,77 @@
                   (ormap not (term ((valid? C) ...)))
                   (redex-match λc~ V-or-AE (term (remember-contract V C ...)))))
 |#
+
+;; All domain contracts of all function contracts in given contracts.
+;; produces a list of the list of contracts for each argument of a function.
+
+;; In case of arity mismatch, we take the first function contract as canonical
+;; just like `arity'.
+(define-metafunction λcρ
+  domain-contracts : (C ...) -> ((C ...) ...)
+  [(domain-contracts (C ...))
+   (domain-contracts* (C ...) ())])
+
+(define-metafunction λcρ
+  domain-contracts* : (C ...) ((C ...) ...) -> ((C ...) ...)
+  [(domain-contracts* () any) any]
+  [(domain-contracts* (((CON_1 ... -> any) ρ) C ...) ())
+   (domain-contracts* (C ...) (((CON_1 ρ)) ...))]
+  [(domain-contracts* (((CON_1 ..._1 -> any) ρ) C ...) ((C_3 ...) ..._1))
+   (domain-contracts* (C ...) ((C_3 ... (CON_1 ρ)) ...))]
+  [(domain-contracts* (C_0 C ...) any)
+   (domain-contracts* (C ...) any)])
+
+(test
+  (test-equal (term (domain-contracts (((pred string? f) ()))))
+             (term ()))
+  (test-equal (term (domain-contracts ((((pred exact-nonnegative-integer? f) 
+                                         (pred string? f) -> 
+                                         (pred exact-nonnegative-integer? f)) 
+                                        ())
+                                       (((pred boolean? f) 
+                                         (pred empty? f) -> 
+                                         (pred exact-nonnegative-integer? f)) 
+                                        ()))))
+              (term ((((pred exact-nonnegative-integer? f) ()) ((pred boolean? f) ()))
+                     (((pred string? f) ()) ((pred empty? f) ()))))))
+
+;; All range contracts of all function contracts in given contracts.
+;; given the specified arguments for dependent contracts
+;; throw out all ranges when the arity doesn't match the supplied number of values
+(define-metafunction λcρ
+  range-contracts : (C ...) (V ...) -> (C ...)
+  [(range-contracts () any) ()]
+  [(range-contracts (((CON_1 ..._1 -> CON_2) ρ) C ...) (V ..._1))
+   ((CON_2 ρ) C_0 ...)
+   (where (C_0 ...) (range-contracts (C ...) (V ...)))]
+  [(range-contracts (((CON_1 ..._1 -> (λ (X ..._1) CON_2)) ρ) C ...) (V ..._1))
+   ((CON_2 (env-extend ρ (X V) ...)) C_0 ...)
+   (where (C_0 ...) (range-contracts (C ...) (V ...)))]
+  [(range-contracts (C_0 C ...) any) 
+   (range-contracts (C ...) any)])
+
+(test
+ (test-equal (term (range-contracts (((pred string? f) ())) ()))
+             (term ()))
+ (test-equal (term (range-contracts ((((pred exact-nonnegative-integer? f) 
+                                       (pred string? f) -> 
+                                       (pred exact-nonnegative-integer? f)) 
+                                      ())
+                                     (((pred boolean? f) 
+                                       (pred empty? f) -> 
+                                       (pred exact-nonnegative-integer? f)) 
+                                      ()))
+                                    ((-- (clos 0 ())) (-- (clos 9 ())))))
+             (term (((pred exact-nonnegative-integer? f) ())
+                    ((pred exact-nonnegative-integer? f) ()))))
+ (test-equal (term (range-contracts ((((pred exact-nonnegative-integer? f) 
+                                       -> (λ (x) (pred (λ (y) (@ = x y f)) f))) ()))
+                                    ((-- (clos 0 ())))))
+             (term (((pred (λ (y) (@ = x y f)) f) ((x (-- (clos 0 ())))))))))
+
+
+(define-metafunction λcρ
+  env-extend : ρ (X V) ... -> ρ
+  [(env-extend ((X_1 V_1) ...) (X_2 V_2) ...)
+   ((X_2 V_2) ... (X_1 V_1) ...)])

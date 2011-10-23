@@ -5,6 +5,13 @@
 (provide (all-from-out "meta-misc.rkt"))
 (test-suite test meta)
 
+;; FIXME
+#;
+(define-metafunction λcρ
+  amb : D D ... -> D
+  [(amb D) D]
+  [(amb D_1 D_2 ...) (if (-- (any/c)) D_1 (amb D_2 ...))])
+
 (define-metafunction λcρ
   δ : OP V ... LAB -> (A A ...)
   ;; Concrete δ
@@ -359,8 +366,3 @@
  (test-equal (term (lookup-modref/con m g ,Ms)) 
              (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
  
- 
-(define-metafunction λcρ
-  env-extend : ρ (X V) ... -> ρ
-  [(env-extend ((X_1 V_1) ...) (X_2 V_2) ...)
-   ((X_2 V_2) ... (X_1 V_1) ...)])
