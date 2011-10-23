@@ -43,5 +43,8 @@ f: (f 6 fred) is not in my domain
 - -->E tests should print what they did reduce to
 - ,@ in (term)
 - test--> R T1 T2 should check that T2 is in the domain of R.
+- drop the restriction on union-reduction-relations to have
+  the same language.  We want local extensions to the language
+  and then union relations together at the top.
 
 - run FASTER!
