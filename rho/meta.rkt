@@ -5,12 +5,96 @@
 (provide (all-from-out "meta-misc.rkt"))
 (test-suite test meta)
 
-;; FIXME
-#;
+(define-metafunction λcρ
+  demonic* : C V -> E
+  [(demonic* C V)
+   (-- (clos 0 ()))
+   (where #t (no-behavior V))]
+  [(demonic* C V) (@ (demonic C) V ★)])
+
+;; Produce a function that will do "everything" it can
+;; to its argument while treating it as a C.
+;; The only important part is that functions are applied
+;; to all possible values.  Note that this requires traversing
+;; pairs.
+;; NOTE the environment of a contract is irrelevant.
+(define-metafunction λcρ
+  demonic : CON -> V
+  [(demonic (pred ATOM? LAB)) (-- (clos (λ (x) #t) ()))]
+  
+  ;; FIXME: I don't think we're doing the right thing here in terms
+  ;; of arity.  And I worry about what to do with things that have unknown arity.
+  [(demonic (pred PREDV any)) ;; MAYBE improve me: special case o?
+   (-- (clos (λ f (x) 
+               (if (@ procedure? x Λ)
+                   (@ f (@ x black-hole ★) ★)  ;; want to add fact that x is a proc.
+                   (if (@ cons? x Λ)
+                       (amb (@ f (@ car x ★) ★)
+                            (@ f (@ cdr x ★) ★))
+                       #t))))
+       ((black-hole (-- (pred (λ (x) #t) ())))))]
+  
+  [(demonic (and/c CON_0 CON_1))
+   (-- (clos (λ (x) (begin (@ (demonic CON_0) x Λ)
+                           (@ (demonic CON_1) x Λ)))
+             ()))]
+  
+  [(demonic (cons/c CON_0 CON_1))
+   (-- (clos (λ (x) (begin (@ (demonic CON_0) (@ car x ★) Λ)
+                           (@ (demonic CON_1) (@ cdr x ★) Λ)))
+             ()))]
+  
+  [(demonic (or/c CON_0 CON_1))
+   (demonic (any/c))]  ;; Always safe, hard to do better.
+   
+  [(demonic (rec/c X CON))
+   (demonic (any/c))]  ;; Safe.  What else could you do?
+  
+  ;; FIXME INFINITY GENSYM
+  [(demonic (CON_0 ... -> CON_1))
+   (-- (clos (λ (f) (@ (demonic CON_1) (@ f X ... ★) Λ))
+             ((X (-- CON_0)) ...)))
+   (where f ,(gensym 'f))
+   (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))]
+   
+  ;; FIXME INFINITY GENSYM
+  [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
+   ;; NOTE: Since the environment of a CON plays no role in demonic,
+   ;; we do not do extend the environment of CON_1 with ((X_0 (-- CON_0)) ...).
+   (-- (clos (λ (f) (@ (demonic CON_1) (@ f X ... ★) Λ))
+             ((X (-- CON_0)) ...)))
+   (where f ,(gensym 'f))
+   (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))])
+
+(define-metafunction λcρ
+  no-behavior : V -> #t or #f
+  [(no-behavior blessed-AV) #f]
+  [(no-behavior blessed-A) #f]
+  [(no-behavior AV) #t]
+  [(no-behavior (-- nat any ...)) #t]
+  [(no-behavior (-- bool any ...)) #t]
+  [(no-behavior (-- string any ...)) #t]
+  [(no-behavior (-- empty any ...)) #t]
+  [(no-behavior (-- (cons V_1 V_2) any ...))
+   ,(and (term (no-behavior V_1)) (term (no-behavior V_2)))]
+  [(no-behavior V) #f])
+
 (define-metafunction λcρ
   amb : D D ... -> D
   [(amb D) D]
-  [(amb D_1 D_2 ...) (if (-- (any/c)) D_1 (amb D_2 ...))])
+  [(amb D_1 D_2) (if (-- ((pred (λ (x) #t) Λ) ())) D_1 D_2)]
+  [(amb D_1 D_2 D_3 ...)
+   (amb (if (-- ((pred (λ (x) #t) Λ) ())) D_1 D_2)
+        D_3 ...)])
+
+(test
+ ;; FIXME Why does this seemingly take FOREVER!?
+ #;
+ (redex-check λcρ (D_1 D_2) (term (amb D_1 D_2)))
+ ;; Must be related to this; looks like a Redex bug:
+ ;; EXHAUSTS ALL MEMORY
+ #;
+ (generate-term λcρ D_1 3))
 
 (define-metafunction λcρ
   δ : OP V ... LAB -> (A A ...)
