@@ -179,6 +179,50 @@
   
   ) 
 
+(define-extended-language λc-raw λc-user
+  ;; Raw, unannotated language
+  (RARR ->)
+  (RP (RMOD ... RREQ REXP))
+  
+  (RMOD (module X LANG RREQ ... RSTRUCT ... RDEF ...
+          (provide/contract [X RCON] ...))
+        (module X LANG
+          (provide/contract [X RCON] ...))
+        (define/contract X RCON RPV)
+        (define/contract X RCON bullet))
+  
+  (MODENV ((X (X ...)) ...))
+  (RREQ (require RELEM ...))
+  (RELEM X 'X (only-in 'X X ...) (only-in X X ...))
+  (RDEF (define X RPV)
+        (define (X X ...) REXP)
+        (define X bullet))
+  (RSTRUCT STRUCT)
+    
+  (bullet •)
+  (RL (λ (X ...) REXP) (λ X (X ...) REXP))
+  (RPV VAL RL)      
+  (RSV RL X OP) ; Syntactic values for pred.  
+  (REXP RPV X 
+        (REXP REXP ...)
+        (cond [REXP REXP] ... [else REXP])
+        (if REXP REXP REXP) 
+        (OP REXP REXP ...) 
+        (let ((X REXP) ...) REXP) 
+        (begin REXP REXP))  
+  
+  (RCON OP 
+        any/c 
+        (pred RSV)
+        (cons/c RCON RCON) 
+        (or/c RCON RCON) 
+        (and/c RCON RCON)          
+        (rec/c X RCON) 
+        (RARR RCON ... RCON)
+        (RARR RCON ..._1 (λ (X ..._1) RCON))
+        X)
+  )
+
 ;; A valid provide contract is closed and has the or/c invariant.
 (define-metafunction λc-user
   valid? : CON -> #t or #f
