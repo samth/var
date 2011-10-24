@@ -322,22 +322,7 @@
                 (st E 
                     (extend-env ρ_0 x a1s)
                     (extend-sto σ a1s (append clo (list (list V ρ))))
-                    K)))]
-          [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
-           ;(printf "got here \n")
-           (match-let* ([K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
-                        [(list a_k) (alloc σ (list K))]
-                        [σ_1 (extend-sto1 σ a_k K)]
-                        [K2 `(AP ()
-                                 ,(for/list ([clo_1 (cons (list V ρ) clo)]
-                                             [C_0* C_0])
-                                    (match-let ([(list V_2 ρ_2) clo_1])
-                                      `((,C_0* <= ,ℓ_2 ,ℓ_1 ,V_2 ,ℓ_3 ,V_2) ,ρ_2)))
-                                 ,ℓ ,a_k)])
-             (S 'unary+-blessed-β
-                (for/list ([clo_1 (sto-lookup σ a_f)])
-                  (match-define (list V_f ρ_f) clo_1)
-                  (st V_f ρ_f σ_1 K2))))]
+                    K)))]          
           [`((,C_0 ... --> (λ (,x ...) ,C_1)) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
            (match-let* ([a_1 (alloc σ x)]
                         (ρ_3 (extend-env ρ x a_1))
@@ -352,6 +337,21 @@
                                  ,ℓ ,a_k)]
                         [σ_1 (extend-sto σ (cons a_k a_1) (cons K clo2))])
              (S 'unary+-blessed-β-dep
+                (for/list ([clo_1 (sto-lookup σ a_f)])
+                  (match-define (list V_f ρ_f) clo_1)
+                  (st V_f ρ_f σ_1 K2))))]
+          [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
+           ;(printf "got here \n")
+           (match-let* ([K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+                        [(list a_k) (alloc σ (list K))]
+                        [σ_1 (extend-sto1 σ a_k K)]
+                        [K2 `(AP ()
+                                 ,(for/list ([clo_1 (cons (list V ρ) clo)]
+                                             [C_0* C_0])
+                                    (match-let ([(list V_2 ρ_2) clo_1])
+                                      `((,C_0* <= ,ℓ_2 ,ℓ_1 ,V_2 ,ℓ_3 ,V_2) ,ρ_2)))
+                                 ,ℓ ,a_k)])
+             (S 'unary+-blessed-β
                 (for/list ([clo_1 (sto-lookup σ a_f)])
                   (match-define (list V_f ρ_f) clo_1)
                   (st V_f ρ_f σ_1 K2))))]
@@ -493,14 +493,7 @@
                   [σ_0 (extend-sto1 σ a K)])       
        (S 'chk-push 
           (list (st E ρ σ_0
-                    `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]
-    
-    
-    [(st `(,C <= ,ℓ_1 ,ℓ_2 ,(? (redex-match CESK* x) x) ,ℓ_3 ,(? (redex-match CESK* E) E)) ρ σ K)
-     (S 'chk-subst 
-        (for/list ([clo (sto-lookup σ (env-lookup ρ x))])
-          (match-define (list V ρ_0) clo)
-          (st `(,C <= ,ℓ_1 ,ℓ_2 ,V ,ℓ_3 ,E) ρ σ K)))]
+                    `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)))))]        
         
     [a (S #f null)]))
 
@@ -937,6 +930,12 @@
                               (require p)
                               (p)]))
             (term (-- 1)))
+ (test-->>p (term (annotator [(simple-module p
+                                             (exact-nonnegative-integer? . -> . (λ (x) (pred (λ (z) (= x z)))))
+                                             (λ (q) q))
+                              (require p)
+                              (p 5)]))
+            (term (-- 5)))
  (test-equal (not (redex-match CESK* B 
                                (st-c (first 
                                       (step-fixpoint (term (annotator [(simple-module p
