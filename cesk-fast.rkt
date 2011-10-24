@@ -96,7 +96,7 @@
   (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
 
 (define (alloc-addr σ vals)
-   (cond [exact? #;(for/list ([_ vals]) (gensym 'loc)) (variables-not-in* (hash-keys σ) vals)]
+   (cond [exact? (variables-not-in* (hash-keys σ) vals)]
          [(andmap symbol? vals)
           (variables-not-in (hash-keys σ) vals)]
          [(andmap V? vals) 
@@ -529,73 +529,11 @@
         (for/list ([clo (sto-lookup σ (env-lookup ρ x))])
           (match-define (list V ρ_0) clo)
           (st `(,C <= ,ℓ_1 ,ℓ_2 ,V ,ℓ_3 ,E) ρ σ K)))]
-    
-    #; ;; fixme -- this is busted
-    [(st `(-- ,C ...) ρ σ K)
-     (define-values (ors others) (partition (redex-match CESK* (or/c C ...)) C))
-     (for*/list ([C ors]
-                 [elem (match C [`(or/c ,C2 ...) C2])])
-       )
-     (term ((remember-contract (-- (any/c) C_0 ... C ...) C_2) ρ σ K))
-     (side-condition (term (valid? C_2)))
-     #;abs-or/c-split]
-   #;
-   (--> ((-- C_0 ... (rec/c x C_1) C ...) ρ σ K)  ;; Productivity implies this doesn't loop.
-        ((remember-contract (-- (any/c) C_0 ... C ...) (unroll (rec/c x C_1))) ρ σ K)
-        (side-condition (term (valid? (rec/c x C_1))))
-        abs-rec/c-unroll)
-    
-    [a #;(printf "catchall: ~a\n" a) (S #f null)]))
+        
+    [a (S #f null)]))
 
 (define (factorial n)
   (if (zero? n) 1 (* n (factorial (sub1 n)))))
-#;
-(define step
-  (reduction-relation
-   CESK* #:domain ς
-   
-   ;; Reductions
-      
-  
-   ;; Blessing
-   
-           
-   
-   ;; BLESSED APPLICATION
-   ;; Nullary blessed application
-   
-   
-   ;; Unary+ blessed application
-   ;; FIXME: these two rules are broken with the environments of the argument contracts.
-   ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
-   
-   
-             
-   ;; CONTRACT CHECKING   
-   
-   
-   
-   
-   
-   
-   
-   
-   ;; Nullary abstract application
-   
-   
-   ;; applying abstract values   
-   
-   
-   
-   
-   ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
-   ;; Some introduced values are infeasible, which is still sound.
-      
-   
-   ;; Context shuffling   
-   
-   
-   ))
 
 (define (st->list s)
   (match s
@@ -637,19 +575,12 @@
    (a_0 ... a_1 ...)
    (where (a_0 ...) (live-loc-E E))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv E))))])
-#;
-(test
- (redex-check CESK* (E ρ)
-              (redex-match CESK* (a ...) (term (live-loc-clo (E ρ))))))
 
 (define-metafunction CESK*
   live-loc-env : ρ -> (a ...)
   [(live-loc-env ρ)
    ,(hash-values (term ρ))])
-#;
-(test
- (redex-check CESK* ρ
-              (redex-match CESK* (a ...) (term (live-loc-env ρ)))))
+
 
 (define-metafunction CESK*
   live-loc-E : any_E -> (a ...)
@@ -663,7 +594,7 @@
    (a ... ...)
    (where ((a ...) ...) ((live-loc-E any) ...))]
   [(live-loc-E any) ()])
-#;
+
 (test
  (redex-check CESK* E
               (redex-match CESK* (a ...) (term (live-loc-E E)))))  
@@ -706,10 +637,6 @@
    (where (a_0 ...) (live-loc-E C))
    (where (a_2 ...) (live-loc-clo (V ρ_2)))
    (where (a_1 ...) (live-loc-env (restrict ρ (fv/C C))))])
-#;
-(test
- (redex-check CESK* K
-              (redex-match CESK* (a ...) (term (live-loc-K K)))))
 
 (define-metafunction CESK*
   live-loc-Ds : any -> (a ...)
@@ -719,11 +646,6 @@
              (match d
                [`(,V ,ρ) (term (live-loc-clo (,V ,ρ)))]
                [K (term (live-loc-K ,K))])))])
-
-#;
-(test
- (redex-check CESK* (D ...)
-              (redex-match CESK* (a ...) (term (live-loc-Ds (D ...))))))
 
 (define-metafunction CESK*
   reachable : (a ...) (a ...) σ -> (a ...)
@@ -756,9 +678,7 @@
    [--> any_old ,(st (term E) (term ρ_1) (term σ_1) (term K))
         (where (any_name (any_1 ... any_state any_2 ...))
                ,(match (step (term any_old)) [(S n r) (list n r)]))
-        (where (E ρ σ K) ,(match (term any_state) [(struct st (E1 ρ1 σ1 K1))
-                                                   #;(displayln (list E1 ρ1 σ1 K1))
-                                                   (list E1 ρ1 σ1 K1)]))
+        (where (E ρ σ K) ,(st->list (term any_state)))
         (where σ_1 (gc (E ρ σ K)))
         (where ρ_1 (restrict ρ (fv E)))
         (computed-name (term any_name))]))
@@ -776,10 +696,6 @@
 
 (define step-gc-R (step∆-gc-R null))
 
-#;
-(define (step∆-gc Ms) 
-  (union-reduction-relations error-propagate step-gc (Δ~ Ms)))
-
 (define (final-state? s)
   (and (eq? 'MT (st-k s))
        (or (redex-match CESK* V (st-c s))
@@ -793,9 +709,6 @@
                               Ms))
   (define x* (if (st? x) (st->list x) x))
   (cond [(redex-match CESK* (V any any_1 MT) x*) "green"]
-        #;[(and (st? x) 
-              (eq? 'MT (st-k x))
-              (redex-match CESK* V (st-c x))) "green"]
         [(redex-match CESK* (B any any_1 MT) x*)
          (redex-let CESK*
                     ([(blame ℓ ℓ_0 V any V_0) (car x*)])
