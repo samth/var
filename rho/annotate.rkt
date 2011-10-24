@@ -75,6 +75,7 @@ Pass 3: Annotate expressions/predicates
 ;; Annotate RE with inside module LAB, using MODENV module environment and (f ...) local environment.
 (define-metafunction λc-raw
   ann-exp : REXP LAB MODENV (X ...) -> EXP
+  [(ann-exp VAL LAB MODENV (X_m ...)) VAL]
   [(ann-exp X_1 X_2 MODENV (X_4 ... X_1 X_3 ...))  ; local reference
    (X_1 ^ X_2 X_2)]      
   [(ann-exp X_1 LAB (any_4 ... (X_3 (X_5 ... X_1 X_6 ...)) any_7 ...) any) ; non-local reference
@@ -102,8 +103,7 @@ Pass 3: Annotate expressions/predicates
   [(ann-exp (λ (X ...) REXP) LAB MODENV (X_m ...))
    (λ (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))]
   [(ann-exp (λ X_f (X ...) REXP) LAB MODENV (X_m ...))
-   (λ X_f (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ... X_f)) (set-minus (X_m ...) (X ... X_f))))]
-  [(ann-exp VAL LAB MODENV (X_m ...)) VAL]
+   (λ X_f (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ... X_f)) (set-minus (X_m ...) (X ... X_f))))]  
   [(ann-exp (REXP_0 REXP_1 ...) LAB MODENV (X_m ...))
    (@ (ann-exp REXP_0 LAB MODENV (X_m ...))
       (ann-exp REXP_1 LAB MODENV (X_m ...))

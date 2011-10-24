@@ -22,9 +22,11 @@
    (module X racket (require) (define X any) (provide/contract [X any_C]))])
 
 (define example-8
-  (term [(simple-module f (any/c -> (any/c  ->  any/c)) (λ (x) x))
+  (term [(simple-module f ((pred (λ (x) #t) f) -> ((pred (λ (x) #t) f)  ->  (pred (λ (x) #t) f))) (λ (x) x))
          (simple-module g ((pred (λ (x) x) g)  ->  (pred exact-nonnegative-integer? g)) (λ (x) 0))
-         (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h any/c]))
+         (module h racket (require (only-in f f) (only-in g g)) 
+           (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) 
+           (provide/contract [h (pred (λ (x) #t) h)]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
 
@@ -36,25 +38,25 @@
          (h 0)]))
 
 (define example-8-opaque
-  (term [(simple-module f (any/c  ->  (any/c  ->  any/c)) •)
+  (term [(simple-module f ((pred (λ (x) #t) f) ->  ((pred (λ (x) #t) f)  ->  (pred (λ (x) #t) f))) •)
          (simple-module g ((pred (λ (x) x) g)  ->  (pred exact-nonnegative-integer?)) •)
          (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h any/c]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
 
 (test
- (test-predicate (redex-match λc-user M) (first example-8))
- (test-predicate (redex-match λc-user M) (second example-8))
- (test-predicate (redex-match λc-user M) (third example-8))
- (test-predicate (redex-match λc-user E) (last example-8))
- (test-predicate (redex-match λc-user P) example-8-opaque)
- (test-predicate (redex-match λc-user P) example-8)
- (test-predicate (redex-match λc-user P) example-8)
- (test-predicate (redex-match λc-user P) example-8) 
+ (test-predicate (redex-match λc-user MOD) (first example-8))
+ (test-predicate (redex-match λc-user MOD) (second example-8))
+ (test-predicate (redex-match λc-user MOD) (third example-8))
+ (test-predicate (redex-match λc-user EXP) (last example-8))
+ (test-predicate (redex-match λc-user PROG) example-8-opaque)
+ (test-predicate (redex-match λc-user PROG) example-8)
+ (test-predicate (redex-match λc-user PROG) example-8)
+ (test-predicate (redex-match λc-user PROG) example-8) 
  (test-predicate (redex-match λc-raw RP) example-8-raw)
  (test-predicate (redex-match λc-raw RP) example-8-opaque-raw) 
 
- (test-predicate (redex-match λc-user CON) (term ((pred (λ (x) x) LAB)  ->  (pred exact-nonnegative-integer?)))))
+ (test-predicate (redex-match λc-user CON) (term ((pred (λ (x) x) f)  ->  (pred exact-nonnegative-integer?)))))
 
 (define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? . -> . any/c) •)))
 (define mod-rsa-raw    (term (simple-module rsa ((pred prime?) . -> . (string? . -> . string?)) •)))
@@ -155,7 +157,7 @@
 (define cons/c-example-raw
   (term [(simple-module p
            (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
-           (cons (-- 1) (-- 2)))
+           (cons 1 2))
          (require (only-in p p))
          (first p)]))
 
@@ -179,7 +181,7 @@
  (test-predicate (redex-match λc-raw RP) cons/c-example-raw)
  
  (test-predicate (redex-match λc-user PROG) fit-example)
- (test-predicate (redex-match λc-user PPROG) fit-example-alt)
+ (test-predicate (redex-match λc-user PROG) fit-example-alt)
  
  (test-predicate (redex-match λc-raw REXP) top-fit-raw)
  (test-predicate (redex-match λc-raw RMOD) mod-prime-raw)
