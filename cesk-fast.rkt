@@ -147,9 +147,7 @@
 (define/contract (sto-lookup a b) (hash? addr? . -> . (c:listof D?))
   (set->list (hash-ref a b)))
 
-(define-metafunction CESK*
-  env-lookup : ρ x -> a
-  [(env-lookup any_e any_x) ,(hash-ref (term any_e) (term any_x))])
+(define (env-lookup e x) (hash-ref e x))
 
 (define-metafunction CESK*
   load : any -> any
@@ -270,7 +268,7 @@
     
     [(st (? (redex-match CESK* x) x) ρ σ K)
      (S 'var
-        (for/list ([D (sto-lookup σ (term (env-lookup ,ρ ,x)))])
+        (for/list ([D (sto-lookup σ (env-lookup ρ x))])
           (match D
             [(list V ρ_0) (st V ρ_0 σ K)])))]
     [(st (? (redex-match CESK* PV) pv) ρ σ K)
@@ -333,7 +331,7 @@
     [(st (V: V) ρ σ `(AP ((,(V: V-proc) ,ρ_0) ,clo ...) () ,ℓ ,a))
      (choose 
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
-             (equal? (add1 (length (term ,clo)))
+             (equal? (add1 (length clo))
                      (term (arity ,V-proc))))
         (match V-proc
           [`(-- (λ ,rec (,x ...) ,E) ,C ...)
@@ -391,7 +389,7 @@
              (match-define `(,U ,ρ_2) clo*)
              (st (term (amb (-- 0) (demonic* (any/c) ,U))) ρ_2 σ (term (BEG ((-- (any/c)) #hash()) ,a)))))]
        [(and (term (∈ #t (δ (@ procedure? ,V-proc ★))))
-             (not (equal? (add1 (length (term ,clo)))
+             (not (equal? (add1 (length clo))
                           (term (arity ,V-proc)))))
         (S 'blame-arity
            (for/list ([K (sto-lookup σ a)])
@@ -511,7 +509,7 @@
     
     [(st `(,C <= ,ℓ_1 ,ℓ_2 ,(? (redex-match CESK* x) x) ,ℓ_3 ,(? (redex-match CESK* E) E)) ρ σ K)
      (S 'chk-subst 
-        (for/list ([clo  (sto-lookup σ (term (env-lookup ,ρ ,x)))])
+        (for/list ([clo (sto-lookup σ (env-lookup ρ x))])
           (match-define (list V ρ_0) clo)
           (st `(,C <= ,ℓ_1 ,ℓ_2 ,V ,ℓ_3 ,E) ρ σ K)))]
     
