@@ -115,7 +115,7 @@
   [(plain-δ string? V LAB) 
    (-- (clos #f ()))]
   [(plain-δ boolean? (-- (clos bool ρ) C ...) LAB) 
-   (-- (clos #f ()))]
+   (-- (clos #t ()))]
   [(plain-δ boolean? V LAB) 
    (-- (clos #f ()))]
   [(plain-δ zero? (-- (clos 0 ρ) C ...) LAB) 
@@ -169,6 +169,21 @@
             (-- (clos string_2 ρ_2) C_2 ...)
             LAB)
    (meta-apply string-string->bool string_1 string_2)]
+  ;; Structs
+  [(plain-δ (s? X) (-- (struct X V ...) C ...) LAB)
+   (-- (clos #t ()))]
+  [(plain-δ (s? X) V LAB)
+   (-- (clos #f ()))]
+  [(plain-δ (s-cons X natural) V ... LAB)
+   (-- (struct X V ...))
+   (side-condition (= (length (term (V ...))) (term natural)))]
+  [(plain-δ (s-ref X natural) (-- (struct X V ...) C ...) LAB)
+   V_i
+   (where V_i ,(list-ref (term (V ...)) (term natural)))]
+  [(plain-δ (s-pred X) (-- (struct X V ...) C ...) LAB)
+   (-- (clos #t ()))]
+  [(plain-δ (s-pred X) V LAB)
+   (-- (clos #f ()))]
   [(plain-δ OP V V_1 ... LAB)       ;; catches domain errors
    (blame LAB Λ V OP V)])
 
@@ -199,6 +214,21 @@
                             (-- (clos 7 ()))
                             †))
              (term (blame † Λ (-- (clos "Hi" ())) = (-- (clos "Hi" ())))))
+ 
+ (test-equal (term (plain-δ (s? posn) (-- (struct posn)) †))
+             (term (-- (clos #t ()))))
+ (test-equal (term (plain-δ (s? posn) (-- (struct blah)) †))
+             (term (-- (clos #f ()))))
+ (test-equal (term (plain-δ (s? posn) (-- (clos 0 ())) †))
+             (term (-- (clos #f ()))))
+ (test-equal (term (plain-δ (s-cons posn 0) †))
+             (term (-- (struct posn))))
+ (test-equal (term (plain-δ (s-cons posn 2) (-- (clos 0 ())) (-- (clos 1 ())) †))
+             (term (-- (struct posn (-- (clos 0 ())) (-- (clos 1 ()))))))
+ (test-equal (term (plain-δ (s-ref posn 0) (-- (struct posn (-- (clos 0 ())) (-- (clos 5 ())))) †))
+             (term (-- (clos 0 ()))))
+ (test-equal (term (plain-δ (s-ref posn 1) (-- (struct posn (-- (clos 0 ())) (-- (clos 5 ())))) †))
+             (term (-- (clos 5 ()))))
  )
 
 
@@ -419,34 +449,4 @@
   modref=? : MODREF MODREF -> #t or #f
   [(modref=? (X ^ LAB_1 X_1) (X ^ LAB_2 X_1)) #t]
   [(modref=? MODREF MODREF_1) #f])
-
-;; modulename x valuename x modules -> value
-(define-metafunction λc-user
-  lookup-modref/val : X X (MOD ...) -> VAL or •
-  [(lookup-modref/val X X_1 (MOD ... 
-                             (module X LANG REQ STRUCT ... DEF ... (define X_1 any_result) DEF_1 ... any_p)
-                             MOD_1 ...))
-   any_result]
-  [(lookup-modref/val X X_1 any)
-   ,(format "unbound module variable ~a from ~a" (term X_1) (term X))])
-          
-;; modulename x valuename x modules -> contract
-(define-metafunction λc-user
-  lookup-modref/con : X X (MOD ...) -> CON
-  [(lookup-modref/con X X_1 (MOD ... 
-                             (module X LANG REQ STRUCT ... DEF ... 
-                               (provide/contract any_1 ... [X_1 CON] any_2 ...))
-                             MOD_1 ...))
-   CON]
-  [(lookup-modref/con X X_1 any)
-   (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a" (term X_1) (term X))) ★)])
-   
-(test
- (define Ms 
-   (term [(module m racket (require) (define f 1) (provide/contract [f (pred string? m)]))]))
- (test-equal (term (lookup-modref/val m f ,Ms)) 1)
- (test-equal (term (lookup-modref/val m g ,Ms)) "unbound module variable g from m")
- (test-equal (term (lookup-modref/con m f ,Ms)) (term (pred string? m)))
- (test-equal (term (lookup-modref/con m g ,Ms)) 
-             (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
  

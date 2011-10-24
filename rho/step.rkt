@@ -2,16 +2,15 @@
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt"
          "step-v.rkt" "step-c.rkt" 
-         "step-m.rkt" "step-e.rkt"
-         "step-s.rkt")
+         "step-m.rkt" "step-e.rkt")
 (provide (except-out (all-defined-out) test))
-(provide v c m s e)
+(provide v c m e)
 (test-suite test step)
 
-(define (-->_vc∆ Ms)
+(define (-->_vcme Ms)
   (union-reduction-relations 
    e
-   (context-closure (union-reduction-relations v c (m Ms) (s Ms)) λcρ 𝓔)))
+   (context-closure (union-reduction-relations v c (m Ms)) λcρ 𝓔)))
 
 (test
  (define Ms 
@@ -20,7 +19,7 @@
             (define n 7)
             (provide/contract 
              [n (pred exact-nonnegative-integer? m)]))]))
- (test-->> (-->_vc∆ Ms)
+ (test-->> (-->_vcme Ms)
            (term (n ^ † m))
            (term (-- (clos 7 ())))))
 
@@ -36,7 +35,7 @@
             (provide/contract 
              [fact ((pred exact-nonnegative-integer? f) 
                     -> (pred exact-nonnegative-integer? f))]))]))
- (test-->> (-->_vc∆ Ms)
+ (test-->> (-->_vcme Ms)
            (term (clos (@ (fact ^ † f) 5 †) ()))
            (term (-- (clos 120 ())))))
 
@@ -55,11 +54,55 @@
                     (λ (x)
                       (and/c (pred exact-nonnegative-integer? f)
                              (pred (λ (y) (@ <= x y f)) f))))]))]))
- (test-->> (-->_vc∆ Ms)
+ (test-->> (-->_vcme Ms)
            (term (clos (@ (fact ^ † f) 5 †) ()))
            (term (-- (clos 120 ())
                      ((pred (λ (y) (@ <= x y f)) f)
                       ((x (-- (clos 5 ())))))))))
+
+
+ (define Ms
+   (term [(module p racket
+            (require)
+            (struct posn (x y))
+            (provide/contract
+             [posn ((pred exact-nonnegative-integer? p)
+                    (pred exact-nonnegative-integer? p)
+                    -> (pred (posn? ^ p p) p))]
+             [posn? ((pred (λ (x) #t) p) -> (pred boolean? p))]
+             [posn-x ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]
+             [posn-y ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]))]))
+ 
+ (test-->> (-->_vcme Ms)
+           (term (clos (@ (posn ^ † p) 1 2 †) ()))
+           (term (-- (struct posn
+                       (-- (clos 1 ()))
+                       (-- (clos 2 ())))
+                     ((pred (posn? ^ p p) p) ()))))
+ (test-->> (-->_vcme Ms)
+           (term (clos (@ (posn? ^ † p)
+                          (@ (posn ^ † p) 1 2 †)
+                          †)
+                       ()))
+           (term (-- (clos #t ()))))
+ (test-->> (-->_vcme Ms)
+           (term (clos (@ (posn-x ^ † p)
+                          (@ (posn ^ † p) 1 2 †)
+                          †)
+                       ()))
+           (term (-- (clos 1 ()))))
+ (test-->> (-->_vcme Ms)
+           (term (clos (@ (posn-y ^ † p)
+                          (@ (posn ^ † p) 1 2 †)
+                          †)
+                       ()))
+           (term (-- (clos 2 ()))))
+ 
+           
+ 
+           
+                
+
 
 
      

@@ -10,7 +10,7 @@
    (subst/μ X (rec/c X CON) CON)])
 
 (test
- (redex-check λcρ (X CON) 
+ (redex-check λc-user (X CON) 
               (equal? (term (unroll (rec/c X CON)))
                       (term (subst/μ X (rec/c X CON) CON)))))
 
@@ -25,7 +25,10 @@
   arity : PROC -> number or #f
   
   [(arity (-- (clos OP1 ρ) C ...)) 1]
-  [(arity (-- (clos OP2 ρ) C ...)) 2]  
+  [(arity (-- (clos OP2 ρ) C ...)) 2]
+  [(arity (-- (clos (s-pred X) ρ) C ...)) 1]
+  [(arity (-- (clos (s-ref X natural) ρ) C ...)) 1]
+  [(arity (-- (clos (s-cons X natural) ρ) C ...)) natural]
   
   [(arity (-- (clos (λ X (X_0 ...) EXP) ρ) C ...))
    ,(length (term (X_0 ...)))]

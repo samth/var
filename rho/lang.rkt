@@ -73,6 +73,11 @@
   (ρ ((X V) ...))
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
+  (OP .... 
+      (s-pred X)
+      (s-cons X natural)
+      (s-ref X natural))
+  
   ;; Closures
   (D (clos EXP ρ)
      V
