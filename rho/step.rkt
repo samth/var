@@ -60,7 +60,7 @@
                      ((pred (λ (y) (@ <= x y f)) f)
                       ((x (-- (clos 5 ())))))))))
 
-
+(test
  (define Ms
    (term [(module p racket
             (require)
@@ -96,7 +96,7 @@
                           (@ (posn ^ † p) 1 2 †)
                           †)
                        ()))
-           (term (-- (clos 2 ()))))
+           (term (-- (clos 2 ())))))
  
            
  
