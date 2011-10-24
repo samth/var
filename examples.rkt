@@ -190,3 +190,29 @@
  
  (test-predicate (redex-match λc~ RP) fit-example-raw))
 
+
+(define list-id-example-contract2
+  (term [(simple-module id 
+                        (,list-of-nat/c  ->  ,list-of-nat/c)
+                        (λ (ls)
+                          (if (@ empty? ls id)
+                              ls 
+                              (@ cons 
+                                 (@ first ls id)
+                                 (@ (id ^ id id) (@ rest ls id) id)
+                                 id))))
+         (require (only-in id id))
+         (@ (id ^ † id) (@ cons 1 empty †) †)]))
+
+(define list-id-example-contract3
+  (term [(simple-module id 
+                        (,list-of-nat/c  ->  ,list-of-nat/c)
+                        (λ (ls)
+                          (if (@ empty? ls id)
+                              ls 
+                              (@ cons 
+                                 (@ first ls id)
+                                 (@ (id ^ id id) (@ rest ls id) id)
+                                 id))))
+         (require (only-in id id))
+         (@ (id ^ † id) empty †)]))
