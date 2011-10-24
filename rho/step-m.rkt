@@ -8,16 +8,23 @@
   (reduction-relation
    λcρ #:domain D
    (--> (X_1 ^ X X)
-        (-- (clos VAL ()))
+        (close VAL)
         (where VAL (lookup-modref/val X X_1 ,Ms))
         m-self)
    (--> (X_1 ^ LAB X)
-        (CON () <= X LAB V X_1 V)
+        (CON () <= X LAB V X_1 (close VAL))
         (where CON (lookup-modref/con X X_1 ,Ms))
-        (where VAL (lookup-modref/val X X_1 ,Ms))
-        (where V (-- (clos VAL ())))
+        (where VAL (lookup-modref/val X X_1 ,Ms))        
         (side-condition (not (eq? (term X) (term LAB))))
         m-other)))
+
+(define-metafunction λcρ
+  close : VAL -> D
+  [(close (cons VAL_1 VAL_2))
+   (-- (cons (close VAL_1)
+             (close VAL_1)))]
+  [(close VAL)
+   (-- (clos VAL ()))])
     
 (test 
  (define Ms 
@@ -25,6 +32,7 @@
             (require) 
             (struct posn (x y))
             (define f 1)
+            (define c (cons 2 3))
             (provide/contract 
              [f (pred string? m)]
              [posn? ((pred (λ (x) #t) m) -> (pred boolean? m))]
@@ -32,7 +40,8 @@
                     (pred exact-nonnegative-integer? m)
                     -> (pred (posn? ^ m m) m))]
              [posn-x ((pred (posn? ^ m m) m) -> (pred exact-nonnegative-integer? m))]
-             [posn-y ((pred (posn? ^ m m) m) -> (pred exact-nonnegative-integer? m))]))]))
+             [posn-y ((pred (posn? ^ m m) m) -> (pred exact-nonnegative-integer? m))]
+             [c (pred cons? m)]))]))
  (test--> (m Ms)
           (term (f ^ m m))
           (term (-- (clos 1 ()))))
@@ -50,7 +59,11 @@
           (term (-- (clos (s-ref posn 0) ()))))
  (test--> (m Ms)
           (term (posn-y ^ m m))
-          (term (-- (clos (s-ref posn 1) ())))))
+          (term (-- (clos (s-ref posn 1) ()))))
+ (test--> (m Ms)
+          (term (c ^ m m))
+          (term (-- (cons (-- (clos 2 ()))
+                          (-- (clos 3 ())))))))
 
 
 

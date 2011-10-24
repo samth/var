@@ -35,7 +35,7 @@
   ;; Values (syntactic)  
   (VAL natural #t #f string empty 
        LAM OP 
-       #;(cons VAL VAL) 
+       (cons VAL VAL) 
        #;(struct X VAL ...))      
   (LAM (λ (X ...) EXP)
        (λ X (X ...) EXP))
@@ -87,11 +87,7 @@
      (let ((X D) ...) (clos EXP ρ))
      (begin D (clos EXP ρ))
      (CON ρ <= LAB LAB V X D)
-     BLAME)    
-  
-  ;; Note, both
-  ;; (-- (cons 1 2)) and (-- (cons (-- (clos 1 ())) (-- (clos 2 ()))))
-  ;; are values.
+     BLAME)  
   
   ;; Values (semantic)
   (PREVAL (clos VAL ρ)
