@@ -104,11 +104,9 @@
          [else ;; continuations
           (map (λ (p) (if (and (pair? p)) (car p) p)) vals)]))
 
-(define-metafunction CESK*
-  alloc : σ (any ..._1) -> (a ..._1)
-  [(alloc σ (any ...))
-   ((loc any_1) ...)
-   (where (any_1 ...) ,(alloc-addr (term σ) (term (any ...))))])
+(define (alloc σ vals)
+  (for/list ([a (alloc-addr σ vals)])
+    `(loc ,a)))
 
 ;; produces any/c if there's imprecision
 (define-metafunction CESK*
@@ -240,19 +238,19 @@
     
     [(st `(@ ,(? (redex-match CESK* op) op) ,E_0 ,E_1 ... ,ℓ) ρ σ K)
      (S 'op-push
-        (for/list ([a (term (alloc ,σ (,K)))])
+        (for/list ([a (alloc σ (list K))])
           (define σ_0 (extend-sto1 σ a K))
           (st E_0 ρ σ_0 `(OP ,op () ,E_1 ,ρ ,ℓ ,a))))]
     
     [(st `(@ ,E_0 ,E_1 ... ,ℓ) ρ σ K)
      (S 'ap-push
-        (for/list ([a (term (alloc ,σ (,K)))])
+        (for/list ([a (alloc σ (list K))])
           (define σ_0 (extend-sto1 σ a K))
           (st E_0 ρ σ_0 `(AP () ,(map (λ (e) (list e ρ)) E_1) ,ℓ ,a))))]
     
     [(st `(if ,E_0 ,E_1 ,E_2) ρ σ K)
      (S 'if-push
-        (for/list ([a (term (alloc ,σ (,K)))])
+        (for/list ([a (alloc σ (list K))])
           (define σ_0 (extend-sto1 σ a K))
           (st E_0 ρ σ_0 `(IF ,E_1 ,E_2 ,ρ ,a))))]
     
@@ -288,7 +286,7 @@
        [(and fun `(-- (λ ,rec () ,E) ,C ...))
         (S 'β-rec-0 
            (for*/list ([K (sto-lookup σ a)]
-                       [a_1 (term (alloc ,σ (,rec)))])          
+                       [a_1 (alloc σ (list rec))])
              (st E 
                  (extend-env ρ (list rec) (list a_1))
                  (extend-sto1 σ a_1 (list fun ρ))
@@ -299,7 +297,7 @@
            (for/list ([clo (sto-lookup σ a_f)])
              (match-let* ([K `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
                           [`(,V_f ,ρ_f) clo]
-                          [`(,a_k) (term (alloc ,σ (,K)))]
+                          [`(,a_k) (alloc σ (list K))]
                           [σ_1 (extend-sto1 σ a_k K)])
                (st V_f ρ_f σ_1 `(AP () () ,ℓ ,a_k)))))]
        [`((--> ,C) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
@@ -307,7 +305,7 @@
            (for/list ([clo (sto-lookup σ a_f)])
              (match-let* ([K `(CHK ,C ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
                           [`(,V_f ,ρ_f) clo]
-                          [`(,a_k) (term (alloc ,σ (,K)))]
+                          [`(,a_k) (alloc σ (list K))]
                           [σ_1 (extend-sto1 σ a_k K)])
                (st V_f ρ_f σ_1 `(AP () () ,ℓ ,a_k)))))]
        [_ 
@@ -339,7 +337,7 @@
                      (term (arity ,V-proc))))
         (match V-proc
           [`(-- (λ ,rec (,x ...) ,E) ,C ...)
-           (define a1s (term (alloc ,σ ,(cons rec x))))        
+           (define a1s (alloc σ (cons rec x)))
            (S 'β-rec
               (for/list ([K (sto-lookup σ a)])
                 (st E 
@@ -348,7 +346,7 @@
                                             (append clo (list (list V ρ)))))
                     K)))]
           [`(-- (λ (,x ...) ,E) ,C ...)
-           (define a1s (term (alloc ,σ ,x)))
+           (define a1s (alloc σ x))
            (S 'β
               (for/list ([K (sto-lookup σ a)])
                 (st E 
@@ -358,7 +356,7 @@
           [`((,C_0 ... --> ,C_1) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
            ;(printf "got here \n")
            (match-let* ([K `(CHK ,C_1 ,ρ ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
-                        [(list a_k) (term (alloc ,σ (,K)))]
+                        [(list a_k) (alloc σ (list K))]
                         [σ_1 (extend-sto1 σ a_k K)]
                         [K2 `(AP ()
                                  ,(for/list ([clo_1 (cons (list V ρ) clo)]
@@ -422,13 +420,13 @@
     
     [(st `(begin ,E_0 ,E_1) ρ σ K)
      (S 'beg-push
-        (match-let ([(list a) (term (alloc ,σ (,K)))])
+        (match-let ([(list a) (alloc σ (list K))])
           (define σ_0 (extend-sto1 σ a K))
           (st E_0 ρ σ_0 `(BEG (,E_1 ρ) ,a))))]
     
     [(st `(let ,x ,E_0 ,E_1) ρ σ K)
      (S 'let-push
-        (match-let ([(list a) (term (alloc ,σ (,K)))])
+        (match-let ([(list a) (alloc σ (list K))])
           (define σ_0 (extend-sto1 σ a K))
           (st E_0 ρ σ_0 `(LET ,x ,E_1 ,ρ ,a))))]
     
@@ -437,7 +435,7 @@
      (choose
       [(term (∈ #t (δ (@ procedure? ,V ★))))
        (S 'chk-fun-pass
-        (match-let* ([(list a_new) (term (alloc ,σ (,V)))]
+        (match-let* ([(list a_new) (alloc σ (list V))]
                      [σ_1 (extend-sto1 σ a_new `(,V ,ρ))])
           (for/list ([K (sto-lookup σ a)])
             (st `((,@C --> ,result) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_new)) ρ_1 σ_1 K))))]
@@ -453,7 +451,7 @@
                    `(IF ,(term (remember-contract ,V (try-close-contract ,FLAT ,ρ_1 ,σ)))
                        (blame ,ℓ_1 ,ℓ_3 ,V-or-AE ,FLAT ,V)
                        ,ρ ,a)]
-                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [(list a_k) (alloc σ (list K))]
                   [σ_new (extend-sto1 σ a_k K)])
        (S 'flat-check
           (list (st V ρ σ_new
@@ -465,7 +463,7 @@
     
     [(st (V: V) ρ σ `(CHK (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K `(CHK-OR ,V ,ρ (or/c ,FLAT ,HOC) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]                   
-                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [(list a_k) (alloc σ (list K))]
                   [σ_new (extend-sto1 σ a_k K)])
        (S 'check-or-pass
         (list
@@ -483,28 +481,28 @@
     
     [(st (V: V) ρ σ `(CHK (and/c ,C_0 ,C_1) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K `(CHK ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]                   
-                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [(list a_k) (alloc σ (list K))]
                   [σ_1 (extend-sto1 σ a_k K)])
        (S 'check-and-push 
           (list (st V ρ σ_1 `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st `(-- (cons ,V_0 ,V_1) ,C ...) ρ σ `(CHK (cons/c ,C_0 ,C_1) ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a))
      (match-let* ([K `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ ,a)]                   
-                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [(list a_k) (alloc σ (list K))]
                   [σ_new (extend-sto1 σ a_k K)])
        (S 'check-cons-pass-first 
           (list (st V_0 ρ σ_new `(CHK ,C_0 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
    
     [(st (V: V) ρ σ `(CHK-CONS ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,V_1 ,ρ_2 ,a))
      (match-let* ([K `(OP cons ((,V ,ρ)) () #hash() Λ ,a)]
-                  [(list a_k) (term (alloc ,σ (,K)))]
+                  [(list a_k) (alloc σ (list K))]
                   [σ_new (extend-sto1 σ a_k K)])
      (S 'check-cons-pass-rest
         (list (st V_1 ρ_2 σ_new `(CHK ,C_1 ,ρ_1 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a_k)))))]
     
     
     [(st `(,C <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,(? (redex-match CESK* E) E)) ρ σ K)
-     (match-let* ([`(,a) (term (alloc ,σ (,K)))]
+     (match-let* ([`(,a) (alloc σ (list K))]
                   [σ_0 (extend-sto1 σ a K)])       
        (S 'chk-push 
           (list (st E ρ σ_0
@@ -916,7 +914,7 @@
  (test-->>c step-gc-R 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- (λ (x) x))))
             ;; kind of a giant hack
-            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (term (alloc ,(hash '(loc 0) (set '((-- 0) #hash()))) ((-- (λ (x) x))))))))))
+            (term (((any/c) --> (any/c)) <= f g (-- 0) f (addr ,(car (alloc (hash '(loc 0) (set '((-- 0) #hash()))) `((-- (λ (x) x)))))))))
  (test-->>c step-gc-R 
             (term (((any/c)  -> (any/c)) <= f g (-- 0) f (-- 5)))
             (term (blame f f (-- 0) ((any/c) -> (any/c)) (-- 5))))
