@@ -366,6 +366,23 @@
                 (for/list ([clo_1 (sto-lookup σ a_f)])
                   (match-define (list V_f ρ_f) clo_1)
                   (st V_f ρ_f σ_1 K2))))]
+          [`((,C_0 ... --> (λ (,x ...) ,C_1)) <= ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 (addr ,a_f))
+           (match-let* ([a_1 (alloc σ x)]
+                        (ρ_3 (extend-env ρ x a_1))
+                        [K `(CHK ,C_1 ,ρ_3 ,ℓ_1 ,ℓ_2 ,V-or-AE ,ℓ_3 ,a)]
+                        [(list (and clo2 (list V_2 ρ_2)) ...) (cons (list V ρ) (reverse clo))] ;; FIXME -- is this reverse right?
+                        [(list a_k) (alloc σ (list K))]
+                        [K2 `(AP ()
+                                 ,(for/list ([c C_0]
+                                             [v V_2]
+                                             [ρ ρ_2])
+                                    `((,c <= ,ℓ_2 ,ℓ_1 ,v ,ℓ_3 ,v) ,ρ))
+                                 ,ℓ ,a_k)]
+                        [σ_1 (extend-sto σ (cons a_k a_1) (cons K clo2))])
+             (S 'unary+-blessed-β-dep
+                (for/list ([clo_1 (sto-lookup σ a_f)])
+                  (match-define (list V_f ρ_f) clo_1)
+                  (st V_f ρ_f σ_1 K2))))]
           [`(-- ,C ...) 
            (S 'apply-abs-known-arity
               (match-let ([dom-con (term (domain-contracts ,C))])
@@ -552,24 +569,7 @@
    ;; FIXME: these two rules are broken with the environments of the argument contracts.
    ;; need a new kind of continuation to solve. (Lucky for just unary case in paper, it works).
    
-   (--> (V_n ρ_n σ (AP ((((C_0 ... --> (λ (x ...) C_1)) <= ℓ_1 ℓ_2 V-or-AE ℓ_3 (addr a_f)) ρ)
-                        (V_1 ρ_1) ...)
-                       ()
-                       ℓ a))
-        (V_f ρ_f σ_1 
-             (AP ()
-                 (((C_0 <= ℓ_2 ℓ_1 V_2 ℓ_3 V_2) ρ_2) ...)
-                 ℓ a_k))
-        (side-condition (= (length (term (C_0 ...)))
-                           (add1 (length (term ((V_1 ρ_1) ...))))))
-        (where (D_0 ... (V_f ρ_f) D_1 ...) (sto-lookup σ a_f))
-        (where (a_1 ...) (alloc σ (x ...)))
-        (where ((V_2 ρ_2) ...) ,(reverse (term ((V_1 ρ_1) ... (V_n ρ_n)))))
-        (where ρ_3 (extend-env ρ (x ...) (a_1 ...)))
-        (where K (CHK C_1 ρ_3 ℓ_1 ℓ_2 V-or-AE ℓ_3 a))
-        (where (a_k) (alloc σ (K)))        
-        (where σ_1 (extend-sto σ (a_k a_1 ...) (K (V_2 ρ_2) ...)))
-        unary+-blessed-β-dep)
+   
              
    ;; CONTRACT CHECKING   
    
