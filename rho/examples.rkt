@@ -39,8 +39,11 @@
 
 (define example-8-opaque
   (term [(simple-module f ((pred (λ (x) #t) f) ->  ((pred (λ (x) #t) f)  ->  (pred (λ (x) #t) f))) •)
-         (simple-module g ((pred (λ (x) x) g)  ->  (pred exact-nonnegative-integer?)) •)
-         (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h any/c]))
+         (simple-module g ((pred (λ (x) x) g)  ->  (pred exact-nonnegative-integer? g)) •)
+         (module h racket 
+           (require (only-in f f) (only-in g g)) 
+           (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) 
+           (provide/contract [h (pred (λ (x) #t) h)]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
 
@@ -56,7 +59,8 @@
  (test-predicate (redex-match λc-raw RP) example-8-raw)
  (test-predicate (redex-match λc-raw RP) example-8-opaque-raw) 
 
- (test-predicate (redex-match λc-user CON) (term ((pred (λ (x) x) f)  ->  (pred exact-nonnegative-integer?)))))
+ (test-predicate (redex-match λc-user CON) 
+                 (term ((pred (λ (x) x) f)  ->  (pred exact-nonnegative-integer? f)))))
 
 (define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? . -> . any/c) •)))
 (define mod-rsa-raw    (term (simple-module rsa ((pred prime?) . -> . (string? . -> . string?)) •)))
