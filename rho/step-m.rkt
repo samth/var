@@ -12,7 +12,7 @@
         (where VAL (lookup-modref/val X X_1 ,Ms))
         m-self)
    (--> (X_1 ^ LAB X)
-        (CON () <= X LAB V X_1 (close VAL))
+        (CON () <= X LAB (close VAL) X_1 (close VAL))
         (where CON (lookup-modref/con X X_1 ,Ms))
         (where VAL (lookup-modref/val X X_1 ,Ms))        
         (side-condition (not (eq? (term X) (term LAB))))
