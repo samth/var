@@ -294,4 +294,5 @@
  (test-predicate CON? (term X))
  (test-predicate (negate PCON?) (term X)))
  
-
+(define (program-modules ls)
+  (drop-right ls 2))
