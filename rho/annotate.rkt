@@ -125,7 +125,7 @@ Pass 3: Annotate expressions/predicates
 (define-metafunction λc-raw 
   unfold-def : RDEF -> RDEF
   [(unfold-def (define (X_f X ...) REXP))
-   (define f (λ X_f (X ...) REXP))]
+   (define X_f (λ X_f (X ...) REXP))]
   [(unfold-def RDEF) RDEF])
 
 (define-metafunction λc-raw
@@ -175,9 +175,9 @@ Pass 3: Annotate expressions/predicates
    (module X LANG
      (require (only-in X_1 X_2 ...) ...)
      RSTRUCT ...
-     (define X_4 (ann-rhs any f ((X_1 (X_2 ...)) ...) (X_4 ...)))
+     (define X_4 (ann-rhs any X ((X_1 (X_2 ...)) ...) (X_4 ...)))
      ...
-     (provide/contract [X_3 (ann-con RCON f ((X_1 (X_2 ...)) ...) (X_4 ...))] ...))
+     (provide/contract [X_3 (ann-con RCON X ((X_1 (X_2 ...)) ...) (X_4 ...))] ...))
    (where (require (only-in X_1 X_2 ...) ...) (ann-req RREQ MODENV))
    (where ((define X_4 any) ...) ((unfold-def RDEF) ...))])
 
@@ -273,7 +273,7 @@ Pass 3: Annotate expressions/predicates
   (term [(module m racket
            (require)           
            (define f (λ f (z) z))
-           (provide/contract (f ((pred (λ (x) #t) f) -> (pred (λ (x) #t) f)))))
+           (provide/contract (f ((pred (λ (x) #t) m) -> (pred (λ (x) #t) m)))))
          (require (only-in m f))
          (@ (f ^ † m) 3 |†|)])))
  
