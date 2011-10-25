@@ -22,7 +22,7 @@
   close : VAL -> D
   [(close (cons VAL_1 VAL_2))
    (-- (cons (close VAL_1)
-             (close VAL_1)))]
+             (close VAL_2)))]
   [(close VAL)
    (-- (clos VAL ()))])
     
