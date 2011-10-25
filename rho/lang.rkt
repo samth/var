@@ -282,7 +282,7 @@
 
 (test
  ;; totality test
- (redex-check λcρ (X PCON_1 PCON_2) (term (subst/μ X PCON_1 PCON_2))))
+ (redex-check λc-user (X PCON_1 PCON_2) (term (subst/μ X PCON_1 PCON_2))))
 
 
 ;; https://github.com/samth/var/issues/3
@@ -292,7 +292,15 @@
  (test-predicate (negate PCON?) (term (rec/c X (or/c (cons/c X X) (-> (pred string? †))))))           
  (test-predicate CON? (term (rec/c X (or/c (cons/c X X) (-> (pred string? †))))))            
  (test-predicate CON? (term X))
- (test-predicate (negate PCON?) (term X)))
+ (test-predicate (negate PCON?) (term X))
  
+ (test-predicate 
+  (negate (redex-match λcρ MOD))
+  (term (module f racket
+          (require)
+          (define v (cons (λ () "a") (λ () "b"))) 
+          (provide/contract 
+           [v (rec/c X (or/c (cons/c X X) (-> (pred string? f))))])))))
+
 (define (program-modules ls)
   (drop-right ls 2))
