@@ -1,8 +1,8 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "util.rkt"
-         "step-v.rkt" "step-c.rkt" 
-         "step-m.rkt" "step-e.rkt")
+         "step-v.rkt" "step-c.rkt" "step-c-abs.rkt"
+         "step-m.rkt" "step-m-abs.rkt" "step-e.rkt")
 (provide (except-out (all-defined-out) test))
 (provide v c m e)
 (test-suite test step)
@@ -10,7 +10,7 @@
 (define (-->_vcme Ms)
   (union-reduction-relations 
    e
-   (context-closure (union-reduction-relations v c (m Ms)) λcρ 𝓔)))
+   (context-closure (union-reduction-relations v c c~ (m Ms) (m~ Ms)) λcρ 𝓔)))
 
 (test
  (define Ms 

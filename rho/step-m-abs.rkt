@@ -15,7 +15,7 @@
         (side-condition (not (eq? (term X) (term LAB))))
         m-opaque)))
 
-(test
+;(test
  (define Ms 
    (term [(module m racket 
             (require) 
@@ -26,4 +26,5 @@
           (term (f ^ † m))
           (term ((pred string? m) 
                  () <= m † (-- ((pred string? m) ())) f 
-                 (-- ((pred string? m) ()))))))
+                 (-- ((pred string? m) ())))))
+ ;)

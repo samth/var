@@ -170,9 +170,9 @@
             LAB)
    (meta-apply string-string->bool string_1 string_2)]
   ;; Structs
-  [(plain-δ (s? X) (-- (struct X V ...) C ...) LAB)
+  [(plain-δ (s-pred X) (-- (struct X V ...) C ...) LAB)
    (-- (clos #t ()))]
-  [(plain-δ (s? X) V LAB)
+  [(plain-δ (s-pred X) V LAB)
    (-- (clos #f ()))]
   [(plain-δ (s-cons X natural) V ... LAB)
    (-- (struct X V ...))
@@ -215,11 +215,11 @@
                             †))
              (term (blame † Λ (-- (clos "Hi" ())) = (-- (clos "Hi" ())))))
  
- (test-equal (term (plain-δ (s? posn) (-- (struct posn)) †))
+ (test-equal (term (plain-δ (s-pred posn) (-- (struct posn)) †))
              (term (-- (clos #t ()))))
- (test-equal (term (plain-δ (s? posn) (-- (struct blah)) †))
+ (test-equal (term (plain-δ (s-pred posn) (-- (struct blah)) †))
              (term (-- (clos #f ()))))
- (test-equal (term (plain-δ (s? posn) (-- (clos 0 ())) †))
+ (test-equal (term (plain-δ (s-pred posn) (-- (clos 0 ())) †))
              (term (-- (clos #f ()))))
  (test-equal (term (plain-δ (s-cons posn 0) †))
              (term (-- (struct posn))))
@@ -449,4 +449,102 @@
   modref=? : MODREF MODREF -> #t or #f
   [(modref=? (X ^ LAB_1 X_1) (X ^ LAB_2 X_1)) #t]
   [(modref=? MODREF MODREF_1) #f])
+
+;; modulename x valuename x modules -> value
+(define-metafunction λcρ
+  lookup-modref/val : X X (MOD ...) -> VAL or •
+  [(lookup-modref/val X X_1 (MOD ... 
+                             (module X LANG REQ STRUCT ... DEF ... (define X_1 any_result) DEF_1 ... 
+                               any_p) ;; FIXME should make sure it's provided.
+                             MOD_1 ...))
+   any_result]
+  [(lookup-modref/val X X_1 (MOD ...))
+   OP
+   (where OP (struct-cons? X X_1 (struct-env (MOD ...))))]
+  [(lookup-modref/val X X_1 (MOD ...))
+   OP
+   (where OP (struct-ref? X X_1 (struct-env (MOD ...))))]
+  [(lookup-modref/val X X_1 (MOD ...))
+   OP
+   (where OP (struct-pred? X X_1 (struct-env (MOD ...))))]
+  [(lookup-modref/val X X_1 any)
+   ,(format "unbound module variable ~a from ~a" (term X_1) (term X))])
+          
+;; modulename x valuename x modules -> contract
+(define-metafunction λc-user
+  lookup-modref/con : X X (MOD ...) -> CON
+  [(lookup-modref/con X X_1 (MOD ... 
+                             (module X LANG REQ STRUCT ... DEF ... 
+                               (provide/contract any_1 ... [X_1 CON] any_2 ...))
+                             MOD_1 ...))
+   CON] 
+  [(lookup-modref/con X X_1 any)
+   (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a" (term X_1) (term X))) ★)])
+   
+(test
+ (define Ms 
+   (term [(module m racket (require) (define f 1) (provide/contract [f (pred string? m)]))]))
+ (test-equal (term (lookup-modref/val m f ,Ms)) 1)
+ (test-equal (term (lookup-modref/val m g ,Ms)) "unbound module variable g from m")
+ (test-equal (term (lookup-modref/con m f ,Ms)) (term (pred string? m)))
+ (test-equal (term (lookup-modref/con m g ,Ms)) 
+             (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
  
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; structure definitions
+
+(define-metafunction λcρ
+  struct-cons? : X X STRUCTENV -> OP or #f
+  [(struct-cons? X_def X_cons (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ...)) any_3 ...) any_1 ...))
+   (s-cons X_tag ,(length (term (X_acc ...))))]
+  [(struct-cons? X_def X STRUCTENV) #f])
+
+(define-metafunction λcρ
+  struct-ref? : X X STRUCTENV -> OP or #f
+  [(struct-ref? X_def X_acc (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X ... X_acc X_1 ...)) any_3 ...) any_1 ...))
+   (s-ref X_tag ,(length (term (X ...))))]
+  [(struct-ref? X_def X STRUCTENV) #f])
+
+(define-metafunction λcρ
+  struct-pred? : X X STRUCTENV -> OP or #f
+  [(struct-pred? X_def X_pred (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ...)) any_3 ...) any_1 ...))
+   (s-pred X_tag)]
+  [(struct-pred? X X_def STRUCTENV) #f])
+
+(define-metafunction λcρ
+  struct-env : (MOD ...) -> STRUCTENV
+  [(struct-env ((module X_m LANG REQ STRUCT ... DEF ... PROV) ...))
+   ((X_m (struct-names STRUCT) ...) ...)])
+ 
+(define-metafunction λcρ
+  struct-names : STRUCT -> (X X X (X ...))
+  [(struct-names (struct X_tag (X_fld ...)))
+   (X_tag (tag->cons X_tag) (tag->pred X_tag) ((fld->acc X_tag X_fld) ...))])
+
+;; Change this if you want constructors and tags to be different.
+(define-metafunction λcρ
+  tag->cons : X -> X
+  [(tag->cons X) X])
+(define-metafunction λcρ
+  tag->pred : X -> X
+  [(tag->pred X) ,(string->symbol (format "~a?" (term X)))])
+(define-metafunction λcρ
+  fld->acc : X X -> X
+  [(fld->acc X_tag X_fld) ,(string->symbol (format "~a-~a" (term X_tag) (term X_fld)))])
+        
+        
+(test
+ (test-equal (term (tag->cons posn)) (term posn))
+ (test-equal (term (tag->pred posn)) (term posn?))
+ (test-equal (term (fld->acc posn x)) (term posn-x))
+ (test-equal (term (fld->acc posn y)) (term posn-y))
+ 
+ (test-equal (term (struct-names (struct posn (x y))))                                 
+             (term (posn posn posn? (posn-x posn-y))))
+ 
+ (test-equal (term (struct-env [(module p racket
+                                  (require)
+                                  (struct posn (x y))
+                                  (provide/contract))]))
+             (term ((p (posn posn posn? (posn-x posn-y)))))))
