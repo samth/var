@@ -12,15 +12,18 @@
    (--> (@ AV V ... LAB)
         ;; do bad things in case of a concrete value
         (amb V_result
-             (begin (demonic* C_demon V_demon) V_result) ...)
+             (let ((d (demonic* CON_demon V_demon))
+                   (r V_result))
+               (clos r ())) 
+             ...)
         (side-condition (term (∈ #t (δ procedure? AV ★))))
         (side-condition (term (∈ #t (δ procedure-arity-includes? AV 
                                        (-- (clos ,(length (term (V ...))) ()))
                                        ★))))
         
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
-        (where ((C_D ...) ..._1) (domain-contracts (C ...)))        
-        (where (C_demon ..._1) ((∧ C_D ...) ...))        
+        (where (((CON_D ρ_D) ..._1) ...) (domain-contracts (C ...)))
+        (where (CON_demon ..._1) ((∧ CON_D ...) ...))
         (where (V_demon ..._1) (V ...))
         (where (C_0 ...) (range-contracts (C ...) (V ...)))
         ;; abstract value constrained by all possible domains
@@ -63,3 +66,15 @@
         abs-rec/c-unroll))
 |#
    ))
+
+(test 
+ (test--> c~
+          (term (@ (-- (((pred (even? ^ fun e/o) fun) -> (pred (even? ^ fun e/o) fun)) ()))
+                   (-- (clos 4 ())
+                       ((pred (even? ^ dbl e/o) dbl) ())
+                       ((pred (even? ^ fun e/o) fun) ()))
+                   †))
+          (term (amb (-- ((pred (even? ^ fun e/o) fun) ())) 
+                     (let ((d (-- (clos 0 ()))) 
+                           (r (-- ((pred (even? ^ fun e/o) fun) ())))) 
+                       (clos r ()))))))

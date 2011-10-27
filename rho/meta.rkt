@@ -120,7 +120,7 @@
 (define-metafunction λcρ
   amb : D D ... -> D
   [(amb D) D]
-  [(amb D_1 D_2) (if (-- ((pred (λ (x) #t) Λ) ())) D_1 D_2)]
+  [(amb D_1 D_2) (if (-- ((pred boolean? Λ) ())) D_1 D_2)]
   [(amb D_1 D_2 D_3 ...)
    (amb (if (-- ((pred (λ (x) #t) Λ) ())) D_1 D_2)
         D_3 ...)])
