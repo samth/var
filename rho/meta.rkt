@@ -388,8 +388,6 @@
   [(proves (-- PREVAL C ...) OP)
    #t
    (where TRUE (plain-δ OP (-- PREVAL C ...) ★))]
-  ;; FIXME: Add when ABSTRACT values go in.
-  #;
   [(proves (-- C_0 ... C C_1 ...) OP)
    #t
    (where #t (proves-con C OP))]  
@@ -403,20 +401,22 @@
                                                       (-- (clos 0 ())) h 
                                                       (-- (clos (λ (x) x) ())))
                            procedure?))
+             #t) 
+ 
+ (test-equal (term (proves (-- ((pred procedure? Λ) ()))
+                           procedure?))
              #t)
- ;; FIXME: Add when ABSTRACT values go in.
- #;
- (test-equal (term (proves ((--> (pred (λ (x) #t) f)) () <= f g 
-                                                      (-- (clos 0 ())) h 
-                                                      (-- (pred procedure? Λ)))
+ 
+ (test-equal (term (proves ((--> (pred (λ (x) #t) f)) 
+                            () <= f g 
+                            (-- (clos 0 ())) h 
+                            (-- ((pred procedure? Λ) ())))
                            procedure?))
              #t))
 
 ;; Does (negate o?) hold on all values abstracted by AV
 (define-metafunction λcρ
   refutes : V OP -> #t or #f
-  ;; FIXME: add back when ABSTRACT
-  #;
   [(refutes (-- C_0 ... C C_1 ...) OP) 
    #t
    (where #t (refutes-con C OP))]  
@@ -443,7 +443,81 @@
  (test-equal (term (refutes (-- (cons/c (pred exact-nonnegative-integer? p) (pred exact-nonnegative-integer? p))) cons?)) #f)
  )
 
+;; Does satisfying C imply o?
+(define-metafunction λcρ
+  proves-con : C OP -> #t or #f  
+  [(proves-con ((pred OP_0 LAB) ρ) OP_1)
+   (proves-predicate OP_0 OP_1)]  
+  [(proves-con ((or/c CON_0 CON_1) ρ) OP)
+   ,(and (term (proves-con (CON_0 ρ) OP))
+         (term (proves-con (CON_1 ρ) OP)))]
+  [(proves-con ((and/c CON_0 CON_1) ρ) OP)
+   ,(or (term (proves-con (CON_0 ρ) OP))
+        (term (proves-con (CON_1 ρ) OP)))]
+  [(proves-con ((cons/c CON_0 CON_1) ρ) cons?) #t]
+  [(proves-con ((CON_0 ... -> any) ρ) procedure?) #t]
+  [(proves-con C OP) #f])
 
+(test
+ (test-equal (term (proves-con ((pred procedure? Λ) ()) procedure?)) #t)
+ (test-equal (term (proves-con ((pred procedure? Λ) ()) string?)) #f)
+ (test-equal (term (proves-con ((pred false? †) ()) boolean?)) #t)
+ (test-equal (term (proves-con ((cons/c (pred string? †) (pred boolean? †)) ())
+                               cons?))
+             #t)
+ (test-equal (term (proves-con ((-> (pred string? †)) ()) procedure?)) #t)
+ (test-equal (term (proves-con ((-> (pred string? †)) ()) string?)) #f)
+ (test-equal (term (proves-con ((and/c (pred boolean? †) (pred false? †)) ()) false?)) #t)
+ (test-equal (term (proves-con ((or/c (pred boolean? †) (pred false? †)) ()) false?)) #f)
+ (test-equal (term (proves-con ((or/c (pred false? †) (pred boolean? †)) ()) false?)) #f))
+
+ 
+                   
+ 
+
+(define-metafunction λcρ
+  proves-predicate : OP OP -> #t or #f
+  [(proves-predicate OP OP) #t]
+  [(proves-predicate zero? exact-nonnegative-integer?) #t]
+  [(proves-predicate false? boolean?) #t]
+  [(proves-predicate OP_0 OP_1) #f])
+
+;; Does satisfying C imply (negate o?)
+(define-metafunction λcρ
+  refutes-con : C OP -> #t or #f
+  [(refutes-con (C_0 ... -> any) procedure?) #f]
+  [(refutes-con (C_0 ... -> any) OP) #t]
+  [(refutes-con (pred OP_0 ℓ) OP_1) 
+   (refutes-predicate OP_0 OP_1)]
+  [(refutes-con (or/c C_0 C_1) OP)
+   ,(and (term (refutes-con C_0 OP))
+         (term (refutes-con C_1 OP)))]
+  [(refutes-con (and/c C_0 C_1) OP)
+   ,(or (term (refutes-con C_0 OP))
+        (term (refutes-con C_1 OP)))]
+  [(refutes-con (cons/c C_0 C_1) OP) 
+   #t
+   (side-condition (not (eq? (term OP) 'cons?)))]
+  [(refutes-con (rec/c x C) OP) 
+   (refutes-con (unroll (rec/c x C)) OP)   ;; Productive implies you'll never get
+   (where #t (productive? (rec/c x C)))]   ;; back to (rec/c x C) in this metafunction.
+  [(refutes-con C OP) #f])
+
+(define-metafunction λcρ  
+  refutes-predicate : OP OP -> #t or #f
+  [(refutes-predicate OP OP) #f]
+  [(refutes-predicate empty? OP) #t]
+  [(refutes-predicate cons? OP) #t]
+  [(refutes-predicate exact-nonnegative-integer? zero?) #f]
+  [(refutes-predicate zero? exact-nonnegative-integer?) #f]
+  [(refutes-predicate exact-nonnegative-integer? OP) #t]
+  [(refutes-predicate zero? OP) #t]
+  [(refutes-predicate procedure? OP) #t]
+  [(refutes-predicate boolean? false?) #f]
+  [(refutes-predicate boolean? OP) #t]
+  [(refutes-predicate string? OP) #t]
+  [(refutes-predicate false? boolean?) #f]
+  [(refutes-predicate false? OP) #t])
 
 (define-metafunction λcρ
   modref=? : MODREF MODREF -> #t or #f
