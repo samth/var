@@ -6,11 +6,21 @@
 (test-suite test meta)
 
 (define-metafunction λcρ
-  demonic* : C V -> E
-  [(demonic* C V)
+  demonic* : CON V -> D
+  [(demonic* CON V)
    (-- (clos 0 ()))
    (where #t (no-behavior V))]
-  [(demonic* C V) (@ (demonic C) V ★)])
+  [(demonic* CON V) 
+   (@ (demonic CON) V ★)])
+
+(test
+ (test-equal (term (demonic* (pred boolean? †) (-- (clos 4 ()))))
+             (term (-- (clos 0 ()))))
+ (test-equal (term (demonic* (-> (pred string? †)) (-- (clos (λ () "x") ()))))
+             (term (@ (demonic (-> (pred string? †)))
+                      (-- (clos (λ () "x") ()))
+                      ★))))
+
 
 ;; Produce a function that will do "everything" it can
 ;; to its argument while treating it as a C.
@@ -35,14 +45,16 @@
        ((black-hole (-- (pred (λ (x) #t) ())))))]
   
   [(demonic (and/c CON_0 CON_1))
-   (-- (clos (λ (x) (begin (@ (demonic CON_0) x Λ)
-                           (@ (demonic CON_1) x Λ)))
-             ()))]
+   (-- (clos (λ (x) (begin (@ D1 x Λ)
+                           (@ D2 x Λ)))
+             ((D1 (demonic CON_0))
+              (D2 (demonic CON_1)))))]
   
   [(demonic (cons/c CON_0 CON_1))
-   (-- (clos (λ (x) (begin (@ (demonic CON_0) (@ car x ★) Λ)
-                           (@ (demonic CON_1) (@ cdr x ★) Λ)))
-             ()))]
+   (-- (clos (λ (x) (begin (@ D1 (@ car x ★) Λ)
+                           (@ D2 (@ cdr x ★) Λ)))
+             ((D1 (demonic CON_0))
+              (D2 (demonic CON_1)))))]
   
   [(demonic (or/c CON_0 CON_1))
    (demonic (any/c))]  ;; Always safe, hard to do better.
@@ -51,19 +63,20 @@
    (demonic (any/c))]  ;; Safe.  What else could you do?
   
   ;; FIXME INFINITY GENSYM
+  ;; FIXME these don't need to be gensym'd, just pick any Xs.
   [(demonic (CON_0 ... -> CON_1))
-   (-- (clos (λ (f) (@ (demonic CON_1) (@ f X ... ★) Λ))
-             ((X (-- CON_0)) ...)))
-   (where f ,(gensym 'f))
+   (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
+             ((X (-- CON_0)) ...
+              (D1 (demonic CON_1)))))
    (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))]
    
   ;; FIXME INFINITY GENSYM
   [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
    ;; NOTE: Since the environment of a CON plays no role in demonic,
    ;; we do not do extend the environment of CON_1 with ((X_0 (-- CON_0)) ...).
-   (-- (clos (λ (f) (@ (demonic CON_1) (@ f X ... ★) Λ))
-             ((X (-- CON_0)) ...)))
-   (where f ,(gensym 'f))
+   (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
+             ((X (-- CON_0)) ...
+              (D1 (demonic CON_1)))))
    (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))])
 
 (define-metafunction λcρ
@@ -71,13 +84,38 @@
   [(no-behavior blessed-AV) #f]
   [(no-behavior blessed-A) #f]
   [(no-behavior AV) #t]
-  [(no-behavior (-- nat any ...)) #t]
-  [(no-behavior (-- bool any ...)) #t]
-  [(no-behavior (-- string any ...)) #t]
-  [(no-behavior (-- empty any ...)) #t]
+  [(no-behavior (-- (clos natural ()) any ...)) #t]
+  [(no-behavior (-- (clos bool ()) any ...)) #t]
+  [(no-behavior (-- (clos string ()) any ...)) #t]
+  [(no-behavior (-- (clos empty ()) any ...)) #t]
   [(no-behavior (-- (cons V_1 V_2) any ...))
-   ,(and (term (no-behavior V_1)) (term (no-behavior V_2)))]
+   ,(and (term (no-behavior V_1))
+         (term (no-behavior V_2)))]
+  [(no-behavior (-- (struct X V_1 ...) any ...))
+   #t
+   (where (#t ...) ((no-behavior V_1) ...))]
   [(no-behavior V) #f])
+
+(test
+ (test-equal (term (no-behavior (-- (clos #f ())))) #t) 
+ (test-equal (term (no-behavior (-- ((pred boolean? †) ())))) #t)
+ (test-equal (term (no-behavior (-- (clos (λ (x) #t) ())))) #f)
+ (test-equal (term (no-behavior (-- (cons (-- (clos 0 ()))
+                                          (-- (clos 1 ()))))))
+             #t)
+ (test-equal (term (no-behavior (-- (cons (-- (clos 0 ()))
+                                          (-- (clos (λ (x) #t) ()))))))
+             #f)
+ (test-equal (term (no-behavior (-- (struct posn 
+                                      (-- (clos 0 ()))
+                                      (-- (clos 1 ()))))))
+             #t)
+ (test-equal (term (no-behavior (-- (struct posn
+                                      (-- (clos 0 ()))
+                                      (-- (clos (λ (x) #t) ()))))))
+             #f))
+
+ 
 
 (define-metafunction λcρ
   amb : D D ... -> D
