@@ -80,7 +80,20 @@
 (define-metafunction λcρ
   join-contracts : C ... -> AV
   [(join-contracts C ...)
-   (remember-contract (-- (pred (λ (x) #t) Λ)) C ...)])
+   (remember-contract (-- ((pred (λ (x) #t) Λ) ())) C ...)])
+
+(test 
+ (test-equal (term (join-contracts))
+             (term (-- ((pred (λ (x) #t) Λ) ()))))
+ (test-equal (term (join-contracts ((pred boolean? †) ())))
+             (term (-- ((pred boolean? †) ())))))
+
+(define-metafunction λcρ
+  ∧ : CON ... -> CON
+  [(∧)  (any/c)]
+  [(∧ CON) CON]
+  [(∧ CON_0 CON_1  ...)
+   (and/c CON_0 (∧ CON_1 ...))])
 
 ;; FIXME: this should rely on a ≡C metafunction that, eg.
 ;; compares modrefs without regard to use sites.
