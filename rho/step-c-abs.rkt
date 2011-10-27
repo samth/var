@@ -15,7 +15,7 @@
              (begin (demonic* C_demon V_demon) V_result) ...)
         (side-condition (term (∈ #t (δ procedure? AV ★))))
         (side-condition (term (∈ #t (δ procedure-arity-includes? AV 
-                                       ,(length (term (V ...)))
+                                       (-- (clos ,(length (term (V ...))) ()))
                                        ★))))
         
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
