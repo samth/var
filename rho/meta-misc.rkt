@@ -22,7 +22,7 @@
 
 ;; If there are multiple arrows, we (arbitrarily) take the first arity.
 (define-metafunction λcρ
-  arity : PROC -> number or #f
+  arity : V -> number or #f
   
   [(arity (-- (clos OP1 ρ) C ...)) 1]
   [(arity (-- (clos OP2 ρ) C ...)) 2]
@@ -90,10 +90,20 @@
 
 (define-metafunction λcρ
   ∧ : CON ... -> CON
-  [(∧)  (any/c)]
-  [(∧ CON) CON]
+  [(∧)  (pred (λ (x) #t) Λ)]  
   [(∧ CON_0 CON_1  ...)
    (and/c CON_0 (∧ CON_1 ...))])
+
+(test
+ (test-equal (term (∧)) (term (pred (λ (x) #t) Λ)))
+ (test-equal (term (∧ (pred boolean? †)))
+             (term (and/c (pred boolean? †)
+                          (pred (λ (x) #t) Λ))))
+ (test-equal (term (∧ (pred boolean? †) (pred string? †)))
+             (term (and/c (pred boolean? †)
+                          (and/c (pred string? †)
+                                 (pred (λ (x) #t) Λ))))))
+ 
 
 ;; FIXME: this should rely on a ≡C metafunction that, eg.
 ;; compares modrefs without regard to use sites.
