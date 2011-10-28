@@ -5,6 +5,23 @@
 (test-suite test meta-misc)
 
 (define-metafunction λcρ
+  explode : C -> (C ...)
+  [(explode ((or/c CON_1 CON_2) ρ))
+   (C_1e ... C_2e ...)
+   (where ((C_1e ...) (C_2e ...)) ((explode (CON_1 ρ)) (explode (CON_2 ρ))))]  
+  [(explode ((rec/c X CON) ρ))            ;; Productive implies you'll never get
+   (explode ((unroll (rec/c X CON)) ρ))]  ;; back to (rec/c x C) in this metafunction.   
+  [(explode C) (C)])
+
+(test
+ (test-equal (term (explode ((∧) ())))
+             (term (((∧) ()))))
+ (test-equal (term (explode ((or/c (∧) (∧)) ())))
+             (term (((∧) ()) ((∧) ()))))
+ (test-equal (term (explode ((rec/c x (∧)) ())))
+             (term (((∧) ()))))) 
+
+(define-metafunction λcρ
   unroll : (rec/c X CON) -> CON
   [(unroll (rec/c X CON))
    (subst/μ X (rec/c X CON) CON)])
