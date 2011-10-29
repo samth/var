@@ -40,8 +40,7 @@
         (side-condition (term (∈ #t (δ procedure? AV ★))))
         (side-condition (not (term (arity AV))))
         apply-abs-no-arity)
-   
-   #|
+     
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
    
    ;; Predicate contracts are handled by concrete transition.
@@ -56,17 +55,12 @@
    
    ;; SPLITTING OR/C and REC/C ABSTRACT VALUES
    ;; Some introduced values are infeasible, which is still sound.
-   (--> (-- C_0 ... (or/c C_1 ... C_2 C_3 ...) C ...)
-        (remember-contract (-- (any/c) C_0 ... C ...) C_2)
-        (side-condition (term (valid? C_2)))
-        abs-or/c-split)
-   
-   (--> (-- C_0 ... (rec/c x C_1) C ...)  ;; Productivity implies this doesn't loop.
-        (remember-contract (-- (any/c) C_0 ... C ...)  (unroll (rec/c x C_1)))
-        (side-condition (term (valid? (rec/c x C_1))))
-        abs-rec/c-unroll))
-|#
-   ))
+   (--> (-- C_0 ... ((or/c CON_1 ... CON_2 CON_3 ...) ρ) C ...)
+        (join-contracts C_0 ... (CON_2 ρ) C ...)
+        abs-or/c-split)   
+   (--> (-- C_0 ... ((rec/c X CON) ρ) C_1 ...)  ;; Productivity implies this doesn't loop.
+        (join-contracts C_0 ... ((unroll (rec/c X CON)) ρ) C_1 ...)
+        abs-rec/c-unroll)))
 
 (test 
  (test--> c~
@@ -88,5 +82,22 @@
                     (-- ((pred (λ (x) #t) Λ) ())) 
                     (let ((d (-- (clos 0 ()))) 
                           (r (-- ((pred (λ (x) #t) Λ) ())))) 
-                      (clos r ()))))))
+                      (clos r ())))))
+ 
+ (test--> c~
+          (term (-- ((or/c (∧) (∧)) ())))
+          (term (-- ((∧) ()))))
+ (test--> c~
+          (term (-- ((or/c (pred (x? ^ f g) f)
+                           (pred (y? ^ f g) f))
+                     ())))
+          (term (-- ((pred (x? ^ f g) f) ())))
+          (term (-- ((pred (y? ^ f g) f) ()))))
+ (test--> c~
+          (term (-- ((rec/c x (cons/c x x)) ())))
+          (term (-- ((cons/c (rec/c x (cons/c x x))
+                             (rec/c x (cons/c x x)))
+                     ())))))
+          
+                
                 
