@@ -135,10 +135,104 @@
  (generate-term λcρ D_1 3))
 
 (define-metafunction λcρ
-  δ : OP V ... LAB -> (A A ...)
-  ;; Concrete δ
+  δ : OP V ... LAB -> (A A ...)  
+  [(δ OP V_1 ... AV V_2 ... LAB)
+   (abs-δ OP V_1 ... AV V_2 ... LAB)]  
   [(δ OP V ... LAB) 
    ((plain-δ OP V ... LAB))])
+
+(define-metafunction λcρ
+  abs-δ : OP V ... AV V ... LAB -> (A ...)
+  ;; FIXME holdover from old model
+  #;
+  [(abstract-δ op V_0 ... V V_1 ... ℓ)
+   ((-- #f)) ;; V is impossible, so why not?
+   (where #t (impossible? V))]
+  
+  ;; O? 
+  [(abs-δ OP? AV LAB)
+   ((-- (clos #t ()))
+    (-- (clos #f ())))
+   (where #t (proves AV OP?))
+   (where #t (refutes AV OP?))]
+  [(abs-δ OP? AV LAB)
+   ((-- (clos #t ())))
+   (where #t (proves AV OP?))]
+  [(abs-δ OP? AV LAB)
+   ((-- (clos #f ())))
+   (where #t (refutes AV OP?))]
+  [(abs-δ OP? AV LAB)
+   ((-- (clos #t ()))
+    (-- (clos #f ())))]
+  
+  ;; procedure-arity-includes?
+  [(abs-δ procedure-arity-includes? (-- PREVAL C ...) AV LAB)
+   ((-- (clos #t ())) 
+    (-- (clos #f ())))
+   (where #t (proves AV exact-nonnegative-integer?))]  
+  [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...) LAB)
+   ((-- (clos #t ()))
+    (-- (clos #f ())))
+   (where #t (proves AV procedure?))
+   (where #f (arity AV))]  
+  [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...) LAB)
+   ((-- (clos bool ())))   
+   (where natural_a (arity AV))
+   (where bool ,(= (term natural) (term natural_a)))]
+  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
+   ((-- (clos #t ()))
+    (-- (clos #f ())))
+   (where #t (proves V_0 procedure?))
+   (where #t (proves V_1 exact-nonnegative-integer?))]  
+  ;; FIXME more cases to consider?
+  
+  ;; nat->nat
+  [(abs-δ nat->nat V LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) ())))
+   (where #t (proves V exact-nonnegative-integer?))]
+  [(abs-δ nat->nat V LAB)
+   ((blame LAB Λ V nat->nat V))
+   (where #t (refutes V exact-nonnegative-integer?))]
+  [(abs-δ nat->nat V LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) ()))
+    (blame LAB Λ V nat->nat V))]
+  
+  ;; car
+  [(abs-δ car V LAB)
+   (proj-left V)
+   (where #t (proves V cons?))]
+  [(abs-δ car V LAB)
+   ((blame LAB Λ V car V))
+   (where #t (refutes V cons?))]
+  [(abs-δ car V LAB)
+   (A ... (blame LAB Λ V car V))
+   (where (A ...) (proj-left V))]
+  
+  ;; cdr FIXME
+  #|
+  [(abstract-δ rest V ℓ)
+   (proj-right V)
+   (where #t (proves V cons?))]
+  [(abstract-δ rest V ℓ)
+   ((blame ℓ rest V λ V) )
+   (where #t (refutes V cons?))]
+  [(abstract-δ rest V ℓ)
+   (V-or-B ... (blame ℓ rest V λ V))
+   (where (V-or-B ...) (proj-right V))]
+  |#
+  )
+  
+(test
+ (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) ())) (-- ((pred exact-nonnegative-integer? †) ())) f))
+             (term ((-- (clos #t ())) (-- (clos #f ())))))
+ (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) ())) (-- (clos 3 ())) f))
+             (term ((-- (clos #t ())) (-- (clos #f ())))))
+ (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) ())) (-- (clos 0 ())) f))
+             (term ((-- (clos #t ())))))
+ (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) ())) (-- (clos 1 ())) f))
+             (term ((-- (clos #f ())))))
+ (test-equal (term (δ procedure-arity-includes? (-- (clos (λ () 0) ())) (-- ((pred exact-nonnegative-integer? †) ())) f))
+             (term ((-- (clos #t ())) (-- (clos #f ()))))))             
 
 (define-metafunction λcρ
   plain-δ : OP V ... LAB -> A
@@ -660,3 +754,53 @@
                                   (struct posn (x y))
                                   (provide/contract))]))
              (term ((p (posn posn posn? (posn-x posn-y)))))))
+
+;; Projections
+
+;; Project an AV to the left
+;; (proj-left (-- (cons/c exact-nonnegative-integer? string?) (cons/c zero? string?)))
+;; ≡ (-- exact-nonnegative-integer? zero?)
+(define-metafunction λcρ
+  proj-left : AV -> (V ...)
+  [(proj-left (-- C_0 C ...))
+   (proj-left/a ((join-contracts)) C_0 C ...)])
+
+(define-metafunction λcρ
+  proj-right : AV -> (V ...)
+  [(proj-right (-- C_0 C ...))
+   (proj-right/a ((join-contracts)) C_0 C ...)])
+
+(define-metafunction λcρ
+  proj-left/a : ((-- C ...) ...) C ... -> (V ...)
+  [(proj-left/a (AV ...)) (AV ...)]  
+  [(proj-left/a (AV ...) ((cons/c CON_0 CON_1) ρ) C_2 ...)
+   (proj-left/a (AV_R ...) C_2 ...)
+   (where (AV_R ...) 
+          ,(for*/list ([av (in-list (term (AV ...)))]
+                       [cnew (in-list (term (explode (CON_0 ρ))))])
+             (term (remember-contract ,av ,cnew))))]
+  [(proj-left/a (AV ...) C_0 C_1 ...)
+   (proj-left/a (AV ...) C_1 ...)])
+
+(define-metafunction λcρ
+  proj-right/a : ((-- C ...) ...) C ... -> (V ...)
+  [(proj-right/a (AV ...)) (AV ...)]  
+  [(proj-right/a (AV ...) ((cons/c CON_0 CON_1) ρ) C_2 ...)
+   (proj-right/a (AV_R ...) C_2 ...)
+   (where (AV_R ...) 
+          ,(for*/list ([av (in-list (term (AV ...)))]
+                       [cnew (in-list (term (explode (CON_1 ρ))))])
+             (term (remember-contract ,av ,cnew))))]
+  [(proj-right/a (AV ...) C_0 C_1 ...)
+   (proj-right/a (AV ...) C_1 ...)])
+
+(test
+ (test-equal (term (proj-left (-- ((∧) ())
+                                  ((cons/c (∧) (or/c (pred exact-nonnegative-integer? f)
+                                                     (pred string? f))) ()))))
+             (term ((-- ((∧) ())))))
+ (test-equal (term (proj-right (-- ((∧) ())
+                                   ((cons/c (∧) (or/c (pred exact-nonnegative-integer? f)
+                                                      (pred string? f))) ()))))
+             (term ((-- ((pred exact-nonnegative-integer? f) ()))
+                    (-- ((pred string? f) ()))))))
