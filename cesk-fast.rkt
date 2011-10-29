@@ -10,7 +10,7 @@
 
 (current-cache-all? #t)
 
-(define exact? #t)
+(define exact? #f)
 
 (define-extended-language CESK* λc~ 
   (K MT      
@@ -71,12 +71,14 @@
 
 (define (alloc-addr σ vals)
    (cond [exact? (variables-not-in* (hash-keys σ) vals)]
-         [(andmap symbol? vals)
-          (variables-not-in (hash-keys σ) vals)]
+         [(andmap symbol? vals) 
+          #;
+          (variables-not-in (hash-keys σ) vals)
+          vals]
          [(andmap V? vals) 
           (build-list (length vals) values)]
          [else ;; continuations
-          (map (λ (p) (if (and (pair? p)) (car p) p)) vals)]))
+          (map (λ (p) 'KONT #;(if (and (pair? p)) (car p) p)) vals)]))
 
 (define (alloc σ vals)
   (for/list ([a (alloc-addr σ vals)])
@@ -695,7 +697,10 @@
 (define (step-fixpoint P)
   (define l (term (load ,(last P))))
   (define f (step∆-gc (program-modules P)))
-  (let loop ([terms (list l)] [finals (set)] [seen (set)])
+  (let loop ([terms (list l)] [finals (set)] [seen (set)] [iters 0])
+    (when (= 0 (modulo iters 10))
+      (printf "~a iterations, ~a terms seen, ~a frontier, ~a elapsed ms\n" iters (set-count seen) (length terms) 
+              (current-process-milliseconds)))
     (define rs (for/list ([t (in-list terms)])
                  (list t (S-results (f t)))))
     (define-values
@@ -712,7 +717,7 @@
     (cond [(empty? new-terms)
            (remove-duplicates (for/list ([f new-finals]) f))]
           [else             
-           (loop (remove-duplicates new-terms) new-finals new-seen)])))
+           (loop (remove-duplicates new-terms) new-finals new-seen (add1 iters))])))
 
 #|
 (trace-it fit-example)

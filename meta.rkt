@@ -417,10 +417,10 @@
    (proj-left V)
    (where #t (proves V cons?))]
   [(abstract-δ first V ℓ)
-   ((blame ℓ first V λ V))
+   ((blame ℓ Λ V first V))
    (where #t (refutes V cons?))]
   [(abstract-δ first V ℓ)
-   (V-or-B ... (blame ℓ first V λ V))
+   (V-or-B ... (blame ℓ Λ V first V))
    (where (V-or-B ...) (proj-left V))]
   
   ;; rest
@@ -428,10 +428,10 @@
    (proj-right V)
    (where #t (proves V cons?))]
   [(abstract-δ rest V ℓ)
-   ((blame ℓ rest V λ V) )
+   ((blame ℓ Λ V rest V) )
    (where #t (refutes V cons?))]
   [(abstract-δ rest V ℓ)
-   (V-or-B ... (blame ℓ rest V λ V))
+   (V-or-B ... (blame ℓ Λ V rest V))
    (where (V-or-B ...) (proj-right V))]
   
   ;; nat*nat->nat
