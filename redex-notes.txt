@@ -46,5 +46,9 @@ f: (f 6 fred) is not in my domain
 - drop the restriction on union-reduction-relations to have
   the same language.  We want local extensions to the language
   and then union relations together at the top.
+- a tool that compared metafunction domains to LHS patterns and
+  told you about unreachable cases would be amazing, eg:
+  f : string -> number
+  [(f 7) blah]  ; not reachable
 
 - run FASTER!
