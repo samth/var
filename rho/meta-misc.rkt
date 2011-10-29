@@ -120,10 +120,92 @@
              (term (and/c (pred boolean? †)
                           (and/c (pred string? †)
                                  (pred (λ (x) #t) Λ))))))
- 
 
-;; FIXME: this should rely on a ≡C metafunction that, eg.
-;; compares modrefs without regard to use sites.
+(define-metafunction λcρ
+  modref=? : MODREF MODREF -> #t or #f
+  [(modref=? (X ^ LAB_1 X_1) (X ^ LAB_2 X_1)) #t]
+  [(modref=? MODREF_1 MODREF_2) #f])
+
+(define-metafunction λcρ
+  ≡C : C C -> #t or #f
+  [(≡C C C) #t]
+  [(≡C ((pred MODREF_1 LAB_1) ρ_1)
+       ((pred MODREF_2 LAB_2) ρ_2))
+   (modref=? MODREF_1 MODREF_2)]
+  
+  ;; FIXME maybe want to do ≡α here.
+  [(≡C ((pred PREDV LAB_1) ρ)
+       ((pred PREDV LAB_2) ρ))
+   #t]   
+  [(≡C ((and/c CON_1 CON_2) ρ_1)
+       ((and/c CON_3 CON_4) ρ_2))
+   ,(or (and (term (≡C (CON_1 ρ_1) (CON_3 ρ_2)))
+             (term (≡C (CON_2 ρ_1) (CON_4 ρ_2))))
+        (and (term (≡C (CON_1 ρ_1) (CON_4 ρ_2)))
+             (term (≡C (CON_2 ρ_1) (CON_3 ρ_2)))))]
+  [(≡C ((or/c CON_1 CON_2) ρ_1)
+       ((or/c CON_3 CON_4) ρ_2))
+   ,(or (and (term (≡C (CON_1 ρ_1) (CON_3 ρ_2)))
+             (term (≡C (CON_2 ρ_1) (CON_4 ρ_2))))
+        (and (term (≡C (CON_1 ρ_1) (CON_4 ρ_2)))
+             (term (≡C (CON_2 ρ_1) (CON_3 ρ_2)))))]
+  ;; FIXME maybe want to do ≡α here and `equal?'-style "infinite" unrolling.
+  [(≡C ((rec/c X CON_1) ρ_1) ((rec/c X CON_2) ρ_2))
+   (≡C (CON_1 ρ_1) (CON_2 ρ_2))]
+  [(≡C ((cons/c CON_1 CON_2) ρ_1) ((cons/c CON_3 CON_4) ρ_2))
+   ,(and (term (≡C (CON_1 ρ_1) (CON_3 ρ_2)))
+         (term (≡C (CON_2 ρ_1) (CON_4 ρ_2))))]
+  [(≡C ((CON_1 ..._1 -> CON_2) ρ_1)
+       ((CON_3 ..._1 -> CON_4) ρ_2))
+   #t
+   (where (#t ...) 
+          ((≡C (CON_1 ρ_1) (CON_3 ρ_2)) ... (≡C (CON_2 ρ_1) (CON_4 ρ_2))))]
+  ;; FIXME maybe want to do ≡α
+  [(≡C ((CON_1 ..._1 -> (λ (X ..._1) CON_2)) ρ_1)
+       ((CON_3 ..._1 -> (λ (X ..._1) CON_4)) ρ_2))
+   #t
+   (where (#t ...) 
+          ((≡C (CON_1 ρ_1) (CON_3 ρ_2)) ... (≡C (CON_2 ρ_1) (CON_4 ρ_2))))]
+  [(≡C C_1 C_2) #f])
+
+(test 
+ (test-equal (term (≡C ((∧) ()) ((∧) ()))) #t)
+ (test-equal (term (≡C ((pred (f ^ g h) r) ()) 
+                       ((pred (f ^ j h) s) ())))
+             #t)
+ (test-equal (term (≡C ((and/c (pred (f ^ g h) r)
+                               (pred (q ^ w x) u)) ())
+                       ((and/c (pred (q ^ y x) t)
+                               (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C ((and/c (pred (q ^ w x) u)
+                               (pred (f ^ g h) r)) ())
+                       ((and/c (pred (q ^ y x) t)
+                               (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C ((or/c (pred (f ^ g h) r)
+                              (pred (q ^ w x) u)) ())
+                       ((or/c (pred (q ^ y x) t)
+                              (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C ((or/c (pred (q ^ w x) u)
+                              (pred (f ^ g h) r)) ())
+                       ((or/c (pred (q ^ y x) t)
+                              (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C ((rec/c x (pred (f ^ g h) r)) ()) 
+                       ((rec/c x (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C ((cons/c (pred (q ^ w x) u) (pred (f ^ g h) r)) ())
+                       ((cons/c (pred (q ^ y x) t) (pred (f ^ j h) s)) ())))
+             #t)                        
+ (test-equal (term (≡C (((pred (q ^ w x) u) -> (pred (f ^ g h) r)) ())
+                       (((pred (q ^ y x) t) -> (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C (((pred (q ^ w x) u) -> (λ (x) (pred (f ^ g h) r))) ())
+                       (((pred (q ^ y x) t) -> (λ (x) (pred (f ^ j h) s))) ())))
+             #t))
+  
 ;; FIXME: don't need to remember arity-like contracts on arity-known procedures.
 (define-metafunction λcρ
   remember-contract : V C ... -> V ; or AE
@@ -147,10 +229,12 @@
    (remember-contract V C_2 ...)]
   ;; do the real work
   ;; forget duplicates  
-  [(remember-contract (-- any_0 C_0 ... C C_1 ...) C C_2 ...)
-   (remember-contract (-- any_0 C_0 ... C C_1 ...) C_2 ...)]
-  [(remember-contract (-- C_0 ... C C_1 ...) C C_2 ...)
-   (remember-contract (-- C_0 ... C C_1 ...) C_2 ...)]
+  [(remember-contract (-- any_0 C_0 ... C_A C_1 ...) C_B C_2 ...)   
+   (remember-contract (-- any_0 C_0 ... C_A C_1 ...) C_2 ...)
+   (where #t (≡C C_A C_B))]  
+  [(remember-contract (-- C_0 ... C_A C_1 ...) C_B C_2 ...)
+   (remember-contract (-- C_0 ... C_A C_1 ...) C_2 ...)
+   (where #t (≡C C_A C_B))] 
   ;; add feasible non-duplicates  
   [(remember-contract (-- C_1 ...) C_2 C ...)
    (remember-contract (-- C_1 ... C_2) C ...)

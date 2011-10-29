@@ -383,15 +383,11 @@
 ;; Does this value definitely pass this contract?
 (define-metafunction λcρ
   contract-in : C V -> #t or #f
-  ;; Wary of syntactic equality and envs.
-  ;; Getting this case right is crucial for soundness.
-  [(contract-in C (-- any ... C C_1 ...)) #t]
+  [(contract-in C (-- any ... C_0 C_1 ...))
+   #t
+   (where #t (≡C C C_0))]
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
-  [(contract-in ((pred MODREF LAB) ρ)
-                (-- any ... ((pred MODREF_1 LAB_1) ρ) C_1 ...))
-   #t
-   (where #t (modref=? MODREF MODREF_1))]    
   [(contract-in ((pred OP LAB) ρ) V)
    (proves V OP)]    
   [(contract-in ((and/c CON_1 CON_2) ρ) V)
@@ -650,11 +646,6 @@
   [(refutes-predicate string? OP) #t]
   [(refutes-predicate false? boolean?) #f]
   [(refutes-predicate false? OP) #t])
-
-(define-metafunction λcρ
-  modref=? : MODREF MODREF -> #t or #f
-  [(modref=? (X ^ LAB_1 X_1) (X ^ LAB_2 X_1)) #t]
-  [(modref=? MODREF MODREF_1) #f])
 
 ;; modulename x valuename x modules -> value
 (define-metafunction λcρ
