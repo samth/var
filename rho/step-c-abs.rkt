@@ -17,9 +17,8 @@
                (clos r ())) 
              ...)
         (side-condition (term (∈ #t (δ procedure? AV ★))))
-        (side-condition (term (∈ #t (δ procedure-arity-includes? AV 
-                                       (-- (clos ,(length (term (V ...))) ()))
-                                       ★))))
+        (where natural (arity AV))
+        (side-condition (= (term natural) (length (term (V ...)))))
         
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (where (((CON_D ρ_D) ..._1) ...) (domain-contracts (C ...)))
@@ -29,18 +28,20 @@
         ;; abstract value constrained by all possible domains
         (where V_result (join-contracts C_0 ...))
         apply-abs-known-arity)
-   
-   #|
-   (--> (@ AV V ... ℓ)
+      
+   (--> (@ AV V ... LAB)
         ;; do bad things in case of a concrete value
-        (amb (-- (any/c))
-             (begin (demonic* (any/c) V) (-- (any/c)))
+        (amb (join-contracts)
+             (let ((d (demonic* (∧) V))
+                   (r (join-contracts)))
+               (clos r ()))
              ...)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
-        (side-condition (term (∈ #t (δ (@ procedure? AV ★)))))
+        (side-condition (term (∈ #t (δ procedure? AV ★))))
         (side-condition (not (term (arity AV))))
         apply-abs-no-arity)
    
+   #|
    ;; CONTRACT CHECKING OF ABSTRACT VALUES
    
    ;; Predicate contracts are handled by concrete transition.
@@ -77,4 +78,15 @@
           (term (amb (-- ((pred (even? ^ fun e/o) fun) ())) 
                      (let ((d (-- (clos 0 ()))) 
                            (r (-- ((pred (even? ^ fun e/o) fun) ())))) 
-                       (clos r ()))))))
+                       (clos r ())))))
+
+ (test--> c~
+          (term (@ (-- ((pred procedure? †) ()))
+                   (-- (clos 4 ()))
+                   †))
+          (term (if (-- ((pred boolean? Λ) ()))
+                    (-- ((pred (λ (x) #t) Λ) ())) 
+                    (let ((d (-- (clos 0 ()))) 
+                          (r (-- ((pred (λ (x) #t) Λ) ())))) 
+                      (clos r ()))))))
+                

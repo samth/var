@@ -153,9 +153,9 @@
      (CON ρ <= LAB LAB V LAB 𝓔))
   
   ;; Conveniences  
-  (OP1 car cdr add1 sub1
-       zero? procedure? empty? cons? 
+  (OP? zero? procedure? empty? cons? 
        exact-nonnegative-integer? string? boolean? false?)
+  (OP1 car cdr add1 sub1 OP?)
   (OP2 + - * expt
        = < <= > >=             
        cons 
