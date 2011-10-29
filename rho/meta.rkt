@@ -34,15 +34,19 @@
   
   ;; FIXME: I don't think we're doing the right thing here in terms
   ;; of arity.  And I worry about what to do with things that have unknown arity.
+  ;; FIXME: Need to handle structs, too.
   [(demonic (pred PREDV any)) ;; MAYBE improve me: special case o?
-   (-- (clos (λ f (x) 
-               (if (@ procedure? x Λ)
-                   (@ f (@ x black-hole ★) ★)  ;; want to add fact that x is a proc.
-                   (if (@ cons? x Λ)
-                       (amb (@ f (@ car x ★) ★)
-                            (@ f (@ cdr x ★) ★))
-                       #t))))
-       ((black-hole (-- (pred (λ (x) #t) ())))))]
+   (-- (clos 
+        (λ f (x) 
+          (if (@ procedure? x Λ)
+              (@ f (@ x *black-hole* ★) ★)  ;; want to add fact that x is a proc.
+              (if (@ cons? x Λ)
+                  (if *bool*
+                      (@ f (@ car x ★) ★)
+                      (@ f (@ cdr x ★) ★))
+                  #t)))
+        ((*black-hole* (-- ((∧) ())))
+         (*bool* (-- ((pred boolean? Λ) ()))))))]
   
   [(demonic (and/c CON_0 CON_1))
    (-- (clos (λ (x) (begin (@ D1 x Λ)
@@ -57,10 +61,10 @@
               (D2 (demonic CON_1)))))]
   
   [(demonic (or/c CON_0 CON_1))
-   (demonic (any/c))]  ;; Always safe, hard to do better.
+   (demonic (∧))]  ;; Always safe, hard to do better.
    
   [(demonic (rec/c X CON))
-   (demonic (any/c))]  ;; Safe.  What else could you do?
+   (demonic (∧))]  ;; Safe.  What else could you do?
   
   ;; FIXME INFINITY GENSYM
   ;; FIXME these don't need to be gensym'd, just pick any Xs.
@@ -78,6 +82,40 @@
              ((X (-- CON_0)) ...
               (D1 (demonic CON_1)))))
    (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))])
+
+(test
+ (test-equal (term (demonic (∧)))
+             (term (-- (clos
+                        (λ f (x) 
+                          (if (@ procedure? x Λ)
+                              (@ f (@ x *black-hole* ★) ★)
+                              (if (@ cons? x Λ)
+                                  (if *bool*
+                                      (@ f (@ car x ★) ★)
+                                      (@ f (@ cdr x ★) ★))
+                                  #t)))
+                        ((*black-hole* (-- ((∧) ())))
+                         (*bool* (-- ((pred boolean? Λ) ()))))))))
+ 
+ (test-equal (term (demonic (and/c (∧) (∧))))
+             (term (-- (clos (λ (x) (begin (@ D1 x Λ)
+                                           (@ D2 x Λ)))
+                             ((D1 (demonic (∧)))
+                              (D2 (demonic (∧))))))))
+ 
+ (test-equal (term (demonic (cons/c (∧) (∧))))
+             (term (-- (clos (λ (x) (begin (@ D1 (@ car x ★) Λ)
+                                           (@ D2 (@ cdr x ★) Λ)))
+                             ((D1 (demonic (∧)))
+                              (D2 (demonic (∧))))))))
+ 
+ (test-equal (term (demonic (or/c (∧) (∧))))
+             (term (demonic (∧))))
+   
+ (test-equal (term (demonic (rec/c X (∧))))
+             (term (demonic (∧)))))
+ 
+
 
 (define-metafunction λcρ
   no-behavior : V -> #t or #f
