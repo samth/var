@@ -39,6 +39,11 @@
     [pattern (~datum trace) #:attr sym 'trace]
     [pattern (~datum eval) #:attr sym 'eval]))
 
+(define-for-syntax (finish-values op prog [extract #'values])
+  #`(apply values
+           (filter-not (match-lambda [(app #,extract (list 'blame '★ _ (... ...))) #t] [_ #f])
+                       (#,op #,prog))))
+
 (define-syntax (#%module-begin stx)
   (syntax-parse stx    
     [(_ (~and m ((~datum module) . _)) ...)
@@ -70,17 +75,8 @@
                  #,(case trace
                      [(trace) #'(trace-it -->_vcc~Δ the-program)]
                      [(step)  #'(step-it -->_vcc~Δ the-program)]
-                     [(eval) 
-                      #'(begin 
-                          (define the-program (term (annotator [m ... e])))
-                          (apply values
-                                 (map clean-up
-                                      (filter-not
-                                       (λ (p)
-                                         (match p
-                                           [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                                       (map (λ (x) x #;(term (unann-exp ,x)))   
-                                            (eval_vcc~Δ  the-program))))))]))]
+                     [(eval) (finish-values #'(λ (p) (map clean-up (eval_vcc~Δ p)))
+                                            #'the-program)]))]
             [(count)             
              #'(begin 
                  (define the-program (term (annotator [m ... e])))
@@ -92,27 +88,19 @@
                  (define the-program (term (annotator [m ... e])))
                  #,(case trace
                      [(trace) #'(c:trace-it the-program)]
-                     [else 
-                      #'(apply values
-                               (filter-not
-                                (λ (p)
-                                  (match p
-                                    [(list (list 'blame '★ _ (... ...)) _ (... ...)) #t]
-                                    [_ #f]))
-                                (c:final the-program)))]))]
+                     [(step) #'(c:step-it the-program)]
+                     [(eval) (finish-values #'c:final 
+                                            #'the-program
+                                            #'first)]))]
             [(fast) 
              #`(begin 
                  (define the-program (term (annotator [m ... e])))
                  #,(case trace
                      [(trace) #'(f:trace-it the-program)]
-                     [else
-                      #'(apply values
-                               (filter-not
-                                (λ (p)
-                                  (match p
-                                    [(f:st (list 'blame '★ _ (... ...)) _ _ _) #t]
-                                    [_ #f]))
-                                (f:step-fixpoint the-program)))]))]))]))
+                     [(step) #'(f:step-it the-program)]
+                     [(eval) (finish-values #'f:step-fixpoint
+                                            #'the-program
+                                            #'f:st-c)]))]))]))
 
 (define (clean-up r)
   (match r

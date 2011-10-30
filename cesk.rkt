@@ -731,6 +731,10 @@
           #:pred (colorize (program-modules P))
           . rest))
 
+(define-syntax-rule (step-it P . rest)
+  (stepper (stepΔ-gc (program-modules P))
+           (term (load ,(last P)))))
+
 #|
 (trace-it fit-example)
 (trace-it fit-example-rsa-7)

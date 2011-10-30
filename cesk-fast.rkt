@@ -693,6 +693,10 @@
           #:pred (colorize (program-modules P))
           . rest))
 
+(define-syntax-rule (step-it P . rest)
+  (stepper (step∆-gc-R (program-modules P))
+           (term (load ,(last P)))))
+
 
 
 (define (step-fixpoint P)

@@ -1,4 +1,4 @@
-#lang var fast approx
+#lang var fast step approx
 (module factorial racket 
   (define (fact-acc n acc)
     (if (zero? n) acc (fact-acc (sub1 n) (* n acc))))
