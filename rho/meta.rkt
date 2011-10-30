@@ -66,22 +66,19 @@
   [(demonic (rec/c X CON))
    (demonic (∧))]  ;; Safe.  What else could you do?
   
-  ;; FIXME INFINITY GENSYM
-  ;; FIXME these don't need to be gensym'd, just pick any Xs.
   [(demonic (CON_0 ... -> CON_1))
    (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
-             ((X (-- CON_0)) ...
+             ((X (-- (CON_0 ()))) ...  ;; FIXME not the right env -- need to be given env.
               (D1 (demonic CON_1)))))
-   (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))]
+   (where (X ...) ,(gen-xs (term (CON_0 ...))))]
    
-  ;; FIXME INFINITY GENSYM
   [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
    ;; NOTE: Since the environment of a CON plays no role in demonic,
    ;; we do not do extend the environment of CON_1 with ((X_0 (-- CON_0)) ...).
    (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
-             ((X (-- CON_0)) ...
+             ((X (-- (CON_0 ()))) ...   ;; FIXME not the right env -- need to be given env.
               (D1 (demonic CON_1)))))
-   (where (X ...) ,(map (λ _ (gensym 'x)) (term (CON_0 ...))))])
+   (where (X ...) ,(gen-xs (term (CON_0 ...))))])
 
 (test
  (test-equal (term (demonic (∧)))
@@ -113,9 +110,31 @@
              (term (demonic (∧))))
    
  (test-equal (term (demonic (rec/c X (∧))))
-             (term (demonic (∧)))))
+             (term (demonic (∧))))
  
+ (test-equal (term (demonic ((∧) -> (∧))))              
+             (term (-- (clos (λ (f) (@ D1 (@ f x0 ★) Λ))
+                             ((x0 (-- ((∧) ())))
+                              (D1 (demonic (∧))))))))
+ 
+ (test-equal (term (demonic ((∧) -> (λ (x) (∧)))))
+             (term (-- (clos (λ (f) (@ D1 (@ f x0 ★) Λ))
+                             ((x0 (-- ((∧) ())))
+                              (D1 (demonic (∧)))))))))
+ 
+;; Rather than use gensym here, we deterministically generate 
+;; names x0, x1, ..., xi.  Since this function is applied to
+;; lists of CONs appearing in `->' contracts, which there are
+;; only finitely many, this function does not generate infinite xs.
+;; [Probably want to tune up to increase precision at some point.]
+(define (gen-xs ls)
+  (for/list ([c (in-list ls)]
+             [i (in-naturals)])
+    (string->symbol (format "x~a" i))))
 
+(test
+ (test-equal (gen-xs (list 'a 'b 'c))
+             (list 'x0 'x1 'x2)))
 
 (define-metafunction λcρ
   no-behavior : V -> #t or #f
