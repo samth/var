@@ -48,22 +48,22 @@
           ,(remove-duplicates
             (for*/list ([l (term (proj-left AV))]
                         [r (term (proj-right AV))])
-              (term (-- (clos (λ (x) (if (@ cons? X Λ)
+              (term (-- (clos (λ (X) (if (@ cons? X Λ)
                                          (if (@ f1 (@ car X Λ) Λ)
                                              (@ f2 (@ cdr X Λ) Λ)
                                              #f)
-                                         #t)))
-                        ((f1 (fc/c X any CON_1 ρ ,l))
-                         (f2 (fc/c X any CON_2 ρ ,r))))))))  
+                                         #t))
+                              ((f1 (fc/c X any CON_1 ρ ,l))
+                               (f2 (fc/c X any CON_2 ρ ,r)))))))))
    (where #t (proves AV cons?))]  
-  [(fc/c X any (cons/c CON_1 CON_2) AV)
+  [(fc/c X any (cons/c CON_1 CON_2) ρ AV)
    (amb (-- (clos (λ (X) #f) ()))        
         (-- (clos (λ (X)
                     (if (@ f1 *black-hole* Λ)
                         (@ f2 *black-hole* Λ)
                         #f))
-                  ((f1 (fc/c X any CON_1 (join-contracts)))
-                   (f2 (fc/c X any CON_2 (join-contracts)))
+                  ((f1 (fc/c X any CON_1 ρ (join-contracts)))
+                   (f2 (fc/c X any CON_2 ρ (join-contracts)))
                    (*black-hole* (join-contracts))))))
    (where #f (proves AV cons?))
    (where #f (refutes AV cons?))])
@@ -107,15 +107,28 @@
   (term (flat-check ((rec/c z (pred (prime? ^ f g) f)) ()) (-- (clos 0 ()))))
   (term (flat-check ((pred (prime? ^ f g) f) ()) (-- (clos 0 ())))))
  
- ;; FIXME : needs work on abs-δ before this can work.
  (test-equal
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
                      ())
                     (-- ((pred cons? f) ()))))
-  #f)
+  (term (-- (clos (λ (x) (if (@ cons? x Λ) (if (@ f1 (@ car x Λ) Λ) (@ f2 (@ cdr x Λ) Λ) #f) #t))
+                  ((f1 (-- (clos (λ (x) (@ (prime? ^ f g) x f)) ()))) 
+                   (f2 (-- (clos (λ (x) (@ (composite? ^ f g) x f)) ()))))))))
  
- ;; FIXME need case for cons/c vs. (-- any/c).
- ;; FIXME need case for recursive loop that hits co-inductive base case.
- )
+ (test-equal 
+  (term (flat-check ((cons/c (pred (prime? ^ f g) f)
+                             (pred (composite? ^ f g) f)) 
+                     ())
+                    (-- ((∧) ()))))
+  (term (amb (-- (clos (λ (x1) #f) ()))
+             (-- (clos (λ (x1)
+                         (if (@ f1 *black-hole* Λ)
+                             (@ f2 *black-hole* Λ)
+                             #f))
+                       ((f1 (flat-check ((pred (prime? ^ f g) f) ()) (join-contracts)))
+                        (f2 (flat-check ((pred (composite? ^ f g) f) ()) (join-contracts)))
+                        (*black-hole* (join-contracts)))))))))
+
+;; FIXME need case for recursive loop that hits co-inductive base case.
 
