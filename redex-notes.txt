@@ -50,5 +50,6 @@ f: (f 6 fred) is not in my domain
   told you about unreachable cases would be amazing, eg:
   f : string -> number
   [(f 7) blah]  ; not reachable
+- remove symbol restriction on variables-not-in.
 
 - run FASTER!
