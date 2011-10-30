@@ -243,16 +243,37 @@
    (where #t (proves V_1 exact-nonnegative-integer?))]  
   ;; FIXME more cases to consider?
   
-  ;; nat->nat
-  [(abs-δ nat->nat V LAB)
+  ;; natural->natural
+  [(abs-δ natural->natural V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) ())))
    (where #t (proves V exact-nonnegative-integer?))]
-  [(abs-δ nat->nat V LAB)
-   ((blame LAB Λ V nat->nat V))
+  [(abs-δ natural->natural V LAB)
+   ((blame LAB Λ V natural->natural V))
    (where #t (refutes V exact-nonnegative-integer?))]
-  [(abs-δ nat->nat V LAB)
+  [(abs-δ natural->natural V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) ()))
-    (blame LAB Λ V nat->nat V))]
+    (blame LAB Λ V natural->natural V))]
+  
+  ;; natural-natural->natural
+  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+   ((blame LAB Λ V_1 natural-natural->natural V_1))
+   (where #t (refutes V_1 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+   ((blame LAB Λ V_2 natural-natural->natural V_2))
+   (where #t (proves V_1 exact-nonnegative-integer?))
+   (where #t (refutes V_2 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) ())))
+   (where #t (proves V_1 exact-nonnegative-integer?))
+   (where #t (proves V_2 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) ()))
+    (blame LAB Λ V_2 natural-natural->natural V_2))
+   (where #t (proves V_1 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) ()))
+    (blame LAB Λ V_1 natural-natural->natural V_1)
+    (blame LAB Λ V_2 natural-natural->natural V_2))]
   
   ;; car
   [(abs-δ car V LAB)
@@ -265,19 +286,16 @@
    (A ... (blame LAB Λ V car V))
    (where (A ...) (proj-left V))]
   
-  ;; cdr FIXME
-  #|
-  [(abstract-δ rest V ℓ)
+  ;; cdr
+  [(abs-δ cdr V LAB)
    (proj-right V)
    (where #t (proves V cons?))]
-  [(abstract-δ rest V ℓ)
-   ((blame ℓ rest V λ V) )
+  [(abs-δ cdr V LAB)
+   ((blame LAB Λ V cdr V))
    (where #t (refutes V cons?))]
-  [(abstract-δ rest V ℓ)
-   (V-or-B ... (blame ℓ rest V λ V))
-   (where (V-or-B ...) (proj-right V))]
-  |#
-  )
+  [(abs-δ cdr V LAB)
+   (A ... (blame LAB Λ V cdr V))
+   (where (A ...) (proj-right V))])
   
 (test
  (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) ())) (-- ((pred exact-nonnegative-integer? †) ())) f))
@@ -289,7 +307,51 @@
  (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) ())) (-- (clos 1 ())) f))
              (term ((-- (clos #f ())))))
  (test-equal (term (δ procedure-arity-includes? (-- (clos (λ () 0) ())) (-- ((pred exact-nonnegative-integer? †) ())) f))
-             (term ((-- (clos #t ())) (-- (clos #f ()))))))             
+             (term ((-- (clos #t ())) (-- (clos #f ())))))
+ (test-equal (term (δ add1 (-- ((pred exact-nonnegative-integer? †) ())) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) ())))))
+ (test-equal (term (δ add1 (-- ((pred string? †) ())) f))
+             (term ((blame f Λ (-- ((pred string? †) ())) add1 (-- ((pred string? †) ()))))))
+ (test-equal (term (δ add1 (-- ((∧) ())) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) ()))
+                    (blame f Λ (-- ((∧) ())) add1 (-- ((∧) ()))))))
+ 
+ (test-equal (term (δ + (-- (clos 0 ())) (-- ((pred exact-nonnegative-integer? †) ())) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) ())))))
+ (test-equal (term (δ + (-- ((pred exact-nonnegative-integer? †) ())) (-- (clos 0 ())) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) ())))))   
+ (test-equal (term (δ + (-- ((pred string? †) ())) (-- (clos 0 ())) f))
+             (term ((blame f Λ (-- ((pred string? †) ())) + (-- ((pred string? †) ()))))))
+ (test-equal (term (δ + (-- (clos 0 ())) (-- ((pred string? †) ())) f))
+             (term ((blame f Λ (-- ((pred string? †) ())) + (-- ((pred string? †) ()))))))   
+ (test-equal (term (δ + (-- (clos 0 ())) (-- ((∧) ())) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) ()))
+                    (blame f Λ (-- ((∧) ())) + (-- ((∧) ()))))))
+ (test-equal (term (δ + (-- ((pred (p? ^ f g) f) ())) (-- ((∧) ())) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) ()))
+                    (blame f Λ (-- ((pred (p? ^ f g) f) ())) + (-- ((pred (p? ^ f g) f) ())))
+                    (blame f Λ (-- ((∧) ())) + (-- ((∧) ()))))))
+ (test-equal (term (δ car (-- ((cons/c (pred string? f) (∧)) ())) f))
+             (term ((-- ((pred string? f) ())))))
+ (test-equal (term (δ car (-- ((pred cons? f) ())) f))
+             (term ((-- ((∧) ())))))
+ (test-equal (term (δ car (-- ((pred string? f) ())) f))
+             (term ((blame f Λ (-- ((pred string? f) ())) car (-- ((pred string? f) ()))))))
+ (test-equal (term (δ car (-- ((∧) ())) f))
+             (term ((-- ((∧) ()))
+                    (blame f Λ (-- ((∧) ())) car (-- ((∧) ()))))))
+ (test-equal (term (δ cdr (-- ((cons/c (∧) (pred string? f)) ())) f))
+             (term ((-- ((pred string? f) ())))))
+ (test-equal (term (δ cdr (-- ((pred cons? f) ())) f))
+             (term ((-- ((∧) ())))))
+ (test-equal (term (δ cdr (-- ((pred string? f) ())) f))
+             (term ((blame f Λ (-- ((pred string? f) ())) cdr (-- ((pred string? f) ()))))))
+ (test-equal (term (δ cdr (-- ((∧) ())) f))
+             (term ((-- ((∧) ()))
+                    (blame f Λ (-- ((∧) ())) cdr (-- ((∧) ())))))))
+ 
+ 
+ 
 
 (define-metafunction λcρ
   plain-δ : OP V ... LAB -> A
@@ -377,6 +439,8 @@
    (blame LAB Λ V OP V)])
 
 (test 
+ (test-equal (term (plain-δ cons (-- (clos 0 ())) (-- (clos 1 ())) †))
+             (term (-- (cons (-- (clos 0 ())) (-- (clos 1 ()))))))
  (test-equal (term (plain-δ add1 (-- (clos 5 ())) †))
              (term (-- (clos 6 ()))))
  (test-equal (term (plain-δ sub1 (-- (clos 5 ())) †))
@@ -670,23 +734,29 @@
 ;; Does satisfying C imply (negate o?)
 (define-metafunction λcρ
   refutes-con : C OP -> #t or #f
-  [(refutes-con (C_0 ... -> any) procedure?) #f]
-  [(refutes-con (C_0 ... -> any) OP) #t]
-  [(refutes-con (pred OP_0 ℓ) OP_1) 
+  [(refutes-con ((CON_0 ... -> any) ρ) procedure?) #f]
+  [(refutes-con ((CON_0 ... -> any) ρ) OP) #t]
+  [(refutes-con ((pred OP_0 LAB) ρ) OP_1) 
    (refutes-predicate OP_0 OP_1)]
-  [(refutes-con (or/c C_0 C_1) OP)
-   ,(and (term (refutes-con C_0 OP))
-         (term (refutes-con C_1 OP)))]
-  [(refutes-con (and/c C_0 C_1) OP)
-   ,(or (term (refutes-con C_0 OP))
-        (term (refutes-con C_1 OP)))]
-  [(refutes-con (cons/c C_0 C_1) OP) 
+  [(refutes-con ((or/c CON_0 CON_1) ρ) OP)
+   ,(and (term (refutes-con (CON_0 ρ) OP))
+         (term (refutes-con (CON_1 ρ) OP)))]
+  [(refutes-con ((and/c CON_0 CON_1) ρ) OP)
+   ,(or (term (refutes-con (CON_0 ρ) OP))
+        (term (refutes-con (CON_1 ρ) OP)))]
+  [(refutes-con ((cons/c CON_0 CON_1) ρ) OP) 
    #t
    (side-condition (not (eq? (term OP) 'cons?)))]
-  [(refutes-con (rec/c x C) OP) 
-   (refutes-con (unroll (rec/c x C)) OP)   ;; Productive implies you'll never get
-   (where #t (productive? (rec/c x C)))]   ;; back to (rec/c x C) in this metafunction.
+  [(refutes-con ((rec/c X CON) ρ) OP) 
+   ;; Productive implies you'll never get a loop
+   (refutes-con ((unroll (rec/c X C)) ρ) OP)]
   [(refutes-con C OP) #f])
+
+(test 
+ (test-equal (term (refutes-con ((pred string? f) ()) exact-nonnegative-integer?))
+             #t))
+
+ 
 
 (define-metafunction λcρ  
   refutes-predicate : OP OP -> #t or #f
