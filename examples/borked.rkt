@@ -1,4 +1,4 @@
-#lang var cesk ;-trace
+#lang var cesk ;trace
 
 
 (define/contract p (-> anything (-> anything boolean?)) (λ (x) (λ (y) x)))

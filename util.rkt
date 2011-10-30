@@ -1,3 +1,4 @@
+
 #lang racket
 (provide (all-defined-out))
 (require redex/reduction-semantics)
@@ -16,3 +17,5 @@
 (define-syntax-rule (stepper . args) ((dynamic-require 'redex 'stepper) . args))
 (define (term-node-children . args)
   (apply (dynamic-require 'redex 'term-node-children) args))
+
+(define current-exact? (make-parameter #t))

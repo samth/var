@@ -10,7 +10,8 @@
 
 (current-cache-all? #t)
 
-(define exact? #f)
+;; turns of contract checking
+(define-syntax-rule (define/contract a b c) (define a c))
 
 (define-extended-language CESK* λc~ 
   (K MT      
@@ -36,7 +37,7 @@
   [(widen o B) B]
   [(widen o V) 
    V
-   (side-condition exact?)]
+   (side-condition (current-exact?))]
   [(widen o V) (widen/n 10 o V)])
 
 (define-metafunction CESK*
@@ -70,7 +71,7 @@
   (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
 
 (define (alloc-addr σ vals)
-   (cond [exact? (variables-not-in* (hash-keys σ) vals)]
+   (cond [(current-exact?) (variables-not-in* (hash-keys σ) vals)]
          [(andmap symbol? vals) 
           #;
           (variables-not-in (hash-keys σ) vals)
@@ -78,7 +79,7 @@
          [(andmap V? vals) 
           (build-list (length vals) values)]
          [else ;; continuations
-          (map (λ (p) 'KONT #;(if (and (pair? p)) (car p) p)) vals)]))
+          (map (λ (p) (if (list? p) (drop-right p 1) p)) vals)]))
 
 (define (alloc σ vals)
   (for/list ([a (alloc-addr σ vals)])
@@ -698,7 +699,7 @@
   (define l (term (load ,(last P))))
   (define f (step∆-gc (program-modules P)))
   (let loop ([terms (list l)] [finals (set)] [seen (set)] [iters 0])
-    (when (= 0 (modulo iters 10))
+    (when (= 0 (modulo iters 50))
       (printf "~a iterations, ~a terms seen, ~a frontier, ~a elapsed ms\n" iters (set-count seen) (length terms) 
               (current-process-milliseconds)))
     (define rs (for/list ([t (in-list terms)])

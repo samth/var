@@ -9,8 +9,6 @@
 
 (current-cache-all? #t)
 
-(define exact? #t)
-
 (define-extended-language CESK* λc~ 
   (K MT      
      (AP (clo ...) ((E ρ) ...) ℓ a)
@@ -33,7 +31,7 @@
   [(widen o B) B]
   [(widen o V) 
    V
-   (side-condition exact?)]
+   (side-condition (current-exact?))]
   [(widen o V) (widen/n 10 o V)])
 
 (define-metafunction CESK*
@@ -70,7 +68,7 @@
   alloc-addr : σ (any ..._1) -> (any ..._1)
   [(alloc-addr σ (any ...))
    ,(variables-not-in* (term σ) (term (any ...)))
-   (side-condition exact?)]
+   (side-condition (current-exact?))]
   [(alloc-addr σ (x ...)) 
    (x ...) #;
    ,(variables-not-in (term σ) (term (x ...)))]
