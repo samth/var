@@ -28,6 +28,9 @@
    (-- (clos (λ (X) (if (@ f1 X Λ) (@ f2 X Λ) #f))
              ((f1 (fc/c X any FLAT_1 ρ V))
               (f2 (fc/c X any FLAT_2 ρ V)))))]
+  [(fc/c X any (not/c FLAT_1) ρ V)
+   (-- (clos (λ (X) (if (@ f1 X Λ) #f #t))
+             ((f1 (fc/c X any FLAT_1 ρ V)))))]
   [(fc/c X any (cons/c FLAT_1 FLAT_2) ρ
          (-- (cons V_1 V_2) C ...))
    (-- (clos (λ (X) (if (@ f1 (@ car X Λ) Λ) (@ f2 (@ cdr X Λ) Λ) #f))
@@ -43,28 +46,33 @@
   [(fc/c X_1 any (rec/c X CON) ρ V)   
    (fc/c X_1 ((((rec/c X CON) ρ) V) . any) (unroll (rec/c X CON)) ρ V)]    
   [(fc/c X any (cons/c CON_1 CON_2) ρ AV)
-   (amb D_r ...)
-   (where (D_r ...)
+   (-- (clos (λ (X) (amb/e *black-hole* (@ X_n X Λ) ...)) ([*black-hole* (join-contracts)]
+                                                           [X_n V_r] ...)))
+   (where (V_r ...)
           ,(remove-duplicates
             (for*/list ([l (term (proj-left AV))]
                         [r (term (proj-right AV))])
-              (term (-- (clos (λ (X) (if (@ cons? X Λ)
-                                         (if (@ f1 (@ car X Λ) Λ)
-                                             (@ f2 (@ cdr X Λ) Λ)
-                                             #f)
-                                         #t))
+              (term (-- (clos (λ (x)
+                                (if (@ f1 (@ car x Λ) Λ)
+                                    (@ f2 (@ cdr x Λ) Λ)
+                                    #f))
                               ((f1 (fc/c X any CON_1 ρ ,l))
                                (f2 (fc/c X any CON_2 ρ ,r)))))))))
-   (where #t (proves AV cons?))]  
+   (where (X_n ...) ,(gen-xs (term (V_r ...))))
+   (where #t (proves AV cons?))]
   [(fc/c X any (cons/c CON_1 CON_2) ρ AV)
-   (amb (-- (clos (λ (X) #f) ()))        
-        (-- (clos (λ (X)
-                    (if (@ f1 *black-hole* Λ)
-                        (@ f2 *black-hole* Λ)
-                        #f))
-                  ((f1 (fc/c X any CON_1 ρ (join-contracts)))
-                   (f2 (fc/c X any CON_2 ρ (join-contracts)))
-                   (*black-hole* (join-contracts))))))
+   (-- (clos (λ (X)
+               (amb/e *black-hole*
+                      #f
+                      (if (@ f1 *black-hole* Λ)
+                          (@ f2 *black-hole* Λ)
+                          #f)))
+             ((f1 (fc/c X any CON_1 ρ (join-contracts)))
+              (f2 (fc/c X any CON_2 ρ (join-contracts)))
+              (*black-hole* (join-contracts)))))
+   ;; using *black-hole* instead of (car X) and (cdr X) avoids spurious blame of the language
+   ;; (proj-{left,right} AV) can't produce anything interesting here, 
+   ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
    (where #f (proves AV cons?))
    (where #f (refutes AV cons?))])
 
@@ -79,6 +87,10 @@
  (test-equal
   (term (flat-check ((pred (prime? ^ f g) f) ()) (-- (clos 0 ()))))
   (term (-- (clos (λ (x) (@ (prime? ^ f g) x f)) ()))))
+ (test-equal
+  (term (flat-check ((not/c (pred (prime? ^ f g) f)) ()) (-- (clos 0 ()))))
+  (term (-- (clos (λ (x) (if (@ f1 x Λ) #f #t)) 
+                  ([f1 (flat-check ((pred (prime? ^ f g) f) ()) (-- (clos 0 ())))])))))
  (test-equal
   (term (flat-check ((and/c (pred (prime? ^ f g) f)
                             (pred (composite? ^ f g) f)) 
@@ -100,7 +112,8 @@
                              (pred (composite? ^ f g) f)) 
                      ())
                     (-- (cons (-- (clos 0 ())) (-- (clos 1 ()))))))
-  (term (-- (clos (λ (x) (if (@ f1 (@ car x Λ) Λ) (@ f2 (@ cdr x Λ) Λ) #f))
+  (term 
+   (-- (clos (λ (x) (if (@ f1 (@ car x Λ) Λ) (@ f2 (@ cdr x Λ) Λ) #f))
                   ((f1 (flat-check ((pred (prime? ^ f g) f) ()) (-- (clos 0 ()))))
                    (f2 (flat-check ((pred (composite? ^ f g) f) ()) (-- (clos 1 ())))))))))
  (test-equal
@@ -112,23 +125,41 @@
                              (pred (composite? ^ f g) f)) 
                      ())
                     (-- ((pred cons? f) ()))))
-  (term (-- (clos (λ (x) (if (@ cons? x Λ) (if (@ f1 (@ car x Λ) Λ) (@ f2 (@ cdr x Λ) Λ) #f) #t))
-                  ((f1 (-- (clos (λ (x) (@ (prime? ^ f g) x f)) ()))) 
-                   (f2 (-- (clos (λ (x) (@ (composite? ^ f g) x f)) ()))))))))
+  (term (-- (clos (λ (x) (@ x0 x Λ))
+             ([*black-hole* (join-contracts)]
+              [x0 (-- (clos (λ (x) (if (@ f1 (@ car x Λ) Λ) (@ f2 (@ cdr x Λ) Λ) #f))
+                  ((f1 (-- (clos (λ (x) (@ (prime? ^ f g) x f)) ())))
+                   (f2 (-- (clos (λ (x) (@ (composite? ^ f g) x f)) ()))))))])))))
  
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
                      ())
                     (-- ((∧) ()))))
-  (term (amb (-- (clos (λ (x1) #f) ()))
-             (-- (clos (λ (x1)
-                         (if (@ f1 *black-hole* Λ)
-                             (@ f2 *black-hole* Λ)
-                             #f))
-                       ((f1 (flat-check ((pred (prime? ^ f g) f) ()) (join-contracts)))
-                        (f2 (flat-check ((pred (composite? ^ f g) f) ()) (join-contracts)))
-                        (*black-hole* (join-contracts)))))))))
-
-;; FIXME need case for recursive loop that hits co-inductive base case.
-
+  (term (-- (clos (λ (x1)
+                    (amb/e *black-hole* 
+                           #f
+                           (if (@ f1 *black-hole* Λ)
+                               (@ f2 *black-hole* Λ)
+                               #f)))
+                  ((f1 (flat-check ((pred (prime? ^ f g) f) ()) (join-contracts)))
+                   (f2 (flat-check ((pred (composite? ^ f g) f) ()) (join-contracts)))
+                   (*black-hole* (join-contracts)))))))
+ (test-equal
+  (term (flat-check ((rec/c x (or/c (pred empty? †)
+                                    (cons/c (pred zero? †) x)))
+                     ())
+                    (-- ((∧) ()))))
+  (term (-- (clos (λ (x1)
+                    (if (@ f1 x1 Λ)
+                        #t
+                        (@ f2 x1 Λ)))                                          
+                  ((f1 (flat-check ((pred empty? †) ()) (join-contracts)))
+                   (f2 (-- (clos (λ (x1) (amb/e *black-hole*
+                                                #f 
+                                                (if (@ f1 *black-hole* Λ)
+                                                    (@ f2 *black-hole* Λ)
+                                                    #f)))
+                                 ([f1 (flat-check ((pred zero? †) ()) (join-contracts))]
+                                  [f2 (-- (clos (λ (x1) #t) ()))]
+                                  (*black-hole* (join-contracts))))))))))))

@@ -66,6 +66,9 @@
   [(demonic (rec/c X CON))
    (demonic (∧))]  ;; Safe.  What else could you do?
   
+  [(demonic (not/c CON))
+   (demonic (∧))]  ;; Safe.  What else could you do?
+  
   [(demonic (CON_0 ... -> CON_1))
    (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
              ((X (-- (CON_0 ()))) ...  ;; FIXME not the right env -- need to be given env.
@@ -107,6 +110,9 @@
                               (D2 (demonic (∧))))))))
  
  (test-equal (term (demonic (or/c (∧) (∧))))
+             (term (demonic (∧))))
+ 
+ (test-equal (term (demonic (not/c (∧))))
              (term (demonic (∧))))
    
  (test-equal (term (demonic (rec/c X (∧))))
@@ -177,10 +183,14 @@
 (define-metafunction λcρ
   amb : D D ... -> D
   [(amb D) D]
-  [(amb D_1 D_2) (if (-- ((pred boolean? Λ) ())) D_1 D_2)]
-  [(amb D_1 D_2 D_3 ...)
-   (amb (if (-- ((pred (λ (x) #t) Λ) ())) D_1 D_2)
-        D_3 ...)])
+  [(amb D_1 D_3 ...)
+   (if (-- ((pred (λ (x) #t) Λ) ())) D_1 (amb D_3 ...))])
+
+(define-metafunction λcρ
+  amb/e : X EXP EXP ... -> EXP
+  [(amb/e X EXP) EXP]
+  [(amb/e X EXP_1 EXP_3 ...)
+   (if X EXP_1 (amb/e X EXP_3 ...))])
 
 (test
  ;; FIXME Why does this seemingly take FOREVER!?
@@ -502,6 +512,7 @@
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
 ;; Does this value definitely pass this contract?
+;; FIXME -- this needs a cached version
 (define-metafunction λcρ
   contract-in : C V -> #t or #f
   [(contract-in C (-- any ... C_0 C_1 ...))
@@ -520,8 +531,8 @@
   [(contract-in ((cons/c CON_1 CON_2) ρ) (-- (cons V_1 V_2) C ...))
    ,(and (term (contract-in (CON_1 ρ) V_1)) 
          (term (contract-in (CON_2 ρ) V_2)))]
-  ;; FIXME: Add back when ABSTRACT values go in.
-  #;
+  [(contract-in ((not/c CON_1) ρ) V)
+   (contract-not-in (CON_1 ρ) V)]
   [(contract-in ((cons/c CON_1 CON_2) ρ) AV)
    ,(and (andmap (λ (x) (term (contract-in (CON_1 ρ) ,x))) (term (proj-left AV)))
          (andmap (λ (x) (term (contract-in (CON_2 ρ) ,x))) (term (proj-right AV))))] 
@@ -558,8 +569,16 @@
  (test-equal (term (contract-in ((cons/c (pred zero? †) (pred string? †)) ())
                                 (-- (cons (-- (clos 0 ())) (-- (clos 2 ()))))))
              #f)
+ 
+ (test-equal (term (contract-in ((not/c (pred cons? †)) ())
+                                (-- (clos 1 ()))))
+             #t)
+ 
+ (test-equal (term (contract-in ((not/c (pred cons? †)) ())
+                                (-- (cons (-- (clos 0 ())) (-- (clos 2 ()))))))
+             #f)
  ;; We should really get true here, but it requires more work.
- ;; FIXME known to fail
+ ;; FIXME known to fail; requires caching
  (test-equal (term (contract-in ((rec/c x 
                                         (or/c (pred empty? †)
                                               (cons/c (pred zero? †) x))) 
@@ -593,7 +612,7 @@
 
 (define-metafunction λcρ
   contract-not-in/cache : C V ((C V) ...) -> #t or #f
-  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f]
+  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f] ;; FIXME -- use ≡C
   ;; Pretty sure this is not needed
   #;
   [(contract-not-in/cache (CON-INAPPLICABLE ρ) V any)
@@ -616,6 +635,9 @@
   [(contract-not-in/cache ((or/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
    ,(and (term (contract-not-in/cache (CON_1 ρ) V ((((or/c C_1 C_2) ρ) V) (C_3 V_3) ...)))
          (term (contract-not-in/cache (CON_2 ρ) V ((((or/c C_1 C_2) ρ) V) (C_3 V_3) ...))))]
+  
+  [(contract-not-in/cache ((not/c CON_1) ρ) V ((C_3 V_3) ...))
+   (contract-in (CON_1 ρ) V)] ;; FIXME -- use contract-not-in/cache when it exists
   
   [(contract-not-in/cache ((rec/c X CON) ρ) V ((C_3 V_3) ...))
    (contract-not-in/cache ((unroll (rec/c X CON)) ρ) V ((((rec/c X CON) ρ) V) (C_3 V_3) ...))
@@ -703,6 +725,8 @@
   [(proves-con ((and/c CON_0 CON_1) ρ) OP)
    ,(or (term (proves-con (CON_0 ρ) OP))
         (term (proves-con (CON_1 ρ) OP)))]
+  [(proves-con ((not/c CON_0) ρ) OP)
+   (refutes-con (CON_0 ρ) OP)]
   [(proves-con ((cons/c CON_0 CON_1) ρ) cons?) #t]
   [(proves-con ((CON_0 ... -> any) ρ) procedure?) #t]
   [(proves-con C OP) #f])
@@ -744,6 +768,8 @@
   [(refutes-con ((and/c CON_0 CON_1) ρ) OP)
    ,(or (term (refutes-con (CON_0 ρ) OP))
         (term (refutes-con (CON_1 ρ) OP)))]
+  [(refutes-con ((not/c CON_0) ρ) OP)
+   (proves-con (CON_0 ρ) OP)]
   [(refutes-con ((cons/c CON_0 CON_1) ρ) OP) 
    #t
    (side-condition (not (eq? (term OP) 'cons?)))]
