@@ -15,7 +15,7 @@
           #:pred (colorize (program-modules P))
           . rest))
 
-(define ((colorize Ms) x)
+(define ((colorize Ms) x node)
   (define opaques 
     (filter-map (λ (M) 
                   (match M
@@ -29,6 +29,7 @@
                     (cond [(equal? (term LAB) '★) "pink"]
                           [(member (term LAB) opaques) "pink"]
                           [else "red"]))]
+        [(null? (term-node-children node)) "blue"]
         [else #t]))
 
 (define-syntax-rule (step-it R P)
