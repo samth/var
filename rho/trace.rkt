@@ -19,13 +19,13 @@
   (define opaques 
     (filter-map (λ (M) 
                   (match M
-                    [(list 'module n lang (list 'define _ ☁) ... prov) n]
+                    [(list 'module n lang (list 'define _ •) ... prov) n]
                     [_ #f]))
                 Ms))
   (cond [(redex-match λcρ V x) "green"]
-        [(redex-match λcρ B x)
+        [(redex-match λcρ BLAME x)
          (redex-let λcρ
-                    ([(blame LAB LAB_0 V C V_0) x])
+                    ([(blame LAB any_0 V any_1 V_0) x])
                     (cond [(equal? (term LAB) '★) "pink"]
                           [(member (term LAB) opaques) "pink"]
                           [else "red"]))]
