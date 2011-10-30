@@ -47,8 +47,8 @@ Pass 3: Annotate expressions/predicates
 
 (define-metafunction λc-raw
   ann/define-contract : (any ...) -> (any ...)
-  [(ann/define-contract ((define-contract x RCON) any ...))
-   (ann/define-contract (replace x RCON (any ...)))]
+  [(ann/define-contract ((define-contract X RCON) any ...))
+   (ann/define-contract (replace X RCON (any ...)))]
   [(ann/define-contract (any ...)) (any ...)])
 
 (define (check-mod M)
@@ -210,6 +210,8 @@ Pass 3: Annotate expressions/predicates
   [(ann-con (cons/c RCON_0 RCON_1) LAB MODENV (X ...))
    (cons/c (ann-con RCON_0 LAB MODENV (X ...))
            (ann-con RCON_1 LAB MODENV (X ...)))]
+  [(ann-con (not/c RCON_0) LAB MODENV (X ...))
+   (not/c (ann-con RCON_0 LAB MODENV (X ...)))]
   [(ann-con (and/c RCON_0 RCON_1) LAB MODENV (X ...))
    (and/c (ann-con RCON_0 LAB MODENV (X ...))
           (ann-con RCON_1 LAB MODENV (X ...)))]
@@ -279,3 +281,15 @@ Pass 3: Annotate expressions/predicates
  
 
 
+
+(define-metafunction λc-raw
+  replace : any any any -> any
+  [(replace any any_1 any) any_1]
+  [(replace any_1 any_2 (any_3 ...))
+   ((replace any_1 any_2 any_3) ...)]
+  [(replace any any_1 any_2) any_2])
+
+(test
+ (test-equal (term (replace x 3 x)) (term 3))
+ (test-equal (term (replace (y) 3 ((y) (y) (y)))) (term (3 3 3)))
+ (test-equal (term (replace x 3 (q r s))) (term (q r s))))
