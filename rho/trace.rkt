@@ -34,4 +34,4 @@
 
 (define-syntax-rule (step-it R P)
   (stepper (R (program-modules P))
-           (last P)))
+           `(clos ,(last P) ())))
