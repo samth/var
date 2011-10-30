@@ -167,7 +167,11 @@
                             [s (hash/c c:any/c set?)] 
                             [k (flat-named-contract 'K (redex-match CESK* K))])
   #:transparent)
-(define-struct S (name results) #:prefab)
+(define-struct results (vs) #:transparent)
+;(define-struct S (name results) #:transparent)
+
+(define (S n rs)
+  (results (for/list ([r rs]) (list n r))))
 
 (define state? st?)
 
@@ -182,12 +186,8 @@
 
 (define (combine-S . ss)
   (match ss
-    [(list) (S #f null)]
-    [(list (S name results))
-     (S name results)]
-    [(list (S name results) ...)
-     (S 'multi-rule
-        (apply append results))]))
+    [(list (results vs) ...)
+     (results (apply append vs))]))
 
 (define-syntax-rule (choose [tst . rhs] ...)
   (apply combine-S
@@ -645,8 +645,8 @@
   (reduction-relation 
    CESK*
    [--> any_old ,(st (term E) (term ρ_1) (term σ_1) (term K))
-        (where (any_name (any_1 ... any_state any_2 ...))
-               ,(match (step (term any_old)) [(S n r) (list n r)]))
+        (where (any_1 ... (any_name any_state) any_2 ...)
+               ,(results-vs (step (term any_old))))
         (where (E ρ σ K) ,(st->list (term any_state)))
         (where σ_1 (gc (E ρ σ K)))
         (where ρ_1 (restrict ρ (fv E)))
@@ -655,13 +655,12 @@
 (define (step∆-gc Ms)
   (define step (step∆ Ms))
   (λ (s)
-    (match-define (S name results) (step s))
-    (S name
-       (for/list ([r results])
-         (match-define (st E ρ σ K) r)
-         (define σ_1 (term (gc ,(list E ρ σ K))))
-         (define ρ_1 (term (restrict ,ρ (fv ,E))))
-         (st E ρ_1 σ_1 K)))))
+    (results
+     (for/list ([r (results-vs (step s))])
+       (match-define (st E ρ σ K) (second r))
+       (define σ_1 (term (gc ,(list E ρ σ K))))
+       (define ρ_1 (term (restrict ,ρ (fv ,E))))
+       (list (first r) (st E ρ_1 σ_1 K))))))
 
 (define step-gc-R (step∆-gc-R null))
 
@@ -707,7 +706,7 @@
       (printf "~a iterations, ~a terms seen, ~a frontier, ~a elapsed ms\n" iters (set-count seen) (length terms) 
               (current-process-milliseconds)))
     (define rs (for/list ([t (in-list terms)])
-                 (list t (S-results (f t)))))
+                 (list t (map second (results-vs (f t))))))
     (define-values
       (new-seen new-finals new-terms)
       (for/fold ([s seen] [f finals] [new-terms (list)])
