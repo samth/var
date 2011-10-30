@@ -45,6 +45,7 @@
                        (#,op #,prog))))
 
 (define-syntax (#%module-begin stx)
+  ;; (printf "#%module-begin starting ~a\n" (current-process-milliseconds))
   (syntax-parse stx    
     [(_ (~and m ((~datum module) . _)) ...)
      #`(r:#%module-begin 
@@ -57,7 +58,10 @@
      (define trace (attribute trace.sym))
      (define exact? (attribute exact.sym))
      #`(r:#%module-begin
-        ((dynamic-require 'redex 'reduction-steps-cutoff) 100)
+        (printf "module starting ~a\n" (current-process-milliseconds))
+        #,(if (memq trace '(trace step))
+              #'((dynamic-require 'redex 'reduction-steps-cutoff) 100)
+              #'(void))
         (set-box! the-module-context '(m ...))
         (current-exact? #,exact?)
         #,(case run
@@ -94,7 +98,9 @@
                                             #'first)]))]
             [(fast) 
              #`(begin 
+                 (printf "starting annotator: ~a\n" (current-process-milliseconds))
                  (define the-program (term (annotator [m ... e])))
+                 (printf "finished annotator: ~a\n" (current-process-milliseconds))
                  #,(case trace
                      [(trace) #'(f:trace-it the-program)]
                      [(step) #'(f:step-it the-program)]
