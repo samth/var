@@ -52,6 +52,7 @@
        (cons/c CON CON) 
        (and/c CON CON)
        (or/c CON CON)
+       (not/c CON)
        (CON ... -> CON)
        (CON ..._1 -> (λ (X ..._1) CON)))
     
@@ -121,7 +122,8 @@
   (FLAT* (pred PREDV LAB) 
          (cons/c FLAT FLAT) 
          (or/c FLAT FLAT) 
-         (rec/c X FLAT))
+         (rec/c X FLAT)
+         (not/c FLAT))
   (HOC* (CON ... -> CON)
         (CON ..._1 -> (λ (X ..._1) CON))
         (or/c FLAT HOC)
@@ -213,7 +215,8 @@
         (cons/c RCON RCON) 
         (or/c RCON RCON) 
         (and/c RCON RCON)          
-        (rec/c X RCON) 
+        (rec/c X RCON)
+        (not/c RCON)
         (RARR RCON ... RCON)
         (RARR RCON ..._1 (λ (X ..._1) RCON))
         X)
@@ -236,6 +239,7 @@
    ,(and (term (valid? CON_1))
          (term (flat? CON_1))
          (term (valid? CON_2)))]
+  [(valid? (not/c CON)) (flat? CON)]
   [(valid? (CON_1 ... -> CON_2))
    ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))]
   [(valid? (CON_1 ... -> (λ (X ...) CON_2)))
@@ -256,6 +260,7 @@
   [(flat? (or/c CON_1 CON_2))
    ,(and (term (flat? CON_1))
          (term (flat? CON_2)))]
+  [(flat? (not/c CON)) (flat? CON)]
   [(flat? (CON ... -> any)) #f])
 
 (define-metafunction λc-user
@@ -266,6 +271,8 @@
    (and/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
   [(subst/μ X CON (or/c CON_0 CON_1))
    (or/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (not/c CON_0))
+   (not/c (subst/μ X CON CON_0))]
   [(subst/μ X CON (cons/c CON_0 CON_1))
    (cons/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]  
   [(subst/μ X CON (rec/c X CON_1))
