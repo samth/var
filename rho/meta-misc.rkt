@@ -149,6 +149,9 @@
              (term (≡C (CON_2 ρ_1) (CON_4 ρ_2))))
         (and (term (≡C (CON_1 ρ_1) (CON_4 ρ_2)))
              (term (≡C (CON_2 ρ_1) (CON_3 ρ_2)))))]
+  [(≡C ((not/c CON_1) ρ_1)
+       ((not/c CON_3) ρ_2))
+   (≡C (CON_1 ρ_1) (CON_3 ρ_2))]
   ;; FIXME maybe want to do ≡α here and `equal?'-style "infinite" unrolling.
   [(≡C ((rec/c X CON_1) ρ_1) ((rec/c X CON_2) ρ_2))
    (≡C (CON_1 ρ_1) (CON_2 ρ_2))]
@@ -195,6 +198,9 @@
              #t)
  (test-equal (term (≡C ((rec/c x (pred (f ^ g h) r)) ()) 
                        ((rec/c x (pred (f ^ j h) s)) ())))
+             #t)
+ (test-equal (term (≡C ((not/c (pred (f ^ g h) r)) ()) 
+                       ((not/c (pred (f ^ j h) s)) ())))
              #t)
  (test-equal (term (≡C ((cons/c (pred (q ^ w x) u) (pred (f ^ g h) r)) ())
                        ((cons/c (pred (q ^ y x) t) (pred (f ^ j h) s)) ())))
