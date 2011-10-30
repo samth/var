@@ -60,10 +60,6 @@
   [(widen/n nat o blessed-A) blessed-A]  
   [(widen/n nat o (-- PV C ...)) (remember-contract (-- (any/c)) C ...)])
 
-;; handles the second arg not being symbols
-(define (variables-not-in* a bs)
-  (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
-
 (define-metafunction CESK*
   alloc-addr : σ (any ..._1) -> (any ..._1)
   [(alloc-addr σ (any ...))

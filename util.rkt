@@ -1,6 +1,5 @@
-
 #lang racket
-(provide (all-defined-out))
+(provide (except-out (all-defined-out) test))
 (require redex/reduction-semantics)
 
 (define-syntax-rule (test-suite test suite)
@@ -19,3 +18,9 @@
   (apply (dynamic-require 'redex 'term-node-children) args))
 
 (define current-exact? (make-parameter #t))
+
+;; handles the second arg not being symbols
+(define (variables-not-in* a bs)
+  (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
+
+(test-suite test util)
