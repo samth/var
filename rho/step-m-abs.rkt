@@ -8,10 +8,11 @@
   (reduction-relation
    λcρ #:domain D
    (--> (X_1 ^ LAB X)
-        (CON () <= X LAB (-- (CON ())) X_1 
-             (remember-contract (-- ((pred (λ (x) #t) Λ) ())) (CON ())))
+        (CON () <= X LAB V_1 X_1 V_1)        
         (where • (lookup-modref/val X X_1 ,Ms))
         (where CON (lookup-modref/con X X_1 ,Ms))
+        (where (any_1 ... V_1 any_2 ...)
+               (remember-contract/any (-- ((pred (λ (x) #t) Λ) ())) (CON ())))
         (side-condition (not (eq? (term X) (term LAB))))
         m-opaque)))
 
