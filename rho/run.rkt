@@ -1,13 +1,27 @@
 #lang racket
-(require redex/reduction-semantics racket/pretty unstable/pretty)
-(require "lang.rkt" "examples.rkt" "step.rkt" "annotate.rkt" "util.rkt")
+(require redex/reduction-semantics)
+(require "lang.rkt" "step.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
-(test-suite test trace)
+(test-suite test run)
 
 (provide -->_vcme)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Trace and stepper
+;; Step 
+
+(define-syntax-rule (step-it R P)
+  (stepper (R (program-modules P))
+           `(clos ,(last P) ())))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Eval
+
+(define (eval-it R P)
+  (apply-reduction-relation* (R (program-modules P))
+                             `(clos ,(last P) ())))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; Trace 
 
 (define-syntax-rule (trace-it R P . rest)
   (traces (R (program-modules P))
@@ -32,6 +46,4 @@
         [(null? (term-node-children node)) "blue"]
         [else #t]))
 
-(define-syntax-rule (step-it R P)
-  (stepper (R (program-modules P))
-           `(clos ,(last P) ())))
+
