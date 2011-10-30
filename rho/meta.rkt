@@ -183,10 +183,14 @@
 (define-metafunction λcρ
   amb : D D ... -> D
   [(amb D) D]
-  [(amb D_1 D_2) (if (-- ((pred boolean? Λ) ())) D_1 D_2)]
-  [(amb D_1 D_2 D_3 ...)
-   (amb (if (-- ((pred (λ (x) #t) Λ) ())) D_1 D_2)
-        D_3 ...)])
+  [(amb D_1 D_3 ...)
+   (if (-- ((pred (λ (x) #t) Λ) ())) D_1 (amb D_3 ...))])
+
+(define-metafunction λcρ
+  amb/e : X EXP EXP ... -> EXP
+  [(amb/e X EXP) EXP]
+  [(amb/e X EXP_1 EXP_3 ...)
+   (if X EXP_1 (amb/e X EXP_3 ...))])
 
 (test
  ;; FIXME Why does this seemingly take FOREVER!?
@@ -574,7 +578,7 @@
                                 (-- (cons (-- (clos 0 ())) (-- (clos 2 ()))))))
              #f)
  ;; We should really get true here, but it requires more work.
- ;; FIXME known to fail
+ ;; FIXME known to fail; requires caching
  (test-equal (term (contract-in ((rec/c x 
                                         (or/c (pred empty? †)
                                               (cons/c (pred zero? †) x))) 
