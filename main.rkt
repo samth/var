@@ -1,5 +1,5 @@
 #lang racket
-(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" "step.rkt"
+(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" "step.rkt" "util.rkt"
          (prefix-in c: "cesk.rkt")
          (prefix-in f: "cesk-fast.rkt")
          redex/reduction-semantics)
@@ -25,81 +25,80 @@
                                            (term (annotator [m (... ...) e])))))))]))
 
 (begin-for-syntax 
-  (define-syntax-class verifier-opt
-    [pattern (~datum cesk)
-             #:attr sym 'cesk]
-    [pattern (~datum cesk-trace)
-             #:attr sym 'cesk-trace]
-    [pattern (~datum fast-trace)
-             #:attr sym 'fast-trace]
-    [pattern (~datum fast)
-             #:attr sym 'fast]
-    [pattern (~datum trace)
-             #:attr sym 'trace]
-    [pattern (~datum count)
-             #:attr sym 'count]
-    [pattern (~datum rho-trace)
-             #:attr sym 'rho-trace]))
+  (define-syntax-class run-opt
+    [pattern (~datum cesk) #:attr sym 'cesk]
+    [pattern (~datum rho) #:attr sym 'rho]
+    [pattern (~datum count) #:attr sym 'count]
+    [pattern (~datum fast) #:attr sym 'fast]
+    [pattern (~datum step) #:attr sym 'step])
+  (define-syntax-class exact-opt
+    [pattern (~datum exact) #:attr sym #t]
+    [pattern (~datum approx) #:attr sym #f])
+  (define-syntax-class trace-opt
+    [pattern (~datum trace) #:attr sym 'trace]))
 
 (define-syntax (#%module-begin stx)
-  (syntax-parse stx
+  (syntax-parse stx    
     [(_ (~and m ((~datum module) . _)) ...)
      #`(r:#%module-begin 
         (set-box! the-module-context '(m ...)))]
-    [(_ (~optional kw:verifier-opt #:defaults ([kw.sym #f]))
+    [(_ (~optional run:run-opt #:defaults ([run.sym 'step]))
+        (~optional trace:trace-opt #:defaults ([trace.sym #f]))
+        (~optional exact:exact-opt #:defaults ([exact.sym #t]))
         m ... e)
+     (define run (attribute run.sym))
+     (define trace? (attribute trace.sym))
+     (define exact? (attribute exact.sym))
      #`(r:#%module-begin
         ((dynamic-require 'redex 'reduction-steps-cutoff) 100)
-        (set-box! the-module-context '(m ...))        
-        #,(case (attribute kw.sym) 
-            [(trace)
-             #'(begin (define the-program (term (annotator [m ... e])))
-                      (trace-it -->_vcc~Δ the-program))
-             ;;#:pp (λ (x) (pretty-format/write (term (unann-exp ,x)) 50)))
-             ]
-            [(rho-trace)
-             #'(begin (define the-program (term (rho:annotator [m ... e])))
-                      (rho:trace-it rho:-->_vcme the-program))]
+        (set-box! the-module-context '(m ...))
+        (current-exact? #,exact?)
+        #,(case run
+            [(rho)
+             (cond [trace? #'(begin (define the-program (term (rho:annotator [m ... e])))
+                                    (rho:trace-it rho:-->_vcme the-program))]
+                   [else #'(begin (define the-program (term (rho:annotator [m ... e])))
+                                  (rho:step-it rho:-->_vcme the-program))])]
+            [(step)
+             (cond [trace? #'(begin (define the-program (term (annotator [m ... e])))
+                                    (trace-it -->_vcc~Δ the-program))]
+                   [else
+                    #'(begin (define the-program (term (annotator [m ... e])))
+                             (apply values
+                                    (map clean-up
+                                         (filter-not
+                                          (λ (p)
+                                            (match p
+                                              [(list 'blame '★ _ (... ...)) #t] [_ #f]))
+                                          (map (λ (x) x #;(term (unann-exp ,x)))   
+                                               (eval_vcc~Δ  the-program))))))])]            
             [(count)             
              #'(begin (define the-program (term (annotator [m ... e])))
                       (let ([k 0]) 
                         (count-it the-program k)
                         (printf "~a terms explored\n" k)))]
-            [(cesk-trace)             
-             #'(begin (define the-program (term (annotator [m ... e])))
-                      (c:trace-it the-program))]
-            [(fast-trace)
-             #'(begin (define the-program (term (annotator [m ... e])))
-                      (f:trace-it the-program))]
             [(cesk)
-             #'(begin (define the-program (term (annotator [m ... e])))
-                      (apply values
-                             (filter-not
-                              (λ (p)
-                                (match p
-                                  [(list (list 'blame '★ _ (... ...)) _ (... ...)) #t]
-                                  [_ #f]))
-                              (c:final the-program))))]
-            [(fast)
-             
-             #'(begin (define the-program (term (annotator [m ... e])))
-                      (apply values
-                             (filter-not
-                              (λ (p)
-                                (match p
-                                  [(f:st (list 'blame '★ _ (... ...)) _ _ _) #t]
-                                  [_ #f]))
-                              (f:step-fixpoint the-program))))]
-            [else              
-             #'(begin (define the-program (term (annotator [m ... e])))
-                      (apply values
-                             (map clean-up
-                                  (filter-not
-                                   (λ (p)
-                                     (match p
-                                       [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                                   (map (λ (x) x #;(term (unann-exp ,x)))   
-                                        (eval_vcc~Δ  the-program))))))]))]))
+             (cond [trace? #'(begin (define the-program (term (annotator [m ... e])))
+                                    (c:trace-it the-program))]
+                   [else #'(begin (define the-program (term (annotator [m ... e])))
+                                  (apply values
+                                         (filter-not
+                                          (λ (p)
+                                            (match p
+                                              [(list (list 'blame '★ _ (... ...)) _ (... ...)) #t]
+                                              [_ #f]))
+                                          (c:final the-program))))])]
+            [(fast) 
+             (cond [trace? #'(begin (define the-program (term (annotator [m ... e])))
+                                    (f:trace-it the-program))]
+                   [else #'(begin (define the-program (term (annotator [m ... e])))
+                                  (apply values
+                                         (filter-not
+                                          (λ (p)
+                                            (match p
+                                              [(f:st (list 'blame '★ _ (... ...)) _ _ _) #t]
+                                              [_ #f]))
+                                          (f:step-fixpoint the-program))))])]))]))
 
 (define (clean-up r)
   (match r

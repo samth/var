@@ -1,4 +1,4 @@
-#lang var cesk-trace
+#lang var fast approx
 (module factorial racket 
   (define (fact-acc n acc)
     (if (zero? n) acc (fact-acc (sub1 n) (* n acc))))
@@ -11,5 +11,7 @@
    [fact.1 (exact-nonnegative-integer? . -> . exact-nonnegative-integer?)]
    [fact   (exact-nonnegative-integer? . -> . exact-nonnegative-integer?)]))
     
-(require 'factorial)
-(fact 10)
+
+(module N racket (provide/contract [n exact-nonnegative-integer?]))
+(require 'factorial 'N)
+(fact n)
