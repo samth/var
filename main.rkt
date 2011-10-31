@@ -68,11 +68,11 @@
             [(rho)
              #`(begin 
                  (define the-program (term (rho:annotator [m ... e])))
-                 (#,(case trace
-                      [(trace) #'rho:trace-it]
-                      [(step)  #'rho:step-it] 
-                      [(eval)  #'rho:eval-it])
-                  rho:-->_vcme the-program))]
+                 #,(case trace
+                     [(trace) #'(rho:trace-it rho:-->_vcme the-program)]
+                     [(step)  #'(rho:step-it rho:-->_vcme the-program)] 
+                     [(eval)  (finish-values #'(λ (x) (rho:eval-it rho:-->_vcme x))
+                                             #'the-program)]))]
             [(subst)
              #`(begin
                  (define the-program (term (annotator [m ... e])))
