@@ -121,8 +121,6 @@
     
   (FLAT* (pred PREDV LAB) 
          (cons/c FLAT FLAT) 
-         (or/c FLAT FLAT) 
-         (rec/c X FLAT)
          (not/c FLAT))
   (HOC* (CON ... -> CON)
         (CON ..._1 -> (λ (X ..._1) CON))

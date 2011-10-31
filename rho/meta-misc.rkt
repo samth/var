@@ -224,7 +224,7 @@
   
 ;; FIXME: don't need to remember arity-like contracts on arity-known procedures.
 (define-metafunction λcρ
-  remember-contract : V C ... -> V ; or AE
+  remember-contract : V C ... -> V
   ;; Expand away and/c
   [(remember-contract V ((and/c CON_1 CON_2) ρ) C ...)
    (remember-contract V (CON_1 ρ) (CON_2 ρ) C ...)] 
@@ -272,7 +272,30 @@
   ;; we're done
   [(remember-contract V) V])
 
+(define (xprod xs . rest)
+  (if (empty? rest)
+      (map list xs)
+      (for*/list ([z (in-list (apply xprod rest))]
+                  [x xs])
+        (cons x z))))
+;; handles remembering rec/c and or/c
+
+(define-metafunction λcρ
+  remember-contract/any : V C ... -> (V ...)
+  [(remember-contract/any V C ...)
+   ((remember-contract V C_1 ...) ...)
+   (where ((C_1 ...) ...)
+          ,(apply xprod (term ((explode C) ...))))])
+
 (test
+ 
+ (test-equal (term (remember-contract/any (-- ((pred exact-nonnegative-integer? f) ()))
+                                          ((or/c (pred string? f) (pred boolean? f)) ())))
+             (term ((remember-contract (-- ((pred exact-nonnegative-integer? f) ()))
+                                       ((pred string? f) ()))
+                    (remember-contract (-- ((pred exact-nonnegative-integer? f) ()))
+                                       ((pred boolean? f) ())))))
+ 
  ;; flatten and/c
  (test-equal (term (remember-contract (-- ((pred string? f) (env)))
                                       ((and/c (pred (f? ^ f g) m)

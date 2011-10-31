@@ -11,15 +11,17 @@
    ;; FLAT CONTRACTS   
    (--> (FLAT ρ <= LAB_1 LAB_2 V_1 LAB_3 V)  ; FIXME: first V_1 was V-or-AE
         (if (@ (flat-check (FLAT ρ) V) V Λ)
-            (remember-contract V (FLAT ρ))
+            V_2
             (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
+        (where (any_1 ... V_2 any_2 ...) (remember-contract/any V (FLAT ρ)))
         flat-check)   
    
    ;; HIGHER-ORDER CONTRACTS   
    (--> ((or/c FLAT HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
         (if (@ (flat-check (FLAT ρ) V) V Λ)
-            (remember-contract V (FLAT ρ))
+            V_2
             (HOC ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
+        (where (any_1 ... V_2 any_2 ...) (remember-contract/any V (FLAT ρ)))
         or/c-hoc)
    
    (--> ((and/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
