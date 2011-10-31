@@ -202,7 +202,9 @@
  (generate-term λcρ D_1 3))
 
 (define-metafunction λcρ
-  δ : OP V ... LAB -> (A A ...)  
+  δ : OP V ... LAB -> (A A ...) 
+  [(δ cons V_0 V_1 LAB) ; cons works same for concrete and abstract
+   ((-- (cons V_0 V_1)))]
   [(δ OP V_1 ... AV V_2 ... LAB)
    (abs-δ OP V_1 ... AV V_2 ... LAB)]  
   [(δ OP V ... LAB) 
@@ -365,8 +367,6 @@
 
 (define-metafunction λcρ
   plain-δ : OP V ... LAB -> A
-  [(plain-δ cons V_0 V_1 LAB)
-   (-- (cons V_0 V_1))]
   [(plain-δ procedure? PROC LAB)
    (-- (clos #t (env)))]
   [(plain-δ procedure? V LAB)
@@ -449,8 +449,8 @@
    (blame LAB Λ V OP V)])
 
 (test 
- (test-equal (term (plain-δ cons (-- (clos 0 (env))) (-- (clos 1 (env))) †))
-             (term (-- (cons (-- (clos 0 (env))) (-- (clos 1 (env)))))))
+ (test-equal (term (δ cons (-- (clos 0 (env))) (-- (clos 1 (env))) †))
+             (term ((-- (cons (-- (clos 0 (env))) (-- (clos 1 (env))))))))
  (test-equal (term (plain-δ add1 (-- (clos 5 (env))) †))
              (term (-- (clos 6 (env)))))
  (test-equal (term (plain-δ sub1 (-- (clos 5 (env))) †))
