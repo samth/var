@@ -71,7 +71,7 @@
 
 (define-extended-language λcρ λc-user
   ;; Environments
-  (ρ ((X V) ...))
+  (ρ (side-condition any_h (hash? (term any_h)))) ;; ((X V) ...)
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
   (OP .... 

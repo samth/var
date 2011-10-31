@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "util.rkt")
 (provide e)
 (test-suite test step-e)
 
@@ -23,12 +23,12 @@
 
 (test
  (test--> e
-          (term (@ (blame f f (-- (clos 0 ())) 
-                          ((pred exact-nonnegative-integer? f) ())
-                          (-- (clos 5 ())))
-                   (clos (@ string? 3 †) ())
+          (term (@ (blame f f (-- (clos 0 (env))) 
+                          ((pred exact-nonnegative-integer? f) (env))
+                          (-- (clos 5 (env))))
+                   (clos (@ string? 3 †) (env))
                    †))
-          (term (blame f f (-- (clos 0 ())) 
-                       ((pred exact-nonnegative-integer? f) ())
-                       (-- (clos 5 ()))))))
+          (term (blame f f (-- (clos 0 (env))) 
+                       ((pred exact-nonnegative-integer? f) (env))
+                       (-- (clos 5 (env)))))))
  

@@ -14,7 +14,7 @@
         (amb V_result
              (let ((d (demonic* CON_demon V_demon))
                    (r V_result))
-               (clos r ())) 
+               (clos r (env))) 
              ...)
         (side-condition (term (∈ #t (δ procedure? AV ★))))
         (where natural (arity AV))
@@ -34,7 +34,7 @@
         (amb (join-contracts)
              (let ((d (demonic* (∧) V))
                    (r (join-contracts)))
-               (clos r ()))
+               (clos r (env)))
              ...)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (side-condition (term (∈ #t (δ procedure? AV ★))))
@@ -64,40 +64,40 @@
 
 (test 
  (test--> c~
-          (term (@ (-- (((pred (even? ^ fun e/o) fun) -> (pred (even? ^ fun e/o) fun)) ()))
-                   (-- (clos 4 ())
-                       ((pred (even? ^ dbl e/o) dbl) ())
-                       ((pred (even? ^ fun e/o) fun) ()))
+          (term (@ (-- (((pred (even? ^ fun e/o) fun) -> (pred (even? ^ fun e/o) fun)) (env)))
+                   (-- (clos 4 (env))
+                       ((pred (even? ^ dbl e/o) dbl) (env))
+                       ((pred (even? ^ fun e/o) fun) (env)))
                    †))
-          (term (amb (-- ((pred (even? ^ fun e/o) fun) ())) 
-                     (let ((d (-- (clos 0 ()))) 
-                           (r (-- ((pred (even? ^ fun e/o) fun) ())))) 
-                       (clos r ())))))
+          (term (amb (-- ((pred (even? ^ fun e/o) fun) (env))) 
+                     (let ((d (-- (clos 0 (env)))) 
+                           (r (-- ((pred (even? ^ fun e/o) fun) (env))))) 
+                       (clos r (env))))))
 
  (test--> c~
-          (term (@ (-- ((pred procedure? †) ()))
-                   (-- (clos 4 ()))
+          (term (@ (-- ((pred procedure? †) (env)))
+                   (-- (clos 4 (env)))
                    †))
-          (term (if (-- ((pred boolean? Λ) ()))
-                    (-- ((pred (λ (x) #t) Λ) ())) 
-                    (let ((d (-- (clos 0 ()))) 
-                          (r (-- ((pred (λ (x) #t) Λ) ())))) 
-                      (clos r ())))))
+          (term (if (-- ((pred boolean? Λ) (env)))
+                    (-- ((pred (λ (x) #t) Λ) (env))) 
+                    (let ((d (-- (clos 0 (env)))) 
+                          (r (-- ((pred (λ (x) #t) Λ) (env))))) 
+                      (clos r (env))))))
  
  (test--> c~
-          (term (-- ((or/c (∧) (∧)) ())))
-          (term (-- ((∧) ()))))
+          (term (-- ((or/c (∧) (∧)) (env))))
+          (term (-- ((∧) (env)))))
  (test--> c~
           (term (-- ((or/c (pred (x? ^ f g) f)
                            (pred (y? ^ f g) f))
-                     ())))
-          (term (-- ((pred (x? ^ f g) f) ())))
-          (term (-- ((pred (y? ^ f g) f) ()))))
+                     (env))))
+          (term (-- ((pred (x? ^ f g) f) (env))))
+          (term (-- ((pred (y? ^ f g) f) (env)))))
  (test--> c~
-          (term (-- ((rec/c x (cons/c x x)) ())))
+          (term (-- ((rec/c x (cons/c x x)) (env))))
           (term (-- ((cons/c (rec/c x (cons/c x x))
                              (rec/c x (cons/c x x)))
-                     ())))))
+                     (env))))))
           
                 
                 

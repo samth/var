@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "step.rkt" "util.rkt")
+(require "lang.rkt" "step.rkt" "meta.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test run)
 
@@ -11,21 +11,21 @@
 
 (define-syntax-rule (step-it R P)
   (stepper (R (program-modules P))
-           `(clos ,(last P) ())))
+           `(clos ,(last P) (env))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Eval
 
 (define (eval-it R P)
   (apply-reduction-relation* (R (program-modules P))
-                             `(clos ,(last P) ())))
+                             `(clos ,(last P) (env))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trace 
 
 (define-syntax-rule (trace-it R P . rest)
   (traces (R (program-modules P))
-          `(clos ,(last P) ())
+          `(clos ,(last P) (env))
           #:pred (colorize (program-modules P))
           . rest))
 

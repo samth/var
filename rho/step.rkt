@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt"
+(require "lang.rkt" "meta.rkt" "util.rkt"
          "step-v.rkt" "step-c.rkt" "step-c-abs.rkt"
          "step-m.rkt" "step-m-abs.rkt" "step-e.rkt")
 (provide (except-out (all-defined-out) test))
@@ -21,7 +21,7 @@
              [n (pred exact-nonnegative-integer? m)]))]))
  (test-->> (-->_vcme Ms)
            (term (n ^ † m))
-           (term (-- (clos 7 ())))))
+           (term (-- (clos 7 (env))))))
 
 (test
  (define Ms 
@@ -36,8 +36,8 @@
              [fact ((pred exact-nonnegative-integer? f) 
                     -> (pred exact-nonnegative-integer? f))]))]))
  (test-->> (-->_vcme Ms)
-           (term (clos (@ (fact ^ † f) 5 †) ()))
-           (term (-- (clos 120 ())))))
+           (term (clos (@ (fact ^ † f) 5 †) (env)))
+           (term (-- (clos 120 (env))))))
 
 (test
  ;; Factorial with simple dependent contract
@@ -55,10 +55,10 @@
                       (and/c (pred exact-nonnegative-integer? f)
                              (pred (λ (y) (@ <= x y f)) f))))]))]))
  (test-->> (-->_vcme Ms)
-           (term (clos (@ (fact ^ † f) 5 †) ()))
-           (term (-- (clos 120 ())
+           (term (clos (@ (fact ^ † f) 5 †) (env)))
+           (term (-- (clos 120 (env))
                      ((pred (λ (y) (@ <= x y f)) f)
-                      ((x (-- (clos 5 ())))))))))
+                      (env (x (-- (clos 5 (env))))))))))
 
 (test
  (define Ms
@@ -74,38 +74,30 @@
              [posn-y ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]))]))
  
  (test-->> (-->_vcme Ms)
-           (term (clos (@ (posn ^ † p) 1 2 †) ()))
+           (term (clos (@ (posn ^ † p) 1 2 †) (env)))
            (term (-- (struct posn
-                       (-- (clos 1 ()))
-                       (-- (clos 2 ())))
-                     ((pred (posn? ^ p p) p) ()))))
+                       (-- (clos 1 (env)))
+                       (-- (clos 2 (env))))
+                     ((pred (posn? ^ p p) p) (env)))))
  (test-->> (-->_vcme Ms)
            (term (clos (@ (posn? ^ † p)
                           (@ (posn ^ † p) 1 2 †)
                           †)
-                       ()))
-           (term (-- (clos #t ()))))
+                       (env)))
+           (term (-- (clos #t (env)))))
  (test-->> (-->_vcme Ms)
            (term (clos (@ (posn-x ^ † p)
                           (@ (posn ^ † p) 1 2 †)
                           †)
-                       ()))
-           (term (-- (clos 1 ()))))
+                       (env)))
+           (term (-- (clos 1 (env)))))
  (test-->> (-->_vcme Ms)
            (term (clos (@ (posn-y ^ † p)
                           (@ (posn ^ † p) 1 2 †)
                           †)
-                       ()))
-           (term (-- (clos 2 ())))))
- 
-           
- 
-           
-                
+                       (env)))
+           (term (-- (clos 2 (env))))))
 
-
-
-     
 
 ;; FIXME TODO
 #;

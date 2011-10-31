@@ -24,8 +24,9 @@
    ;; Environment elimination
    (--> (clos MODREF ρ) MODREF elim-ρ)
    ;; Variable lookup
-   (--> (clos X ((X_1 V_1) ... (X V) (X_2 V_2) ...))
+   (--> (clos X ρ)
         V
+        (where V (env-lookup ρ X))
         var)
    ;; Application
    (--> (@ (-- (clos (λ (X ..._1) EXP) ρ) C* ...) V ..._1 LAB)
@@ -41,7 +42,7 @@
         (side-condition (term (∈ #t (δ procedure? V ★))))
         (side-condition (term (∈ #f (δ procedure-arity-includes? 
                                        V 
-                                       (-- (clos ,(length (term (U ...))) ()))
+                                       (-- (clos ,(length (term (U ...))) (env)))
                                        ★))))
         wrong-arity)   
    (--> (@ V U ... LAB)
@@ -70,23 +71,23 @@
 (test
  (define -->_v (context-closure v λcρ 𝓔))
  (test--> v 
-          (term (clos (@ (λ (x) 0) 1 †) ()))
-          (term (@ (clos (λ (x) 0) ()) (clos 1 ()) †))) 
+          (term (clos (@ (λ (x) 0) 1 †) (env)))
+          (term (@ (clos (λ (x) 0) (env)) (clos 1 (env)) †))) 
  (test--> v
-          (term (clos (λ (x) 0) ()))
-          (term (-- (clos (λ (x) 0) ()))))
+          (term (clos (λ (x) 0) (env)))
+          (term (-- (clos (λ (x) 0) (env)))))
  (test--> v
-          (term (clos 1 ()))
-          (term (-- (clos 1 ()))))
+          (term (clos 1 (env)))
+          (term (-- (clos 1 (env)))))
  (test--> v
-          (term (@ (-- (clos (λ (x) 0) ())) (-- (clos 1 ())) †))
-          (term (clos 0 ((x (-- (clos 1 ())))))))
+          (term (@ (-- (clos (λ (x) 0) (env))) (-- (clos 1 (env))) †))
+          (term (clos 0 (env (x (-- (clos 1 (env))))))))
  (test--> v
-          (term (clos 0 ((x (-- (clos 1 ()))))))
-          (term (-- (clos 0 ((x (-- (clos 1 ()))))))))
+          (term (clos 0 (env (x (-- (clos 1 (env)))))))
+          (term (-- (clos 0 (env (x (-- (clos 1 (env)))))))))
  (test-->> -->_v
-           (term (clos (@ (λ (x) 0) 1 †) ()))
-           (term (-- (clos 0 ((x (-- (clos 1 ()))))))))
+           (term (clos (@ (λ (x) 0) 1 †) (env)))
+           (term (-- (clos 0 (env (x (-- (clos 1 (env)))))))))
  
  (test-->> -->_v
            (term (clos (@ (λ fact (n)
@@ -94,76 +95,76 @@
                                 1
                                 (@ * n (@ fact (@ sub1 n †) †) †)))
                           5 †)
-                       ()))
-           (term (-- (clos 120 ()))))
+                       (env)))
+           (term (-- (clos 120 (env)))))
                         
  (test--> v
-          (term (clos x ((x (-- (clos 2 ()))))))
-          (term (-- (clos 2 ()))))
+          (term (clos x (env (x (-- (clos 2 (env)))))))
+          (term (-- (clos 2 (env)))))
  (test--> v
-          (term (clos (if #f 7 8) ()))
-          (term (if (clos #f ()) (clos 7 ()) (clos 8 ()))))
+          (term (clos (if #f 7 8) (env)))
+          (term (if (clos #f (env)) (clos 7 (env)) (clos 8 (env)))))
  (test--> v
-          (term (clos #f ()))
-          (term (-- (clos #f ()))))
+          (term (clos #f (env)))
+          (term (-- (clos #f (env)))))
  (test--> v
-          (term (if (-- (clos #f ()))
-                    (clos 7 ())
-                    (clos 8 ())))
-          (term (clos 8 ())))
+          (term (if (-- (clos #f (env)))
+                    (clos 7 (env))
+                    (clos 8 (env))))
+          (term (clos 8 (env))))
  (test--> v
-          (term (if (-- (clos #t ()))
-                    (clos 7 ())
-                    (clos 8 ())))
-          (term (clos 7 ()))) 
+          (term (if (-- (clos #t (env)))
+                    (clos 7 (env))
+                    (clos 8 (env))))
+          (term (clos 7 (env)))) 
  (test--> v
-          (term (@ (-- (clos string=? ())) 
-                   (-- (clos "foo" ()))
-                   (-- (clos "foo" ())) 
+          (term (@ (-- (clos string=? (env))) 
+                   (-- (clos "foo" (env)))
+                   (-- (clos "foo" (env))) 
                    †))
-          (term (-- (clos #t ()))))
+          (term (-- (clos #t (env)))))
  (test--> v
-          (term (@ (-- (clos expt ()))
-                   (-- (clos 2 ()))
-                   (-- (clos 32 ()))
+          (term (@ (-- (clos expt (env)))
+                   (-- (clos 2 (env)))
+                   (-- (clos 32 (env)))
                    †))
-          (term (-- (clos 4294967296 ()))))
+          (term (-- (clos 4294967296 (env)))))
  (test--> v
-          (term (@ (-- (clos + ()))
-                   (-- (clos "foo" ())) 
-                   (-- (clos 7 ()))
+          (term (@ (-- (clos + (env)))
+                   (-- (clos "foo" (env))) 
+                   (-- (clos 7 (env)))
                    †))
-          (term (blame † Λ (-- (clos "foo" ())) + (-- (clos "foo" ())))))
+          (term (blame † Λ (-- (clos "foo" (env))) + (-- (clos "foo" (env))))))
  (test--> v 
-          (term (begin (-- (clos 3 ())) (clos 5 ())))
-          (term (clos 5 ())))
+          (term (begin (-- (clos 3 (env))) (clos 5 (env))))
+          (term (clos 5 (env))))
  (test-->> -->_v
-           (term (clos (begin 3 5) ()))
-           (term (-- (clos 5 ()))))
+           (term (clos (begin 3 5) (env)))
+           (term (-- (clos 5 (env)))))
  (test--> v
-          (term (let ((x (-- (clos 1 ())))
-                      (y (-- (clos 2 ()))))
-                  (clos (@ + x y †) ())))
+          (term (let ((x (-- (clos 1 (env))))
+                      (y (-- (clos 2 (env)))))
+                  (clos (@ + x y †) (env))))
           (term (clos (@ + x y †)
-                      ((x (-- (clos 1 ())))
-                       (y (-- (clos 2 ())))))))
+                      (env (x (-- (clos 1 (env))))
+                           (y (-- (clos 2 (env))))))))
   (test-->> -->_v
-            (term (let ((x (-- (clos 1 ())))
-                        (y (-- (clos 2 ()))))
-                    (clos (@ + x y †) ())))
-            (term (-- (clos 3 ()))))
+            (term (let ((x (-- (clos 1 (env))))
+                        (y (-- (clos 2 (env)))))
+                    (clos (@ + x y †) (env))))
+            (term (-- (clos 3 (env)))))
   (test-->> -->_v
-            (term (clos (let ((x 1) (y 2)) (@ + x y †)) ()))
-            (term (-- (clos 3 ()))))
+            (term (clos (let ((x 1) (y 2)) (@ + x y †)) (env)))
+            (term (-- (clos 3 (env)))))
   (test-->> -->_v
-            (term (clos (@ procedure-arity-includes? (λ (x) x) 1 †) ()))
-            (term (-- (clos #t ()))))
+            (term (clos (@ procedure-arity-includes? (λ (x) x) 1 †) (env)))
+            (term (-- (clos #t (env)))))
   (test-->> -->_v
-            (term (clos (@ procedure-arity-includes? (λ (x) x) 2 †) ()))
-            (term (-- (clos #f ()))))
+            (term (clos (@ procedure-arity-includes? (λ (x) x) 2 †) (env)))
+            (term (-- (clos #f (env)))))
   (test-->> -->_v
-            (term (clos (@ (λ () 1) 2 †) ()))
-            (term (blame † Λ (-- (clos (λ () 1) ())) λ (-- (clos (λ () 1) ())))))
+            (term (clos (@ (λ () 1) 2 †) (env)))
+            (term (blame † Λ (-- (clos (λ () 1) (env))) λ (-- (clos (λ () 1) (env))))))
   (test-->> -->_v
-            (term (clos (@ 3 1 †) ()))
-            (term (blame † Λ (-- (clos 3 ())) λ (-- (clos 3 ()))))))
+            (term (clos (@ 3 1 †) (env)))
+            (term (blame † Λ (-- (clos 3 (env))) λ (-- (clos 3 (env)))))))

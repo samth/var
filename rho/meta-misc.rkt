@@ -5,6 +5,16 @@
 (test-suite test meta-misc)
 
 (define-metafunction λcρ
+  env : (X any) ... -> ρ
+  [(env (X any) ...)
+   ,(apply hash (apply append (term ((X any) ...))))])
+
+(define-metafunction λcρ
+  env-lookup : ρ X -> any
+  [(env-lookup ρ X)
+   ,(hash-ref (term ρ) (term X))])
+
+(define-metafunction λcρ
   explode : C -> (C ...)
   [(explode ((or/c CON_1 CON_2) ρ))
    (C_1e ... C_2e ...)
@@ -14,12 +24,12 @@
   [(explode C) (C)])
 
 (test
- (test-equal (term (explode ((∧) ())))
-             (term (((∧) ()))))
- (test-equal (term (explode ((or/c (∧) (∧)) ())))
-             (term (((∧) ()) ((∧) ()))))
- (test-equal (term (explode ((rec/c x (∧)) ())))
-             (term (((∧) ()))))) 
+ (test-equal (term (explode ((∧) (env))))
+             (term (((∧) (env)))))
+ (test-equal (term (explode ((or/c (∧) (∧)) (env))))
+             (term (((∧) (env)) ((∧) (env)))))
+ (test-equal (term (explode ((rec/c x (∧)) (env))))
+             (term (((∧) (env)))))) 
 
 (define-metafunction λcρ
   unroll : (rec/c X CON) -> CON
@@ -63,14 +73,14 @@
    ,(length (term (CON ...)))])
 
 (test
- (test-equal (term (arity (-- (clos (λ () x) ())))) 0)
- (test-equal (term (arity (-- (clos (λ (x y z) x) ())))) 3)
- (test-equal (term (arity (-- (clos (λ f (x y z) x) ())))) 3)
- (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (pred string? h)) ())))) 2)
- (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (λ (x y) (pred string? h))) ())))) 2)
- (test-equal (term (arity (-- ((pred string? h) ()) (((pred string? f) (pred string? g) -> (pred string? h)) ())))) 2)
- (test-equal (term (arity (-- ((pred procedure? f) ())))) #f)
- (test-equal (term (arity ((--> (pred string? †)) () <= f g (-- (clos 0 ())) f (-- (clos (λ () 1) ()))))) 0)
+ (test-equal (term (arity (-- (clos (λ () x) (env))))) 0)
+ (test-equal (term (arity (-- (clos (λ (x y z) x) (env))))) 3)
+ (test-equal (term (arity (-- (clos (λ f (x y z) x) (env))))) 3)
+ (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (pred string? h)) (env))))) 2)
+ (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (λ (x y) (pred string? h))) (env))))) 2)
+ (test-equal (term (arity (-- ((pred string? h) (env)) (((pred string? f) (pred string? g) -> (pred string? h)) (env))))) 2)
+ (test-equal (term (arity (-- ((pred procedure? f) (env))))) #f)
+ (test-equal (term (arity ((--> (pred string? †)) (env) <= f g (-- (clos 0 (env))) f (-- (clos (λ () 1) (env)))))) 0)
  )
 
 ;; Is C_1 /\ C_2 inhabited
@@ -97,13 +107,13 @@
 (define-metafunction λcρ
   join-contracts : C ... -> AV
   [(join-contracts C ...)
-   (remember-contract (-- ((pred (λ (x) #t) Λ) ())) C ...)])
+   (remember-contract (-- ((pred (λ (x) #t) Λ) (env))) C ...)])
 
 (test 
  (test-equal (term (join-contracts))
-             (term (-- ((pred (λ (x) #t) Λ) ()))))
- (test-equal (term (join-contracts ((pred boolean? †) ())))
-             (term (-- ((pred boolean? †) ())))))
+             (term (-- ((pred (λ (x) #t) Λ) (env)))))
+ (test-equal (term (join-contracts ((pred boolean? †) (env))))
+             (term (-- ((pred boolean? †) (env))))))
 
 (define-metafunction λcρ
   ∧ : CON ... -> CON
@@ -172,44 +182,44 @@
   [(≡C C_1 C_2) #f])
 
 (test 
- (test-equal (term (≡C ((∧) ()) ((∧) ()))) #t)
- (test-equal (term (≡C ((pred (f ^ g h) r) ()) 
-                       ((pred (f ^ j h) s) ())))
+ (test-equal (term (≡C ((∧) (env)) ((∧) (env)))) #t)
+ (test-equal (term (≡C ((pred (f ^ g h) r) (env)) 
+                       ((pred (f ^ j h) s) (env))))
              #t)
  (test-equal (term (≡C ((and/c (pred (f ^ g h) r)
-                               (pred (q ^ w x) u)) ())
+                               (pred (q ^ w x) u)) (env))
                        ((and/c (pred (q ^ y x) t)
-                               (pred (f ^ j h) s)) ())))
+                               (pred (f ^ j h) s)) (env))))
              #t)
  (test-equal (term (≡C ((and/c (pred (q ^ w x) u)
-                               (pred (f ^ g h) r)) ())
+                               (pred (f ^ g h) r)) (env))
                        ((and/c (pred (q ^ y x) t)
-                               (pred (f ^ j h) s)) ())))
+                               (pred (f ^ j h) s)) (env))))
              #t)
  (test-equal (term (≡C ((or/c (pred (f ^ g h) r)
-                              (pred (q ^ w x) u)) ())
+                              (pred (q ^ w x) u)) (env))
                        ((or/c (pred (q ^ y x) t)
-                              (pred (f ^ j h) s)) ())))
+                              (pred (f ^ j h) s)) (env))))
              #t)
  (test-equal (term (≡C ((or/c (pred (q ^ w x) u)
-                              (pred (f ^ g h) r)) ())
+                              (pred (f ^ g h) r)) (env))
                        ((or/c (pred (q ^ y x) t)
-                              (pred (f ^ j h) s)) ())))
+                              (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (term (≡C ((rec/c x (pred (f ^ g h) r)) ()) 
-                       ((rec/c x (pred (f ^ j h) s)) ())))
+ (test-equal (term (≡C ((rec/c x (pred (f ^ g h) r)) (env)) 
+                       ((rec/c x (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (term (≡C ((not/c (pred (f ^ g h) r)) ()) 
-                       ((not/c (pred (f ^ j h) s)) ())))
+ (test-equal (term (≡C ((not/c (pred (f ^ g h) r)) (env)) 
+                       ((not/c (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (term (≡C ((cons/c (pred (q ^ w x) u) (pred (f ^ g h) r)) ())
-                       ((cons/c (pred (q ^ y x) t) (pred (f ^ j h) s)) ())))
+ (test-equal (term (≡C ((cons/c (pred (q ^ w x) u) (pred (f ^ g h) r)) (env))
+                       ((cons/c (pred (q ^ y x) t) (pred (f ^ j h) s)) (env))))
              #t)                        
- (test-equal (term (≡C (((pred (q ^ w x) u) -> (pred (f ^ g h) r)) ())
-                       (((pred (q ^ y x) t) -> (pred (f ^ j h) s)) ())))
+ (test-equal (term (≡C (((pred (q ^ w x) u) -> (pred (f ^ g h) r)) (env))
+                       (((pred (q ^ y x) t) -> (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (term (≡C (((pred (q ^ w x) u) -> (λ (x) (pred (f ^ g h) r))) ())
-                       (((pred (q ^ y x) t) -> (λ (x) (pred (f ^ j h) s))) ())))
+ (test-equal (term (≡C (((pred (q ^ w x) u) -> (λ (x) (pred (f ^ g h) r))) (env))
+                       (((pred (q ^ y x) t) -> (λ (x) (pred (f ^ j h) s))) (env))))
              #t))
   
 ;; FIXME: don't need to remember arity-like contracts on arity-known procedures.
@@ -264,51 +274,51 @@
 
 (test
  ;; flatten and/c
- (test-equal (term (remember-contract (-- ((pred string? f) ()))
+ (test-equal (term (remember-contract (-- ((pred string? f) (env)))
                                       ((and/c (pred (f? ^ f g) m)
                                               (pred (h? ^ h j) n))
-                                       ())))
-             (term (-- ((pred string? f) ())
-                       ((pred (f? ^ f g) m) ())
-                       ((pred (h? ^ h j) n) ()))))
+                                       (env))))
+             (term (-- ((pred string? f) (env))
+                       ((pred (f? ^ f g) m) (env))
+                       ((pred (h? ^ h j) n) (env)))))
  ;; infeasible
- (test-equal (term (remember-contract (-- ((pred string? f) ())) ((pred zero? g) ())))
-             (term (-- ((pred string? f) ()))))
+ (test-equal (term (remember-contract (-- ((pred string? f) (env))) ((pred zero? g) (env))))
+             (term (-- ((pred string? f) (env)))))
  ;; feasible
- (test-equal (term (remember-contract (-- ((pred exact-nonnegative-integer? f) ())) ((pred zero? g) ())))
-             (term (-- ((pred exact-nonnegative-integer? f) ())
-                       ((pred zero? g) ()))))
+ (test-equal (term (remember-contract (-- ((pred exact-nonnegative-integer? f) (env))) ((pred zero? g) (env))))
+             (term (-- ((pred exact-nonnegative-integer? f) (env))
+                       ((pred zero? g) (env)))))
  ;; drop any
- (test-equal (term (remember-contract (-- ((pred string? f) ())) ((pred (λ (x) #t) g) ())))
-             (term (-- ((pred string? f) ()))))
- (test-equal (term (remember-contract (-- ((pred string? f) ())
-                                          ((pred (λ (x) #t) g) ()))))
-             (term (-- ((pred string? f) ()))))
- (test-equal (term (remember-contract (-- ((pred (λ (x) #t) g) ())
-                                          ((pred string? f) ()))))
-             (term (-- ((pred string? f) ()))))
- (test-equal (term (remember-contract (-- ((pred (λ (x) #t) g) ()))
-                                      ((pred string? f) ())))
-             (term (-- ((pred string? f) ()))))
+ (test-equal (term (remember-contract (-- ((pred string? f) (env))) ((pred (λ (x) #t) g) (env))))
+             (term (-- ((pred string? f) (env)))))
+ (test-equal (term (remember-contract (-- ((pred string? f) (env))
+                                          ((pred (λ (x) #t) g) (env)))))
+             (term (-- ((pred string? f) (env)))))
+ (test-equal (term (remember-contract (-- ((pred (λ (x) #t) g) (env))
+                                          ((pred string? f) (env)))))
+             (term (-- ((pred string? f) (env)))))
+ (test-equal (term (remember-contract (-- ((pred (λ (x) #t) g) (env)))
+                                      ((pred string? f) (env))))
+             (term (-- ((pred string? f) (env)))))
  
  ;; drop duplicates
- (test-equal (term (remember-contract (-- ((pred (p? ^ f g) f) ())) ((pred (p? ^ f g) f) ())))
-             (term (-- ((pred (p? ^ f g) f) ()))))
- (test-equal (term (remember-contract (-- (clos 0 ()) 
-                                          ((pred (p? ^ f g) f) ()))
-                                      ((pred (p? ^ f g) f) ())))
-             (term (-- (clos 0 ()) 
-                       ((pred (p? ^ f g) f) ()))))
+ (test-equal (term (remember-contract (-- ((pred (p? ^ f g) f) (env))) ((pred (p? ^ f g) f) (env))))
+             (term (-- ((pred (p? ^ f g) f) (env)))))
+ (test-equal (term (remember-contract (-- (clos 0 (env)) 
+                                          ((pred (p? ^ f g) f) (env)))
+                                      ((pred (p? ^ f g) f) (env))))
+             (term (-- (clos 0 (env)) 
+                       ((pred (p? ^ f g) f) (env)))))
  
  ;; push past blessed arrow
  (test-equal (term (remember-contract ((--> (pred (p? ^ f g) f))
-                                       () <= f g (-- (clos 0 ())) f 
-                                       (-- (clos (λ () "x") ())))
-                                      ((pred (q? ^ h j) f) ())))
+                                       (env) <= f g (-- (clos 0 (env))) f 
+                                       (-- (clos (λ () "x") (env))))
+                                      ((pred (q? ^ h j) f) (env))))
              (term ((--> (pred (p? ^ f g) f))
-                    () <= f g (-- (clos 0 ())) f 
-                    (-- (clos (λ () "x") ())
-                        ((pred (q? ^ h j) f) ()))))))
+                    (env) <= f g (-- (clos 0 (env))) f 
+                    (-- (clos (λ () "x") (env))
+                        ((pred (q? ^ h j) f) (env)))))))
 
 ;; FIXME
 #|
@@ -340,18 +350,18 @@
    (domain-contracts* (C ...) any)])
 
 (test
-  (test-equal (term (domain-contracts (((pred string? f) ()))))
-             (term ()))
+  (test-equal (term (domain-contracts (((pred string? f) (env)))))
+              (term ()))
   (test-equal (term (domain-contracts ((((pred exact-nonnegative-integer? f) 
                                          (pred string? f) -> 
                                          (pred exact-nonnegative-integer? f)) 
-                                        ())
+                                        (env))
                                        (((pred boolean? f) 
                                          (pred empty? f) -> 
                                          (pred exact-nonnegative-integer? f)) 
-                                        ()))))
-              (term ((((pred exact-nonnegative-integer? f) ()) ((pred boolean? f) ()))
-                     (((pred string? f) ()) ((pred empty? f) ()))))))
+                                        (env)))))
+              (term ((((pred exact-nonnegative-integer? f) (env)) ((pred boolean? f) (env)))
+                     (((pred string? f) (env)) ((pred empty? f) (env)))))))
 
 ;; All range contracts of all function contracts in given contracts.
 ;; given the specified arguments for dependent contracts
@@ -369,26 +379,28 @@
    (range-contracts (C ...) any)])
 
 (test
- (test-equal (term (range-contracts (((pred string? f) ())) ()))
+ (test-equal (term (range-contracts (((pred string? f) (env))) ()))
              (term ()))
  (test-equal (term (range-contracts ((((pred exact-nonnegative-integer? f) 
                                        (pred string? f) -> 
                                        (pred exact-nonnegative-integer? f)) 
-                                      ())
+                                      (env))
                                      (((pred boolean? f) 
                                        (pred empty? f) -> 
                                        (pred exact-nonnegative-integer? f)) 
-                                      ()))
-                                    ((-- (clos 0 ())) (-- (clos 9 ())))))
-             (term (((pred exact-nonnegative-integer? f) ())
-                    ((pred exact-nonnegative-integer? f) ()))))
+                                      (env)))
+                                    ((-- (clos 0 (env))) (-- (clos 9 (env))))))
+             (term (((pred exact-nonnegative-integer? f) (env))
+                    ((pred exact-nonnegative-integer? f) (env)))))
  (test-equal (term (range-contracts ((((pred exact-nonnegative-integer? f) 
-                                       -> (λ (x) (pred (λ (y) (@ = x y f)) f))) ()))
-                                    ((-- (clos 0 ())))))
-             (term (((pred (λ (y) (@ = x y f)) f) ((x (-- (clos 0 ())))))))))
+                                       -> (λ (x) (pred (λ (y) (@ = x y f)) f))) (env)))
+                                    ((-- (clos 0 (env))))))
+             (term (((pred (λ (y) (@ = x y f)) f) 
+                     (env (x (-- (clos 0 (env))))))))))
 
 
 (define-metafunction λcρ
   env-extend : ρ (X V) ... -> ρ
-  [(env-extend ((X_1 V_1) ...) (X_2 V_2) ...)
-   ((X_2 V_2) ... (X_1 V_1) ...)])
+  [(env-extend ρ (X_2 V_2) ...)
+   ,(apply hash-set* (term ρ) 
+           (apply append (term ((X_2 V_2) ...))))])
