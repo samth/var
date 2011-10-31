@@ -346,19 +346,31 @@
 
 (define-metafunction λcρ
   remember-contract/any : V C ... -> (V ...)
+  [(remember-contract/any V C* ...)
+   ((remember-contract V C* ...))]
+  [(remember-contract/any V C ... ((and/c CON_1 CON_2) ρ) C_1 ...)
+   (remember-contract/any V C ... (CON_1 ρ) (CON_2 ρ) C_1 ...)]
   [(remember-contract/any V C ...)
-   ((remember-contract V C_1 ...) ...)
+   (V_1 ... ...)
    (where ((C_1 ...) ...)
-          ,(apply xprod (term ((explode C) ...))))])
+          ,(apply xprod (term ((explode C) ...))))
+   (where ((V_1 ...) ...)
+          ((remember-contract/any V C_1 ...) ...))])
 
 (test
  
- (test-equal (term (remember-contract/any (-- ((pred exact-nonnegative-integer? f) ()))
-                                          ((or/c (pred string? f) (pred boolean? f)) ())))
-             (term ((remember-contract (-- ((pred exact-nonnegative-integer? f) ()))
-                                       ((pred string? f) ()))
-                    (remember-contract (-- ((pred exact-nonnegative-integer? f) ()))
-                                       ((pred boolean? f) ())))))
+ (test-equal (term (remember-contract/any (-- ((pred exact-nonnegative-integer? f) (env)))
+                                          ((or/c (pred string? f) (pred boolean? f)) (env))))
+             (term ((remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
+                                       ((pred string? f) (env)))
+                    (remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
+                                       ((pred boolean? f) (env))))))
+ (test-equal (term (remember-contract/any (-- ((pred exact-nonnegative-integer? f) (env)))
+                                          ((and/c (pred empty? f) (or/c (pred string? f) (pred boolean? f))) (env))))
+             (term ((remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
+                                       ((pred empty? f) (env)) ((pred string? f) (env)))
+                    (remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
+                                       ((pred empty? f) (env)) ((pred boolean? f) (env))))))
  
  ;; flatten and/c
  (test-equal (term (remember-contract (-- ((pred string? f) (env)))
