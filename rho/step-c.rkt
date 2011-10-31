@@ -28,26 +28,19 @@
         (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 
              (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
         (where HOC (and/c CON_0 CON_1))
-        and/c-hoc)
-   
-   (--> ((rec/c X CON) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
-        ((unroll HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
-        (where HOC (rec/c X CON))
-        unroll-HOC)
+        and/c-hoc) 
    
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
-   (--> ((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
+   (--> ((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)                        
         (@ (-- (clos cons (env)))
-           (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 
-                  (@ (-- (clos car (env)))
-                     (remember-contract V ((pred cons? Λ) (env))) Λ))
-           (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 
-                  (@ (-- (clos cdr (env)))
-                     (remember-contract V ((pred cons? Λ) (env))) Λ))
+           (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 V_car)
+           (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 V_cdr)
            Λ)
         (where HOC (cons/c CON_0 CON_1))
         (where #t (∈ #t (δ cons? V Λ)))
+        (where (any_0 ... V_car any_1 ...) (δ car V Λ))
+        (where (any_2 ... V_cdr any_3 ...) (δ cdr V Λ))                
         check-cons-pass)
    
    (--> ((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V)
@@ -126,8 +119,20 @@
                                    (-- (clos 5 (env)))) 
                        (-- (clos 5 (env))) 
                        Λ)
-                    (-- (clos 5 (env)) 
-                        ((or/c (pred (prime? ^ f g) f) (pred string? f)) (env)))
+                    (remember-contract (-- (clos 5 (env)) 
+                                           ((pred (prime? ^ f g) f) (env))))
+                    
+                    (blame f f (-- (clos 0 (env)))
+                           ((or/c (pred (prime? ^ f g) f) (pred string? f)) (env))
+                           (-- (clos 5 (env))))))
+          (term (if (@ (flat-check ((or/c (pred (prime? ^ f g) f) 
+                                          (pred string? f)) 
+                                    (env))
+                                   (-- (clos 5 (env)))) 
+                       (-- (clos 5 (env))) 
+                       Λ)
+                    (remember-contract (-- (clos 5 (env)))
+                                       ((pred string? f) (env)))
                     (blame f f (-- (clos 0 (env)))
                            ((or/c (pred (prime? ^ f g) f) (pred string? f)) (env))
                            (-- (clos 5 (env)))))))
@@ -169,15 +174,6 @@
                    (-- (clos 0 (env))) f
                    (-- (clos (λ () "x") (env)))))))
  
- (test--> c ; ((rec/c x (or/c string? (-> x)) <= "x")
-          (term ((rec/c x (or/c (pred string? f) (-> x)))
-                 (env) <= f g (-- (clos 0 (env))) f
-                 (-- (clos "x" (env)))))
-          (term ((or/c (pred string? f) 
-                       (-> (rec/c x (or/c (pred string? f) (-> x)))))
-                 (env) <= f g (-- (clos 0 (env))) f
-                 (-- (clos "x" (env))))))
- 
  (test--> c ; ((cons/c (-> string?) (-> string?)) <= (cons (λ () "x") (λ () "y")))
           (term ((cons/c (-> (pred string? f)) 
                          (-> (pred string? g)))
@@ -187,16 +183,10 @@
           (term (@ (-- (clos cons (env)))
                    ((-> (pred string? f)) 
                     (env) <= f g (-- (clos 0 (env))) f 
-                    (@ (-- (clos car (env))) 
-                       (-- (cons (-- (clos (λ () "x") (env))) 
-                                 (-- (clos (λ () "y") (env))))) 
-                       Λ))
+                    (-- (clos (λ () "x") (env))))                    
                    ((-> (pred string? g)) 
                     (env) <= f g (-- (clos 0 (env))) f 
-                    (@ (-- (clos cdr (env))) 
-                       (-- (cons (-- (clos (λ () "x") (env))) 
-                                 (-- (clos (λ () "y") (env))))) 
-                       Λ))
+                    (-- (clos (λ () "y") (env))))                      
                    Λ)))
  
  (test--> c ; ((cons/c (-> string?) (-> string?)) <= 3)
