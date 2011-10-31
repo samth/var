@@ -5,9 +5,73 @@
 (test-suite test meta-misc)
 
 (define-metafunction λcρ
+  deref : σ a -> (S ...)
+  [(deref σ (loc any_a))
+   ,(set->list (hash-ref (term σ) (term any_a)))])
+
+(define-metafunction λcρ
   env : (X any) ... -> ρ
   [(env (X any) ...)
    ,(apply hash (apply append (term ((X any) ...))))])
+
+(define-metafunction λcρ
+  sto : (any (V ...)) ... -> σ
+  [(sto (any (V ...)) ...)
+   ,(apply hash (apply append 
+                       (map (λ (k+vs) (list (first k+vs) (apply set (second k+vs))))
+                            (term ((any (V ...)) ...)))))])
+(define-metafunction λcρ
+  alloc : σ (any ..._1) -> (a ..._1)
+  [(alloc σ (any ...))
+   ((loc any_1) ...)
+   (where (any_1 ...) (alloc-addr σ (any ...)))])
+
+(define-metafunction λcρ
+  alloc-addr : σ (any ..._1) -> (any ..._1)
+  [(alloc-addr σ (any ...))
+   ,(variables-not-in* (term σ) (term (any ...)))
+   (side-condition (current-exact?))]
+  [(alloc-addr σ (X ...))
+   (X ...) #;  
+   ,(variables-not-in (term σ) (term (X ...)))]
+  ;;;[(alloc-addr σ (K ...))
+  ;;; ,(map (λ (p) (if (and (pair? p)) (car p) p)) (term (K ...)))]
+  [(alloc-addr σ (V ...))
+   ,(build-list (length (term (V ...))) values)])
+
+(define-metafunction λcρ
+  extend-env* : ρ (X a) ... -> ρ
+  [(extend-env* ρ) ρ]
+  [(extend-env* ρ (X a) (X_1 a_1) ...)
+   (extend-env* (extend-env ρ X a) (X_1 a_1) ...)])
+
+(define-metafunction λcρ
+  extend-env : ρ X a -> ρ
+  [(extend-env ρ X (loc any_a))
+   ,(hash-set (term ρ) (term X) (term any_a))])
+
+(test 
+ (test-equal (term (extend-env (env) x (loc 0)))
+             (hash 'x 0)))
+
+(define-metafunction λcρ
+  extend-sto* : σ (a (any ...)) ... -> σ
+  [(extend-sto* σ) σ]
+  [(extend-sto* σ (a (any ...)) (a_1 (any_1 ...)) ...)
+   (extend-sto* (extend-sto σ a (any ...)) (a_1 (any_1 ...)) ...)])
+
+(define-metafunction λcρ
+  extend-sto : σ a (any ...) -> σ
+  [(extend-sto σ (loc any_a) (any ...))
+   ,(hash-set (term σ) (term any_a)
+              (set-union (apply set (term (any ...)))
+                         (hash-ref (term σ) (term any_a) (set))))])
+
+(test
+ (test-equal (term (extend-sto ,(hash) (loc 0) (x y z)))
+             (hash 0 (set 'x 'y 'z)))
+ (test-equal (term (extend-sto ,(hash 0 (set 'x 'y 'z)) (loc 0) (q)))
+             (hash 0 (set 'x 'y 'z 'q))))
 
 (define-metafunction λcρ
   env-lookup : ρ X -> any

@@ -70,8 +70,11 @@
 
 
 (define-extended-language λcρ λc-user
-  ;; Environments
-  (ρ (side-condition any_h (hash? (term any_h)))) ;; ((X V) ...)
+  ;; Environments, stores
+  (a (loc any))
+  (σ (side-condition any_h (hash? (term any_h))))
+  (ρ (side-condition any_h (hash? (term any_h))))
+  (S V)
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
   (OP .... 
@@ -171,9 +174,7 @@
   
   (bool #t #f)
   (TRUE (-- (clos #t ρ) C* ...))
-  (FALSE (-- (clos #f ρ) C* ...))
-  
-  ) 
+  (FALSE (-- (clos #f ρ) C* ...))) 
 
 (define-extended-language λc-raw λc-user
   ;; Raw, unannotated language
