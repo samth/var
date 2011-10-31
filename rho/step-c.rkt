@@ -90,14 +90,6 @@
         (side-condition (term (∈ #f (δ procedure? V ★))))
         chk-fun-fail-flat)))
 
-(define-syntax test/σ-->
-  (syntax-rules (term) 
-    [(test/σ R (term T1) (term T2) ...)
-     (test--> R 
-              (term (T1 (sto)))
-              (term (T2 (sto)))
-              ...)]))
-
 (test
  (test/σ--> c ; (nat? <= 5)   -- provable
             (term ((pred exact-nonnegative-integer? f) 
