@@ -383,7 +383,7 @@
    (-- (clos #t (env)))]
   [(plain-δ zero? (-- (clos natural ρ) C ...) LAB) 
    (-- (clos #f (env)))]  
-  [(plain-δ empty? (-- (clos empty ρ) C ...)) 
+  [(plain-δ empty? (-- (clos empty ρ) C ...) LAB)
    (-- (clos #t (env)))]
   [(plain-δ empty? V LAB)
    (-- (clos #f (env)))]
@@ -466,6 +466,8 @@
                             (-- (clos "Hi" (env)))
                             (-- (clos "Hi" (env)))
                             †))
+             (term (-- (clos #t (env)))))
+ (test-equal (term (plain-δ empty? (-- (clos empty #hash())) Λ))
              (term (-- (clos #t (env)))))
  (test-equal (term (plain-δ =
                             (-- (clos 3 (env)))
