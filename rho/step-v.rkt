@@ -34,13 +34,26 @@
         ((clos EXP ρ_1) σ_1)
         (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ...))
         β)
-   (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) V ..._1 LAB) σ)         
+   (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) V ..._1 LAB) σ)        
         ((clos EXP ρ_1) σ_1)
         (where (ρ_1 σ_1)
                (bind-vars ρ σ 
                           (F (-- (clos (λ F (X ...) EXP) ρ) C* ...)) 
                           (X V) ...))
         β-rec)
+   ;; this rule replaces the recursive call with its abstraction
+   (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) AV ..._1 LAB) σ)
+        ((let ([F ((and/c C* ...) <= Λ LAB 
+                                        (-- (clos (λ F (X ...) EXP) ρ) C* ...)
+                                        LAB
+                                        (-- C* ...))])
+           (clos EXP ρ_1))
+         σ_1)
+        ;((clos EXP ρ_1) σ_1)
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X AV) ...))
+        (where (any_c1 ... (C_0 ... -> any_c3) any_c2 ...) (C* ...))
+        special-β-rec)
+   
    
    ;; Handle first class operations.     
    (--> ((@ V U ... LAB) σ)
