@@ -37,13 +37,6 @@
    (where (a) (alloc σ (K)))
    (where σ_1 (extend-sto σ a (K)))])
 
-(define (set->list s) (for/list ([x (in-set s)]) x))
-
-(define-metafunction λCESK
-  lookup : ρ X -> a
-  [(lookup ρ X)
-   (loc ,(hash-ref (term ρ) (term X)))])
-
 (test-equal 
  (apply set
         (term (deref ,(hash 0 (set (term (-- (clos 1 (env))))
