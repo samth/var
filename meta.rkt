@@ -360,9 +360,9 @@
   [(impossible? (-- PV C ...)) #f]
   [(impossible? (-- C))
    (impossible-con? C)]
-  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
+  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V-or-AE_b ℓ_2 V))
    (impossible? V)]
-  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))) ;; for CESK only
+  [(impossible? ((C ... --> any) <= ℓ_0 ℓ_1 V-or-AE_b ℓ_2 (addr a))) ;; for CESK only
    #f]
   [(impossible? (-- C_0 C_1 C ...))
    ,(or (term (impossible? (-- C_0 C ...)))
