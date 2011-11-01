@@ -100,7 +100,8 @@
             (term ((pred exact-nonnegative-integer? f) 
                    (env) <= f g (-- (clos 0 (env))) f 
                    (-- (clos 5 (env)))))          
-            (term (if (@ (-- (clos (λ (x) #t) (env))) 
+            (term (if (@ (flat-check ((pred exact-nonnegative-integer? f) (env)) 
+                                     (-- (clos 5 (env))))
                          (-- (clos 5 (env))) 
                          Λ)
                       (remember-contract (-- (clos 5 (env))) 
@@ -113,7 +114,8 @@
             (term ((pred (prime? ^ h j) f) 
                    (env) <= f g (-- (clos 0 (env))) f 
                    (-- (clos 5 (env)))))
-            (term (if (@ (-- (clos (λ (x) (@ (prime? ^ h j) x f)) (env))) 
+            (term (if (@ (flat-check ((pred (prime? ^ h j) f) (env))
+                                     (-- (clos 5 (env)))) 
                          (-- (clos 5 (env))) 
                          Λ)
                       (remember-contract (-- (clos 5 (env))) 
