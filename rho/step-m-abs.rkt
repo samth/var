@@ -6,9 +6,9 @@
 
 (define (m~ Ms)
   (reduction-relation
-   λcρ #:domain D
-   (--> (X_1 ^ LAB X)
-        (CON (env) <= X LAB V_1 X_1 V_1)
+   λcρ #:domain (D σ)
+   (--> ((X_1 ^ LAB X) σ)
+        ((CON (env) <= X LAB V_1 X_1 V_1) σ)
         (where • (lookup-modref/val X X_1 ,Ms))
         (where CON (lookup-modref/con X X_1 ,Ms))
         (where (any_1 ... V_1 any_2 ...)
@@ -23,8 +23,8 @@
             (define f •)
             (provide/contract [f (pred string? m)]))]))
  
- (test--> (m~ Ms)
-          (term (f ^ † m))
-          (term ((pred string? m) 
-                 (env) <= m † (-- ((pred string? m) (env))) f 
-                 (-- ((pred string? m) (env)))))))
+ (test/σ--> (m~ Ms)
+            (term (f ^ † m))
+            (term ((pred string? m) 
+                   (env) <= m † (-- ((pred string? m) (env))) f 
+                   (-- ((pred string? m) (env)))))))

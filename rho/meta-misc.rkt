@@ -24,20 +24,20 @@
   alloc : σ (any ..._1) -> (a ..._1)
   [(alloc σ (any ...))
    ((loc any_1) ...)
-   (where (any_1 ...) (alloc-addr σ (any ...)))])
+   (where (any_1 ...) ,(alloc-addr (term σ) (term (any ...))))])
 
-(define-metafunction λcρ
-  alloc-addr : σ (any ..._1) -> (any ..._1)
-  [(alloc-addr σ (any ...))
-   ,(variables-not-in* (term σ) (term (any ...)))
-   (side-condition (current-exact?))]
-  [(alloc-addr σ (X ...))
-   (X ...) #;  
-   ,(variables-not-in (term σ) (term (X ...)))]
-  ;;;[(alloc-addr σ (K ...))
-  ;;; ,(map (λ (p) (if (and (pair? p)) (car p) p)) (term (K ...)))]
-  [(alloc-addr σ (V ...))
-   ,(build-list (length (term (V ...))) values)])
+(define (alloc-addr σ vals)
+   (cond [(current-exact?) (variables-not-in* (hash-keys σ) vals)]
+         [(andmap symbol? vals)
+          #;
+          (variables-not-in (hash-keys σ) vals)
+          vals]
+         ;; FIXME
+         #;
+         [(andmap V? vals)
+          (build-list (length vals) values)]
+         [else ;; continuations
+          (map (λ (p) (if (list? p) (drop-right p 1) p)) vals)]))
 
 (define-metafunction λcρ
   extend-env* : ρ (X a) ... -> ρ
@@ -76,7 +76,7 @@
 (define-metafunction λcρ
   env-lookup : ρ X -> any
   [(env-lookup ρ X)
-   ,(hash-ref (term ρ) (term X))])
+   (loc ,(hash-ref (term ρ) (term X)))])
 
 (define-metafunction λcρ
   explode : C -> (C ...)
