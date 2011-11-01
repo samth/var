@@ -93,7 +93,15 @@
           (term (-- (clos (λ (x) 0) (env)))))
  (test/σ--> v
           (term (clos 1 (env)))
-          (term (-- (clos 1 (env))))) 
+          (term (-- (clos 1 (env)))))
+ (test/σ--> v
+            (term (clos (let ((x 1) (y 2)) (@ + x y †)) (env)))
+            (term (let ((x (clos 1 (env)))
+                        (y (clos 2 (env))))
+                    (clos (@ + x y †) (env)))))
+ (test/σ--> v
+            (term (clos (p? ^ f g) (env)))
+            (term (p? ^ f g)))
  (test--> v
           (term ((@ (-- (clos (λ (x) 0) (env))) (-- (clos 1 (env))) †) (sto)))
           (redex-let λcρ
