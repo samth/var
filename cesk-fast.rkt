@@ -69,11 +69,12 @@
 (define (alloc-addr σ vals)
    (cond [(current-exact?) (variables-not-in* (hash-keys σ) vals)]
          [(andmap symbol? vals) 
-          #;
+          
           (variables-not-in (hash-keys σ) vals)
-          vals]
+          #;vals]
          [(andmap V? vals) 
-          (build-list (length vals) values)]
+          (build-list (length vals) values)
+          (variables-not-in* (hash-keys σ) vals)]
          [else ;; continuations
           (map (λ (p) (if (list? p) (drop-right p 1) p)) vals)]))
 
@@ -698,7 +699,7 @@
   (define l (term (load ,(last P))))
   (define f (step∆-gc (program-modules P)))
   (let loop ([terms (list l)] [finals (set)] [seen (set)] [iters 0])
-    (when (= 0 (modulo iters 50))
+    (when (= 0 (modulo iters 10))
       (printf "~a iterations, ~a terms seen, ~a frontier, ~a elapsed ms\n" iters (set-count seen) (length terms) 
               (current-process-milliseconds)))
     (define rs (for/list ([t (in-list terms)])
@@ -715,6 +716,8 @@
                         (filter-not (λ (e) (set-member? s e)) (second r))))))
     ;(printf "new-seen: ~a\nnew-terms: ~a\n" (set-count new-seen) (length new-terms))
     (cond [(empty? new-terms)
+           (printf "~a iterations, ~a terms seen, ~a frontier, ~a elapsed ms\n" iters (set-count seen) (length terms) 
+                   (current-process-milliseconds))
            (remove-duplicates (for/list ([f new-finals]) f))]
           [else             
            (loop (remove-duplicates new-terms) new-finals new-seen (add1 iters))])))

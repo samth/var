@@ -129,7 +129,7 @@ E
    ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ blessed-L))
   ;; Only for CESK.
   (blessed-A 
-   ((C ... --> C) <= ℓ ℓ V ℓ (addr a))  
+   ((C ... --> C) <= ℓ ℓ V-or-AE ℓ (addr a))  
    ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ (addr a)))
   
   ;; Concrete values

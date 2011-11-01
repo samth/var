@@ -33,6 +33,11 @@
         (where HOC (and/c CON_0 CON_1))
         and/c-hoc)
    
+   (--> (((rec/c X CON) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
+        (((unroll HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
+        (where HOC (rec/c X CON))
+        unroll-HOC)
+   
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
    (--> (((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
@@ -55,7 +60,7 @@
    
    ;; PROCEDURE CONTRACTS      
    (--> ((@ ((CON_0 ..._1 --> (λ (X ..._1) CON_1)) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB) σ)
-        ((CON_1 (extend-env* ρ (X a) ...) ; indy
+        ((CON_1 (extend-env* ρ (X a) ...) ; lax
                 <= LAB_1 LAB_2 V_2 LAB_3 
                 (@ (remember-contract V ((CON_a0 ... -> CON_a1) (env)) )
                    (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
@@ -188,14 +193,23 @@
                    (env) <= f g (-- (clos 0 (env))) f
                    (-- (cons (-- (clos (λ () "x") (env)))
                              (-- (clos (λ () "y") (env)))))))
-            (term (@ (-- (clos cons (env)))
-                   ((-> (pred string? f)) 
-                    (env) <= f g (-- (clos 0 (env))) f 
-                    (-- (clos (λ () "x") (env))))                    
-                   ((-> (pred string? g)) 
-                    (env) <= f g (-- (clos 0 (env))) f 
-                    (-- (clos (λ () "y") (env))))                      
-                   Λ)))
+            (term (@ (-- (clos cons (env)))                     
+                     ((-> (pred string? f)) 
+                      (env) <= f g (-- (clos 0 (env))) f 
+                      (-- (clos (λ () "x") (env))))                    
+                     ((-> (pred string? g)) 
+                      (env) <= f g (-- (clos 0 (env))) f 
+                      (-- (clos (λ () "y") (env))))                      
+                     Λ)))
+ 
+ (test/σ--> c ; ((rec/c x (or/c string? (-> x)) <= "x")
+          (term ((rec/c x (or/c (pred string? f) (-> x)))
+                 (env) <= f g (-- (clos 0 (env))) f
+                 (-- (clos "x" (env)))))
+          (term ((or/c (pred string? f) 
+                       (-> (rec/c x (or/c (pred string? f) (-> x)))))
+                 (env) <= f g (-- (clos 0 (env))) f
+                 (-- (clos "x" (env))))))
  
  (test/σ--> c ; ((cons/c (-> string?) (-> string?)) <= 3)
             (term ((cons/c (-> (pred string? f)) 

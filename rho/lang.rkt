@@ -126,10 +126,8 @@
          (cons/c FLAT FLAT) 
          (not/c FLAT))
   (HOC* (CON ... -> CON)
-        (CON ..._1 -> (λ (X ..._1) CON))
-        (or/c FLAT HOC)
-        (cons/c HOC CON) (cons/c CON HOC)
-        (rec/c X HOC))
+        (CON ..._1 -> (λ (X ..._1) CON))        
+        (cons/c HOC CON) (cons/c CON HOC))
   
   (ATOM? exact-nonnegative-integer?
          boolean?
