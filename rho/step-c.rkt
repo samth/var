@@ -60,16 +60,12 @@
    
    ;; PROCEDURE CONTRACTS      
    (--> ((@ ((CON_0 ..._1 --> (λ (X ..._1) CON_1)) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB) σ)
-        ((CON_1 (extend-env* ρ (X a) ...) ; lax
+        ((CON_1 ρ_1 ; lax
                 <= LAB_1 LAB_2 V_2 LAB_3 
                 (@ (remember-contract V ((CON_0 ... -> (λ (X ...) CON_1)) ρ))
                    (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
-         (extend-sto* σ (a (V_1)) ...))
-        #;
-        (where (CON_a0 ... CON_a1) 
-               ,(map (λ _ (term (pred (λ (x) #t) Λ))) 
-                     (term (CON_0 ... CON_1))))
-        (where (a ...) (alloc σ (X ...)))        
+         σ_1)
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X V_1) ...))
         blessed-β-dep)
    
    (--> ((@ ((CON_0 ..._1 --> CON_1) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB) σ)
@@ -77,10 +73,6 @@
                 (@ (remember-contract V ((CON_0 ... -> CON_1) ρ))
                    (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
          σ)
-        #;
-        (where (CON_a0 ... CON_a1)
-               ,(map (λ _ (term (pred (λ (x) #t) Λ))) 
-                     (term (CON_0 ... CON_1))))
         blessed-β)
    
    ;; BLESSING
@@ -238,21 +230,18 @@
                      (-- (clos "q" (env)))
                      †)
                  (sto)))
-          (redex-let*
-           λcρ 
-           ([(a) (term (alloc (sto) (x)))]
-            [(loc any_a) (term a)])
-           (term (((pred (λ (y) x) f)
-                   (env (x any_a))
+          (redex-let 
+           λcρ
+           ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos "q" (env))))))])
+           (term (((pred (λ (y) x) f) ρ
                    <= f g (-- (clos 0 (env))) f 
                    (@ (-- (clos (λ (x) x) (env))
-                          (((pred (λ (x) #t) Λ) -> (pred (λ (x) #t) Λ)) (env)))
+                          (((pred string? g) -> (λ (x) (pred (λ (y) x) f))) (env)))
                       ((pred string? g)
                        (env) <= g f (-- (clos "q" (env))) f
                        (-- (clos "q" (env))))
                       Λ))
-                  (sto (any_a ((-- (clos "q" (env))))))))))
- 
+                  σ)))) 
  (test/σ--> c ; (@ ((string? --> string?) <= (λ () "x")))
             (term (@ (((pred string? g) --> (pred string? f)) 
                       (env) <= f g (-- (clos 0 (env))) f (-- (clos (λ (x) x) (env))))
@@ -261,7 +250,7 @@
             (term ((pred string? f) 
                    (env) <= f g (-- (clos 0 (env))) f 
                    (@ (-- (clos (λ (x) x) (env))
-                          (((pred (λ (x) #t) Λ) -> (pred (λ (x) #t) Λ)) (env)))
+                          (((pred string? g) -> (pred string? f)) (env)))
                       ((pred string? g)
                        (env) <= g f (-- (clos "x" (env))) f
                        (-- (clos "x" (env))))
