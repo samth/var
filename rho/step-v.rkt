@@ -96,37 +96,27 @@
           (term (-- (clos 1 (env))))) 
  (test--> v
           (term ((@ (-- (clos (λ (x) 0) (env))) (-- (clos 1 (env))) †) (sto)))
-          (redex-let* λcρ
-                      ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos 1 (env))))))])
-                      (term ((clos 0 ρ) σ))))
+          (redex-let λcρ
+                     ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos 1 (env))))))])
+                     (term ((clos 0 ρ) σ))))
  (test/σ--> v
           (term (clos 0 (env)))
-          (term (-- (clos 0 (env)))))
-  ;; FIXME
- #;  
+          (term (-- (clos 0 (env))))) 
  (test-->> -->_v
            (term ((clos (@ (λ (x) 0) 1 †) (env)) (sto)))
            (redex-let λcρ
-                      ([(a) (term (alloc (sto) (x)))])
-                      (term ((-- (clos 0 (extend-env* (env) (x a))))
-                             (extend-sto* (sto)
-                                          (a ((-- (clos 1 (env))))))))))
- #;
+                      ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos 1 (env))))))])
+                      (term ((-- (clos 0 ρ)) σ))))
  (test--> v
           (term ((@ (-- (clos (λ f (x) (@ f x f)) (env)))
                     (-- (clos 0 (env)))
                     f)
                  (sto)))
           (redex-let λcρ
-                     ([(a_f a_x) (term (alloc (sto) (f x)))])
-                     (term ((clos (@ f x f) 
-                                 (extend-env* (env)
-                                              (f a_f)
-                                              (x a_x)))
-                            (extend-sto* (sto)
-                                         (a_f ((-- (clos (λ f (x) (@ f x f)) (env)))))
-                                         (a_x ((-- (clos 0 (env))))))))))
-
+                     ([(ρ σ) (term (bind-vars (env) (sto) 
+                                              (f (-- (clos (λ f (x) (@ f x f)) (env))))
+                                              (x (-- (clos 0 (env))))))])
+                     (term ((clos (@ f x f) ρ) σ))))                      
  (test/v-->> -->_v
              (term (clos (@ (λ fact (n)
                               (if (@ zero? n †)
@@ -136,11 +126,11 @@
                          (env)))
              (term (-- (clos 120 (env)))))
       
- (redex-let* λcρ
-             ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos 2 (env))))))])
-             (test--> v
-                      (term ((clos x ρ) σ))
-                      (term ((-- (clos 2 (env))) σ))))
+ (redex-let λcρ
+            ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos 2 (env))))))])
+            (test--> v
+                     (term ((clos x ρ) σ))
+                     (term ((-- (clos 2 (env))) σ))))
  (test/σ--> v
           (term (clos (if #f 7 8) (env)))
           (term (if (clos #f (env)) (clos 7 (env)) (clos 8 (env))))) 
@@ -181,41 +171,26 @@
  (test-->> -->_v
            (term ((clos (begin 3 5) (env)) (sto)))
            (term ((-- (clos 5 (env))) (sto))))
- #;
  (test--> v
           (term ((let ((x (-- (clos 1 (env))))
                        (y (-- (clos 2 (env)))))
                    (clos (@ + x y †) (env)))
                  (sto)))
           (redex-let λcρ
-                     ([(a_0 a_1) (term (alloc (sto) (x y)))])                     
-                     (term ((clos (@ + x y †)
-                                  (extend-env* (env) (x a_0) (y a_1)))
-                            (extend-sto* (sto) 
-                                         (a_0 ((-- (clos 1 (env)))))
-                                         (a_1 ((-- (clos 2 (env))))))))))
- #;
+                     ([(ρ σ) (term (bind-vars (env) (sto) 
+                                              (x (-- (clos 1 (env))))
+                                              (y (-- (clos 2 (env))))))])
+                     (term ((clos (@ + x y †) ρ) σ))))
   (test-->> -->_v
             (term ((let ((x (-- (clos 1 (env))))
                          (y (-- (clos 2 (env)))))
                      (clos (@ + x y †) (env)))
                    (sto)))
             (redex-let λcρ
-                       ([(a_x a_y) (term (alloc (sto) (x y)))])  
-                       (term ((-- (clos 3 (env))) 
-                              (extend-sto* (sto) 
-                                           (a_x ((-- (clos 1 (env)))))
-                                           (a_y ((-- (clos 2 (env))))))))))  
- #;
-  (test-->> -->_v
-            (term ((clos (let ((x 1) (y 2)) (@ + x y †)) (env)) (sto)))
-            (redex-let λcρ
-                       ([(a_x a_y) (term (alloc (sto) (x y)))])
-                       (term ((-- (clos 3 (env)))
-                              (extend-sto* (sto) 
-                                           (a_x ((-- (clos 1 (env)))))
-                                           (a_y ((-- (clos 2 (env))))))))))
-  
+                      ([(ρ σ) (term (bind-vars (env) (sto) 
+                                               (x (-- (clos 1 (env))))
+                                               (y (-- (clos 2 (env))))))])
+                      (term ((-- (clos 3 (env))) σ))))      
   (test-->> -->_v
             (term ((clos (@ procedure-arity-includes? (λ (x) x) 1 †) (env)) (sto)))
             (term ((-- (clos #t (env))) (sto))))
