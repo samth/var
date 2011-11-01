@@ -14,12 +14,16 @@
    λcρ #:domain (D σ)
    (--> ((in-hole 𝓔 D_redex) σ)
         ((in-hole 𝓔 D_contractum) σ_1)
-        (where (any_0 ... (D_contractum σ_1) any_1 ...)
-               ,(apply-reduction-relation r (term (D_redex σ)))))
+        (where (any_0 ... (any_name (D_contractum σ_1)) any_1 ...)
+               ,(apply-reduction-relation/tag-with-names r (term (D_redex σ))))
+        (computed-name (term any_name))
+        redex!)
    (--> (D σ)
         (BLAME σ)
-        (where (any_0 ... (BLAME σ) any_1 ...)
-               ,(apply-reduction-relation e (term (D σ)))))))
+        (where (any_0 ... (any_name (BLAME σ)) any_1 ...)
+               ,(apply-reduction-relation/tag-with-names e (term (D σ))))
+        (computed-name (term any_name))
+        blame!)))
                         
 (test
  (define Ms 
