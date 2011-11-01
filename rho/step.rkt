@@ -7,11 +7,20 @@
 (provide v c m e)
 (test-suite test step)
 
-(define (-->_vcme Ms)
-  (union-reduction-relations 
-   e
-   (context-closure (union-reduction-relations v c c~ (m Ms) (m~ Ms)) λcρ 𝓔)))
-
+(define (-->_vcme Ms) 
+  (define r 
+    (union-reduction-relations v c c~ (m Ms) (m~ Ms)))    
+  (reduction-relation 
+   λcρ #:domain (D σ)
+   (--> ((in-hole 𝓔 D_redex) σ)
+        ((in-hole 𝓔 D_contractum) σ_1)
+        (where (any_0 ... (D_contractum σ_1) any_1 ...)
+               ,(apply-reduction-relation r (term (D_redex σ)))))
+   (--> (D σ)
+        (BLAME σ)
+        (where (any_0 ... (BLAME σ) any_1 ...)
+               ,(apply-reduction-relation e (term (D σ)))))))
+                        
 (test
  (define Ms 
    (term [(module m racket 
@@ -19,9 +28,10 @@
             (define n 7)
             (provide/contract 
              [n (pred exact-nonnegative-integer? m)]))]))
- (test-->> (-->_vcme Ms)
-           (term (n ^ † m))
-           (term (-- (clos 7 (env))))))
+ (test/v-->> (-->_vcme Ms)
+             (term (n ^ † m))
+             (term (-- (clos 7 (env))))))
+
 
 (test
  (define Ms 
@@ -35,10 +45,13 @@
             (provide/contract 
              [fact ((pred exact-nonnegative-integer? f) 
                     -> (pred exact-nonnegative-integer? f))]))]))
- (test-->> (-->_vcme Ms)
-           (term (clos (@ (fact ^ † f) 5 †) (env)))
-           (term (-- (clos 120 (env))))))
+ (test/v-->> (-->_vcme Ms)
+             (term (clos (@ (fact ^ † f) 5 †) (env)))
+             (term (-- (clos 120 (env))))))
 
+
+;; FIXME -- this is hard to express without GC.
+#; 
 (test
  ;; Factorial with simple dependent contract
  (define Ms 
@@ -54,11 +67,11 @@
                     (λ (x)
                       (and/c (pred exact-nonnegative-integer? f)
                              (pred (λ (y) (@ <= x y f)) f))))]))]))
- (test-->> (-->_vcme Ms)
-           (term (clos (@ (fact ^ † f) 5 †) (env)))
-           (term (-- (clos 120 (env))
-                     ((pred (λ (y) (@ <= x y f)) f)
-                      (env (x (-- (clos 5 (env))))))))))
+ (test/v-->> (-->_vcme Ms)
+             (term (clos (@ (fact ^ † f) 5 †) (env)))
+             (term (-- (clos 120 (env))
+                       ((pred (λ (y) (@ <= x y f)) f)
+                        (env (x (-- (clos 5 (env))))))))))
 
 (test
  (define Ms
@@ -73,34 +86,27 @@
              [posn-x ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]
              [posn-y ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]))]))
  
- (test-->> (-->_vcme Ms)
-           (term (clos (@ (posn ^ † p) 1 2 †) (env)))
-           (term (-- (struct posn
-                       (-- (clos 1 (env)))
-                       (-- (clos 2 (env))))
-                     ((pred (posn? ^ p p) p) (env)))))
- (test-->> (-->_vcme Ms)
-           (term (clos (@ (posn? ^ † p)
-                          (@ (posn ^ † p) 1 2 †)
-                          †)
-                       (env)))
-           (term (-- (clos #t (env)))))
- (test-->> (-->_vcme Ms)
-           (term (clos (@ (posn-x ^ † p)
-                          (@ (posn ^ † p) 1 2 †)
-                          †)
-                       (env)))
-           (term (-- (clos 1 (env)))))
- (test-->> (-->_vcme Ms)
-           (term (clos (@ (posn-y ^ † p)
-                          (@ (posn ^ † p) 1 2 †)
-                          †)
-                       (env)))
-           (term (-- (clos 2 (env))))))
-
-
-;; FIXME TODO
-#;
-(define (-->_vcc~Δ Ms)
-  (union-reduction-relations error-propagate 
-                             (context-closure (union-reduction-relations v c c~ (Δ~ Ms)) λc~ 𝓔)))
+ (test/v-->> (-->_vcme Ms)
+             (term (clos (@ (posn ^ † p) 1 2 †) (env)))
+             (term (-- (struct posn
+                         (-- (clos 1 (env)))
+                         (-- (clos 2 (env))))
+                       ((pred (posn? ^ p p) p) (env)))))
+ (test/v-->> (-->_vcme Ms)
+             (term (clos (@ (posn? ^ † p)
+                            (@ (posn ^ † p) 1 2 †)
+                            †)
+                         (env)))
+             (term (-- (clos #t (env)))))
+ (test/v-->> (-->_vcme Ms)
+             (term (clos (@ (posn-x ^ † p)
+                            (@ (posn ^ † p) 1 2 †)
+                            †)
+                         (env)))
+             (term (-- (clos 1 (env)))))
+ (test/v-->> (-->_vcme Ms)
+             (term (clos (@ (posn-y ^ † p)
+                            (@ (posn ^ † p) 1 2 †)
+                            †)
+                         (env)))
+             (term (-- (clos 2 (env))))))

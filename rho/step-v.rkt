@@ -124,18 +124,14 @@
                                          (a_f ((-- (clos (λ f (x) (@ f x f)) (env)))))
                                          (a_x ((-- (clos 0 (env))))))))))
 
- (test-equal
-  (caar 
-   (apply-reduction-relation* 
-    -->_v
-    (term ((clos (@ (λ fact (n)
-                      (if (@ zero? n †)
-                          1
-                          (@ * n (@ fact (@ sub1 n †) †) †)))
-                    5 †)
-                 (env))
-           (sto)))))
-   (term (-- (clos 120 (env)))))
+ (test/v-->> -->_v
+             (term (clos (@ (λ fact (n)
+                              (if (@ zero? n †)
+                                  1
+                                  (@ * n (@ fact (@ sub1 n †) †) †)))
+                            5 †)
+                         (env)))
+             (term (-- (clos 120 (env)))))
                         
  (test--> v
           (term ((clos x (env (x 0))) (sto (0 ((-- (clos 2 (env))))))))

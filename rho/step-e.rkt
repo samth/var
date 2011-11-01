@@ -7,9 +7,9 @@
 ;; when we get blame, discard the context
 (define e
   (reduction-relation 
-   λcρ #:domain D
+   λcρ #:domain (D σ)
    ;; if we reduce to blame, we halt the program
-   (--> (in-hole 𝓔 BLAME) BLAME
+   (--> ((in-hole 𝓔 BLAME) σ) (BLAME σ)
         (side-condition (not (equal? (term hole) (term 𝓔))))
         halt-blame)
      
@@ -22,13 +22,12 @@
         normalize-abstract)))
 
 (test
- (test--> e
-          (term (@ (blame f f (-- (clos 0 (env))) 
-                          ((pred exact-nonnegative-integer? f) (env))
-                          (-- (clos 5 (env))))
-                   (clos (@ string? 3 †) (env))
-                   †))
-          (term (blame f f (-- (clos 0 (env))) 
-                       ((pred exact-nonnegative-integer? f) (env))
-                       (-- (clos 5 (env)))))))
- 
+ (test/σ--> e
+            (term (@ (blame f f (-- (clos 0 (env))) 
+                            ((pred exact-nonnegative-integer? f) (env))
+                            (-- (clos 5 (env))))
+                     (clos (@ string? 3 †) (env))
+                     †))
+            (term (blame f f (-- (clos 0 (env))) 
+                         ((pred exact-nonnegative-integer? f) (env))
+                         (-- (clos 5 (env)))))))
