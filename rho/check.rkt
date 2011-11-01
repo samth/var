@@ -5,13 +5,8 @@
 (test-suite test check)
 
 (define-metafunction λcρ
-  flat-check : (FLAT ρ) V -> D  
+  flat-check : (FLAT ρ) V -> EXP
   [(flat-check (FLAT ρ) V)
-   (-- (clos (fc/e (FLAT ρ) V) (env)))])
-
-(define-metafunction λcρ
-  fc/e : (FLAT ρ) V -> EXP
-  [(fc/e (FLAT ρ) V)
    (fc/c X () FLAT ρ V)
    ;; FIXME generating syntax.  Is there any possibility of capture here?  Don't think so
    (where X ,(variable-not-in (term (FLAT V)) 'x))])
@@ -79,46 +74,43 @@
 (test 
  (test-equal 
   (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) #t) (env)))))
+  (term (λ (x) #t)))
  (test-equal
   (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (clos "x" (env)))))
-  (term (-- (clos (λ (x) #f) (env)))))
+  (term (λ (x) #f)))
  (test-equal
   (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) (@ (prime? ^ f g) x f)) (env)))))
+  (term (λ (x) (@ (prime? ^ f g) x f))))
  (test-equal
   (term (flat-check ((not/c (pred (prime? ^ f g) f)) (env)) (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f #t))
-                  (env)))))
+  (term (λ (x) (if (@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f #t))))        
  (test-equal
   (term (flat-check ((and/c (pred (prime? ^ f g) f)
                             (pred (composite? ^ f g) f)) 
                      (env)) 
                     (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)
-                             (@ (fc/e ((pred (composite? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f))
-                  (env)))))
+  (term (λ (x) (if (@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)
+                   (@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f))))        
  (test-equal 
   (term (flat-check ((or/c (pred (prime? ^ f g) f)
                            (pred (composite? ^ f g) f)) 
                      (env)) 
                     (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)
-                             #t 
-                             (@ (fc/e ((pred (composite? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)))
-                  (env)))))
-                  
+  (term (λ (x) (if (@ (flat-check ((pred (prime? ^ f g) f) (env)) 
+                                  (-- (clos 0 (env)))) x Λ)
+                   #t 
+                   (@ (flat-check ((pred (composite? ^ f g) f) (env)) 
+                                  (-- (clos 0 (env)))) x Λ)))))
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
                      (env))
                     (-- (cons (-- (clos 0 (env))) (-- (clos 1 (env)))))))
   (term 
-   (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env))))
-                           (@ car x Λ) Λ)
-                        (@ (fc/e ((pred (composite? ^ f g) f) (env)) (-- (clos 1 (env))))
-                           (@ cdr x Λ) Λ) #f))
-                  (env)))))
+   (λ (x) (if (@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env))))
+                 (@ car x Λ) Λ)
+              (@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (clos 1 (env))))
+                 (@ cdr x Λ) Λ) #f))))
  (test-equal
   (term (flat-check ((rec/c z (pred (prime? ^ f g) f)) (env)) (-- (clos 0 (env)))))
   (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env))))))
@@ -128,34 +120,31 @@
                              (pred (composite? ^ f g) f)) 
                      (env))
                     (-- ((pred cons? f) (env)))))
-  (term (-- (clos (λ (x) (@ (λ (x) (if (@ (λ (x) (@ (prime? ^ f g) x f))
+  (term (λ (x) (@ (λ (x) (if (@ (λ (x) (@ (prime? ^ f g) x f))
                                           (@ car x Λ) Λ)
                                        (@ (λ (x) (@ (composite? ^ f g) x f))
-                                          (@ cdr x Λ) Λ) #f)) x Λ))
-                  (env)))))
- 
+                                          (@ cdr x Λ) Λ) #f)) x Λ))))         
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
                      (env))
                     (-- ((∧) (env)))))
-  (term (-- (clos (λ (x1)
-                    (amb/e #f
-                           (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (join-contracts)) • Λ)
-                               (@ (fc/e ((pred (composite? ^ f g) f) (env)) (join-contracts)) • Λ)
-                               #f)))
-                  (env)))))
+  (term (λ (x1)
+          (amb/e #f
+                 (if (@ (flat-check ((pred (prime? ^ f g) f) (env)) (join-contracts)) • Λ)
+                     (@ (flat-check ((pred (composite? ^ f g) f) (env)) (join-contracts)) • Λ)
+                     #f)))))        
  (test-equal
   (term (flat-check ((rec/c x (or/c (pred empty? †)
                                     (cons/c (pred zero? †) x)))
                      (env))
                     (-- ((∧) (env)))))
-  (term (-- (clos (λ (x1)
-                    (if (@ (fc/e ((pred empty? †) (env)) (join-contracts)) x1 Λ)
-                        #t
-                        (@ (λ (x1) (amb/e #f 
-                                          (if (@ (fc/e ((pred zero? †) (env)) (join-contracts)) • Λ)
-                                              (@ (λ (x1) #t) • Λ)
-                                              #f)))
-                           x1 Λ)))
-                  (env))))))
+  (term (λ (x1)
+          (if (@ (flat-check ((pred empty? †) (env)) (join-contracts)) x1 Λ)
+              #t
+              (@ (λ (x1) (amb/e #f 
+                                (if (@ (flat-check ((pred zero? †) (env)) (join-contracts)) • Λ)
+                                    (@ (λ (x1) #t) • Λ)
+                                    #f)))
+                 x1 Λ))))))
+ 

@@ -10,7 +10,7 @@
    
    ;; FLAT CONTRACTS   
    (--> ((FLAT ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)  ; FIXME: first V_1 was V-or-AE
-        ((if (@ (flat-check (FLAT ρ) V) V Λ)
+        ((if (@ (-- (clos (flat-check (FLAT ρ) V) (env))) V Λ)
              V_2
              (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
          σ)
@@ -19,7 +19,7 @@
    
    ;; HIGHER-ORDER CONTRACTS   
    (--> (((or/c FLAT HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
-        ((if (@ (flat-check (FLAT ρ) V) V Λ)
+        ((if (@ (-- (clos (flat-check (FLAT ρ) V) (env))) V Λ)
              V_2
              (HOC ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
          σ)
@@ -100,8 +100,9 @@
             (term ((pred exact-nonnegative-integer? f) 
                    (env) <= f g (-- (clos 0 (env))) f 
                    (-- (clos 5 (env)))))          
-            (term (if (@ (flat-check ((pred exact-nonnegative-integer? f) (env)) 
-                                     (-- (clos 5 (env))))
+            (term (if (@ (-- (clos (flat-check ((pred exact-nonnegative-integer? f) (env)) 
+                                               (-- (clos 5 (env))))
+                                   (env)))
                          (-- (clos 5 (env))) 
                          Λ)
                       (remember-contract (-- (clos 5 (env))) 
@@ -114,8 +115,9 @@
             (term ((pred (prime? ^ h j) f) 
                    (env) <= f g (-- (clos 0 (env))) f 
                    (-- (clos 5 (env)))))
-            (term (if (@ (flat-check ((pred (prime? ^ h j) f) (env))
-                                     (-- (clos 5 (env)))) 
+            (term (if (@ (-- (clos (flat-check ((pred (prime? ^ h j) f) (env))
+                                               (-- (clos 5 (env))))
+                                   (env)))
                          (-- (clos 5 (env))) 
                          Λ)
                       (remember-contract (-- (clos 5 (env))) 
@@ -128,10 +130,11 @@
             (term ((or/c (pred (prime? ^ f g) f) (pred string? f)) 
                    (env) <= f g (-- (clos 0 (env))) f 
                    (-- (clos 5 (env)))))
-            (term (if (@ (flat-check ((or/c (pred (prime? ^ f g) f) 
-                                            (pred string? f)) 
-                                      (env))
-                                     (-- (clos 5 (env)))) 
+            (term (if (@ (-- (clos (flat-check ((or/c (pred (prime? ^ f g) f) 
+                                                      (pred string? f)) 
+                                                (env))
+                                               (-- (clos 5 (env))))
+                                   (env)))
                          (-- (clos 5 (env))) 
                          Λ)
                       (remember-contract (-- (clos 5 (env)) 
@@ -140,10 +143,11 @@
                       (blame f f (-- (clos 0 (env)))
                              ((or/c (pred (prime? ^ f g) f) (pred string? f)) (env))
                              (-- (clos 5 (env))))))
-            (term (if (@ (flat-check ((or/c (pred (prime? ^ f g) f) 
-                                            (pred string? f)) 
-                                      (env))
-                                     (-- (clos 5 (env)))) 
+            (term (if (@ (-- (clos (flat-check ((or/c (pred (prime? ^ f g) f) 
+                                                      (pred string? f)) 
+                                                (env))
+                                               (-- (clos 5 (env))))
+                                   (env)))
                          (-- (clos 5 (env))) 
                          Λ)
                       (remember-contract (-- (clos 5 (env)))
@@ -166,8 +170,9 @@
                    (env) <= f g (-- (clos 0 (env))) f 
                    (-- (clos (λ () "x") (env)))))
             
-            (term (if (@ (flat-check ((pred string? f) (env))
-                                     (-- (clos (λ () "x") (env))))
+            (term (if (@ (-- (clos (flat-check ((pred string? f) (env))
+                                               (-- (clos (λ () "x") (env))))
+                                   (env)))
                          (-- (clos (λ () "x") (env)))
                          Λ)
                       (remember-contract (-- (clos (λ () "x") (env)))
