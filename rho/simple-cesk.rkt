@@ -18,16 +18,6 @@
      (co K V σ))
   (S V K))
 
-
-
-(define-metafunction λCESK
-  restrict : EXP ρ -> ρ
-  ;; FIXME : dummy placeholder for now.
-  [(restrict EXP ρ) ρ])
-
-(define-metafunction λCESK
-  ↓ : EXP ρ -> D
-  [(↓ EXP ρ) (clos EXP (restrict EXP ρ))])
   
 
 (define-metafunction λCESK

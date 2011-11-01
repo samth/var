@@ -26,6 +26,20 @@
   [(lookup-var σ ρ X)
    ((env-lookup ρ X))])
 
+
+(define-metafunction λcρ
+  restrict : EXP ρ -> ρ
+  ;; FIXME : dummy placeholder for now.
+  [(restrict #t ρ) (env)]
+  [(restrict #f ρ) (env)]
+  [(restrict natural ρ) (env)]
+  [(restrict string ρ) (env)]
+  [(restrict EXP ρ) ρ])
+
+(define-metafunction λcρ
+  ↓ : EXP ρ -> D
+  [(↓ EXP ρ) (clos EXP (restrict EXP ρ))])
+
 (define-metafunction λcρ
   env : (X any) ... -> ρ
   [(env (X any) ...)
