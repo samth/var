@@ -12,7 +12,7 @@
    (--> ((@ AV V ... LAB) σ)
         ;; do bad things in case of a concrete value
         ((amb V_result
-              (let ((d (demonic* CON_demon V_demon))
+              (let ((DEMONIC (demonic* CON_demon V_demon))
                     (r V_result))
                 (clos r (env))) 
               ...)
@@ -33,7 +33,7 @@
    (--> ((@ AV V ... LAB) σ)
         ;; do bad things in case of a concrete value
         ((amb (join-contracts)
-              (let ((d (demonic* (∧) V))
+              (let ((DEMONIC (demonic* (∧) V))
                     (r (join-contracts)))
                 (clos r (env)))
               ...)
@@ -51,7 +51,7 @@
                          ((pred (even? ^ fun e/o) fun) (env)))
                      †))
             (term (amb (-- ((pred (even? ^ fun e/o) fun) (env))) 
-                       (let ((d (-- (clos 0 (env)))) 
+                       (let ((DEMONIC(-- (clos 0 (env)))) 
                              (r (-- ((pred (even? ^ fun e/o) fun) (env))))) 
                          (clos r (env))))))
  
@@ -61,6 +61,6 @@
                      †))
             (term (if (-- ((∧) (env)))
                       (-- ((pred (λ (x) #t) Λ) (env)))
-                      (let ((d (-- (clos 0 (env)))) 
+                      (let ((DEMONIC(-- (clos 0 (env)))) 
                             (r (-- ((pred (λ (x) #t) Λ) (env))))) 
                         (clos r (env)))))))

@@ -34,6 +34,8 @@
   [(restrict #f ρ) (env)]
   [(restrict natural ρ) (env)]
   [(restrict string ρ) (env)]
+  [(restrict OP ρ) (env)]
+  [(restrict MODREF ρ) (env)]
   [(restrict EXP ρ) ρ])
 
 (define-metafunction λcρ
