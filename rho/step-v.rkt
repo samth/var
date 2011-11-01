@@ -7,6 +7,7 @@
 (define v
   (reduction-relation
    λcρ #:domain (D σ)
+   (--> ((clos • ρ) σ) ((join-contracts) σ) bullet)
    (--> (PREVAL σ) ((-- PREVAL) σ) wrap)
    ;; Environment propagation
    (--> ((clos (@ EXP ... LAB) ρ) σ)
@@ -83,6 +84,10 @@
          ((in-hole 𝓔 D_contractum) σ_1)
          (where (any_0 ... (D_contractum σ_1) any_1 ...)
                 ,(apply-reduction-relation v (term (D_redex σ)))))))
+ 
+ (test/σ--> v
+            (term (clos • (env)))
+            (term (join-contracts)))
  (test/σ--> v 
           (term (clos (@ (λ (x) 0) 1 †) (env)))
           (term (@ (clos (λ (x) 0) (env)) (clos 1 (env)) †))) 

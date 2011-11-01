@@ -14,6 +14,7 @@
   [(env (X any) ...)
    ,(apply hash (apply append (term ((X any) ...))))])
 
+
 (define-metafunction λcρ
   sto : (any (V ...)) ... -> σ
   [(sto (any (V ...)) ...)

@@ -77,6 +77,8 @@
   (S V)
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
+  (EXP .... •)
+  
   (OP .... 
       (s-pred X)
       (s-cons X natural)

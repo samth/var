@@ -7,9 +7,8 @@
 (define-metafunction λcρ
   flat-check : (FLAT ρ) V -> D  
   [(flat-check (FLAT ρ) V)
-   (-- (clos (fc/e (FLAT ρ) V)
-             (env (*black-hole* (-- ((∧) (env)))))))])
- 
+   (-- (clos (fc/e (FLAT ρ) V) (env)))])
+
 (define-metafunction λcρ
   fc/e : (FLAT ρ) V -> EXP
   [(fc/e (FLAT ρ) V)
@@ -51,7 +50,7 @@
   [(fc/c X_1 any (rec/c X CON) ρ V)   
    (fc/c X_1 ((((rec/c X CON) ρ) V) . any) (unroll (rec/c X CON)) ρ V)]
   [(fc/c X any (cons/c CON_1 CON_2) ρ AV)
-   (λ (X) (amb/e *black-hole* (@ EXP_n X Λ) ...))                     
+   (λ (X) (amb/e (@ EXP_n X Λ) ...))
    (where (EXP_n ...)
           ,(remove-duplicates
             (for*/list ([l (term (proj-left AV))]
@@ -63,15 +62,14 @@
    (where #t (proves AV cons?))]
   [(fc/c X any (cons/c CON_1 CON_2) ρ AV)
    (λ (X)
-     (amb/e *black-hole*
-            #f
-            (if (@ EXP_1 *black-hole* Λ)
-                (@ EXP_2 *black-hole* Λ)
+     (amb/e #f
+            (if (@ EXP_1 • Λ)
+                (@ EXP_2 • Λ)
                 #f)))
    (where EXP_1 (fc/c X any CON_1 ρ (join-contracts)))
    (where EXP_2 (fc/c X any CON_2 ρ (join-contracts)))
                   
-   ;; using *black-hole* instead of (car X) and (cdr X) avoids spurious blame of the language
+   ;; using • instead of (car X) and (cdr X) avoids spurious blame of the language
    ;; (proj-{left,right} AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
    (where #f (proves AV cons?))
@@ -81,17 +79,17 @@
 (test 
  (test-equal 
   (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) #t) (env (*black-hole* (-- ((∧) (env)))))))))
+  (term (-- (clos (λ (x) #t) (env)))))
  (test-equal
   (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (clos "x" (env)))))
-  (term (-- (clos (λ (x) #f) (env (*black-hole* (-- ((∧) (env)))))))))
+  (term (-- (clos (λ (x) #f) (env)))))
  (test-equal
   (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))))
-  (term (-- (clos (λ (x) (@ (prime? ^ f g) x f)) (env (*black-hole* (-- ((∧) (env)))))))))
+  (term (-- (clos (λ (x) (@ (prime? ^ f g) x f)) (env)))))
  (test-equal
   (term (flat-check ((not/c (pred (prime? ^ f g) f)) (env)) (-- (clos 0 (env)))))
   (term (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f #t))
-                  (env (*black-hole* (-- ((∧) (env)))))))))
+                  (env)))))
  (test-equal
   (term (flat-check ((and/c (pred (prime? ^ f g) f)
                             (pred (composite? ^ f g) f)) 
@@ -99,7 +97,7 @@
                     (-- (clos 0 (env)))))
   (term (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)
                              (@ (fc/e ((pred (composite? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f))
-                  (env (*black-hole* (-- ((∧) (env)))))))))
+                  (env)))))
  (test-equal 
   (term (flat-check ((or/c (pred (prime? ^ f g) f)
                            (pred (composite? ^ f g) f)) 
@@ -108,7 +106,7 @@
   (term (-- (clos (λ (x) (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)
                              #t 
                              (@ (fc/e ((pred (composite? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)))
-                  (env (*black-hole* (-- ((∧) (env)))))))))
+                  (env)))))
                   
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
@@ -120,7 +118,7 @@
                            (@ car x Λ) Λ)
                         (@ (fc/e ((pred (composite? ^ f g) f) (env)) (-- (clos 1 (env))))
                            (@ cdr x Λ) Λ) #f))
-                  (env (*black-hole* (-- ((∧) (env)))))))))
+                  (env)))))
  (test-equal
   (term (flat-check ((rec/c z (pred (prime? ^ f g) f)) (env)) (-- (clos 0 (env)))))
   (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env))))))
@@ -134,7 +132,7 @@
                                           (@ car x Λ) Λ)
                                        (@ (λ (x) (@ (composite? ^ f g) x f))
                                           (@ cdr x Λ) Λ) #f)) x Λ))
-                  (env (*black-hole* (join-contracts)))))))
+                  (env)))))
  
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
@@ -142,12 +140,11 @@
                      (env))
                     (-- ((∧) (env)))))
   (term (-- (clos (λ (x1)
-                    (amb/e *black-hole* 
-                           #f
-                           (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (join-contracts)) *black-hole* Λ)
-                               (@ (fc/e ((pred (composite? ^ f g) f) (env)) (join-contracts)) *black-hole* Λ)
+                    (amb/e #f
+                           (if (@ (fc/e ((pred (prime? ^ f g) f) (env)) (join-contracts)) • Λ)
+                               (@ (fc/e ((pred (composite? ^ f g) f) (env)) (join-contracts)) • Λ)
                                #f)))
-                  (env (*black-hole* (join-contracts)))))))
+                  (env)))))
  (test-equal
   (term (flat-check ((rec/c x (or/c (pred empty? †)
                                     (cons/c (pred zero? †) x)))
@@ -156,10 +153,9 @@
   (term (-- (clos (λ (x1)
                     (if (@ (fc/e ((pred empty? †) (env)) (join-contracts)) x1 Λ)
                         #t
-                        (@ (λ (x1) (amb/e *black-hole*
-                                                    #f 
-                                                    (if (@ (fc/e ((pred zero? †) (env)) (join-contracts)) *black-hole* Λ)
-                                                        (@ (λ (x1) #t) *black-hole* Λ)
-                                                        #f)))
+                        (@ (λ (x1) (amb/e #f 
+                                          (if (@ (fc/e ((pred zero? †) (env)) (join-contracts)) • Λ)
+                                              (@ (λ (x1) #t) • Λ)
+                                              #f)))
                            x1 Λ)))
-                  (env (*black-hole* (join-contracts))))))))
+                  (env))))))

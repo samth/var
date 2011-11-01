@@ -187,10 +187,10 @@
    (if (-- ((pred (λ (x) #t) Λ) (env))) D_1 (amb D_3 ...))])
 
 (define-metafunction λcρ
-  amb/e : X EXP EXP ... -> EXP
-  [(amb/e X EXP) EXP]
-  [(amb/e X EXP_1 EXP_3 ...)
-   (if X EXP_1 (amb/e X EXP_3 ...))])
+  amb/e : EXP EXP ... -> EXP
+  [(amb/e EXP) EXP]
+  [(amb/e EXP_1 EXP_3 ...)
+   (if • EXP_1 (amb/e EXP_3 ...))])
 
 (test
  ;; FIXME Why does this seemingly take FOREVER!?
