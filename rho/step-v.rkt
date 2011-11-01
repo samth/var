@@ -40,18 +40,24 @@
                (bind-vars ρ σ 
                           (F (-- (clos (λ F (X ...) EXP) ρ) C* ...)) 
                           (X V) ...))
+        (side-condition 
+         (not (and (redex-match λcρ (AV* ...) (term (V ...)))
+                   (redex-match λcρ ((CON_a #hash()) ... ((CON_0 ... -> any_c3) #hash()) (CON_b #hash()) ...) (term (C* ...))))))
+        (side-condition (printf "not invoking special rule! \n~a \n~a\n" (term (C* ...)) (term (V ...))))
         β-rec)
    ;; this rule replaces the recursive call with its abstraction
-   (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) AV ..._1 LAB) σ)
-        ((let ([F ((and/c C* ...) <= Λ LAB 
-                                        (-- (clos (λ F (X ...) EXP) ρ) C* ...)
-                                        LAB
-                                        (-- C* ...))])
+   (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) AV* ..._1 LAB) σ)
+        ((let ([F ((∧ CON_a ... (CON_0 ... -> any_c3) CON_b ...) (env)
+                   <= Λ LAB 
+                   (-- (clos (λ F (X ...) EXP) ρ) C* ...)
+                   qqqqqq
+                   (-- C* ...))])
            (clos EXP ρ_1))
          σ_1)
         ;((clos EXP ρ_1) σ_1)
-        (where (ρ_1 σ_1) (bind-vars ρ σ (X AV) ...))
-        (where (any_c1 ... (C_0 ... -> any_c3) any_c2 ...) (C* ...))
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X AV*) ...))
+        (where ((CON_a #hash()) ... ((CON_0 ... -> any_c3) #hash()) (CON_b #hash()) ...) (C* ...))
+        (side-condition (printf "invoking special rule!\n"))
         special-β-rec)
    
    

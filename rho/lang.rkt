@@ -101,6 +101,7 @@
           (struct X V ...))
   ((V U) (-- PREVAL C* ...) AV BLESSED)
   (AV (-- C* ...))
+  (AV* AV BLESSEDAV)
   (A V BLAME)
   
   (STRUCTV (-- (struct X V ...) C* ...))
@@ -114,6 +115,9 @@
         
   (BLESSED (BARROW ρ <= LAB LAB V LAB PROC)
            (BARROW ρ <= LAB LAB V LAB BLESSED))
+  
+  (BLESSEDAV (BARROW ρ <= LAB LAB V LAB AV)
+             (BARROW ρ <= LAB LAB V LAB BLESSEDAV))
     
   (BARROW (CON ... --> CON)
           (CON ..._1 --> (λ (X ..._1) CON)))

@@ -62,9 +62,10 @@
    (--> ((@ ((CON_0 ..._1 --> (λ (X ..._1) CON_1)) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB) σ)
         ((CON_1 (extend-env* ρ (X a) ...) ; lax
                 <= LAB_1 LAB_2 V_2 LAB_3 
-                (@ (remember-contract V ((CON_a0 ... -> CON_a1) (env)) )
+                (@ (remember-contract V ((CON_0 ... -> (λ (X ...) CON_1)) ρ))
                    (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
          (extend-sto* σ (a (V_1)) ...))
+        #;
         (where (CON_a0 ... CON_a1) 
                ,(map (λ _ (term (pred (λ (x) #t) Λ))) 
                      (term (CON_0 ... CON_1))))
@@ -73,9 +74,10 @@
    
    (--> ((@ ((CON_0 ..._1 --> CON_1) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB) σ)
         ((CON_1 ρ <= LAB_1 LAB_2 V_2 LAB_3 
-                (@ (remember-contract V ((CON_a0 ... -> CON_a1) (env)))
+                (@ (remember-contract V ((CON_0 ... -> CON_1) ρ))
                    (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) ... Λ))
          σ)
+        #;
         (where (CON_a0 ... CON_a1)
                ,(map (λ _ (term (pred (λ (x) #t) Λ))) 
                      (term (CON_0 ... CON_1))))
