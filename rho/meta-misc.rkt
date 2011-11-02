@@ -22,7 +22,7 @@
 (define-metafunction λcρ
   lookup-var : σ ρ X -> (V ...)
   [(lookup-var σ ρ X) 
-   (sto-lookup σ (env-lookup ρ x) X)
+   (sto-lookup σ (env-lookup ρ X))
    (side-condition (not (current-direct?)))]
   [(lookup-var σ ρ X)
    ((env-lookup ρ X))])
@@ -116,7 +116,7 @@
 (define (set->list s) (for/list ([x (in-set s)]) x))
 
 (define-metafunction λcρ
-  sto-lookup : σ a -> (any ...)
+  sto-lookup : σ any -> (any ...)
   [(sto-lookup σ any)
    ,(set->list (hash-ref (term σ) (term any)))])
     
