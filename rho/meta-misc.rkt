@@ -222,7 +222,8 @@
 
 (define-metafunction λcρ
   ∧ : CON ... -> CON
-  [(∧)  (pred (λ (x) #t) Λ)]  
+  [(∧)  (pred (λ (x) #t) Λ)]
+  [(∧ CON) CON]
   [(∧ CON_0 CON_1  ...)
    (and/c CON_0 (∧ CON_1 ...))])
 
