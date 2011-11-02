@@ -1,4 +1,4 @@
-#lang var #;trace
+#lang var rho-trace
 (module e/o racket 
   (define even? (λ (n) (if (zero? n) #t (odd? (sub1 n)))))
   (define odd?

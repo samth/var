@@ -4,7 +4,8 @@
          (prefix-in f: "cesk-fast.rkt")
          redex/reduction-semantics)
 (require (prefix-in rho: "rho/run.rkt")
-         (prefix-in rho: "rho/annotate.rkt"))
+         (prefix-in rho: "rho/annotate.rkt")
+         (prefix-in rho: "rho/meta.rkt"))
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
@@ -37,7 +38,10 @@
   (define-syntax-class trace-opt
     [pattern (~datum step) #:attr sym 'step]
     [pattern (~datum trace) #:attr sym 'trace]
-    [pattern (~datum eval) #:attr sym 'eval]))
+    [pattern (~datum eval) #:attr sym 'eval])
+  (define-syntax-class direct-opt
+    [pattern (~datum direct) #:attr sym #t]
+    [pattern (~datum indirect) #:attr sym #f]))
 
 (define-for-syntax (finish-values op prog [extract #'values])
   #`(apply values
@@ -53,10 +57,12 @@
     [(_ (~optional run:run-opt #:defaults ([run.sym 'subst]))
         (~optional trace:trace-opt #:defaults ([trace.sym 'eval]))
         (~optional exact:exact-opt #:defaults ([exact.sym #t]))
+        (~optional direct:direct-opt #:defaults ([direct.sym #t]))
         m ... e)
      (define run (attribute run.sym))
      (define trace (attribute trace.sym))
      (define exact? (attribute exact.sym))
+     (define direct? (attribute direct.sym))
      #`(r:#%module-begin
         (printf "module starting ~a\n" (current-process-milliseconds))
         #,(if (memq trace '(trace step))
@@ -65,9 +71,10 @@
         (set-box! the-module-context '(m ...))
         (current-exact? #,exact?)
         #,(case run
-            [(rho)
-             #`(begin 
+            [(rho)             
+             #`(begin                  
                  (define the-program (term (rho:annotator [m ... e])))
+                 (rho:current-direct? #,direct?)
                  #,(case trace
                      [(trace) #'(rho:trace-it rho:-->_vcme the-program)]
                      [(step)  #'(rho:step-it rho:-->_vcme the-program)] 

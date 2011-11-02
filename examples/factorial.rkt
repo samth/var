@@ -1,4 +1,4 @@
-#lang var fast trace approx
+#lang var rho trace indirect
 (module factorial racket 
   (define (fact-acc n acc)
     (if (zero? n) acc (fact-acc (sub1 n) (* n acc))))
@@ -14,4 +14,4 @@
 
 (module N racket (provide/contract [n exact-nonnegative-integer?]))
 (require 'factorial 'N)
-(fact n)
+(fact.1 n)

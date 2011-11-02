@@ -4,7 +4,8 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test meta-misc)
 
-(define indirect-through-store? (make-parameter #f))
+(define current-direct? (make-parameter #t))
+;; Interp: direct? => doesn't go through store.
 
 (define-metafunction λcρ
   bind-vars : ρ σ (X V) ... -> (ρ σ)
@@ -13,7 +14,7 @@
    (where (a ...) (alloc σ (X ...)))
    (where σ_1 (extend-sto* σ (a (V)) ...))
    (where ρ_1 (extend-env* ρ (X a) ...))   
-   (side-condition (indirect-through-store?))]
+   (side-condition (not (current-direct?)))]
   [(bind-vars ρ σ (X V) ...)
    (ρ_1 σ)
    (where ρ_1 (extend-env* ρ (X V) ...))])
@@ -22,7 +23,7 @@
   lookup-var : σ ρ X -> (V ...)
   [(lookup-var σ ρ X) 
    (sto-lookup σ (env-lookup ρ x) X)
-   (side-condition (indirect-through-store?))]
+   (side-condition (not (current-direct?)))]
   [(lookup-var σ ρ X)
    ((env-lookup ρ X))])
 

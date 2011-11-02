@@ -1,5 +1,5 @@
 #lang racket
-(require "lang.rkt" "check.rkt" "meta.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "util.rkt")
 (require redex/reduction-semantics)
 (test-suite test simple-cesk)
 
@@ -16,37 +16,27 @@
   (ς (ev D σ K)
      (ap D σ K)
      (co K V σ))
-  (S V K))
+  
+  (S K V))
 
 
 
-(define-metafunction λCESK
+(define-metafunction λcρ
   restrict : EXP ρ -> ρ
   ;; FIXME : dummy placeholder for now.
   [(restrict EXP ρ) ρ])
 
-(define-metafunction λCESK
+(define-metafunction λcρ
   ↓ : EXP ρ -> D
   [(↓ EXP ρ) (clos EXP (restrict EXP ρ))])
   
 
-(define-metafunction λCESK
+(define-metafunction λcρ
   bind : σ K -> (a σ)
   [(bind σ K)
    (a σ_1)
    (where (a) (alloc σ (K)))
    (where σ_1 (extend-sto σ a (K)))])
-
-(test-equal 
- (apply set
-        (term (deref ,(hash 0 (set (term (-- (clos 1 (env))))
-                                   (term (-- (clos 2 (env))))
-                                   (term (-- (clos 3 (env))))))
-                     (loc 0))))
- (set (term (-- (clos 1 (env))))
-      (term (-- (clos 2 (env))))
-      (term (-- (clos 3 (env))))))
-
 
 (define ev
   (reduction-relation 
@@ -55,7 +45,7 @@
    (--> (ev (clos X ρ) σ K)
         (co K V σ)
         (where (any_1 ... V any_2 ...)
-               (deref σ (lookup ρ X))))
+               (lookup-var σ ρ X)))
 
    (--> (ev (clos MODREF ρ) σ K)
         (ap MODREF σ K))
@@ -111,14 +101,16 @@
           (redex-let λCESK (((a σ) (term (bind (sto) MT))))
                      (term (ev (↓ x (env)) σ (BEGIN (↓ y (env)) a))))))
 
-(require "step-c.rkt")
-(define ap-c
+(require "step.rkt")
+(define (ap Ms)
+  (define r
+    (union-reduction-relations v c c~ (m Ms) (m~ Ms)))
   (reduction-relation 
    λCESK #:domain ς
    (--> (ap D_redex σ K) 
-        (ev D_contractum σ K)
-        (where (any_0 ... D_contractum any_1 ...)
-               ,(apply-reduction-relation c (term D_redex))))))
+        (ev D_contractum σ_1 K)
+        (where (any_0 ... (D_contractum σ_1) any_1 ...)
+               ,(apply-reduction-relation r (term (D_redex σ)))))))
 
         
 (define co
@@ -148,6 +140,11 @@
         (ap (CON ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ K)
         (where (S_0 ... K S_1 ...)
                (deref σ a)))))
+
+(define (CESK Ms)
+  (union-reduction-relations ev co (ap Ms)))
+
+
     
                       
 
