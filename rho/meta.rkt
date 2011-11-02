@@ -29,14 +29,15 @@
 ;; to all possible values.  Note that this requires traversing
 ;; pairs.
 ;; NOTE the environment of a contract is irrelevant.
+;; X's are variables to avoid
 (define-metafunction λcρ
-  demonic : CON -> V
-  [(demonic (pred ATOM? LAB)) (-- (clos (λ (x) #t) (env)))]
+  demonic : CON X ... -> V
+  [(demonic (pred ATOM? LAB) any ...) (-- (clos (λ (x) #t) (env)))]
   
   ;; FIXME: I don't think we're doing the right thing here in terms
   ;; of arity.  And I worry about what to do with things that have unknown arity.
   ;; FIXME: Need to handle structs, too.
-  [(demonic (pred PREDV any)) ;; MAYBE improve me: special case o?
+  [(demonic (pred PREDV any) any_1 ...)
    (-- (clos 
         (λ f (x) 
           (if (@ procedure? x Λ)
@@ -46,63 +47,68 @@
                       (@ f (@ car x ★) ★)
                       (@ f (@ cdr x ★) ★))
                   #t)))
-        (env (*black-hole* (-- ((∧) (env))))
-             (*bool* (-- ((pred boolean? Λ) (env)))))))]
+        (env)))
+   (where (f x) ,(variables-not-in (term (any_1 ...)) '(f x)))]
   
-  [(demonic (and/c CON_0 CON_1)) ;; this is overly conservative, but not clear how to do better
+  [(demonic (and/c CON_0 CON_1) any ...) ;; this is overly conservative, but not clear how to do better
    (-- (clos (λ (x) (begin (@ D1 x Λ)
                            (@ D2 x Λ)))
-             (env (D1 (demonic CON_0))
-                  (D2 (demonic CON_1)))))]
+             (env (D1 (demonic CON_0 any ...))
+                  (D2 (demonic CON_1 any ...)))))
+   (where (x D1 D2) ,(variables-not-in (term (any ...)) '(x D1 D2)))]
   
-  [(demonic (cons/c CON_0 CON_1))
+  [(demonic (cons/c CON_0 CON_1) any ...)
    (-- (clos (λ (x) (begin (@ D1 (@ car x ★) Λ)
                            (@ D2 (@ cdr x ★) Λ)))
-             (env (D1 (demonic CON_0))
-                  (D2 (demonic CON_1)))))]
+             (env (D1 (demonic CON_0 any ...))
+                  (D2 (demonic CON_1 any ...)))))
+   (where (x D1 D2) ,(variables-not-in (term (any ...)) '(x D1 D2)))]
   
-  [(demonic (or/c CON_0 CON_1))
-   (-- (clos (λ (x) (begin (@ D1 x Λ)
-                           (@ D2 x Λ)))
-             (env (D1 (demonic CON_0))
-                  (D2 (demonic CON_1)))))]  ;; Always safe, hard to do better.
+  [(demonic (or/c CON_0 CON_1) any ...)
+   (-- (clos (λ (X_x) (begin (@ X_D1 x Λ)  ;; `begin' should be `amb' in the McCarthy sense
+                           (@ X_D2 x Λ)))
+             (env (X_D1 (demonic CON_0 any ...))
+                  (X_D2 (demonic CON_1 any ...)))))
+   (where (X_x X_D1 X_D2) ,(variables-not-in (term (any ...)) '(x D1 D2)))]
    
-  [(demonic (rec/c X CON))
-   (demonic CON)]
+  [(demonic (rec/c X CON) any ...) ;; FIXME -- generate a recursive procedure that can be called from the X case
+   (-- (clos (λ X (X_1) (clos (@ X_D x)
+                            (env [X_D (demonic CON X any ...)])))))
+   (where (X_1 X_D) ,(variables-not-in (term (X any ...)) '(x D)))]
   
-  [(demonic X)
-   (demonic (∧))] ;; Safe.  What else could you do?
+  [(demonic X any ...)
+   (-- (clos (λ (x) (X x))))
+   (where (x) ,(variables-not-in (term (X any ...)) '(x)))]
   
-  [(demonic (not/c CON))
-   (demonic (∧))]  ;; Safe.  What else could you do?
+  [(demonic (not/c CON) any ...)
+   (demonic (∧) any ...)]  ;; Safe.  What else could you do?
   
-  [(demonic (CON_0 ... -> CON_1))
+  [(demonic (CON_0 ... -> CON_1) any ...)
    (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
              (env (X (-- (CON_0 (env)))) ...  ;; FIXME not the right env -- need to be given env.
-                  (D1 (demonic CON_1)))))
-   (where (X ...) ,(gen-xs (term (CON_0 ...))))]
+                  (D1 (demonic CON_1 any ...)))))
+   (where (f D1 X ...) ,(gen-xs (term (f D1 CON_0 ...))))]
    
-  [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
+  [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)) any ...)
    ;; NOTE: Since the environment of a CON plays no role in demonic,
    ;; we do not do extend the environment of CON_1 with ((X_0 (-- CON_0)) ...).
    (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
              (env (X (-- (CON_0 (env)))) ...   ;; FIXME not the right env -- need to be given env.
-                  (D1 (demonic CON_1)))))
-   (where (X ...) ,(gen-xs (term (CON_0 ...))))])
+                  (D1 (demonic CON_1 any ...)))))
+   (where (f D1 X ...) ,(gen-xs (term (f D1 CON_0 ...))))])
 
 (test
  (test-equal (term (demonic (∧)))
              (term (-- (clos
                         (λ f (x) 
                           (if (@ procedure? x Λ)
-                              (@ f (@ x *black-hole* ★) ★)
+                              (@ f (@ x • ★) ★)
                               (if (@ cons? x Λ)
-                                  (if *bool*
+                                  (if •
                                       (@ f (@ car x ★) ★)
                                       (@ f (@ cdr x ★) ★))
                                   #t)))
-                        (env (*black-hole* (-- ((∧) (env))))
-                             (*bool* (-- ((pred boolean? Λ) (env)))))))))
+                        (env)))))
  
  (test-equal (term (demonic (and/c (∧) (∧))))
              (term (-- (clos (λ (x) (begin (@ D1 x Λ)
