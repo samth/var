@@ -11,7 +11,8 @@
    (-- (clos 0 (env)))
    (where #t (no-behavior V))]
   [(demonic* CON V) 
-   (@ (demonic CON) V ★)])
+   (@ (demonic CON) V ★)
+   (side-condition (printf "demonic ~a\n" (term CON)))])
 
 (test
  (test-equal (term (demonic* (pred boolean? †) (-- (clos 4 (env)))))
@@ -39,16 +40,16 @@
    (-- (clos 
         (λ f (x) 
           (if (@ procedure? x Λ)
-              (@ f (@ x *black-hole* ★) ★)  ;; want to add fact that x is a proc.
+              (@ f (@ x • ★) ★)  ;; want to add fact that x is a proc.
               (if (@ cons? x Λ)
-                  (if *bool*
+                  (if •
                       (@ f (@ car x ★) ★)
                       (@ f (@ cdr x ★) ★))
                   #t)))
         (env (*black-hole* (-- ((∧) (env))))
              (*bool* (-- ((pred boolean? Λ) (env)))))))]
   
-  [(demonic (and/c CON_0 CON_1))
+  [(demonic (and/c CON_0 CON_1)) ;; this is overly conservative, but not clear how to do better
    (-- (clos (λ (x) (begin (@ D1 x Λ)
                            (@ D2 x Λ)))
              (env (D1 (demonic CON_0))
@@ -61,10 +62,16 @@
                   (D2 (demonic CON_1)))))]
   
   [(demonic (or/c CON_0 CON_1))
-   (demonic (∧))]  ;; Always safe, hard to do better.
+   (-- (clos (λ (x) (begin (@ D1 x Λ)
+                           (@ D2 x Λ)))
+             (env (D1 (demonic CON_0))
+                  (D2 (demonic CON_1)))))]  ;; Always safe, hard to do better.
    
   [(demonic (rec/c X CON))
-   (demonic (∧))]  ;; Safe.  What else could you do?
+   (demonic CON)]
+  
+  [(demonic X)
+   (demonic (∧))] ;; Safe.  What else could you do?
   
   [(demonic (not/c CON))
    (demonic (∧))]  ;; Safe.  What else could you do?

@@ -10,7 +10,7 @@
    
    ;; FLAT CONTRACTS   
    (--> ((FLAT ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)  ; FIXME: first V_1 was V-or-AE
-        ((if (@ (-- (clos (flat-check (FLAT ρ) V) (env))) V Λ)
+        ((if (@ (-- (↓ (flat-check (FLAT ρ) V) (env))) V Λ)
              V_2
              (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
          σ)
@@ -19,7 +19,7 @@
    
    ;; HIGHER-ORDER CONTRACTS   
    (--> (((or/c FLAT HOC) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
-        ((if (@ (-- (clos (flat-check (FLAT ρ) V) (env))) V Λ)
+        ((if (@ (-- (↓ (flat-check (FLAT ρ) V) (env))) V Λ)
              V_2
              (HOC ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
          σ)
@@ -41,7 +41,7 @@
    ;; PAIR CONTRACTS
    ;; FIXME: forgets what's known about the pair.   
    (--> (((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
-        ((@ (-- (clos cons (env)))
+        ((@ (-- (↓ cons (env)))
             (CON_0 ρ <= LAB_1 LAB_2 V_1 LAB_3 V_car)
             (CON_1 ρ <= LAB_1 LAB_2 V_1 LAB_3 V_cdr)
             Λ)
@@ -92,174 +92,174 @@
 (test
  (test/σ--> c ; (nat? <= 5)   -- provable
             (term ((pred exact-nonnegative-integer? f) 
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (-- (clos 5 (env)))))          
-            (term (if (@ (-- (clos (flat-check ((pred exact-nonnegative-integer? f) (env)) 
-                                               (-- (clos 5 (env))))
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (-- (↓ 5 (env)))))          
+            (term (if (@ (-- (↓ (flat-check ((pred exact-nonnegative-integer? f) (env)) 
+                                               (-- (↓ 5 (env))))
                                    (env)))
-                         (-- (clos 5 (env))) 
+                         (-- (↓ 5 (env))) 
                          Λ)
-                      (remember-contract (-- (clos 5 (env))) 
+                      (remember-contract (-- (↓ 5 (env))) 
                                          ((pred exact-nonnegative-integer? f) (env)))
-                      (blame f f (-- (clos 0 (env))) 
+                      (blame f f (-- (↓ 0 (env))) 
                              ((pred exact-nonnegative-integer? f) (env))
-                             (-- (clos 5 (env)))))))
+                             (-- (↓ 5 (env)))))))
  
  (test/σ--> c ; (prime? <= 5)   -- runable
             (term ((pred (prime? ^ h j) f) 
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (-- (clos 5 (env)))))
-            (term (if (@ (-- (clos (flat-check ((pred (prime? ^ h j) f) (env))
-                                               (-- (clos 5 (env))))
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (-- (↓ 5 (env)))))
+            (term (if (@ (-- (↓ (flat-check ((pred (prime? ^ h j) f) (env))
+                                               (-- (↓ 5 (env))))
                                    (env)))
-                         (-- (clos 5 (env))) 
+                         (-- (↓ 5 (env))) 
                          Λ)
-                      (remember-contract (-- (clos 5 (env))) 
+                      (remember-contract (-- (↓ 5 (env))) 
                                          ((pred (prime? ^ h j) f) (env)))
-                      (blame f f (-- (clos 0 (env))) 
+                      (blame f f (-- (↓ 0 (env))) 
                              ((pred (prime? ^ h j) f) (env))
-                             (-- (clos 5 (env)))))))
+                             (-- (↓ 5 (env)))))))
  
  (test/σ--> c ; ((or/c prime? string?) <= 5)
             (term ((or/c (pred (prime? ^ f g) f) (pred string? f)) 
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (-- (clos 5 (env)))))
-            (term (if (@ (-- (clos (flat-check ((or/c (pred (prime? ^ f g) f) 
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (-- (↓ 5 (env)))))
+            (term (if (@ (-- (↓ (flat-check ((or/c (pred (prime? ^ f g) f) 
                                                       (pred string? f)) 
                                                 (env))
-                                               (-- (clos 5 (env))))
+                                               (-- (↓ 5 (env))))
                                    (env)))
-                         (-- (clos 5 (env))) 
+                         (-- (↓ 5 (env))) 
                          Λ)
-                      (remember-contract (-- (clos 5 (env)) 
+                      (remember-contract (-- (↓ 5 (env)) 
                                              ((pred (prime? ^ f g) f) (env))))
                       
-                      (blame f f (-- (clos 0 (env)))
+                      (blame f f (-- (↓ 0 (env)))
                              ((or/c (pred (prime? ^ f g) f) (pred string? f)) (env))
-                             (-- (clos 5 (env))))))
-            (term (if (@ (-- (clos (flat-check ((or/c (pred (prime? ^ f g) f) 
+                             (-- (↓ 5 (env))))))
+            (term (if (@ (-- (↓ (flat-check ((or/c (pred (prime? ^ f g) f) 
                                                       (pred string? f)) 
                                                 (env))
-                                               (-- (clos 5 (env))))
+                                               (-- (↓ 5 (env))))
                                    (env)))
-                         (-- (clos 5 (env))) 
+                         (-- (↓ 5 (env))) 
                          Λ)
-                      (remember-contract (-- (clos 5 (env)))
+                      (remember-contract (-- (↓ 5 (env)))
                                          ((pred string? f) (env)))
-                      (blame f f (-- (clos 0 (env)))
+                      (blame f f (-- (↓ 0 (env)))
                              ((or/c (pred (prime? ^ f g) f) (pred string? f)) (env))
-                             (-- (clos 5 (env)))))))
+                             (-- (↓ 5 (env)))))))
  
  (test/σ--> c ; ((-> string?) <= 5)
             (term ((-> (pred string? †))
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (-- (clos 5 (env)))))
-            (term (blame f f (-- (clos 0 (env))) 
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (-- (↓ 5 (env)))))
+            (term (blame f f (-- (↓ 0 (env))) 
                          ((-> (pred string? †)) (env))
-                         (-- (clos 5 (env))))))
+                         (-- (↓ 5 (env))))))
  
  (test/σ--> c ; ((or/c string? (-> string?)) <= (λ () "x")))
             (term ((or/c (pred string? f)
                          (-> (pred string? f)))
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (-- (clos (λ () "x") (env)))))
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (-- (↓ (λ () "x") (env)))))
             
-            (term (if (@ (-- (clos (flat-check ((pred string? f) (env))
-                                               (-- (clos (λ () "x") (env))))
+            (term (if (@ (-- (↓ (flat-check ((pred string? f) (env))
+                                               (-- (↓ (λ () "x") (env))))
                                    (env)))
-                         (-- (clos (λ () "x") (env)))
+                         (-- (↓ (λ () "x") (env)))
                          Λ)
-                      (remember-contract (-- (clos (λ () "x") (env)))
+                      (remember-contract (-- (↓ (λ () "x") (env)))
                                          ((pred string? f) (env)))
                       ((-> (pred string? f)) 
                        (env) <= f g 
-                       (-- (clos 0 (env))) f
-                       (-- (clos (λ () "x") (env)))))))
+                       (-- (↓ 0 (env))) f
+                       (-- (↓ (λ () "x") (env)))))))
  
  (test/σ--> c ; ((and/c (-> string?) (-> string?)) <= (λ () "x")))
             (term ((and/c (-> (pred string? f)) 
                           (-> (pred string? f)))
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (-- (clos (λ () "x") (env)))))
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (-- (↓ (λ () "x") (env)))))
             (term ((-> (pred string? f)) 
-                   (env) <= f g (-- (clos 0 (env))) f
+                   (env) <= f g (-- (↓ 0 (env))) f
                    ((-> (pred string? f)) 
                     (env) <= f g 
-                    (-- (clos 0 (env))) f
-                    (-- (clos (λ () "x") (env)))))))
+                    (-- (↓ 0 (env))) f
+                    (-- (↓ (λ () "x") (env)))))))
  
  (test/σ--> c ; ((cons/c (-> string?) (-> string?)) <= (cons (λ () "x") (λ () "y")))
             (term ((cons/c (-> (pred string? f)) 
                            (-> (pred string? g)))
-                   (env) <= f g (-- (clos 0 (env))) f
-                   (-- (cons (-- (clos (λ () "x") (env)))
-                             (-- (clos (λ () "y") (env)))))))
-            (term (@ (-- (clos cons (env)))                     
+                   (env) <= f g (-- (↓ 0 (env))) f
+                   (-- (cons (-- (↓ (λ () "x") (env)))
+                             (-- (↓ (λ () "y") (env)))))))
+            (term (@ (-- (↓ cons (env)))                     
                      ((-> (pred string? f)) 
-                      (env) <= f g (-- (clos 0 (env))) f 
-                      (-- (clos (λ () "x") (env))))                    
+                      (env) <= f g (-- (↓ 0 (env))) f 
+                      (-- (↓ (λ () "x") (env))))                    
                      ((-> (pred string? g)) 
-                      (env) <= f g (-- (clos 0 (env))) f 
-                      (-- (clos (λ () "y") (env))))                      
+                      (env) <= f g (-- (↓ 0 (env))) f 
+                      (-- (↓ (λ () "y") (env))))                      
                      Λ)))
  
  (test/σ--> c ; ((rec/c x (or/c string? (-> x)) <= "x")
           (term ((rec/c x (or/c (pred string? f) (-> x)))
-                 (env) <= f g (-- (clos 0 (env))) f
-                 (-- (clos "x" (env)))))
+                 (env) <= f g (-- (↓ 0 (env))) f
+                 (-- (↓ "x" (env)))))
           (term ((or/c (pred string? f) 
                        (-> (rec/c x (or/c (pred string? f) (-> x)))))
-                 (env) <= f g (-- (clos 0 (env))) f
-                 (-- (clos "x" (env))))))
+                 (env) <= f g (-- (↓ 0 (env))) f
+                 (-- (↓ "x" (env))))))
  
  (test/σ--> c ; ((cons/c (-> string?) (-> string?)) <= 3)
             (term ((cons/c (-> (pred string? f)) 
                            (-> (pred string? g)))
-                   (env) <= f g (-- (clos 0 (env))) f
-                   (-- (clos 3 (env)))))
-            (term (blame f f (-- (clos 0 (env))) 
+                   (env) <= f g (-- (↓ 0 (env))) f
+                   (-- (↓ 3 (env)))))
+            (term (blame f f (-- (↓ 0 (env))) 
                          ((cons/c (-> (pred string? f)) 
                                   (-> (pred string? g))) 
                           (env)) 
-                         (-- (clos 3 (env))))))
+                         (-- (↓ 3 (env))))))
  
  (test--> c ; (@ ((string? --> (λ (x) (pred (λ (y) x)))) <= (λ (x) x)) "q")
           (term ((@ (((pred string? g) --> (λ (x) (pred (λ (y) x) f))) 
-                     (env) <= f g (-- (clos 0 (env))) f 
-                     (-- (clos (λ (x) x) (env))))
-                     (-- (clos "q" (env)))
+                     (env) <= f g (-- (↓ 0 (env))) f 
+                     (-- (↓ (λ (x) x) (env))))
+                     (-- (↓ "q" (env)))
                      †)
                  (sto)))
           (redex-let 
            λcρ
-           ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (clos "q" (env))))))])
+           ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (↓ "q" (env))))))])
            (term (((pred (λ (y) x) f) ρ
-                   <= f g (-- (clos 0 (env))) f 
-                   (@ (-- (clos (λ (x) x) (env))
+                   <= f g (-- (↓ 0 (env))) f 
+                   (@ (-- (↓ (λ (x) x) (env))
                           (((pred string? g) -> (λ (x) (pred (λ (y) x) f))) (env)))
                       ((pred string? g)
-                       (env) <= g f (-- (clos "q" (env))) f
-                       (-- (clos "q" (env))))
+                       (env) <= g f (-- (↓ "q" (env))) f
+                       (-- (↓ "q" (env))))
                       Λ))
                   σ)))) 
  (test/σ--> c ; (@ ((string? --> string?) <= (λ () "x")))
             (term (@ (((pred string? g) --> (pred string? f)) 
-                      (env) <= f g (-- (clos 0 (env))) f (-- (clos (λ (x) x) (env))))
-                     (-- (clos "x" (env)))
+                      (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ (x) x) (env))))
+                     (-- (↓ "x" (env)))
                      †))
             (term ((pred string? f) 
-                   (env) <= f g (-- (clos 0 (env))) f 
-                   (@ (-- (clos (λ (x) x) (env))
+                   (env) <= f g (-- (↓ 0 (env))) f 
+                   (@ (-- (↓ (λ (x) x) (env))
                           (((pred string? g) -> (pred string? f)) (env)))
                       ((pred string? g)
-                       (env) <= g f (-- (clos "x" (env))) f
-                       (-- (clos "x" (env))))
+                       (env) <= g f (-- (↓ "x" (env))) f
+                       (-- (↓ "x" (env))))
                       Λ))))
  
  (test/σ--> c ; ((-> string) <= (λ () 1))
             (term ((-> (pred string? f)) 
-                   (env) <= f g (-- (clos 0 (env))) f
-                   (-- (clos (λ () 1) (env)))))
+                   (env) <= f g (-- (↓ 0 (env))) f
+                   (-- (↓ (λ () 1) (env)))))
             (term ((--> (pred string? f))
-                   (env) <= f g (-- (clos 0 (env))) f
-                   (-- (clos (λ () 1) (env)))))))
+                   (env) <= f g (-- (↓ 0 (env))) f
+                   (-- (↓ (λ () 1) (env)))))))

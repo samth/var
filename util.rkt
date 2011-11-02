@@ -14,6 +14,7 @@
 
 (define-syntax-rule (traces . args) ((dynamic-require 'redex 'traces) . args))
 (define-syntax-rule (stepper . args) ((dynamic-require 'redex 'stepper) . args))
+(define-syntax-rule (initial-char-width . args) ((dynamic-require 'redex 'initial-char-width) . args))
 (define (term-node-children . args)
   (apply (dynamic-require 'redex 'term-node-children) args))
 

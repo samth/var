@@ -19,18 +19,6 @@
   
   (S K V))
 
-
-
-(define-metafunction λcρ
-  restrict : EXP ρ -> ρ
-  ;; FIXME : dummy placeholder for now.
-  [(restrict EXP ρ) ρ])
-
-(define-metafunction λcρ
-  ↓ : EXP ρ -> D
-  [(↓ EXP ρ) (clos EXP (restrict EXP ρ))])
-  
-
 (define-metafunction λcρ
   bind : σ K -> (a σ)
   [(bind σ K)

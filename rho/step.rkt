@@ -4,7 +4,7 @@
          "step-v.rkt" "step-c.rkt" "step-c-abs.rkt"
          "step-m.rkt" "step-m-abs.rkt" "step-e.rkt")
 (provide (except-out (all-defined-out) test))
-(provide v c m e)
+(provide v c c~ m m~ e)
 (test-suite test step)
 
 (define (-->_vcme Ms) 
