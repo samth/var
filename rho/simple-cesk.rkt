@@ -2,6 +2,7 @@
 (require "lang.rkt" "meta.rkt" "util.rkt")
 (require redex/reduction-semantics)
 (test-suite test simple-cesk)
+(provide CESK inj)
 
 (define-extended-language λCESK λcρ
   ; Continuations
@@ -17,78 +18,61 @@
      (ap D σ K)
      (co K V σ))
   
+  ; Potential redexes (that do real work).
+  (REDEX (clos • ρ)
+         (clos X ρ)
+         (V V ...)
+         (if V D D)
+         (begin V D)
+         (let ((X V) ...) D)      
+         MODREF   
+         (CON ρ <= LAB LAB V LAB V)
+         BLAME)
+  
   (S K V))
 
-(define-metafunction λcρ
+(define-metafunction λCESK
+  inj : EXP -> ς
+  [(inj EXP)
+   (ev (clos EXP (env)) (sto) MT)])
+
+(define-metafunction λCESK
   bind : σ K -> (a σ)
   [(bind σ K)
    (a σ_1)
    (where (a) (alloc σ (K)))
    (where σ_1 (extend-sto σ a (K)))])
 
-(define ev
-  (reduction-relation 
-   λCESK #:domain ς     
-   (--> (ev (clos VAL ρ) σ K) (co K (-- (↓ VAL ρ)) σ))
-   (--> (ev (clos X ρ) σ K)
-        (co K V σ)
-        (where (any_1 ... V any_2 ...)
-               (lookup-var σ ρ X)))
-
-   (--> (ev (clos MODREF ρ) σ K)
-        (ap MODREF σ K))
-   
-   (--> (ev (clos (@ EXP EXP_1 ... LAB) ρ) σ K)
-        (ev (↓ EXP ρ) σ_1 (APP () ((↓ EXP_1 ρ) ...) LAB a))
-        (where (a σ_1) (bind σ K)))
-   
-   (--> (ev (clos (if EXP_1 EXP_2 EXP_3) ρ) σ K)
-        (ev (↓ EXP_1 ρ) σ_1 (IF (↓ EXP_2 ρ) (↓ EXP_3 ρ) a))
-        (where (a σ_1) (bind σ K)))
-
-   (--> (ev (clos (let () EXP) ρ) σ K)
-        (ev (↓ EXP ρ) σ K))
-   (--> (ev (clos (let ((X_1 EXP_1) (X_2 EXP_2) ...) EXP_3) ρ) σ K)
-        (ev (↓ EXP_1 ρ) σ_1 (LET () X_1 ((X_2 (↓ EXP_2 ρ)) ...) (↓ EXP_3 ρ) a))
-        (where (a σ_1) (bind σ K)))
-   
-   (--> (ev (clos (begin EXP_1 EXP_2) ρ) σ K)
-        (ev (↓ EXP_1 ρ) σ_1 (BEGIN (↓ EXP_2 ρ) a))
-        (where (a σ_1) (bind σ K)))))
-
-(test
- (test--> ev
-          (term (ev (clos 0 (env)) (sto) MT))
-          (term (co MT (-- (↓ 0 (env))) (sto))))
- (test--> ev
-          (term (ev (clos x (env (x 0)))
-                    (sto (0 ((-- (clos 4 (env))))))
-                    MT))
-          (term (co MT (-- (clos 4 (env))) (sto (0 ((-- (clos 4 (env)))))))))
- (test--> ev
-          (term (ev (clos (x ^ f g) (env)) (sto) MT))
-          (term (ap (x ^ f g) (sto) MT)))
- (test--> ev
-          (term (ev (clos (@ f x †) (env)) (sto) MT))
-          (redex-let λCESK (((a σ) (term (bind (sto) MT))))
-                     (term (ev (↓ f (env)) σ (APP () ((↓ x (env))) † a)))))
- (test--> ev
-          (term (ev (clos (if 0 1 2) (env)) (sto) MT))
-          (redex-let λCESK (((a σ) (term (bind (sto) MT))))
-                     (term (ev (↓ 0 (env)) σ (IF (↓ 1 (env)) (↓ 2 (env)) a))))) 
- (test--> ev
-          (term (ev (clos (let () x) (env)) (sto) MT))
-          (term (ev (clos x (env)) (sto) MT)))
- (test--> ev
-          (term (ev (clos (let ((x 1) (y 2)) 3) (env)) (sto) MT))
-          (redex-let λCESK (((a σ) (term (bind (sto) MT))))
-                     (term (ev (↓ 1 (env)) σ (LET () x ((y (↓ 2 (env)))) (↓ 3 (env)) a)))))
-          
- (test--> ev
-          (term (ev (clos (begin x y) (env)) (sto) MT))
-          (redex-let λCESK (((a σ) (term (bind (sto) MT))))
-                     (term (ev (↓ x (env)) σ (BEGIN (↓ y (env)) a))))))
-
+(define-metafunction λCESK
+  ev : D σ K -> ς
+  [(ev V σ K) (co K V σ)]
+  [(ev REDEX σ K) (ap REDEX σ K)]
+  [(ev PREVAL σ K) (ev (-- PREVAL) σ K)]
+  [(ev (clos (@ EXP ... LAB) ρ) σ K)
+   (ev (@ (clos EXP ρ) ... LAB) σ K)]
+  [(ev (clos (if EXP ...) ρ) σ K)
+   (ev (if (clos EXP ρ) ...) σ K)]
+  [(ev (clos (let ((X EXP) ...) EXP_1) ρ) σ K)
+   (ev (let ((X (clos EXP ρ)) ...) (clos EXP_1 ρ)) σ K)]
+  [(ev (clos (begin EXP EXP_1) ρ) σ K)
+   (ev (begin (clos EXP ρ) (clos EXP_1 ρ)) σ K)]
+  [(ev (clos MODREF ρ) σ K)
+   (ev MODREF σ K)]
+  [(ev (@ D_1 D_2 ... LAB) σ K)
+   (ev D_1 σ_1 (APP () (D_2 ...) LAB a))
+   (where (a σ_1) (bind σ K))]
+  [(ev (if D_1 D_2 D_3) σ K)
+   (ev D_1 σ_1 (IF D_2 D_3 a))
+   (where (a σ_1) (bind σ K))]
+  [(ev (let () D) σ K)
+   (ev D σ K)]
+  [(ev (let ((X D) (X_1 D_1) ...) D_n) σ K)
+   (ev D σ_1 (LET () X ((X_1 D_1) ...) D_n a))
+   (where (a σ_1) (bind σ K))]
+  [(ev (begin D D_1) σ K)
+   (ev D σ_1 (BEGIN D_1 a))
+   (where (a σ_1) (bind σ K))])
+  
 (require "step.rkt")
 (define (ap Ms)
   (define r
@@ -97,50 +81,56 @@
    λCESK #:domain ς
    (--> (ap D_redex σ K) 
         (ev D_contractum σ_1 K)
-        (where (any_0 ... (D_contractum σ_1) any_1 ...)
-               ,(apply-reduction-relation r (term (D_redex σ)))))))
+        (where (any_0 ... (any_name (D_contractum σ_1)) any_1 ...)
+               ,(apply-reduction-relation/tag-with-names r (term (D_redex σ))))
+        (computed-name (term any_name)))))
 
-        
+(redex-match λCESK
+             (co (APP (V_1 ...) () LAB a) V σ)
+             (term
+              (co (APP ((-- (clos (λ (x) x) (env))))
+                       ()
+                       |†|
+                       (loc MT))
+                  (-- (clos 5 (env)))
+                  ,(hash '(loc MT)
+                         (set 'MT)))))
+
 (define co
   (reduction-relation
    λCESK #:domain ς
    (--> (co (APP (V_1 ...) ((clos EXP ρ) D ...) LAB a) V σ)    
-        (ev EXP ρ σ (APP (V_1 ... V) (D ...) LAB a)))
-   (--> (co (APP (V_1 ...) () LAB a) V σ)    
+        (ev (clos EXP ρ) σ (APP (V_1 ... V) (D ...) LAB a))
+        co-next-@)            
+   (--> (co (APP (V_1 ...) () LAB a) V σ)
         (ap (@ V_1 ... V LAB) σ K)
         (where (S_0 ... K S_1 ...)
-               (deref σ a)))
+               (sto-lookup σ a))
+        co-done-@)
    (--> (co (IF D_1 D_2 a) V σ)     
         (ap (if V D_1 D_2) σ K)
         (where (S_0 ... K S_1 ...)
-               (deref σ a)))
+               (sto-lookup σ a))
+        co-done-if)
    (--> (co (LET ((X_1 V_1) ...) X ((X_2 (clos EXP ρ)) (X_3 D) ...) D_b a) V σ)
-        (ev EXP ρ σ (LET ((X_1 V_1) ... (X V)) X_2 ((X_3 D) ...) D_b a)))
+        (ev (clos EXP ρ) σ (LET ((X_1 V_1) ... (X V)) X_2 ((X_3 D) ...) D_b a))
+        co-next-let)
    (--> (co (LET ((X_1 V_1) ...) X () D_b a) V σ)
         (ap (let ((X_1 V_1) ... (X V)) D_b) σ K)
         (where (S_0 ... K S_1 ...)
-               (deref σ a)))
-   (--> (co (BEGIN (clos EXP ρ) a) V σ)
-        (ev EXP ρ σ K)
+               (sto-lookup σ a))
+        co-done-let)
+   (--> (co (BEGIN D a) V σ)
+        (ev D σ K)
         (where (S_0 ... K S_1 ...)
-               (deref σ a)))
+               (sto-lookup σ a))
+        co-done-begin)
    (--> (co (CHECK CON ρ LAB_1 LAB_2 V_1 LAB_3 a) V σ)    
         (ap (CON ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ K)
         (where (S_0 ... K S_1 ...)
-               (deref σ a)))))
+               (sto-lookup σ a))
+        co-done-check)))
 
 (define (CESK Ms)
-  (union-reduction-relations ev co (ap Ms)))
-
-
-    
+  (union-reduction-relations co (ap Ms)))
                       
-
-                      
-  
-     
-     
-     
-     
-     
-     
