@@ -85,17 +85,6 @@
                ,(apply-reduction-relation/tag-with-names r (term (D_redex σ))))
         (computed-name (term any_name)))))
 
-(redex-match λCESK
-             (co (APP (V_1 ...) () LAB a) V σ)
-             (term
-              (co (APP ((-- (clos (λ (x) x) (env))))
-                       ()
-                       |†|
-                       (loc MT))
-                  (-- (clos 5 (env)))
-                  ,(hash '(loc MT)
-                         (set 'MT)))))
-
 (define co
   (reduction-relation
    λCESK #:domain ς
