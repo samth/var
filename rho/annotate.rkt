@@ -89,21 +89,21 @@ Pass 3: Annotate expressions/predicates
                 (cond [REXP_2 REXP_3] ... [else REXP_4]))
             LAB MODENV any)]
   [(ann-exp (or) LAB MODENV any)
-   (ann-exp true LAB MODENV any)]
+   (ann-exp #t LAB MODENV any)]
   [(ann-exp (or REXP) LAB MODENV any)
    (ann-exp REXP LAB MODENV any)]
   [(ann-exp (or REXP_0 REXP_1 ...) LAB MODENV any)
    (if (ann-exp REXP_0 LAB MODENV any)
-       true
+       #t
        (ann-exp (or REXP_1 ...) LAB MODENV any))]
   [(ann-exp (and) LAB MODENV any)
-   (ann-exp false LAB MODENV any)]
+   (ann-exp #f LAB MODENV any)]
   [(ann-exp (and REXP) LAB MODENV any)
    (ann-exp REXP LAB MODENV any)]
   [(ann-exp (and REXP_0 REXP_1 ...) LAB MODENV any)
    (if (ann-exp REXP_0 LAB MODENV any)
        (ann-exp (and REXP_1 ...) LAB MODENV any)
-       false)]
+       #f)]
   [(ann-exp (if REXP_0 REXP_1 REXP_2) LAB MODENV (X_m ...))
    (if (ann-exp REXP_0 LAB MODENV (X_m ...))
        (ann-exp REXP_1 LAB MODENV (X_m ...))
