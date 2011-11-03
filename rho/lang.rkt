@@ -61,7 +61,7 @@
   (OP car cdr add1 sub1
       zero? procedure? empty? cons? 
       exact-nonnegative-integer? string? boolean? false?
-      + - * expt
+      + - * expt quotient
       = < <= > >=             
       cons 
       string=? string<? string<=? string>? string>=? 
@@ -164,7 +164,7 @@
   (OP? zero? procedure? empty? cons? 
        exact-nonnegative-integer? string? boolean? false?)
   (OP1 car cdr add1 sub1 OP?)
-  (OP2 + - * expt
+  (OP2 + - * expt quotient
        = < <= > >=             
        cons 
        string=? string<? string<=? string>? string>=? 
@@ -172,7 +172,7 @@
        procedure-arity-includes?)
   
   (natural->natural add1 sub1)
-  (natural-natural->natural + - * expt)
+  (natural-natural->natural + - * expt) ; does not include quotient (partial).
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
                        string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)

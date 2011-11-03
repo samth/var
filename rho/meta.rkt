@@ -264,9 +264,20 @@
    ((-- (clos #t (env)))
     (-- (clos #f (env))))
    (where #t (proves V_0 procedure?))
-   (where #t (proves V_1 exact-nonnegative-integer?))]  
-  ;; FIXME more cases to consider?
-  
+   (where #t (proves V_1 exact-nonnegative-integer?))]
+  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
+   ((blame LAB Λ V_0 procedure-arity-includes? V_0))
+   (where #t (refutes V_0 procedure?))]
+  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
+   ((blame LAB Λ V_1 procedure-arity-includes? V_1))
+   (where #t (proves V_0 procedure?))
+   (where #t (refutes V_1 exact-nonnegative-integer?))]
+  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
+   ((-- (clos #t (env)))
+    (-- (clos #f (env)))
+    (blame LAB Λ V_0 procedure-arity-includes? V_0)
+    (blame LAB Λ V_1 procedure-arity-includes? V_1))]
+ 
   ;; natural->natural
   [(abs-δ natural->natural V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))
@@ -277,6 +288,20 @@
   [(abs-δ natural->natural V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env)))
     (blame LAB Λ V natural->natural V))]
+  
+  [(abs-δ quotient V_1 V_2 LAB)
+   ((blame LAB Λ V_2 quotient V_2))
+   (where #t (proves V_1 exact-nonnegative-integer?))
+   (where #t (proves V_2 zero?))]  
+  [(abs-δ quotient V_1 V_2 LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))
+   (where #t (proves V_1 exact-nonnegative-integer?))
+   (where #t (proves V_2 exact-nonnegative-integer?))
+   (where #t (refutes V_2 exact-non-negative-integer?))]
+  [(abs-δ quotient V_1 V_2 LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
+    ((blame LAB Λ V_1 quotient V_1)
+    (blame LAB Λ V_2 quotient V_2)))]  
   
   ;; natural-natural->natural
   [(abs-δ natural-natural->natural V_1 V_2 LAB)
@@ -518,6 +543,16 @@
             (-- (clos natural_2 ρ_2) C_2 ...)
             LAB)
    (-- (clos ,(max 0 (- (term natural_1) (term natural_2))) (env)))]
+  [(plain-δ quotient
+            (-- (clos natural ρ_1) C_1 ...)
+            (-- (clos 0 ρ_2) C_2 ...)
+            LAB)
+   (blame LAB Λ (-- (clos 0 ρ_2) C_2 ...) quotient (-- (clos 0 ρ_2) C_2 ...))]
+  [(plain-δ quotient
+            (-- (clos natural_1 ρ_1) C_1 ...)
+            (-- (clos natural_2 ρ_2) C_2 ...)
+            LAB)
+   (meta-apply quotient natural_1 natural_2)]
   [(plain-δ natural-natural->natural
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...)
@@ -612,7 +647,7 @@
        (case f 
          [(id) id] ...
          [else (error 'lift "unknown procedure: ~a" f)])]))
-  (reflect add1 + * expt = < <= > >=               
+  (reflect add1 + * expt quotient = < <= > >=               
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
