@@ -5,7 +5,8 @@
          redex/reduction-semantics)
 (require (prefix-in rho: "rho/run.rkt")
          (prefix-in rho: "rho/annotate.rkt")
-         (prefix-in rho: "rho/meta.rkt"))
+         (prefix-in rho: "rho/meta.rkt")
+         (prefix-in rho: "rho/cesk.rkt"))
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
@@ -97,11 +98,13 @@
                    (printf "~a terms explored\n" k)))]
             [(cesk)
              #`(begin 
-                 (define the-program (term (annotator [m ... e])))
+                 (define the-program (term (rho:inj (rho:annotator [m ... e]))))
+                 ;; Always redirect through store for CESK machine.
+                 (rho:current-direct? #f)
                  #,(case trace
-                     [(trace) #'(c:trace-it the-program)]
-                     [(step) #'(c:step-it the-program)]
-                     [(eval) (finish-values #'c:final 
+                     [(trace) #'(rho:trace-it rho:CESK the-program)]
+                     [(step) #'(rho:step-it rho:CESK the-program)]
+                     [(eval) (finish-values #'(λ (x) (rho:eval-it rho:CESK x))
                                             #'the-program
                                             #'first)]))]
             [(fast) 
