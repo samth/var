@@ -12,7 +12,7 @@
    (where #t (no-behavior V))]
   [(demonic* CON V) 
    (@ (demonic CON) V ★)
-   (side-condition (printf "demonic ~a\n" (term CON)))])
+   #;(side-condition (printf "demonic ~a\n" (term CON)))])
 
 (test
  (test-equal (term (demonic* (pred boolean? †) (-- (clos 4 (env)))))
@@ -46,8 +46,7 @@
                       (@ f (@ car x ★) ★)
                       (@ f (@ cdr x ★) ★))
                   #t)))
-        (env (*black-hole* (-- ((∧) (env))))
-             (*bool* (-- ((pred boolean? Λ) (env)))))))]
+        (env)))]
   
   [(demonic (and/c CON_0 CON_1)) ;; this is overly conservative, but not clear how to do better
    (-- (clos (λ (x) (begin (@ D1 x Λ)
@@ -95,14 +94,13 @@
              (term (-- (clos
                         (λ f (x) 
                           (if (@ procedure? x Λ)
-                              (@ f (@ x *black-hole* ★) ★)
+                              (@ f (@ x • ★) ★)
                               (if (@ cons? x Λ)
-                                  (if *bool*
+                                  (if •
                                       (@ f (@ car x ★) ★)
                                       (@ f (@ cdr x ★) ★))
                                   #t)))
-                        (env (*black-hole* (-- ((∧) (env))))
-                             (*bool* (-- ((pred boolean? Λ) (env)))))))))
+                        (env)))))
  
  (test-equal (term (demonic (and/c (∧) (∧))))
              (term (-- (clos (λ (x) (begin (@ D1 x Λ)
@@ -117,7 +115,10 @@
                                   (D2 (demonic (∧))))))))
  
  (test-equal (term (demonic (or/c (∧) (∧))))
-             (term (demonic (∧))))
+             (term (-- (clos (λ (x) (begin (@ D1 x Λ)
+                                           (@ D2 x Λ)))
+                             (env (D1 (demonic (∧)))
+                                  (D2 (demonic (∧))))))))
  
  (test-equal (term (demonic (not/c (∧))))
              (term (demonic (∧))))
@@ -293,6 +294,27 @@
    ((-- ((pred exact-nonnegative-integer? Λ) (env)))
     (blame LAB Λ V_1 natural-natural->natural V_1)
     (blame LAB Λ V_2 natural-natural->natural V_2))]
+   
+  ;; string-string->string
+  [(abs-δ string-string->bool V_1 V_2 LAB)
+   ((blame LAB Λ V_1 string-string->bool V_1))
+   (where #t (refutes V_1 string?))]
+  [(abs-δ string-string->bool V_1 V_2 LAB)
+   ((blame LAB Λ V_2 string-string->bool V_2))
+   (where #t (proves V_1 string?))
+   (where #t (refutes V_2 string?))]
+  [(abs-δ string-string->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env))))
+   (where #t (proves V_1 string?))
+   (where #t (proves V_2 string?))]
+  [(abs-δ string-string->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_2 string-string->bool V_2))
+   (where #t (proves V_1 string?))]
+  [(abs-δ string-string->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_1 string-string->bool V_1)
+    (blame LAB Λ V_2 string-string->bool V_2))]
   
   ;; car
   [(abs-δ car V LAB)
@@ -350,6 +372,23 @@
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
                     (blame f Λ (-- ((pred (p? ^ f g) f) (env))) + (-- ((pred (p? ^ f g) f) (env))))
                     (blame f Λ (-- ((∧) (env))) + (-- ((∧) (env)))))))
+ 
+ (test-equal (term (δ string=? (-- (clos "" (env))) (-- ((pred string? †) (env))) f))
+             (term ((-- ((pred boolean? Λ) (env))))))
+ (test-equal (term (δ string=? (-- ((pred string? †) (env))) (-- (clos "" (env))) f))
+             (term ((-- ((pred boolean? Λ) (env))))))   
+ (test-equal (term (δ string=? (-- ((pred exact-nonnegative-integer? †) (env))) (-- (clos "" (env))) f))
+             (term ((blame f Λ (-- ((pred exact-nonnegative-integer? †) (env))) string=? (-- ((pred exact-nonnegative-integer? †) (env)))))))
+ (test-equal (term (δ string=? (-- (clos "" (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
+             (term ((blame f Λ (-- ((pred exact-nonnegative-integer? †) (env))) string=? (-- ((pred exact-nonnegative-integer? †) (env)))))))   
+ (test-equal (term (δ string=? (-- (clos "" (env))) (-- ((∧) (env))) f))
+             (term ((-- ((pred boolean? Λ) (env)))
+                    (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
+ (test-equal (term (δ string=? (-- ((pred (p? ^ f g) f) (env))) (-- ((∧) (env))) f))
+             (term ((-- ((pred boolean? Λ) (env)))
+                    (blame f Λ (-- ((pred (p? ^ f g) f) (env))) string=? (-- ((pred (p? ^ f g) f) (env))))
+                    (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
+ 
  (test-equal (term (δ car (-- ((cons/c (pred string? f) (∧)) (env))) f))
              (term ((-- ((pred string? f) (env))))))
  (test-equal (term (δ car (-- ((pred cons? f) (env))) f))
