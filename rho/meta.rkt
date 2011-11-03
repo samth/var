@@ -296,6 +296,10 @@
    (where #t (proves V_1 exact-nonnegative-integer?))]
   [(abs-δ natural-natural->natural V_1 V_2 LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env)))
+    (blame LAB Λ V_1 natural-natural->natural V_1))
+   (where #t (proves V_2 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
     (blame LAB Λ V_1 natural-natural->natural V_1)
     (blame LAB Λ V_2 natural-natural->natural V_2))]
    
@@ -315,6 +319,10 @@
    ((-- ((pred boolean? Λ) (env)))
     (blame LAB Λ V_2 string-string->bool V_2))
    (where #t (proves V_1 string?))]
+  [(abs-δ string-string->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_1 string-string->bool V_1))
+   (where #t (proves V_2 string?))]
   [(abs-δ string-string->bool V_1 V_2 LAB)
    ((-- ((pred boolean? Λ) (env)))
     (blame LAB Λ V_1 string-string->bool V_1)
@@ -372,6 +380,9 @@
  (test-equal (term (δ + (-- (clos 0 (env))) (-- ((∧) (env))) f))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
                     (blame f Λ (-- ((∧) (env))) + (-- ((∧) (env)))))))
+ (test-equal (term (δ + (-- ((∧) (env))) (-- (clos 0 (env))) f))
+             (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
+                    (blame f Λ (-- ((∧) (env))) + (-- ((∧) (env))))))) 
  (test-equal (term (δ + (-- ((pred (p? ^ f g) f) (env))) (-- ((∧) (env))) f))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
                     (blame f Λ (-- ((pred (p? ^ f g) f) (env))) + (-- ((pred (p? ^ f g) f) (env))))
@@ -386,6 +397,9 @@
  (test-equal (term (δ string=? (-- (clos "" (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
              (term ((blame f Λ (-- ((pred exact-nonnegative-integer? †) (env))) string=? (-- ((pred exact-nonnegative-integer? †) (env)))))))   
  (test-equal (term (δ string=? (-- (clos "" (env))) (-- ((∧) (env))) f))
+             (term ((-- ((pred boolean? Λ) (env)))
+                    (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
+ (test-equal (term (δ string=? (-- ((∧) (env))) (-- (clos "" (env))) f))
              (term ((-- ((pred boolean? Λ) (env)))
                     (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
  (test-equal (term (δ string=? (-- ((pred (p? ^ f g) f) (env))) (-- ((∧) (env))) f))
