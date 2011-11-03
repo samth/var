@@ -81,7 +81,8 @@
                      [(trace) #'(rho:trace-it rho:-->_vcme the-program)]
                      [(step)  #'(rho:step-it rho:-->_vcme the-program)] 
                      [(eval)  (finish-values #'(λ (x) (rho:eval-it rho:-->_vcme x))
-                                             #'the-program)]))]
+                                             #'the-program
+                                             #'first)]))]
             [(subst)
              #`(begin
                  (define the-program (term (annotator [m ... e])))
