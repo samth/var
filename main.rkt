@@ -98,11 +98,11 @@
                    (printf "~a terms explored\n" k)))]
             [(cesk)
              #`(begin 
-                 (define the-program (term (rho:inj (rho:annotator [m ... e]))))
+                 (define the-program (term (rho:annotator [m ... e])))
                  ;; Always redirect through store for CESK machine.
                  (rho:current-direct? #f)
                  #,(case trace
-                     [(trace) #'(rho:trace-it rho:CESK the-program)]
+                     [(trace) #'(rho:CESK-trace-it the-program)]
                      [(step) #'(rho:step-it rho:CESK the-program)]
                      [(eval) (finish-values #'(λ (x) (rho:eval-it rho:CESK x))
                                             #'the-program
