@@ -159,9 +159,9 @@
   
   [(arity (-- (clos OP1 ρ) C ...)) 1]
   [(arity (-- (clos OP2 ρ) C ...)) 2]
-  [(arity (-- (clos (s-pred X) ρ) C ...)) 1]
-  [(arity (-- (clos (s-ref X natural) ρ) C ...)) 1]
-  [(arity (-- (clos (s-cons X natural) ρ) C ...)) natural]
+  [(arity (-- (clos (s-pred X_m X_tag) ρ) C ...)) 1]
+  [(arity (-- (clos (s-ref X_m X_tag natural) ρ) C ...)) 1]
+  [(arity (-- (clos (s-cons X_m X_tag natural) ρ) C ...)) natural]
   
   [(arity (-- (clos (λ X (X_0 ...) EXP) ρ) C ...))
    ,(length (term (X_0 ...)))]

@@ -80,9 +80,10 @@
   (EXP .... •)
   
   (OP .... 
-      (s-pred X)
-      (s-cons X natural)
-      (s-ref X natural))
+      ;struct?
+      (s-pred X X)
+      (s-cons X X natural)
+      (s-ref X X natural))
   
   ;; Closures
   (D (clos EXP ρ)
@@ -98,13 +99,13 @@
   ;; Values (semantic)
   (PREVAL (clos VAL ρ)
           (cons V V)
-          (struct X V ...))
+          (struct X X V ...))
   ((V U) (-- PREVAL C* ...) AV BLESSED)
   (AV (-- C* ...))
   (AV* AV BLESSEDAV)
   (A V BLAME)
   
-  (STRUCTV (-- (struct X V ...) C* ...))
+  (STRUCTV (-- (struct X X V ...) C* ...))
   
   ;; Types of values
   (PROC (-- (clos LAM ρ) C* ...) 

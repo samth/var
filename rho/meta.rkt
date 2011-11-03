@@ -348,7 +348,29 @@
    (where #t (refutes V cons?))]
   [(abs-δ cdr V LAB)
    (A ... (blame LAB Λ V cdr V))
-   (where (A ...) (proj-right V))])
+   (where (A ...) (proj-right V))]
+  
+  ;; struct ops
+  [(abs-δ (s-pred X_m X_tag) AV LAB)
+   ((-- (clos #t (env))))
+   (where #t (contract-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]  
+  [(abs-δ (s-pred X_m X_tag) AV LAB)
+   ((-- (clos #f (env))))
+   (where #t (contract-not-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]  
+  [(abs-δ (s-pred X_m X_tag) AV LAB)
+   ((-- (clos #t (env)))
+    (-- (clos #f (env))))]
+   
+  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+   ((-- ((∧) (env))))
+   (where #t (contract-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))] 
+  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+   ((blame LAB Λ AV (s-ref X_m X_tag natural) AV))
+   (where #t (contract-not-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]
+  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+   ((-- ((∧) (env)))
+    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))])
+   
   
 (test
  (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
@@ -424,7 +446,24 @@
              (term ((blame f Λ (-- ((pred string? f) (env))) cdr (-- ((pred string? f) (env)))))))
  (test-equal (term (δ cdr (-- ((∧) (env))) f))
              (term ((-- ((∧) (env)))
-                    (blame f Λ (-- ((∧) (env))) cdr (-- ((∧) (env))))))))
+                    (blame f Λ (-- ((∧) (env))) cdr (-- ((∧) (env)))))))
+
+ (test-equal (term (abs-δ (s-pred p posn) (-- ((pred (posn? ^ g p) f) (env))) f))
+             (term ((-- (clos #t (env))))))
+ (test-equal (term (abs-δ (s-pred p posn) (-- ((pred string? f) (env))) f))
+             (term ((-- (clos #f (env))))))
+ (test-equal (term (abs-δ (s-pred p posn) (-- ((∧) (env))) f))
+             (term ((-- (clos #t (env)))
+                    (-- (clos #f (env)))))) 
+ 
+ (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred (posn? ^ g p) f) (env))) f))
+             (term ((-- ((∧) (env))))))
+ (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred string? f) (env))) f))
+             (term ((blame f Λ (-- ((pred string? f) (env))) (s-ref p posn 0) (-- ((pred string? f) (env)))))))
+ (test-equal (term (abs-δ (s-ref p posn 0) (-- ((∧) (env))) f))
+             (term ((-- ((∧) (env)))
+                    (blame f Λ (-- ((∧) (env))) (s-ref p posn 0) (-- ((∧) (env))))))) 
+ )
  
  
  
@@ -495,19 +534,19 @@
             LAB)
    (meta-apply string-string->bool string_1 string_2)]
   ;; Structs
-  [(plain-δ (s-pred X) (-- (struct X V ...) C ...) LAB)
+  [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...) LAB)
    (-- (clos #t (env)))]
-  [(plain-δ (s-pred X) V LAB)
+  [(plain-δ (s-pred X_m X_tag) V LAB)
    (-- (clos #f (env)))]
-  [(plain-δ (s-cons X natural) V ... LAB)
-   (-- (struct X V ...))
+  [(plain-δ (s-cons X_m X_tag natural) V ... LAB)
+   (-- (struct X_m X_tag V ...))
    (side-condition (= (length (term (V ...))) (term natural)))]
-  [(plain-δ (s-ref X natural) (-- (struct X V ...) C ...) LAB)
+  [(plain-δ (s-ref X_m X_tag natural) (-- (struct X_m X_tag V ...) C ...) LAB)
    V_i
    (where V_i ,(list-ref (term (V ...)) (term natural)))]
-  [(plain-δ (s-pred X) (-- (struct X V ...) C ...) LAB)
+  [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...) LAB)
    (-- (clos #t (env)))]
-  [(plain-δ (s-pred X) V LAB)
+  [(plain-δ (s-pred X_m X_tag) V LAB)
    (-- (clos #f (env)))]
   [(plain-δ OP V V_1 ... LAB)       ;; catches domain errors
    (blame LAB Λ V OP V)])
@@ -544,19 +583,19 @@
                             †))
              (term (blame † Λ (-- (clos "Hi" (env))) = (-- (clos "Hi" (env))))))
  
- (test-equal (term (plain-δ (s-pred posn) (-- (struct posn)) †))
+ (test-equal (term (plain-δ (s-pred p posn) (-- (struct p posn)) †))
              (term (-- (clos #t (env)))))
- (test-equal (term (plain-δ (s-pred posn) (-- (struct blah)) †))
+ (test-equal (term (plain-δ (s-pred p posn) (-- (struct p blah)) †))
              (term (-- (clos #f (env)))))
- (test-equal (term (plain-δ (s-pred posn) (-- (clos 0 (env))) †))
+ (test-equal (term (plain-δ (s-pred p posn) (-- (clos 0 (env))) †))
              (term (-- (clos #f (env)))))
- (test-equal (term (plain-δ (s-cons posn 0) †))
-             (term (-- (struct posn))))
- (test-equal (term (plain-δ (s-cons posn 2) (-- (clos 0 (env))) (-- (clos 1 (env))) †))
-             (term (-- (struct posn (-- (clos 0 (env))) (-- (clos 1 (env)))))))
- (test-equal (term (plain-δ (s-ref posn 0) (-- (struct posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
+ (test-equal (term (plain-δ (s-cons p posn 0) †))
+             (term (-- (struct p posn))))
+ (test-equal (term (plain-δ (s-cons p posn 2) (-- (clos 0 (env))) (-- (clos 1 (env))) †))
+             (term (-- (struct p posn (-- (clos 0 (env))) (-- (clos 1 (env)))))))
+ (test-equal (term (plain-δ (s-ref p posn 0) (-- (struct p posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
              (term (-- (clos 0 (env)))))
- (test-equal (term (plain-δ (s-ref posn 1) (-- (struct posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
+ (test-equal (term (plain-δ (s-ref p posn 1) (-- (struct p posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
              (term (-- (clos 5 (env)))))
  )
 
@@ -688,6 +727,12 @@
    (contract-not-in/cache C V any)] 
   [(contract-not-in/cache ((pred OP LAB) ρ) V any)
    (refutes V OP)] 
+  ;; FIXME maybe add struct?
+  #;
+  [(contract-not-in/cache ((pred OP LAB) ρ) V any)
+   #f
+   (where #t (proves V struct?))
+   (side-condition (not (eq? (term OP) 'struct?)))]   
   [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
    ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
    (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V ★))))
@@ -727,7 +772,7 @@
    (where TRUE (plain-δ OP (-- PREVAL C ...) ★))]
   [(proves (-- C_0 ... C C_1 ...) OP)
    #t
-   (where #t (proves-con C OP))]  
+   (where #t (proves-con C OP))] 
   [(proves (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) OP)
    (proves V OP)] 
   [(proves V OP) #f])
@@ -913,19 +958,19 @@
 (define-metafunction λcρ
   struct-cons? : X X STRUCTENV -> OP or #f
   [(struct-cons? X_def X_cons (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ...)) any_3 ...) any_1 ...))
-   (s-cons X_tag ,(length (term (X_acc ...))))]
+   (s-cons X_def X_tag ,(length (term (X_acc ...))))]
   [(struct-cons? X_def X STRUCTENV) #f])
 
 (define-metafunction λcρ
   struct-ref? : X X STRUCTENV -> OP or #f
   [(struct-ref? X_def X_acc (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X ... X_acc X_1 ...)) any_3 ...) any_1 ...))
-   (s-ref X_tag ,(length (term (X ...))))]
+   (s-ref X_def X_tag ,(length (term (X ...))))]
   [(struct-ref? X_def X STRUCTENV) #f])
 
 (define-metafunction λcρ
   struct-pred? : X X STRUCTENV -> OP or #f
   [(struct-pred? X_def X_pred (any_0 ... (X_def any_2 ... (X_tag X_cons X_pred (X_acc ...)) any_3 ...) any_1 ...))
-   (s-pred X_tag)]
+   (s-pred X_def X_tag)]
   [(struct-pred? X X_def STRUCTENV) #f])
 
 (define-metafunction λcρ
