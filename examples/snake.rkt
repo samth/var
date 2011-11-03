@@ -1,4 +1,14 @@
 #lang racket/load
+;; -- Primitive modules
+(module image racket
+  (require 2htdp/image) ;; COMMENT OUT THIS LINE
+  (provide/contract
+   [image? (any/c . -> . boolean?)]
+   [circle (exact-nonnegative-integer? string? string? . -> . image?)]
+   [empty-scene (exact-nonnegative-integer? exact-nonnegative-integer? . -> . image?)]
+   [place-image (image? exact-nonnegative-integer? exact-nonnegative-integer? image? . -> . image?)]))
+  
+;; -- Source
 (module data racket 
   (struct posn (x y))
   (struct snake (dir segs))
@@ -51,40 +61,38 @@
 
  
 (module const racket
-  (require 2htdp/image 'data)  
+  (require 'image 'data)  
   
   ;; --- CONSTANTS : DESCRIBE PROPERTIES THAT ARE ALWAYS THE SAME 
- 
+   
   (define GRID-SIZE 30) ; width of a game-board square
   (define BOARD-HEIGHT 20) ; height in grid squares
   (define BOARD-WIDTH  30) ; width  in grid squares
-  (define BOARD-HEIGHT-PIXELS (* GRID-SIZE BOARD-HEIGHT))
-  (define BOARD-WIDTH-PIXELS  (* GRID-SIZE BOARD-WIDTH))
+  (define (BOARD-HEIGHT-PIXELS) (* GRID-SIZE BOARD-HEIGHT))
+  (define (BOARD-WIDTH-PIXELS)  (* GRID-SIZE BOARD-WIDTH))
   
-  (define BACKGROUND (empty-scene BOARD-WIDTH-PIXELS BOARD-HEIGHT-PIXELS))
+  (define (BACKGROUND) (empty-scene (BOARD-WIDTH-PIXELS) (BOARD-HEIGHT-PIXELS)))
   
-  (define SEGMENT-RADIUS (quotient GRID-SIZE 2))
-  (define SEGMENT-IMAGE  (circle SEGMENT-RADIUS "solid" "red"))
+  (define (SEGMENT-RADIUS) (quotient GRID-SIZE 2))
+  (define (SEGMENT-IMAGE)  (circle (SEGMENT-RADIUS) "solid" "red"))
   
-  (define FOOD-RADIUS SEGMENT-RADIUS)
-  (define FOOD-IMAGE  (circle FOOD-RADIUS "solid" "green"))
+  (define (FOOD-RADIUS) (SEGMENT-RADIUS))
+  (define (FOOD-IMAGE)  (circle (FOOD-RADIUS) "solid" "green"))
   
-  (define SNAKE (snake "right" (cons (posn 5 3) empty)))
-  (define FOOD  (posn 8 12))
-  (define WORLD (world SNAKE FOOD))
+  (define (WORLD) (world (snake "right" (cons (posn 5 3) empty))
+                         (posn 8 12)))
   
-  (provide/contract [WORLD world?]
-                    [BACKGROUND image?]
-                    [FOOD-IMAGE image?]
-                    [SEGMENT-IMAGE image?]
+  (provide/contract [WORLD (-> world?)]
+                    [BACKGROUND (-> image?)]
+                    [FOOD-IMAGE (-> image?)]
+                    [SEGMENT-IMAGE (-> image?)]
                     [GRID-SIZE exact-nonnegative-integer?]
-                    [BOARD-HEIGHT-PIXELS exact-nonnegative-integer?]
+                    [BOARD-HEIGHT-PIXELS (-> exact-nonnegative-integer?)]
                     [BOARD-WIDTH exact-nonnegative-integer?]
-                    [BOARD-HEIGHT exact-nonnegative-integer?]))
+                    [BOARD-HEIGHT exact-nonnegative-integer?]))  
 
 (module scenes racket
-  (require 2htdp/image) 
-  (require 'data 'const)
+  (require 'data 'const 'image)
     
   ;; Image-painting functions
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,19 +101,19 @@
   ;; Build an image of the given world.
   (define (world->scene w) 
     (snake+scene (world-snake w) 
-                 (food+scene (world-food w) BACKGROUND)))
+                 (food+scene (world-food w) (BACKGROUND))))
    
   ;; food+scene : Food Image -> Image 
   ;; Add image of food to the given scene.
   (define (food+scene f scn)
-    (place-image-on-grid FOOD-IMAGE (posn-x f) (posn-y f) scn))
+    (place-image-on-grid (FOOD-IMAGE) (posn-x f) (posn-y f) scn))
   
   ;; place-image-on-grid : Image Number Number Image -> Image
   ;; Just like PLACE-IMAGE, but use grid coordinates.
   (define (place-image-on-grid img x y scn)
     (place-image img
                  (* GRID-SIZE x)
-                 (- BOARD-HEIGHT-PIXELS (* GRID-SIZE y))
+                 (- (BOARD-HEIGHT-PIXELS) (* GRID-SIZE y))
                  scn))
   
   ;; snake+scene : Snake Image -> Image 
@@ -118,12 +126,12 @@
   (define (segments+scene segs scn) 
     (cond [(empty? segs) scn]
           [else (segment+scene (first segs)              
-                               (segments+scene (rest segs) scn))]))
+                               (segments+scene (cdr segs) scn))]))
   
   ;; segment+scene : Posn Image -> Image
   ;; Add one snake segment to a scene.
   (define (segment+scene seg scn)
-    (place-image-on-grid SEGMENT-IMAGE (posn-x seg) (posn-y seg) scn))
+    (place-image-on-grid (SEGMENT-IMAGE) (posn-x seg) (posn-y seg) scn))
   
   (provide/contract
    [world->scene (world? . -> . image?)]
@@ -153,12 +161,12 @@
   ;; Is the snake eating the food in the world.
   (define (eating? w)
     (posn=? (world-food w)
-            (first (snake-segs (world-snake w)))))
+            (car (snake-segs (world-snake w)))))
   
   ;; snake-slither : Snake -> Snake
   (define (snake-slither snk)
     (snake (snake-dir snk)                                                       
-           (cons (next-head (first (snake-segs snk))
+           (cons (next-head (car (snake-segs snk))
                             (snake-dir snk))
                  (cut-tail (snake-segs snk)))))
    
@@ -177,10 +185,10 @@
   ;; cut-tail : NeSegs -> Segs
   ;; Cut off the tail.
   (define (cut-tail segs) 
-    (cond [(empty? (rest segs)) empty]
+    (cond [(empty? (cdr segs)) empty]
           [else
-           (cons (first segs)
-                 (cut-tail (rest segs)))]))
+           (cons (car segs)
+                 (cut-tail (cdr segs)))]))
     
   ;; snake-change-direction : Snake Direction -> Snake
   ;; Change the direction of the snake.
@@ -204,7 +212,7 @@
   ;; Grow the snake one segment.
   (define (snake-grow snk)
     (snake (snake-dir snk)                                                       
-           (cons (next-head (first (snake-segs snk))
+           (cons (next-head (car (snake-segs snk))
                             (snake-dir snk))
                  (snake-segs snk))))
   
@@ -220,7 +228,7 @@
   ;; snake-wall-collide? : Snake -> Boolean
   ;; Is the snake colliding with any of the walls?
   (define (snake-wall-collide? snk)
-    (head-collide? (first (snake-segs snk))))
+    (head-collide? (car (snake-segs snk))))
   
   ;; head-collide? : Posn -> Boolean
   (define (head-collide? p)
@@ -231,15 +239,15 @@
  
   ;; snake-self-collide? : Snake -> Boolean
   (define (snake-self-collide? snk)
-    (segs-self-collide? (first (snake-segs snk))
-                        (rest (snake-segs snk))))
+    (segs-self-collide? (car (snake-segs snk))
+                        (cdr (snake-segs snk))))
   
   ;; segs-self-collide? : Posn Segs -> Boolean
   (define (segs-self-collide? h segs)
     (cond [(empty? segs) false]
           [else
-           (or (posn=? (first segs) h)
-               (segs-self-collide? h (rest segs)))]))
+           (or (posn=? (car segs) h)
+               (segs-self-collide? h (cdr segs)))]))
     
   (provide/contract [snake-wall-collide? (snake? . -> . boolean?)]
                     [snake-self-collide? (snake? . -> . boolean?)]))
@@ -283,4 +291,4 @@
 
 
 (require 'snake 'const)
-(start WORLD)
+(start (WORLD))
