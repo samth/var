@@ -124,8 +124,8 @@
   ;; Add an image of the snake segments to the scene.
   (define (segments+scene segs scn) 
     (cond [(empty? segs) scn]
-          [else (segment+scene (car segs)              
-                               (segments+scene (cdr segs) scn))]))
+          [else (segments+scene (cdr segs) ;; tail recursion
+                                (segment+scene (car segs) scn))]))
   
   ;; segment+scene : Posn Image -> Image
   ;; Add one snake segment to a scene.
