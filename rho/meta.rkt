@@ -327,6 +327,31 @@
    ((-- ((pred exact-nonnegative-integer? Λ) (env)))
     (blame LAB Λ V_1 natural-natural->natural V_1)
     (blame LAB Λ V_2 natural-natural->natural V_2))]
+  
+  ;; natural-natural->bool
+  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+   ((blame LAB Λ V_1 natural-natural->bool V_1))
+   (where #t (refutes V_1 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+   ((blame LAB Λ V_2 natural-natural->bool V_2))
+   (where #t (proves V_1 exact-nonnegative-integer?))
+   (where #t (refutes V_2 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env))))
+   (where #t (proves V_1 exact-nonnegative-integer?))
+   (where #t (proves V_2 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_2 natural-natural->bool V_2))
+   (where #t (proves V_1 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_1 natural-natural->bool V_1))
+   (where #t (proves V_2 exact-nonnegative-integer?))]
+  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_1 natural-natural->bool V_1)
+    (blame LAB Λ V_2 natural-natural->bool V_2))]
    
   ;; string-string->string
   [(abs-δ string-string->bool V_1 V_2 LAB)
