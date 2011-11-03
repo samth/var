@@ -13,15 +13,22 @@
   (struct posn (x y))
   (struct snake (dir segs))
   (struct world (snake food))
-  
-  ;; direction? : Any -> Boolean
-  ;; Is s a direction?
-  (define (direction? s)
-    (and (string? s)
-         (or (string=? s "up")
-             (string=? s "down")
-             (string=? s "left")
-             (string=? s "right"))))
+
+  ;; Contracts
+  (define direction/c
+    (one-of/c 'up 'down 'left 'right))
+  (define posn/c 
+    (struct/c posn 
+              exact-nonnegative-integer? 
+              exact-nonnegative-integer?))
+  (define snake/c
+    (struct/c snake
+              direction/c
+              (non-empty-listof posn/c)))
+  (define world/c
+    (struct/c world
+              snake/c
+              posn/c))      
   
   ;; posn=? : Posn Posn -> Boolean
   ;; Are the posns the same?
@@ -29,21 +36,21 @@
     (and (= (posn-x p1) (posn-x p2))
          (= (posn-y p1) (posn-y p2))))  
   
+  (provide posn/c snake/c direction/c world/c)
   (provide/contract 
-   [direction? (any/c . -> . boolean?)]
-   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn?)]
+   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
    [posn? (any/c . -> . boolean?)]
-   [posn-x (posn? . -> . exact-nonnegative-integer?)]
-   [posn-y (posn? . -> . exact-nonnegative-integer?)]
-   [posn=? (posn? posn? . -> . boolean?)]
-   [snake (direction? (cons/c posn? (listof posn?)) . -> . snake?)]
+   [posn-x (posn/c . -> . exact-nonnegative-integer?)]
+   [posn-y (posn/c . -> . exact-nonnegative-integer?)]
+   [posn=? (posn/c posn/c . -> . boolean?)]
+   [snake (direction/c (non-empty-listof posn/c) . -> . snake/c)]
    [snake? (any/c . -> . boolean?)]
-   [snake-dir (snake? . -> . direction?)]
-   [snake-segs (snake? . -> . (non-empty-listof posn?))]
-   [world (snake? posn? . -> . world?)]
+   [snake-dir (snake/c . -> . direction/c)]
+   [snake-segs (snake/c . -> . (non-empty-listof posn/c))]
+   [world (snake/c posn/c . -> . world/c)]
    [world? (any/c . -> . boolean?)]
-   [world-snake (world? . -> . snake?)]
-   [world-food (world? . -> . posn?)]))
+   [world-snake (world/c . -> . snake/c)]
+   [world-food (world/c . -> . posn/c)]))
   
 ;; SNAKE WORLD 
 ;;;
@@ -79,10 +86,10 @@
   (define (FOOD-RADIUS) (SEGMENT-RADIUS))
   (define (FOOD-IMAGE)  (circle (FOOD-RADIUS) "solid" "green"))
   
-  (define (WORLD) (world (snake "right" (cons (posn 5 3) empty))
+  (define (WORLD) (world (snake 'right (cons (posn 5 3) empty))
                          (posn 8 12)))
   
-  (provide/contract [WORLD (-> world?)]
+  (provide/contract [WORLD (-> world/c)]
                     [BACKGROUND (-> image?)]
                     [FOOD-IMAGE (-> image?)]
                     [SEGMENT-IMAGE (-> image?)]
@@ -125,8 +132,8 @@
   ;; Add an image of the snake segments to the scene.
   (define (segments+scene segs scn) 
     (cond [(empty? segs) scn]
-          [else (segment+scene (first segs)              
-                               (segments+scene (cdr segs) scn))]))
+          [else (segments+scene (cdr segs) ; tail recursion 
+                                (segment+scene (first segs) scn))]))
   
   ;; segment+scene : Posn Image -> Image
   ;; Add one snake segment to a scene.
@@ -134,15 +141,12 @@
     (place-image-on-grid (SEGMENT-IMAGE) (posn-x seg) (posn-y seg) scn))
   
   (provide/contract
-   [world->scene (world? . -> . image?)]
-   [food+scene (posn? image? . -> . image?)]
+   [world->scene (world/c . -> . image?)]
+   [food+scene (posn/c image? . -> . image?)]
    [place-image-on-grid 
     (image? exact-nonnegative-integer? exact-nonnegative-integer? image? . -> . image?)]
-   [snake+scene (snake? image? . -> . image?)]
-   [segments+scene ((listof posn?) image? . -> . image?)]
-   [segment+scene (posn? image? . -> . image?)])
-  
-  )
+   [snake+scene (snake/c image? . -> . image?)]
+   [segments+scene ((listof posn/c) image? . -> . image?)]))
 
 (module motion racket
   (require 'data 'const)  
@@ -173,9 +177,9 @@
   ;; next-head : Posn Direction -> Posn
   ;; Compute next position for head.
   (define (next-head seg dir)
-    (cond [(string=? "right" dir) (posn (add1 (posn-x seg)) (posn-y seg))]
-          [(string=? "left" dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
-          [(string=? "down" dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
+    (cond [(symbol=? 'right dir) (posn (add1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? 'left dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? 'down dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
           [else                   (posn (posn-x seg) (add1 (posn-y seg)))]))
     
   ;; NeSegs is one of:
@@ -216,8 +220,8 @@
                             (snake-dir snk))
                  (snake-segs snk))))
   
-  (provide/contract [world-change-dir (world? direction? . -> . world?)]
-                    [world->world (world? . -> . world?)]))
+  (provide/contract [world-change-dir (world/c direction/c . -> . world/c)]
+                    [world->world (world/c . -> . world/c)]))
 
 (module collide racket  
   (require 'data 'const)
@@ -249,8 +253,8 @@
            (or (posn=? (car segs) h)
                (segs-self-collide? h (cdr segs)))]))
     
-  (provide/contract [snake-wall-collide? (snake? . -> . boolean?)]
-                    [snake-self-collide? (snake? . -> . boolean?)]))
+  (provide/contract [snake-wall-collide? (snake/c . -> . boolean?)]
+                    [snake-self-collide? (snake/c . -> . boolean?)]))
 
 (module handlers racket
   (require 'data 'motion 'collide)
@@ -260,10 +264,10 @@
   
   ;; handle-key : World String -> World
   (define (handle-key w ke) 
-    (cond [(string=? ke "w") (world-change-dir w "up")]
-          [(string=? ke "s") (world-change-dir w "down")]
-          [(string=? ke "a") (world-change-dir w "left")]
-          [(string=? ke "d") (world-change-dir w "right")]
+    (cond [(string=? ke "w") (world-change-dir w 'up)]
+          [(string=? ke "s") (world-change-dir w 'down)]
+          [(string=? ke "a") (world-change-dir w 'left)]
+          [(string=? ke "d") (world-change-dir w 'right)]
           [else w]))
   
   ;; game-over? : World -> Boolean
@@ -271,8 +275,8 @@
     (or (snake-wall-collide? (world-snake w))
         (snake-self-collide? (world-snake w))))
   
-  (provide/contract [handle-key (world? string? . -> . world?)]
-                    [game-over? (world? . -> . boolean?)]))
+  (provide/contract [handle-key (world/c string? . -> . world/c)]
+                    [game-over? (world/c . -> . boolean?)]))
 
 (module snake racket
   (require 2htdp/universe)

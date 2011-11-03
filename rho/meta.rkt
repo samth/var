@@ -366,6 +366,31 @@
    ((-- ((pred boolean? Λ) (env)))
     (blame LAB Λ V_1 natural-natural->bool V_1)
     (blame LAB Λ V_2 natural-natural->bool V_2))]
+  
+  ;; symbol-symbol->bool
+  [(abs-δ symbol=? V_1 V_2 LAB)
+   ((blame LAB Λ V_1 symbol=? V_1))
+   (where #t (refutes V_1 symbol?))]
+  [(abs-δ symbol=? V_1 V_2 LAB)
+   ((blame LAB Λ V_2 symbol=? V_2))
+   (where #t (proves V_1 symbol?))
+   (where #t (refutes V_2 symbol?))]
+  [(abs-δ symbol=? V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env))))
+   (where #t (proves V_1 symbol?))
+   (where #t (proves V_2 symbol?))]
+  [(abs-δ symbol=? V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_2 symbol=? V_2))
+   (where #t (proves V_1 symbol?))]
+  [(abs-δ symbol=? V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_1 symbol=? V_1))
+   (where #t (proves V_2 symbol?))]
+  [(abs-δ symbol=? V_1 V_2 LAB)
+   ((-- ((pred boolean? Λ) (env)))
+    (blame LAB Λ V_1 symbol=? V_1)
+    (blame LAB Λ V_2 symbol=? V_2))]
    
   ;; string-string->string
   [(abs-δ string-string->bool V_1 V_2 LAB)
@@ -611,6 +636,11 @@
             (-- (clos string_2 ρ_2) C_2 ...)
             LAB)
    (meta-apply string-string->bool string_1 string_2)]
+  [(plain-δ symbol=?
+            (-- (clos 'variable_1 ρ_1) C_1 ...)
+            (-- (clos 'variable_2 ρ_2) C_2 ...)
+            LAB)
+   (meta-apply symbol=? variable_1 variable_2)]
   ;; Structs
   [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...) LAB)
    (-- (clos #t (env)))]
@@ -687,7 +717,8 @@
        (case f 
          [(id) id] ...
          [else (error 'lift "unknown procedure: ~a" f)])]))
-  (reflect add1 random + * expt quotient = < <= > >=               
+  (reflect add1 random + * expt quotient = < <= > >=        
+           symbol=?
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 

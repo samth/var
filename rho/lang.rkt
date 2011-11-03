@@ -33,7 +33,7 @@
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Values (syntactic)  
-  (VAL natural #t #f string empty 
+  (VAL natural #t #f string empty 'variable
        LAM OP 
        (cons VAL VAL) 
        #;(struct X VAL ...))      
@@ -58,12 +58,13 @@
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
-  (OP car cdr add1 sub1
+  (OP car cdr add1 sub1 random
       zero? procedure? empty? cons? 
-      exact-nonnegative-integer? string? boolean? false?
+      exact-nonnegative-integer? string? symbol? boolean? false?
       + - * expt quotient
       = < <= > >=             
       cons 
+      symbol=?
       string=? string<? string<=? string>? string>=? 
       string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
       procedure-arity-includes?))
@@ -140,6 +141,7 @@
          boolean?
          zero?
          string?
+         symbol?
          empty?
          false?)
   (ATOMC ((pred ATOM? LAB) ρ))
@@ -162,16 +164,17 @@
   
   ;; Conveniences  
   (OP? zero? procedure? empty? cons? 
-       exact-nonnegative-integer? string? boolean? false?)
-  (OP1 car cdr add1 sub1 OP?)
+       exact-nonnegative-integer? string? symbol? boolean? false?)
+  (OP1 car cdr add1 sub1 random OP?)
   (OP2 + - * expt quotient
        = < <= > >=             
        cons 
+       symbol=?
        string=? string<? string<=? string>? string>=? 
        string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
        procedure-arity-includes?)
   
-  (natural->natural add1 sub1)
+  (natural->natural add1 sub1 random)
   (natural-natural->natural + - * expt) ; does not include quotient (partial).
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
