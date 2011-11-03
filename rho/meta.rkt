@@ -280,7 +280,18 @@
     (-- (clos #f (env)))
     (blame LAB Λ V_0 procedure-arity-includes? V_0)
     (blame LAB Λ V_1 procedure-arity-includes? V_1))]
- 
+  
+  [(abs-δ random V LAB)
+   ((blame LAB Λ V random V))
+   (where #t (proves V zero?))]
+  [(abs-δ random V LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))
+   (where #t (proves V exact-nonnegative-integer?))
+   (where #t (refutes V zero?))]
+  [(abs-δ random V LAB)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
+    (blame LAB Λ V random V))]
+
   ;; natural->natural
   [(abs-δ natural->natural V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))
@@ -557,9 +568,11 @@
    (-- (clos #t (env)))]
   [(plain-δ false? V LAB) 
    (-- (clos #f (env)))]
-  ;; Interpreted different than Racket's `sub1'.
+  ;; Interpreted different than Racket's `sub1', `random', etc.
   [(plain-δ sub1 (-- (clos natural ρ) C ...) LAB)
-   (-- (clos ,(max 0 (sub1 (term natural))) (env)))]
+   (-- (clos ,(max 0 (sub1 (term natural))) (env)))]  
+  [(plain-δ random (-- (clos 0 ρ) C ...) LAB)
+   (blame LAB Λ (-- (clos 0 ρ) C ...) OP (-- (clos 0 ρ) C ...))]    
   [(plain-δ natural->natural (-- (clos natural ρ) C ...) LAB)
    (meta-apply natural->natural natural)]
   [(plain-δ car (-- (cons V_0 V_1) C ...) LAB) V_0]
@@ -674,7 +687,7 @@
        (case f 
          [(id) id] ...
          [else (error 'lift "unknown procedure: ~a" f)])]))
-  (reflect add1 + * expt quotient = < <= > >=               
+  (reflect add1 random + * expt quotient = < <= > >=               
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
