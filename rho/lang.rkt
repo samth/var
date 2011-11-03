@@ -210,7 +210,7 @@
         (if REXP REXP REXP) 
         (OP REXP REXP ...) 
         (let ((X REXP) ...) REXP) 
-        (begin REXP REXP)
+        (begin REXP REXP ...)
         (and REXP ...)
         (or REXP ...))
   
