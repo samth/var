@@ -22,6 +22,10 @@
                       (-- (clos (λ () "x") (env)))
                       ★))))
 
+;; FIXME make syntactic.  Would like to get rid of environment 
+;; so that this plays nice with machine.  To do that, have to
+;; be able to embed abstract values in syntax.  OK, except for the 
+;; environment of predicates---but are these ever needed!?
 
 ;; Produce a function that will do "everything" it can
 ;; to its argument while treating it as a C.
