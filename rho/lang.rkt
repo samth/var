@@ -204,13 +204,15 @@
   (RL (λ (X ...) REXP) (λ X (X ...) REXP))
   (RPV VAL RL)      
   (RSV RL X OP) ; Syntactic values for pred.  
-  (REXP RPV X 
+  (REXP RPV X         
         (REXP REXP ...)
         (cond [REXP REXP] ... [else REXP])
         (if REXP REXP REXP) 
         (OP REXP REXP ...) 
         (let ((X REXP) ...) REXP) 
-        (begin REXP REXP))  
+        (begin REXP REXP)
+        (and REXP ...)
+        (or REXP ...))
   
   (RCON OP 
         any/c 
@@ -222,6 +224,8 @@
         (not/c RCON)
         (RARR RCON ... RCON)
         (RARR RCON ..._1 (λ (X ..._1) RCON))
+        (listof RCON)
+        (non-empty-listof RCON)
         X)
   )
 

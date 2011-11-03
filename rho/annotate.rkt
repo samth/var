@@ -88,6 +88,22 @@ Pass 3: Annotate expressions/predicates
    (ann-exp (if REXP REXP_1
                 (cond [REXP_2 REXP_3] ... [else REXP_4]))
             LAB MODENV any)]
+  [(ann-exp (or) LAB MODENV any)
+   (ann-exp true LAB MODENV any)]
+  [(ann-exp (or REXP) LAB MODENV any)
+   (ann-exp REXP LAB MODENV any)]
+  [(ann-exp (or REXP_0 REXP_1 ...) LAB MODENV any)
+   (if (ann-exp REXP_0 LAB MODENV any)
+       true
+       (ann-exp (or REXP_1 ...) LAB MODENV any))]
+  [(ann-exp (and) LAB MODENV any)
+   (ann-exp false LAB MODENV any)]
+  [(ann-exp (and REXP) LAB MODENV any)
+   (ann-exp REXP LAB MODENV any)]
+  [(ann-exp (and REXP_0 REXP_1 ...) LAB MODENV any)
+   (if (ann-exp REXP_0 LAB MODENV any)
+       (ann-exp (and REXP_1 ...) LAB MODENV any)
+       false)]
   [(ann-exp (if REXP_0 REXP_1 REXP_2) LAB MODENV (X_m ...))
    (if (ann-exp REXP_0 LAB MODENV (X_m ...))
        (ann-exp REXP_1 LAB MODENV (X_m ...))
@@ -175,11 +191,25 @@ Pass 3: Annotate expressions/predicates
    (module X LANG
      (require (only-in X_1 X_2 ...) ...)
      RSTRUCT ...
-     (define X_4 (ann-rhs any X ((X_1 (X_2 ...)) ...) (X_4 ...)))
+     (define X_4 (ann-rhs any X ((X_1 (X_2 ...)) ...) (X_4 ... X_s ...)))
      ...
-     (provide/contract [X_3 (ann-con RCON X ((X_1 (X_2 ...)) ...) (X_4 ...))] ...))
-   (where (require (only-in X_1 X_2 ...) ...) (ann-req RREQ MODENV))
-   (where ((define X_4 any) ...) ((unfold-def RDEF) ...))])
+     (provide/contract [X_3 (ann-con RCON X ((X_1 (X_2 ...)) ...) (X_4 ... X_s ...))] ...))
+   (where (require (only-in X_1 X_2 ...) ...) (ann-req RREQ MODENV))   
+   (where ((define X_4 any) ...) ((unfold-def RDEF) ...))
+   (where (X_s ...) (rstruct-names RSTRUCT ...))])
+
+(define-metafunction λc-raw
+  rstruct-names : RSTRUCT ... -> (X ...)
+  [(rstruct-names RSTRUCT ...)
+   (X ... ...)
+   (where ((X ...) ...) ((rstruct-name RSTRUCT) ...))])
+(define-metafunction λc-raw
+  rstruct-name : RSTRUCT -> (X ...)
+  [(rstruct-name (struct X_cons (X_fld ...)))
+   (X_cons ,(string->symbol (format "~a?" (term X_cons))) X_acc ...)
+   (where (X_acc ...)
+          ,(map (λ (f) (string->symbol (format "~a-~a" (term X_cons) f)))
+                (term (X_fld ...))))])
 
 (define-metafunction λc-raw
   ann-rhs : any X MODENV (X ...) -> • or EXP
@@ -190,7 +220,12 @@ Pass 3: Annotate expressions/predicates
 (define-metafunction λc-raw
   ann-con : RCON LAB MODENV (X ...) -> CON ;or (pred f f)
   [(ann-con OP LAB MODENV (X ...))
-   (pred OP LAB)]  
+   (pred OP LAB)]
+  [(ann-con (listof RCON) LAB MODENV (X ...))
+   ,(let ((x (gensym)))
+      (term (ann-con (rec/c ,x (or/c empty? (cons/c RCON ,x))) LAB MODENV (X ...))))]
+  [(ann-con (non-empty-listof RCON) LAB MODENV (X ...))
+   (ann-con (cons/c RCON (listof RCON)) LAB MODENV (X ...))]
   [(ann-con any/c LAB MODENV (X ...))
    (pred (λ (x) #t) LAB)]
   [(ann-con (pred RL) LAB MODENV (X ...))
