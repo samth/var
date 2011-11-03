@@ -166,7 +166,7 @@
   [(no-behavior (-- (cons V_1 V_2) any ...))
    ,(and (term (no-behavior V_1))
          (term (no-behavior V_2)))]
-  [(no-behavior (-- (struct X V_1 ...) any ...))
+  [(no-behavior (-- (struct X_m X_tag V_1 ...) any ...))
    #t
    (where (#t ...) ((no-behavior V_1) ...))]
   [(no-behavior V) #f])
@@ -181,11 +181,11 @@
  (test-equal (term (no-behavior (-- (cons (-- (clos 0 (env)))
                                           (-- (clos (λ (x) #t) (env)))))))
              #f)
- (test-equal (term (no-behavior (-- (struct posn 
+ (test-equal (term (no-behavior (-- (struct p posn
                                       (-- (clos 0 (env)))
                                       (-- (clos 1 (env)))))))
              #t)
- (test-equal (term (no-behavior (-- (struct posn
+ (test-equal (term (no-behavior (-- (struct p posn
                                       (-- (clos 0 (env)))
                                       (-- (clos (λ (x) #t) (env)))))))
              #f))
@@ -216,7 +216,10 @@
 (define-metafunction λcρ
   δ : OP V ... LAB -> (A A ...) 
   [(δ cons V_0 V_1 LAB) ; cons works same for concrete and abstract
-   ((-- (cons V_0 V_1)))]
+   ((-- (cons V_0 V_1)))]  
+  [(δ (s-cons X_m X_tag natural) V ... LAB)
+   ((-- (struct X_m X_tag V ...)))
+   (side-condition (= (length (term (V ...))) (term natural)))]  
   [(δ OP V_1 ... AV V_2 ... LAB)
    (abs-δ OP V_1 ... AV V_2 ... LAB)]  
   [(δ OP V ... LAB) 
@@ -500,6 +503,7 @@
 
  (test-equal (term (abs-δ (s-pred p posn) (-- ((pred (posn? ^ g p) f) (env))) f))
              (term ((-- (clos #t (env))))))
+ ;; FIXME fails (returns both #t, #f), but want just #f.
  (test-equal (term (abs-δ (s-pred p posn) (-- ((pred string? f) (env))) f))
              (term ((-- (clos #f (env))))))
  (test-equal (term (abs-δ (s-pred p posn) (-- ((∧) (env))) f))
@@ -508,6 +512,7 @@
  
  (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred (posn? ^ g p) f) (env))) f))
              (term ((-- ((∧) (env))))))
+ ;; FIXME fails because we don't prove string?s can't be posn?s, but want that.
  (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred string? f) (env))) f))
              (term ((blame f Λ (-- ((pred string? f) (env))) (s-ref p posn 0) (-- ((pred string? f) (env)))))))
  (test-equal (term (abs-δ (s-ref p posn 0) (-- ((∧) (env))) f))
@@ -598,9 +603,6 @@
    (-- (clos #t (env)))]
   [(plain-δ (s-pred X_m X_tag) V LAB)
    (-- (clos #f (env)))]
-  [(plain-δ (s-cons X_m X_tag natural) V ... LAB)
-   (-- (struct X_m X_tag V ...))
-   (side-condition (= (length (term (V ...))) (term natural)))]
   [(plain-δ (s-ref X_m X_tag natural) (-- (struct X_m X_tag V ...) C ...) LAB)
    V_i
    (where V_i ,(list-ref (term (V ...)) (term natural)))]
@@ -649,10 +651,10 @@
              (term (-- (clos #f (env)))))
  (test-equal (term (plain-δ (s-pred p posn) (-- (clos 0 (env))) †))
              (term (-- (clos #f (env)))))
- (test-equal (term (plain-δ (s-cons p posn 0) †))
-             (term (-- (struct p posn))))
- (test-equal (term (plain-δ (s-cons p posn 2) (-- (clos 0 (env))) (-- (clos 1 (env))) †))
-             (term (-- (struct p posn (-- (clos 0 (env))) (-- (clos 1 (env)))))))
+ (test-equal (term (δ (s-cons p posn 0) †))
+             (term ((-- (struct p posn)))))
+ (test-equal (term (δ (s-cons p posn 2) (-- (clos 0 (env))) (-- (clos 1 (env))) †))
+             (term ((-- (struct p posn (-- (clos 0 (env))) (-- (clos 1 (env))))))))
  (test-equal (term (plain-δ (s-ref p posn 0) (-- (struct p posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
              (term (-- (clos 0 (env)))))
  (test-equal (term (plain-δ (s-ref p posn 1) (-- (struct p posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
