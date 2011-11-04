@@ -113,6 +113,8 @@ Pass 3: Annotate expressions/predicates
   [(ann-exp (let ((X REXP_0) ...) REXP_1) LAB MODENV (X_m ...))
    (let ((X (ann-exp REXP_0 LAB MODENV (X_m ...))) ...)
      (ann-exp REXP_1 LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))]
+  [(ann-exp (begin REXP_0) LAB MODENV (X_m ...))
+   (ann-exp REXP_0 LAB MODENV (X_m ...))]
   [(ann-exp (begin REXP_0 REXP_1) LAB MODENV (X_m ...))
    (begin (ann-exp REXP_0 LAB MODENV (X_m ...))
           (ann-exp REXP_1 LAB MODENV (X_m ...)))]

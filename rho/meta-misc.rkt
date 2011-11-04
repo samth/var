@@ -4,6 +4,20 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test meta-misc)
 
+;; a really dumb little partial evaluator
+(define-metafunction λcρ
+  @@ : EXP EXP ... LAB -> EXP
+  [(@@ (λ (X) EXP) X LAB) EXP]
+  [(@@ (λ (X) #t) EXP LAB) (begin EXP #t)]
+  [(@@ (λ (X) #f) EXP LAB) (begin EXP #f)]
+  [(@@ EXP ... LAB) (@ EXP ... LAB)])
+
+(define-metafunction λcρ
+  IFF : EXP EXP EXP -> EXP
+  [(IFF #f EXP_1 EXP_2) EXP_2]
+  [(IFF #t EXP_1 EXP_2) EXP_1]
+  [(IFF EXP_0 EXP_1 EXP_2) (if EXP_0 EXP_1 EXP_2)])
+
 (define current-direct? (make-parameter #t))
 ;; Interp: direct? => doesn't go through store.
 

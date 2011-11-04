@@ -1,4 +1,4 @@
-#lang var rho
+#lang var rho 
 (module data racket 
   (struct posn (x y))
   (struct snake (dir segs))
@@ -35,8 +35,23 @@
    [world-snake (world? . -> . snake?)]
    [world-food (world? . -> . posn?)]))
 
-(module hole racket
-  (provide/contract [f (any/c . -> . any/c)]))
+(module D racket
+  (require 'data)
+  (provide/contract 
+   [f-direction? ((any/c . -> . boolean?) . -> . any/c)]
+   [f-posn ((exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn?) . -> . any/c)]
+   [f-posn? ((any/c . -> . boolean?) . -> . any/c)]
+   [f-posn-x ((posn? . -> . exact-nonnegative-integer?) . -> . any/c)]
+   [f-posn-y ((posn? . -> . exact-nonnegative-integer?) . -> . any/c)]
+   [f-posn=? ((posn? posn? . -> . boolean?) . -> . any/c)]
+   [f-snake ((direction? (cons/c posn? (listof posn?)) . -> . snake?) . -> . any/c)]
+   [f-snake? ((any/c . -> . boolean?) . -> . any/c)]
+   [f-snake-dir ((snake? . -> . direction?) . -> . any/c)]
+   [f-snake-segs ((snake? . -> . (non-empty-listof posn?)) . -> . any/c)]
+   [f-world ((snake? posn? . -> . world?) . -> . any/c)]
+   [f-world? ((any/c . -> . boolean?) . -> . any/c)]
+   [f-world-snake ((world? . -> . snake?) . -> . any/c)]
+   [f-world-food ((world? . -> . posn?) . -> . any/c)]))
 
 ;; We're losing a lot of information about structes.
 ;; For example, (-- (pred snake?)) tells you nothing about
@@ -46,17 +61,19 @@
 
 ;; We're not doing demonic of structures right (ie, we don't do anything).
 
-(require 'data 'hole)
-(begin (f direction?)
-       (f posn)
-       (f posn?)
-       (f posn-x)
-       (f posn-y)
-       (f posn=?)
-       (f snake)
-       (f snake?)
-       (f snake-segs)
-       (f world)
-       (f world?)
-       (f world-snake)
-       (f world-food))
+(require 'data 'D)
+(begin  
+  (f-direction? direction?)
+  (f-posn posn)
+  (f-posn? posn?)
+  (f-posn-x posn-x)
+  (f-posn-y posn-y)
+  (f-posn=? posn=?)
+  (f-snake snake)
+  (f-snake? snake?)
+  (f-snake-dir snake-dir)
+  (f-snake-segs snake-segs)  
+  (f-world world)
+  (f-world? world?)
+  (f-world-snake world-snake)
+  (f-world-food world-food))
