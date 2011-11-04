@@ -458,7 +458,11 @@
    (where #t (contract-not-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((-- ((∧) (env)))
-    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))])
+    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))]
+  
+  [(abs-δ eqv? V_1 V_2 LAB)
+   ((-- (clos #t (env)))
+    (-- (clos #f (env))))])
    
   
 (test
@@ -653,6 +657,23 @@
    (-- (clos #t (env)))]
   [(plain-δ (s-pred X_m X_tag) V LAB)
    (-- (clos #f (env)))]
+  ;; eqv?
+  [(plain-δ eqv? PROC_1 PROC_2 LAB) 
+   (-- (clos #f (env)))]
+  [(plain-δ eqv? 
+            (-- (clos 'variable_1 ρ_1) C_1 ...)
+            (-- (clos 'variable_2 ρ_2) C_2 ...) 
+            LAB)
+   (-- (clos #t (env)))
+   (side-condition (eqv? (term variable_1) (term variable_2)))]
+  [(plain-δ eqv? 
+            (-- (clos VAL_1 ρ_1) C_1 ...)
+            (-- (clos VAL_2 ρ_2) C_2 ...) 
+            LAB)
+   (-- (clos #t (env)))
+   (side-condition (eqv? (term VAL_1) (term VAL_2)))]
+  [(plain-δ eqv? V_1 V_2 LAB)
+   (-- (clos #f (env)))]               
   [(plain-δ OP V V_1 ... LAB)       ;; catches domain errors
    (blame LAB Λ V OP V)])
 
@@ -702,6 +723,14 @@
              (term (-- (clos 0 (env)))))
  (test-equal (term (plain-δ (s-ref p posn 1) (-- (struct p posn (-- (clos 0 (env))) (-- (clos 5 (env))))) †))
              (term (-- (clos 5 (env)))))
+ (test-equal (term (plain-δ eqv? (-- (clos 0 (env))) (-- (clos 0 (env))) f))
+             (term (-- (clos #t (env)))))
+ (test-equal (term (plain-δ eqv? (-- (clos (λ (x) x) (env))) (-- (clos (λ (x) x) (env))) f))
+             (term (-- (clos #f (env)))))
+ (test-equal (term (plain-δ eqv? (-- (clos 'x (env))) (-- (clos 'x (env))) f))
+             (term (-- (clos #t (env)))))
+ (test-equal (term (plain-δ eqv? (-- (clos 'x (env))) (-- (clos 'y (env))) f))
+             (term (-- (clos #f (env)))))
  )
 
 
@@ -731,6 +760,8 @@
    (where #t (≡C C C_0))]
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
+  [(contract-in ((atom/c ATOMLIT LAB) ρ) (-- (clos ATOMLIT ρ) C ...))
+   #t]  
   [(contract-in ((pred OP LAB) ρ) V)
    (proves V OP)]    
   [(contract-in ((and/c CON_1 CON_2) ρ) V)
@@ -831,6 +862,9 @@
    (where #t (proves V procedure?))]
   [(contract-not-in/cache C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) any)
    (contract-not-in/cache C V any)] 
+  [(contract-not-in/cache ((atom/c ATOMLIT_1 LAB) ρ_1) (-- (clos ATOMLIT_2 ρ_2) C_1 ...) any)
+   #t
+   (side-condition (not (equal? (term ATOMLIT_1) (term ATOMLIT_2))))]   
   [(contract-not-in/cache ((pred OP LAB) ρ) V any)
    (refutes V OP)] 
   ;; FIXME maybe add struct?
@@ -875,7 +909,7 @@
   proves : V OP -> #t or #f
   [(proves (-- PREVAL C ...) OP)
    #t
-   (where TRUE (plain-δ OP (-- PREVAL C ...) ★))]
+   (where TRUE (plain-δ OP (-- PREVAL C ...) ★))]  
   [(proves (-- C_0 ... C C_1 ...) OP)
    #t
    (where #t (proves-con C OP))] 

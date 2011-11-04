@@ -246,6 +246,9 @@
 (define-metafunction λcρ
   ≡C : C C -> #t or #f
   [(≡C C C) #t]
+  [(≡C ((atom/c ATOMLIT LAB_1) ρ_1)
+       ((atom/c ATOMLIT LAB_2) ρ_2))
+   #t]
   [(≡C ((pred MODREF_1 LAB_1) ρ_1)
        ((pred MODREF_2 LAB_2) ρ_2))
    (modref=? MODREF_1 MODREF_2)]

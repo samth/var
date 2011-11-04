@@ -23,7 +23,9 @@
    (where #t (contract-in (FLAT ρ) V))]
   [(fc/c X any FLAT ρ V)
    (λ (X) #f)
-   (where #t (contract-not-in (FLAT ρ) V))]  
+   (where #t (contract-not-in (FLAT ρ) V))]
+  [(fc/c X any (atom/c ATOMLIT LAB) V)
+   (λ (X) (@ eqv? X ATOMLIT Λ))]
   [(fc/c X any (and/c FLAT_1 FLAT_2) ρ V)
    (λ (X) (if (@ EXP_1 X Λ) (@ EXP_2 X Λ) #f))
    (where EXP_1 (fc/c X any FLAT_1 ρ V))

@@ -222,6 +222,8 @@ Pass 3: Annotate expressions/predicates
 
 (define-metafunction λc-raw
   ann-con : RCON LAB MODENV (X ...) -> CON ;or (pred f f)
+  [(ann-con ATOMLIT LAB MODENV (X ...))
+   (atom/c ATOMLIT LAB)]
   [(ann-con OP LAB MODENV (X ...))
    (pred OP LAB)]
   [(ann-con (listof RCON) LAB MODENV (X ...))

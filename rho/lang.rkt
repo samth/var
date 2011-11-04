@@ -47,6 +47,7 @@
   (HOC  (side-condition (name c CON) (not (term (flat? c)))))
   (PREDV LAM MODREF OP)
   (CON X
+       (atom/c ATOMLIT LAB)
        (pred PREDV LAB) 
        (rec/c X CON)       
        (cons/c CON CON) 
@@ -55,11 +56,15 @@
        (not/c CON)
        (CON ... -> CON)
        (CON ..._1 -> (λ (X ..._1) CON)))
+  (ATOMLIT natural
+           boolean
+           empty
+           'variable)
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
   (OP car cdr add1 sub1 random
-      zero? procedure? empty? cons? 
+      zero? procedure? empty? cons? eqv?
       exact-nonnegative-integer? string? symbol? boolean? false?
       + - * expt quotient
       = < <= > >=             
@@ -132,7 +137,8 @@
     
   (FLAT* (pred PREDV LAB) 
          (cons/c FLAT FLAT) 
-         (not/c FLAT))
+         (not/c FLAT)
+         (atom/c ATOMLIT LAB))
   (HOC* (CON ... -> CON)
         (CON ..._1 -> (λ (X ..._1) CON))        
         (cons/c HOC CON) (cons/c CON HOC))
@@ -163,10 +169,10 @@
      (CON ρ <= LAB LAB V LAB 𝓔))
   
   ;; Conveniences  
-  (OP? zero? procedure? empty? cons? 
+  (OP? zero? procedure? empty? cons? eqv?
        exact-nonnegative-integer? string? symbol? boolean? false?)
   (OP1 car cdr add1 sub1 random OP?)
-  (OP2 + - * expt quotient
+  (OP2 + - * expt quotient eqv?
        = < <= > >=             
        cons 
        symbol=?
@@ -219,6 +225,7 @@
         (or REXP ...))
   
   (RCON OP 
+        ATOMLIT
         any/c 
         (pred RSV)
         (cons/c RCON RCON) 
@@ -237,6 +244,7 @@
 (define-metafunction λc-user
   valid? : CON -> #t or #f
   [(valid? X) #f]
+  [(valid? (atom/c ATOMLIT any)) #t]
   [(valid? (pred PREDV any)) #t]
   [(valid? (rec/c X CON))
    (valid? (subst/μ X (subst/μ X (pred string? f) CON) CON))]
@@ -260,6 +268,7 @@
 (define-metafunction λc-user
   flat? : CON -> #t or #f
   [(flat? X) #t]
+  [(flat? (atom/c ATOMLIT any)) #t]
   [(flat? (pred PREDV any)) #t]
   [(flat? (rec/c X CON)) (flat? CON)]
   [(flat? (cons/c CON_1 CON_2))
