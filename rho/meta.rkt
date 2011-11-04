@@ -597,6 +597,10 @@
    (-- (clos #t (env)))]
   [(plain-δ false? V LAB) 
    (-- (clos #f (env)))]
+  [(plain-δ symbol? (-- (clos 'variable ρ) C ...) LAB)
+   (-- (clos #t (env)))]
+  [(plain-δ symbol? (-- (clos 'variable ρ) C ...) LAB) 
+   (-- (clos #f (env)))]
   ;; Interpreted different than Racket's `sub1', `random', etc.
   [(plain-δ sub1 (-- (clos natural ρ) C ...) LAB)
    (-- (clos ,(max 0 (sub1 (term natural))) (env)))]  
@@ -969,7 +973,10 @@
 (define-metafunction λcρ
   proves-con : C OP -> #t or #f  
   [(proves-con ((pred OP_0 LAB) ρ) OP_1)
-   (proves-predicate OP_0 OP_1)]  
+   (proves-predicate OP_0 OP_1)]
+  [(proves-con ((atom/c ATOMLIT LAB) ρ) OP)
+   #t
+   (where TRUE (plain-δ OP (-- (clos ATOMLIT (env))) Λ))]
   [(proves-con ((or/c CON_0 CON_1) ρ) OP)
    ,(and (term (proves-con (CON_0 ρ) OP))
          (term (proves-con (CON_1 ρ) OP)))]
@@ -1013,6 +1020,9 @@
   [(refutes-con ((CON_0 ... -> any) ρ) OP) #t]
   [(refutes-con ((pred OP_0 LAB) ρ) OP_1) 
    (refutes-predicate OP_0 OP_1)]
+  [(refutes-con ((atom/c ATOMLIT LAB) ρ) OP)
+   #t
+   (where FALSE (plain-δ OP (-- (clos ATOMLIT (env))) Λ))]
   [(refutes-con ((or/c CON_0 CON_1) ρ) OP)
    ,(and (term (refutes-con (CON_0 ρ) OP))
          (term (refutes-con (CON_1 ρ) OP)))]
