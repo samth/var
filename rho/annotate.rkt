@@ -113,8 +113,6 @@ Pass 3: Annotate expressions/predicates
   [(ann-exp (let ((X REXP_0) ...) REXP_1) LAB MODENV (X_m ...))
    (let ((X (ann-exp REXP_0 LAB MODENV (X_m ...))) ...)
      (ann-exp REXP_1 LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))]
-  [(ann-exp (begin REXP_0) LAB MODENV (X_m ...))
-   (ann-exp REXP_0 LAB MODENV (X_m ...))]
   [(ann-exp (begin REXP_0 REXP_1) LAB MODENV (X_m ...))
    (begin (ann-exp REXP_0 LAB MODENV (X_m ...))
           (ann-exp REXP_1 LAB MODENV (X_m ...)))]
@@ -263,7 +261,11 @@ Pass 3: Annotate expressions/predicates
   ;; ---
   [(ann-con (cons/c RCON_0 RCON_1) LAB MODENV (X ...))
    (cons/c (ann-con RCON_0 LAB MODENV (X ...))
-           (ann-con RCON_1 LAB MODENV (X ...)))]
+           (ann-con RCON_1 LAB MODENV (X ...)))]  
+  [(ann-con (struct/c X RCON_0 ...) LAB MODENV (X_1 ...))
+   (struct/c X_cons X_def (ann-con RCON_0 LAB MODENV (X_1 ...)) ...)
+   (where (X_cons ^ LAB X_def)
+          (ann-exp X LAB MODENV (X_1 ...)))]
   [(ann-con (not/c RCON_0) LAB MODENV (X ...))
    (not/c (ann-con RCON_0 LAB MODENV (X ...)))]
   [(ann-con (and/c RCON_0 RCON_1) LAB MODENV (X ...))
@@ -331,7 +333,30 @@ Pass 3: Annotate expressions/predicates
            (define f (λ f (z) z))
            (provide/contract (f ((pred (λ (x) #t) m) -> (pred (λ (x) #t) m)))))
          (require (only-in m f))
-         (@ (f ^ † m) 3 |†|)])))
+         (@ (f ^ † m) 3 |†|)]))
+ 
+ (test-equal
+  (term (annotator
+         [(module p racket
+            (struct posn (x y))
+            (provide/contract [posn any/c]))
+          (module m racket
+            (require 'p)
+            (define (f) (posn 1 2))
+            (provide/contract [f (-> (struct/c posn any/c any/c))]))
+          (require 'm)
+          4]))
+  (term [(module p racket
+           (require)
+           (struct posn (x y))
+           (provide/contract [posn (pred (λ (x) #t) p)]))
+         (module m racket
+           (require (only-in p posn))
+           (define f (λ f () (@ (posn ^ m p) 1 2 m)))
+           (provide/contract [f (-> (struct/c posn p (pred (λ (x) #t) m) (pred (λ (x) #t) m)))]))
+         (require (only-in m f))
+         4])))
+        
  
 
 

@@ -48,6 +48,7 @@
   (PREDV LAM MODREF OP)
   (CON X
        (atom/c ATOMLIT LAB)
+       (struct/c X X CON ...)
        (pred PREDV LAB) 
        (rec/c X CON)       
        (cons/c CON CON) 
@@ -137,11 +138,14 @@
     
   (FLAT* (pred PREDV LAB) 
          (cons/c FLAT FLAT) 
+         (struct/c X X FLAT ...)
          (not/c FLAT)
          (atom/c ATOMLIT LAB))
   (HOC* (CON ... -> CON)
         (CON ..._1 -> (λ (X ..._1) CON))        
-        (cons/c HOC CON) (cons/c CON HOC))
+        (cons/c HOC CON) 
+        (cons/c CON HOC)
+        (struct/c X X CON ... HOC CON ...))
   
   (ATOM? exact-nonnegative-integer?
          boolean?
@@ -229,6 +233,7 @@
         any/c 
         (pred RSV)        
         (cons/c RCON RCON) 
+        (struct/c X RCON ...)
         (or/c RCON RCON) 
         (and/c RCON RCON)          
         (rec/c X RCON)
@@ -254,6 +259,8 @@
   [(valid? (cons/c CON_1 CON_2))
    ,(and (term (valid? CON_1))
          (term (valid? CON_2)))]
+  [(valid? (struct/c X_1 X_2 CON ...))
+   ,(andmap values (term ((valid? CON) ...)))]
   [(valid? (and/c CON_1 CON_2))
    ,(and (term (valid? CON_1))
          (term (valid? CON_2)))]  
@@ -277,6 +284,8 @@
   [(flat? (cons/c CON_1 CON_2))
    ,(and (term (flat? CON_1))
          (term (flat? CON_2)))]
+  [(flat? (struct/c X_1 X_2 CON ...))
+   ,(andmap values (term ((flat? CON) ...)))]
   [(flat? (and/c CON_1 CON_2))
    ,(and (term (flat? CON_1))
          (term (flat? CON_2)))]  
@@ -290,6 +299,7 @@
   subst/μ : X CON CON -> CON
   [(subst/μ X CON X) CON]
   [(subst/μ X CON X_0) X_0]
+  [(subst/μ X CON (atom/c ATOMLIT any)) (atom/c ATOMLIT any)]
   [(subst/μ X CON (and/c CON_0 CON_1))
    (and/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
   [(subst/μ X CON (or/c CON_0 CON_1))
@@ -297,7 +307,9 @@
   [(subst/μ X CON (not/c CON_0))
    (not/c (subst/μ X CON CON_0))]
   [(subst/μ X CON (cons/c CON_0 CON_1))
-   (cons/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]  
+   (cons/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (struct/c X_1 X_2 CON_0 ...))
+   (struct/c X_1 X_2 (subst/μ X CON CON_0) ...)]
   [(subst/μ X CON (rec/c X CON_1))
    (rec/c X CON_1)]
   [(subst/μ X CON (rec/c X_1 CON_1))
