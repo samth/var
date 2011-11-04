@@ -224,6 +224,18 @@ Pass 3: Annotate expressions/predicates
   ann-con : RCON LAB MODENV (X ...) -> CON ;or (pred f f)
   [(ann-con ATOMLIT LAB MODENV (X ...))
    (atom/c ATOMLIT LAB)]
+  [(ann-con (one-of/c ATOMLIT) LAB MODENV (X ...))
+   (ann-con ATOMLIT LAB MODENV (X ...))]
+  [(ann-con (one-of/c ATOMLIT_1 ATOMLIT_2 ...) LAB MODENV (X ...))
+   (ann-con (or/c ATOMLIT_1
+                  (one-of/c ATOMLIT_2 ...))
+            LAB MODENV (X ...))]
+  [(ann-con (symbols 'variable ...) LAB MODENV (X ...))
+   (ann-con (one-of/c 'variable ...) LAB MODENV (X ...))]
+  [(ann-con (list/c) LAB MODENV (X ...))
+   (ann-con empty LAB MODENV (X ...))]
+  [(ann-con (list/c RCON_1 RCON_2 ...) LAB MODENV (X ...))
+   (ann-con (cons/c RCON_1 (list/c RCON_2 ...)) LAB MODENV (X ...))]
   [(ann-con OP LAB MODENV (X ...))
    (pred OP LAB)]
   [(ann-con (listof RCON) LAB MODENV (X ...))

@@ -53,7 +53,7 @@
        (cons/c CON CON) 
        (and/c CON CON)
        (or/c CON CON)
-       (not/c CON)
+       (not/c CON)       
        (CON ... -> CON)
        (CON ..._1 -> (λ (X ..._1) CON)))
   (ATOMLIT natural
@@ -227,12 +227,15 @@
   (RCON OP 
         ATOMLIT
         any/c 
-        (pred RSV)
+        (pred RSV)        
         (cons/c RCON RCON) 
         (or/c RCON RCON) 
         (and/c RCON RCON)          
         (rec/c X RCON)
         (not/c RCON)
+        (one-of/c ATOMLIT ATOMLIT ...)
+        (symbols 'variable 'variable ...)
+        (list/c RCON ...)
         (RARR RCON ... RCON)
         (RARR RCON ..._1 (λ (X ..._1) RCON))
         (listof RCON)
