@@ -263,7 +263,7 @@ Pass 3: Annotate expressions/predicates
    (cons/c (ann-con RCON_0 LAB MODENV (X ...))
            (ann-con RCON_1 LAB MODENV (X ...)))]  
   [(ann-con (struct/c X RCON_0 ...) LAB MODENV (X_1 ...))
-   (struct/c X_cons X_def (ann-con RCON_0 LAB MODENV (X_1 ...)) ...)
+   (struct/c X_def X_cons (ann-con RCON_0 LAB MODENV (X_1 ...)) ...)
    (where (X_cons ^ LAB X_def)
           (ann-exp X LAB MODENV (X_1 ...)))]
   [(ann-con (not/c RCON_0) LAB MODENV (X ...))
@@ -353,7 +353,7 @@ Pass 3: Annotate expressions/predicates
          (module m racket
            (require (only-in p posn))
            (define f (λ f () (@ (posn ^ m p) 1 2 m)))
-           (provide/contract [f (-> (struct/c posn p (pred (λ (x) #t) m) (pred (λ (x) #t) m)))]))
+           (provide/contract [f (-> (struct/c p posn (pred (λ (x) #t) m) (pred (λ (x) #t) m)))]))
          (require (only-in m f))
          4])))
         

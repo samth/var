@@ -80,8 +80,10 @@
   
   ;; struct/c
   [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ (-- (struct X_m X_tag V ...) C ...))
-   (λ (X) (AND (@@ EXP V Λ) ...))
-   (where (EXP ...) ((fc/c X any FLAT ρ V) ...))]
+   (λ (X) (AND (@@ EXP EXP_1 Λ) ...))
+   (where (EXP ...) ((fc/c X any FLAT ρ V) ...))
+   (where (EXP_1 ...) ,(for/list ([i (length (term (V ...)))])
+                         (term (@@ (s-ref X_m X_tag ,i) X Λ))))]
   
   [(fc/c X any (struct/c X_m X_tag CON ...) ρ AV)
    (λ (X) (amb/e (@@ EXP_n X Λ) ...))
@@ -102,7 +104,7 @@
                                    (IFF (@@ ((tag->pred X_tag) ^ Λ X_m) x Λ)
                                         (AND (@@ (fc/c X any CON ρ AV) (@ EXP_acc x Λ) Λ) ...)
                                         ;; final result is #t b/c this is a spurious result if we get here
-                                        #t)))))))) 
+                                        #t))))))))
    (where #t (proves AV (s-pred X_m X_tag)))]
   [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ AV)
    (λ (x) (AND (@@ cons? x Λ)

@@ -6,23 +6,23 @@
 
 ;; a really dumb little partial evaluator
 (define-metafunction λcρ
-  @@ : EXP EXP ... LAB -> EXP
+  @@ : any any ... LAB -> any
   [(@@ (λ (X) EXP) X LAB) EXP]
   [(@@ (λ (X) #t) EXP LAB) (begin EXP #t)]
   [(@@ (λ (X) #f) EXP LAB) (begin EXP #f)]
-  [(@@ EXP ... LAB) (@ EXP ... LAB)])
+  [(@@ any ... LAB) (@ any ... LAB)])
 
 (define-metafunction λcρ
-  IFF : EXP EXP EXP -> EXP
-  [(IFF #f EXP_1 EXP_2) EXP_2]
-  [(IFF #t EXP_1 EXP_2) EXP_1]
-  [(IFF EXP_0 EXP_1 EXP_2) (if EXP_0 EXP_1 EXP_2)])
+  IFF : any any any -> any
+  [(IFF #f any_1 any_2) any_2]
+  [(IFF #t any_1 any_2) any_1]
+  [(IFF any_0 any_1 any_2) (if any_0 any_1 any_2)])
 
 (define-metafunction λcρ
-  AND : EXP ... -> EXP
-  [(AND EXP) EXP]
-  [(AND EXP EXP_1) (IFF EXP EXP_1 #f)]
-  [(AND EXP EXP_1 ...) (IFF EXP (AND EXP_1 ...) #f)])
+  AND : any ... -> any
+  [(AND any) any]
+  [(AND any any_1) (IFF any any_1 #f)]
+  [(AND any any_1 ...) (IFF any (AND any_1 ...) #f)])
 
 (define current-direct? (make-parameter #t))
 ;; Interp: direct? => doesn't go through store.
