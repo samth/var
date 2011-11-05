@@ -83,6 +83,9 @@
              (env (X (-- (CON_0 (env)))) ...  ;; FIXME not the right env -- need to be given env.
                   (D1 (demonic CON_1)))))
    (where (X ...) ,(gen-xs (term (CON_0 ...))))]
+  
+  [(demonic (struct/c X_mod X_tag CON ...))
+   (demonic (∧))] ;; FIXME!!
    
   [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
    ;; NOTE: Since the environment of a CON plays no role in demonic,
