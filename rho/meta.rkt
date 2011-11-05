@@ -6,214 +6,6 @@
 (test-suite test meta)
 
 (define-metafunction λcρ
-  demonic* : CON V -> D
-  [(demonic* CON V)
-   (-- (clos 0 (env)))
-   (where #t (no-behavior V))]
-  [(demonic* CON V) 
-   (@ (demonic CON) V ★)
-   #;(side-condition (printf "demonic ~a\n" (term CON)))])
-
-(test
- (test-equal (term (demonic* (pred boolean? †) (-- (clos 4 (env)))))
-             (term (-- (clos 0 (env)))))
- (test-equal (term (demonic* (-> (pred string? †)) (-- (clos (λ () "x") (env)))))
-             (term (@ (demonic (-> (pred string? †)))
-                      (-- (clos (λ () "x") (env)))
-                      ★))))
-
-;; FIXME make syntactic.  Would like to get rid of environment 
-;; so that this plays nice with machine.  To do that, have to
-;; be able to embed abstract values in syntax.  OK, except for the 
-;; environment of predicates---but are these ever needed!?
-
-;; Produce a function that will do "everything" it can
-;; to its argument while treating it as a C.
-;; The only important part is that functions are applied
-;; to all possible values.  Note that this requires traversing
-;; pairs.
-;; NOTE the environment of a contract is irrelevant.
-(define-metafunction λcρ
-  demonic : CON -> V
-  [(demonic (pred ATOM? LAB)) (-- (clos (λ (x) #t) (env)))]
-  
-  ;; FIXME: I don't think we're doing the right thing here in terms
-  ;; of arity.  And I worry about what to do with things that have unknown arity.
-  ;; FIXME: Need to handle structs, too.
-  [(demonic (pred PREDV any)) ;; MAYBE improve me: special case o?
-   (-- (clos 
-        (λ f (x) 
-          (if (@ procedure? x Λ)
-              (@ f (@ x • ★) ★)  ;; want to add fact that x is a proc.
-              (if (@ cons? x Λ)
-                  (if •
-                      (@ f (@ car x ★) ★)
-                      (@ f (@ cdr x ★) ★))
-                  #t)))
-        (env)))]
-  
-  [(demonic (and/c CON_0 CON_1)) ;; this is overly conservative, but not clear how to do better
-   (-- (clos (λ (x) (begin (@ D1 x Λ)
-                           (@ D2 x Λ)))
-             (env (D1 (demonic CON_0))
-                  (D2 (demonic CON_1)))))]
-  
-  [(demonic (cons/c CON_0 CON_1))
-   (-- (clos (λ (x) (begin (@ D1 (@ car x ★) Λ)
-                           (@ D2 (@ cdr x ★) Λ)))
-             (env (D1 (demonic CON_0))
-                  (D2 (demonic CON_1)))))]
-  
-  [(demonic (or/c CON_0 CON_1))
-   (-- (clos (λ (x) (begin (@ D1 x Λ)
-                           (@ D2 x Λ)))
-             (env (D1 (demonic CON_0))
-                  (D2 (demonic CON_1)))))]  ;; Always safe, hard to do better.
-   
-  [(demonic (rec/c X CON))
-   (demonic CON)]
-  
-  [(demonic X)
-   (demonic (∧))] ;; Safe.  What else could you do?
-  
-  [(demonic (not/c CON))
-   (demonic (∧))]  ;; Safe.  What else could you do?
-  
-  [(demonic (CON_0 ... -> CON_1))
-   (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
-             (env (X (-- (CON_0 (env)))) ...  ;; FIXME not the right env -- need to be given env.
-                  (D1 (demonic CON_1)))))
-   (where (X ...) ,(gen-xs (term (CON_0 ...))))]
-   
-  [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
-   ;; NOTE: Since the environment of a CON plays no role in demonic,
-   ;; we do not do extend the environment of CON_1 with ((X_0 (-- CON_0)) ...).
-   (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
-             (env (X (-- (CON_0 (env)))) ...   ;; FIXME not the right env -- need to be given env.
-                  (D1 (demonic CON_1)))))
-   (where (X ...) ,(gen-xs (term (CON_0 ...))))])
-
-(test
- (test-equal (term (demonic (∧)))
-             (term (-- (clos
-                        (λ f (x) 
-                          (if (@ procedure? x Λ)
-                              (@ f (@ x • ★) ★)
-                              (if (@ cons? x Λ)
-                                  (if •
-                                      (@ f (@ car x ★) ★)
-                                      (@ f (@ cdr x ★) ★))
-                                  #t)))
-                        (env)))))
- 
- (test-equal (term (demonic (and/c (∧) (∧))))
-             (term (-- (clos (λ (x) (begin (@ D1 x Λ)
-                                           (@ D2 x Λ)))
-                             (env (D1 (demonic (∧)))
-                                  (D2 (demonic (∧))))))))
- 
- (test-equal (term (demonic (cons/c (∧) (∧))))
-             (term (-- (clos (λ (x) (begin (@ D1 (@ car x ★) Λ)
-                                           (@ D2 (@ cdr x ★) Λ)))
-                             (env (D1 (demonic (∧)))
-                                  (D2 (demonic (∧))))))))
- 
- (test-equal (term (demonic (or/c (∧) (∧))))
-             (term (-- (clos (λ (x) (begin (@ D1 x Λ)
-                                           (@ D2 x Λ)))
-                             (env (D1 (demonic (∧)))
-                                  (D2 (demonic (∧))))))))
- 
- (test-equal (term (demonic (not/c (∧))))
-             (term (demonic (∧))))
-   
- (test-equal (term (demonic (rec/c X (∧))))
-             (term (demonic (∧))))
- 
- (test-equal (term (demonic ((∧) -> (∧))))              
-             (term (-- (clos (λ (f) (@ D1 (@ f x0 ★) Λ))
-                             (env (x0 (-- ((∧) (env))))
-                                  (D1 (demonic (∧))))))))
- 
- (test-equal (term (demonic ((∧) -> (λ (x) (∧)))))
-             (term (-- (clos (λ (f) (@ D1 (@ f x0 ★) Λ))
-                             (env (x0 (-- ((∧) (env))))
-                                  (D1 (demonic (∧)))))))))
- 
-;; Rather than use gensym here, we deterministically generate 
-;; names x0, x1, ..., xi.  Since this function is applied to
-;; lists of CONs appearing in `->' contracts, which there are
-;; only finitely many, this function does not generate infinite xs.
-;; [Probably want to tune up to increase precision at some point.]
-(define (gen-xs ls)
-  (for/list ([c (in-list ls)]
-             [i (in-naturals)])
-    (string->symbol (format "x~a" i))))
-
-(test
- (test-equal (gen-xs (list 'a 'b 'c))
-             (list 'x0 'x1 'x2)))
-
-(define-metafunction λcρ
-  no-behavior : V -> #t or #f
-  [(no-behavior blessed-AV) #f]
-  [(no-behavior blessed-A) #f]
-  [(no-behavior AV) #t]
-  [(no-behavior (-- (clos natural ρ) any ...)) #t]
-  [(no-behavior (-- (clos bool ρ) any ...)) #t]
-  [(no-behavior (-- (clos string ρ) any ...)) #t]
-  [(no-behavior (-- (clos empty ρ) any ...)) #t]
-  [(no-behavior (-- (cons V_1 V_2) any ...))
-   ,(and (term (no-behavior V_1))
-         (term (no-behavior V_2)))]
-  [(no-behavior (-- (struct X_m X_tag V_1 ...) any ...))
-   #t
-   (where (#t ...) ((no-behavior V_1) ...))]
-  [(no-behavior V) #f])
-
-(test
- (test-equal (term (no-behavior (-- (clos #f (env))))) #t) 
- (test-equal (term (no-behavior (-- ((pred boolean? †) (env))))) #t)
- (test-equal (term (no-behavior (-- (clos (λ (x) #t) (env))))) #f)
- (test-equal (term (no-behavior (-- (cons (-- (clos 0 (env)))
-                                          (-- (clos 1 (env)))))))
-             #t)
- (test-equal (term (no-behavior (-- (cons (-- (clos 0 (env)))
-                                          (-- (clos (λ (x) #t) (env)))))))
-             #f)
- (test-equal (term (no-behavior (-- (struct p posn
-                                      (-- (clos 0 (env)))
-                                      (-- (clos 1 (env)))))))
-             #t)
- (test-equal (term (no-behavior (-- (struct p posn
-                                      (-- (clos 0 (env)))
-                                      (-- (clos (λ (x) #t) (env)))))))
-             #f))
-
- 
-
-(define-metafunction λcρ
-  amb : D D ... -> D
-  [(amb D) D]
-  [(amb D_1 D_3 ...)
-   (if (-- ((pred (λ (x) #t) Λ) (env))) D_1 (amb D_3 ...))])
-
-(define-metafunction λcρ
-  amb/e : EXP EXP ... -> EXP
-  [(amb/e EXP) EXP]
-  [(amb/e EXP_1 EXP_3 ...)
-   (if • EXP_1 (amb/e EXP_3 ...))])
-
-(test
- ;; FIXME Why does this seemingly take FOREVER!?
- #;
- (redex-check λcρ (D_1 D_2) (term (amb D_1 D_2)))
- ;; Must be related to this; looks like a Redex bug:
- ;; EXHAUSTS ALL MEMORY
- #;
- (generate-term λcρ D_1 3))
-
-(define-metafunction λcρ
   δ : OP V ... LAB -> (A A ...) 
   [(δ cons V_0 V_1 LAB) ; cons works same for concrete and abstract
    ((-- (cons V_0 V_1)))]  
@@ -442,10 +234,10 @@
   ;; struct ops
   [(abs-δ (s-pred X_m X_tag) AV LAB)
    ((-- (clos #t (env))))
-   (where #t (contract-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]  
+   (where #t (proves AV (s-pred X_m X_tag)))]  
   [(abs-δ (s-pred X_m X_tag) AV LAB)
    ((-- (clos #f (env))))
-   (where #t (contract-not-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]  
+   (where #t (refutes AV (s-pred X_m X_tag)))]  
   [(abs-δ (s-pred X_m X_tag) AV LAB)
    ((-- (clos #t (env)))
     (-- (clos #f (env))))]
@@ -456,10 +248,10 @@
   
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((-- ((∧) (env))))
-   (where #t (contract-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))] 
+   (where #t (proves AV (s-pred X_m X_tag)))] 
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((blame LAB Λ AV (s-ref X_m X_tag natural) AV))
-   (where #t (contract-not-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]
+   (where #t (refutes AV (s-pred X_m X_tag)))]
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((-- ((∧) (env)))
     (blame LAB Λ AV (s-ref X_m X_tag natural) AV))]                    
@@ -875,6 +667,7 @@
    (side-condition (not (equal? (term ATOMLIT_1) (term ATOMLIT_2))))]   
   [(contract-not-in/cache ((pred OP LAB) ρ) V any)
    (refutes V OP)] 
+  
   ;; FIXME maybe add struct?
   #;
   [(contract-not-in/cache ((pred OP LAB) ρ) V any)
@@ -922,7 +715,7 @@
    #t
    (where #t (proves-con C OP))] 
   [(proves (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) OP)
-   (proves V OP)] 
+   (proves V OP)]    
   [(proves V OP) #f])
 
 (test
@@ -978,6 +771,11 @@
   proves-con : C OP -> #t or #f  
   [(proves-con ((pred OP_0 LAB) ρ) OP_1)
    (proves-predicate OP_0 OP_1)]
+  [(proves-con ((struct/c X_tag X_m any_s ...) ρ) (s-pred X_m X_tag))
+   #t]
+  [(proves-con ((pred (X_spred ^ LAB_0 LAB_p) LAB) ρ) (s-pred LAB_p X_tag))
+   #t
+   (where X_spred (tag->pred X_tag))]
   [(proves-con ((atom/c ATOMLIT LAB) ρ) OP)
    #t
    (where TRUE (plain-δ OP (-- (clos ATOMLIT (env))) Λ))]
@@ -1022,6 +820,17 @@
   refutes-con : C OP -> #t or #f
   [(refutes-con ((CON_0 ... -> any) ρ) procedure?) #f]
   [(refutes-con ((CON_0 ... -> any) ρ) OP) #t]
+  ;; structs are disjoint
+  [(refutes-con (struct/c X_tag X_m any_s ...) (s-pred X_tag2 X_m2))
+   #t
+   (side-condition (or (not (eq? (term X_tag) (term X_tag2)))
+                       (not (eq? (term X_m) (term X_m2)))))]
+  ;; structs are not op? for any op?
+  [(refutes-con (struct/c X_tag X_m any_s ...) OP?)
+   #t]
+  [(refutes-con (pred OP? LAB) (s-pred any ...))
+   #t]
+  
   [(refutes-con ((pred OP_0 LAB) ρ) OP_1) 
    (refutes-predicate OP_0 OP_1)]
   [(refutes-con ((atom/c ATOMLIT LAB) ρ) OP)
@@ -1191,8 +1000,9 @@
   [(proj-struct/a X_m X_tag natural (AV ...) C_0 C_1 ...)
    (proj-struct/a X_m X_tag natural (AV ...) C_1 ...)])
 
-(check-equal (term (proj-struct (-- ((struct/c posn p (pred string? f) (pred string? f)) (env))) p posn 0))
-             (term ((-- ((pred string? f) (env))))))
+(test 
+ (test-equal (term (proj-struct (-- ((struct/c posn p (pred string? f) (pred string? f)) (env))) p posn 0))
+             (term ((-- ((pred string? f) (env)))))))
 
 ;; Project an AV to the left
 ;; (proj-left (-- (cons/c exact-nonnegative-integer? string?) (cons/c zero? string?)))
