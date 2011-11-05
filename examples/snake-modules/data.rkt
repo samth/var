@@ -1,17 +1,20 @@
 #lang var rho 
+
+(define-contract posn/c (struct/c posn exact-nonnegative-integer? exact-nonnegative-integer?))
+(define-contract direction/c (one-of/c 'up 'down 'left 'right))
+(define-contract snake/c
+  (struct/c snake
+            direction/c
+            (non-empty-listof posn/c)))
+(define-contract world/c
+  (struct/c world
+            snake/c
+            posn/c))
+
 (module data racket 
   (struct posn (x y))
   (struct snake (dir segs))
-  (struct world (snake food))
-  
-  ;; direction? : Any -> Boolean
-  ;; Is s a direction?
-  (define (direction? s)
-    (and (string? s)
-         (or (string=? s "up")
-             (string=? s "down")
-             (string=? s "left")
-             (string=? s "right"))))
+  (struct world (snake food))  
   
   ;; posn=? : Posn Posn -> Boolean
   ;; Are the posns the same?
@@ -21,40 +24,40 @@
   
   (provide/contract 
    [direction? (any/c . -> . boolean?)]
-   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn?)]
+   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
    [posn? (any/c . -> . boolean?)]
-   [posn-x (posn? . -> . exact-nonnegative-integer?)]
-   [posn-y (posn? . -> . exact-nonnegative-integer?)]
-   [posn=? (posn? posn? . -> . boolean?)]
-   [snake (direction? (cons/c posn? (listof posn?)) . -> . snake?)]
+   [posn-x (posn/c . -> . exact-nonnegative-integer?)]
+   [posn-y (posn/c . -> . exact-nonnegative-integer?)]
+   [posn=? (posn/c posn/c . -> . boolean?)]
+   [snake (direction/c (cons/c posn/c (listof posn/c)) . -> . snake/c)]
    [snake? (any/c . -> . boolean?)]
-   [snake-dir (snake? . -> . direction?)]
-   [snake-segs (snake? . -> . (non-empty-listof posn?))]
-   [world (snake? posn? . -> . world?)]
+   [snake-dir (snake/c . -> . direction/c)]
+   [snake-segs (snake/c . -> . (non-empty-listof posn/c))]
+   [world (snake/c posn/c . -> . world/c)]
    [world? (any/c . -> . boolean?)]
-   [world-snake (world? . -> . snake?)]
-   [world-food (world? . -> . posn?)]))
+   [world-snake (world/c . -> . snake/c)]
+   [world-food (world/c . -> . posn/c)]))
 
 (module D racket
   (require 'data)
   (provide/contract 
    [f-direction? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-posn ((exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn?) . -> . any/c)]
-   [f-posn? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-posn-x ((posn? . -> . exact-nonnegative-integer?) . -> . any/c)]
-   [f-posn-y ((posn? . -> . exact-nonnegative-integer?) . -> . any/c)]
-   [f-posn=? ((posn? posn? . -> . boolean?) . -> . any/c)]
-   [f-snake ((direction? (cons/c posn? (listof posn?)) . -> . snake?) . -> . any/c)]
-   [f-snake? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-snake-dir ((snake? . -> . direction?) . -> . any/c)]
-   [f-snake-segs ((snake? . -> . (non-empty-listof posn?)) . -> . any/c)]
-   [f-world ((snake? posn? . -> . world?) . -> . any/c)]
+   [f-posn ((exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c) . -> . any/c)]
+   [f-posn/c ((any/c . -> . boolean?) . -> . any/c)]
+   [f-posn-x ((posn/c . -> . exact-nonnegative-integer?) . -> . any/c)]
+   [f-posn-y ((posn/c . -> . exact-nonnegative-integer?) . -> . any/c)]
+   [f-posn=? ((posn/c posn/c . -> . boolean?) . -> . any/c)]
+   [f-snake ((direction? (cons/c posn/c (listof posn/c)) . -> . snake/c) . -> . any/c)]
+   [f-snake/c ((any/c . -> . boolean?) . -> . any/c)]
+   [f-snake-dir ((snake/c . -> . direction?) . -> . any/c)]
+   [f-snake-segs ((snake/c . -> . (non-empty-listof posn/c)) . -> . any/c)]
+   [f-world ((snake/c posn/c . -> . world/c) . -> . any/c)]
    [f-world? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-world-snake ((world? . -> . snake?) . -> . any/c)]
-   [f-world-food ((world? . -> . posn?) . -> . any/c)]))
+   [f-world-snake ((world/c . -> . snake/c) . -> . any/c)]
+   [f-world-food ((world/c . -> . posn/c) . -> . any/c)]))
 
 ;; We're losing a lot of information about structes.
-;; For example, (-- (pred snake?)) tells you nothing about
+;; For example, (-- (pred snake/c)) tells you nothing about
 ;; the value.  (-- (s-pred data snake)) is what you want.
 ;; The annotator needs to change to expand structure predicates
 ;; to their underlying operations.
@@ -62,6 +65,8 @@
 ;; We're not doing demonic of structures right (ie, we don't do anything).
 
 (require 'data 'D)
+(f-posn posn)
+#|
 (begin  
   (f-direction? direction?)
   (f-posn posn)
@@ -76,4 +81,4 @@
   (f-world world)
   (f-world? world?)
   (f-world-snake world-snake)
-  (f-world-food world-food))
+  (f-world-food world-food))|#
