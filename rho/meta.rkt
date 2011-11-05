@@ -415,7 +415,7 @@
   [(abs-δ string-string->bool V_1 V_2 LAB)
    ((-- ((pred boolean? Λ) (env)))
     (blame LAB Λ V_1 string-string->bool V_1)
-    (blame LAB Λ V_2 string-string->bool V_2))]
+    (blame LAB Λ V_2 string-string->bool V_2))]    
   
   ;; car
   [(abs-δ car V LAB)
@@ -449,7 +449,11 @@
   [(abs-δ (s-pred X_m X_tag) AV LAB)
    ((-- (clos #t (env)))
     (-- (clos #f (env))))]
-   
+     
+  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+   (proj-struct V natural)
+   (where #t (has-struct/c? AV X_m X_tag))]
+  
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((-- ((∧) (env))))
    (where #t (contract-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))] 
@@ -458,7 +462,7 @@
    (where #t (contract-not-in ((pred ((tag->pred X_tag) ^ Λ X_m) Λ) (env)) AV))]
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((-- ((∧) (env)))
-    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))]
+    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))]                    
   
   [(abs-δ eqv? V_1 V_2 LAB)
    ((-- (clos #t (env)))
@@ -1061,6 +1065,13 @@
   [(refutes-predicate false? boolean?) #f]
   [(refutes-predicate false? OP) #t])
 
+(define-metafunction λcρ
+  has-struct/c? : AV X X -> #t or #f
+  [(has-struct/c? (-- C_1 ... ((struct/c X_tag X_m CON ...) ρ) C_2 ...) X_m X_tag)
+   #t]
+  [(has-struct/c? (-- C) X_m X_tag) #f])
+
+
 ;; modulename x valuename x modules -> value
 (define-metafunction λcρ
   lookup-modref/val : X X (MOD ...) -> VAL or •
@@ -1161,6 +1172,27 @@
              (term ((p (posn posn posn? (posn-x posn-y)))))))
 
 ;; Projections
+
+(define-metafunction λcρ
+  proj-struct : AV X X natural -> (V ...)
+  [(proj-struct (-- C_0 C ...) X_m X_tag natural)
+   (proj-struct/a X_m X_tag natural ((join-contracts)) C_0 C ...)])
+
+(define-metafunction λcρ
+  proj-struct/a : X X natural ((-- C ...) ...) C ... -> (V ...)
+  [(proj-struct/a X_m X_tag natural (AV ...)) (AV ...)]    ;; FIXME, this case is not matching
+  [(proj-struct/a X_m X_tag natural (AV ...) ((struct/c X_tag X_m CON_0 ... CON CON_1 ...) ρ) C_2 ...)
+   (proj-struct/a X_m X_tag natural (AV_R ...) C_2 ...)
+   (side-condition (= (length (term (CON_0 ...))) (term natural)))
+   (where (AV_R ...) 
+          ,(for*/list ([av (in-list (term (AV ...)))]
+                       [cnew (in-list (term (explode (CON ρ))))])
+             (term (remember-contract ,av ,cnew))))]
+  [(proj-struct/a X_m X_tag natural (AV ...) C_0 C_1 ...)
+   (proj-struct/a X_m X_tag natural (AV ...) C_1 ...)])
+
+(check-equal (term (proj-struct (-- ((struct/c posn p (pred string? f) (pred string? f)) (env))) p posn 0))
+             (term ((-- ((pred string? f) (env))))))
 
 ;; Project an AV to the left
 ;; (proj-left (-- (cons/c exact-nonnegative-integer? string?) (cons/c zero? string?)))
