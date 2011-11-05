@@ -58,6 +58,25 @@
         (where #t (∈ #f (δ cons? V Λ)))
         check-cons-fail)
    
+   ;; STRUCT CONTRACTS
+   ;; FIXME: forgets what's known about the struct.   
+   (--> (((struct/c X_m X_tag CON ...) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
+        ((@ (-- (↓ (s-cons X_m X_tag ,(length (term (CON ...)))) (env)))
+            (CON ρ <= LAB_1 LAB_2 V_r LAB_3 V_1) ...
+            Λ)
+         σ)
+        (where HOC (struct/c X_m X_tag CON ...))
+        (where #t (∈ #t (δ (s-pred X_m X_tag) V Λ)))
+        (where (natural_1 ...) ,(for/list ([i (length (term (CON ...)))]) i))
+        (where ((any_0 ... V_r any_1 ...) ...) ((δ (s-ref X_m X_tag natural_1) V Λ) ...))
+        check-struct-pass)
+   
+   (--> (((struct/c X_m X_tag CON ...) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
+        ((blame LAB_1 LAB_3 V_1 (HOC ρ) V) σ)
+        (where HOC (struct/c X_m X_tag CON ...))
+        (where #t (∈ #f (δ (s-pred X_m X_tag) V Λ)))
+        check-struct-fail)
+   
    ;; PROCEDURE CONTRACTS      
    (--> ((@ ((CON_0 ..._1 --> (λ (X ..._1) CON_1)) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 LAB) σ)
         ((CON_1 ρ_1 ; lax
