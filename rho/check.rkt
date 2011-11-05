@@ -76,7 +76,45 @@
    ;; (proj-{left,right} AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
    (where #f (proves AV cons?))
-   (where #f (refutes AV cons?))])
+   (where #f (refutes AV cons?))]
+  
+  ;; struct/c
+  [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ (-- (struct X_m X_tag V ...) C ...))
+   (λ (X) (AND (@@ EXP V Λ) ...))
+   (where (EXP ...) ((fc/c X any FLAT ρ V) ...))]
+  
+  [(fc/c X any (struct/c X_m X_tag CON ...) ρ AV)
+   (λ (X) (amb/e (@@ EXP_n X Λ) ...))
+   (where (EXP_n ...)
+          ,(remove-duplicates
+            (let ()
+              (define all-combos
+                (xprod (for/list ([i (length (term (CON ...)))])
+                         (term (proj-struct AV X_m X_tag ,i)))))
+              (for/list ([c all-combos])
+                (redex-let λcρ
+                           ([(AV ...) c]
+                            [(EXP_acc ...) (for/list ([i (length (term (CON ...)))])
+                                             (term (s-ref X_m X_tag ,i)))])
+                           (term (λ (x)
+                                   ;; this is neccessary because you might have gotten here through a proj-left/right
+                                   ;; and therefore in the reduction semantics you don't know that this is actually a cons
+                                   (IFF (@@ ((tag->pred X_tag) ^ Λ X_m) x Λ)
+                                        (AND (@@ (fc/c X any CON ρ AV) (@ EXP_acc x Λ) Λ) ...)
+                                        ;; final result is #t b/c this is a spurious result if we get here
+                                        #t)))))))) 
+   (where #t (proves AV (s-pred X_m X_tag)))]
+  [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ AV)
+   (λ (x) (AND (@@ cons? x Λ)
+               (@@ EXP_1 • Λ)
+               (@@ EXP_2 • Λ)))
+   (where (EXP ...) ((fc/c X any FLAT ρ (join-contracts)) ...))
+                  
+   ;; using • instead of the results of the accessors avoids spurious blame of the language
+   ;; (proj-{left,right} AV) can't produce anything interesting here, 
+   ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
+   (where #f (proves AV (s-pred X_m X_tag)))
+   (where #f (refutes AV (s-pred X_m X_tag)))])
 
 
 (test 

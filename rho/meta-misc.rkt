@@ -18,6 +18,12 @@
   [(IFF #t EXP_1 EXP_2) EXP_1]
   [(IFF EXP_0 EXP_1 EXP_2) (if EXP_0 EXP_1 EXP_2)])
 
+(define-metafunction λcρ
+  AND : EXP ... -> EXP
+  [(AND EXP) EXP]
+  [(AND EXP EXP_1) (IFF EXP EXP_1 #f)]
+  [(AND EXP EXP_1 ...) (IFF EXP (AND EXP_1 ...) #f)])
+
 (define current-direct? (make-parameter #t))
 ;; Interp: direct? => doesn't go through store.
 
