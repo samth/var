@@ -111,11 +111,15 @@
 (module list-fun racket
   (require 'data)
   (provide/contract
+   [max (exact-nonnegative-integer? exact-nonnegative-integer? . -> . exact-nonnegative-integer?)]
+   [min (exact-nonnegative-integer? exact-nonnegative-integer? . -> . exact-nonnegative-integer?)]
    [ormap ((block/c . -> . boolean?) (listof any/c) . -> . boolean?)]
    [andmap ((block/c . -> . boolean?) (listof any/c) . -> . boolean?)]
    [map ((block/c . -> . block/c) bset/c . -> . bset/c)]
    [filter ((block/c . -> . boolean?) bset/c . -> . bset/c)]
-   [length ((listof any/c) . -> . exact-nonnegative-integer?)]))
+   [length ((listof any/c) . -> . exact-nonnegative-integer?)]
+   [foldr ((block/c bset/c . -> . bset/c) bset/c bset/c . -> . bset/c)]
+   [foldr-n ((block/c exact-nonnegative-integer? . -> . exact-nonnegative-integer?) exact-nonnegative-integer? bset/c . -> . exact-nonnegative-integer?)]))
 
 
 (module bset racket
@@ -186,9 +190,6 @@
   (define (blocks-overflow? bs)
     (ormap (λ (b) (<= (block-y b) 0)) bs))
 
-
-  ;; FIXME -- need foldr
-
   ;; blocks-union : BSet BSet -> BSet
   ;; Union the two sets of blocks.
   (define (blocks-union bs1 bs2)
@@ -202,19 +203,20 @@
   ;; Compute the maximum y coordinate;
   ;; if set is empty, return 0, the coord of the board's top edge.
   (define (blocks-max-y bs)
-    (foldr (λ (b n) (max (block-y b) n)) 0 bs))
+    (foldr-n (λ (b n) (max (block-y b) n)) 0 bs))
 
   ;; blocks-min-x : BSet -> Number
   ;; Compute the minimum x coordinate;
   ;; if set is empty, return the coord of the board's right edge.
   (define (blocks-min-x bs)
-    (foldr (λ (b n) (min (block-x b) n)) board-width bs))
+    (foldr-n (λ (b n) (min (block-x b) n)) board-width bs))
 
   ;; blocks-max-x : BSet -> Number
   ;; Compute the maximum x coordinate;
   ;; if set is empty, return 0, the coord of the board's left edge.
   (define (blocks-max-x bs)
-    (foldr (λ (b n) (max (block-x b) n)) 0 bs))
+    (foldr-n (λ (b n) (max (block-x b) n)) 0 bs))
+
   (provide/contract [blocks-contains? (bset/c block/c . -> . boolean?)]
                     [blocks=? (bset/c bset/c . -> . boolean?)]
                     [blocks-subset? (bset/c bset/c . -> . boolean?)]
@@ -227,7 +229,12 @@
                     [blocks-change-color (bset/c color/c . -> . bset/c)]
                     [blocks-row (bset/c exact-nonnegative-integer? . -> . bset/c)]
                     [full-row? (bset/c exact-nonnegative-integer? . -> . boolean?)]
-                    [eliminate-full-rows (bset/c . -> . bset/c)])
+                    [blocks-union (bset/c bset/c . -> . bset/c)]
+                    [blocks-max-x (bset/c . -> . exact-nonnegative-integer?)]
+                    [blocks-min-x (bset/c . -> . exact-nonnegative-integer?)]
+                    [blocks-max-y (bset/c . -> . exact-nonnegative-integer?)]
+
+)
 )
 
 (module H racket
@@ -243,25 +250,9 @@
    [f-blocks-change-color ((bset/c color/c . -> . bset/c) . -> . any/c)]
    [f-blocks-row ((bset/c exact-nonnegative-integer? . -> . bset/c) . -> . any/c)]
    [f-full-row? ((bset/c exact-nonnegative-integer? . -> . boolean?) . -> . any/c)]
-   [f-eliminate-full-rows ((bset/c . -> . bset/c) . -> . any/c)]
+   [f-blocks-union ((bset/c bset/c . -> . bset/c) . -> . any/c)]
 ))
 
-(module elim racket
-  (require 'data 'bset)
-  (define elim-row
-    (λ (bs i offset)
-       (cond [(< i 0) empty]
-             [(full-row? bs i) (elim-row bs (sub1 i) (add1 offset))]
-             [else (elim-row (blocks-union
-                              (blocks-move 0 offset (blocks-row bs i)))
-                             (sub1 i) offset)])))
-
-
-  ;; eliminate-full-rows : BSet -> BSet
-  ;; Eliminate all full rows and shift down appropriately.
-  (define (eliminate-full-rows bs)
-    (elim-row bs board-height 0))
-)
 
 (require 'H 'bset)
 
@@ -278,7 +269,9 @@
   ;(f-blocks-change-color blocks-change-color)
   ;(f-blocks-change-color blocks-change-color)
   ;(f-full-row? full-row?)
-;; FIXME
-  ;(f-eliminate-full-rows eliminate-full-rows)
   ;(f-blocks-row blocks-row)
+  ;(f-blocks-union blocks-union)
+  (f2 blocks-max-x)
+  (f2 blocks-max-y)
+  (f2 blocks-min-x)
   )
