@@ -15,12 +15,12 @@
 
   ;; A Block is a (make-block Number Number Color)
   (struct block (x y color))
-  
+
   ;; A Tetra is a (make-tetra Posn BSet)
   ;; The center point is the point around which the tetra rotates
   ;; when it is rotated.
   (struct tetra (center blocks))
-  
+
   ;; A Set of Blocks (BSet) is one of:
   ;; - empty
   ;; - (cons Block BSet)
@@ -35,8 +35,18 @@
     (and (= (posn-x p1) (posn-x p2))
          (= (posn-y p1) (posn-y p2))))
 
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Defined constants
+
+  (define block-size   20)  ;; in Pixels
+  (define board-width  10)  ;; in Blocks
+  (define board-height 20)
+
   (provide/contract [block (exact-nonnegative-integer? exact-nonnegative-integer? color/c . -> . block/c)]
                     [block? (any/c . -> . boolean?)]
+                    [block-size exact-nonnegative-integer?]
+                    [board-height exact-nonnegative-integer?]
+                    [board-width exact-nonnegative-integer?]
                     [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
                     [posn? (any/c . -> . boolean?)]
                     [posn-x (posn/c . -> . exact-nonnegative-integer?)]
@@ -53,7 +63,7 @@
                     [world (tetra/c bset/c . -> . world/c)]
                     [world-tetra (world/c . -> . tetra/c)]
                     [world-blocks (world/c . -> . bset/c)]))
-                    
+
 
 (module H racket
   (require 'data)
