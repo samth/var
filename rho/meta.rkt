@@ -672,7 +672,12 @@
    #t
    (side-condition (not (equal? (term ATOMLIT_1) (term ATOMLIT_2))))]   
   [(contract-not-in/cache ((pred OP LAB) ρ) V any)
-   (refutes V OP)] 
+   (refutes V OP)]
+  [(contract-not-in/cache ((struct/c any_1 ...) ρ) (-- C ... ((pred OP? LAB) ρ_1) C_1 ...) any)
+   #t]
+  [(contract-not-in/cache ((struct/c X_m X_tag any_1 ...) ρ) (-- PREVAL C_1 ...) any)
+   #t
+   (side-condition (not (redex-match λcρ (struct X_m X_tag any_2 ...) (term PREVAL))))]
   
   ;; FIXME maybe add struct?
   #;
