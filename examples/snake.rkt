@@ -248,7 +248,7 @@
   
   ;; segs-self-collide? : Posn Segs -> Boolean
   (define (segs-self-collide? h segs)
-    (cond [(empty? segs) false]
+    (cond [(empty? segs) #f]
           [else
            (or (posn=? (car segs) h)
                (segs-self-collide? h (cdr segs)))]))
