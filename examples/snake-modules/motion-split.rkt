@@ -78,67 +78,38 @@
 
 (module cut-tail racket
   (require 'data)
-
-  ;; NeSegs is one of:
-  ;; - (cons Posn empty)
-  ;; - (cons Posn NeSegs)
-
-  ;; cut-tail : NeSegs -> Segs
-  ;; Cut off the tail.
-  #;
-  (define (cut-tail segs)
-    (let ([r (cdr segs)])
-      (cond [(empty? r) empty]
-            [else
-             (cons (car segs)
-                   (cut-tail r))])))
-  
   (provide/contract [cut-tail ((non-empty-listof posn/c) . -> . (listof posn/c))]))
 
-(module next-head racket
-  (require 'data)
+(module motion-help racket
+  (require 'data 'cut-tail)
 
   ;; next-head : Posn Direction -> Posn
   ;; Compute next position for head.
-  #;
   (define (next-head seg dir)
     (cond [(symbol=? 'right dir) (posn (add1 (posn-x seg)) (posn-y seg))]
           [(symbol=? 'left dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
           [(symbol=? 'down dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
           [else                  (posn (posn-x seg) (add1 (posn-y seg)))]))
 
-  (provide/contract [next-head (posn/c direction/c . -> . posn/c)])
-
-  )
-
-(module slither racket
-  (require 'data 'next-head 'cut-tail)
-
   ;; snake-slither : Snake -> Snake
-  #;
   (define (snake-slither snk)
     (let ([d (snake-dir snk)])
       (snake d
              (cons (next-head (car (snake-segs snk))
                               d)
                    (cut-tail (snake-segs snk))))))
-  (provide/contract [snake-slither (snake/c . -> . snake/c)])
-  )
 
-(module grow racket
-  (require 'data 'next-head)
 
   ;; snake-grow : Snake -> Snake
   ;; Grow the snake one segment.
-  #;
   (define (snake-grow snk)
     (let ([d (snake-dir snk)])
       (snake d
              (cons (next-head (car (snake-segs snk))
                               d)
                    (snake-segs snk)))))
-  (provide/contract [snake-grow (snake/c . -> . snake/c)])
-  )
+  (provide/contract [snake-slither (snake/c . -> . snake/c)]
+                    [snake-grow (snake/c . -> . snake/c)]))
 
 
 (module motion racket

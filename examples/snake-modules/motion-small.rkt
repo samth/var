@@ -80,25 +80,14 @@
   (require 'data)
   (provide/contract [cut-tail ((non-empty-listof posn/c) . -> . (listof posn/c))]))
 
+(module motion-help racket
+  (require 'data 'cut-tail)
+  (provide/contract [snake-slither (snake/c . -> . snake/c)]
+                    [snake-grow (snake/c . -> . snake/c)]))
+
 
 (module motion racket
-  (require 'data 'const 'cut-tail)
-
-  ;; snake-slither : Snake -> Snake
-  (define (snake-slither snk)
-    (let ([d (snake-dir snk)])
-      (snake d
-             (cons (next-head (car (snake-segs snk))
-                              d)
-                   (cut-tail (snake-segs snk))))))
-
-  ;; next-head : Posn Direction -> Posn
-  ;; Compute next position for head.
-  (define (next-head seg dir)
-    (cond [(symbol=? 'right dir) (posn (add1 (posn-x seg)) (posn-y seg))]
-          [(symbol=? 'left dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
-          [(symbol=? 'down dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
-          [else                  (posn (posn-x seg) (add1 (posn-y seg)))]))
+  (require 'data 'const 'motion-help)
 
   ;; Snake motion & growth
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -135,25 +124,16 @@
     (world (snake-grow (world-snake w))
            (posn (random BOARD-WIDTH) (random BOARD-HEIGHT))))
 
-  ;; snake-grow : Snake -> Snake
-  ;; Grow the snake one segment.
-  (define (snake-grow snk)
-    (let ([d (snake-dir snk)])
-      (snake d
-             (cons (next-head (car (snake-segs snk))
-                              d)
-                   (snake-segs snk)))))
 
   (provide/contract [world-change-dir (world/c direction/c . -> . world/c)]
                     [world->world (world/c . -> . world/c)]))
 
-(module hole racket
-  (require 'data)
-  (provide/contract [f1 ((world/c direction/c . -> . world/c) . -> . any/c)]
-                    [f2 ((world/c . -> . world/c) . -> . any/c)]
-                    [f3 ((snake/c . -> . snake/c) . -> . any/c)]))
 
-(require 'motion 'hole 'slither)
-(begin
-  (f1 world-change-dir)
-  (f2 world->world))
+(module H racket
+  (require 'data)
+  (provide/contract [f1 ((world/c . -> . world/c) . -> . any/c)]
+                    [f2 ((world/c direction/c . -> . world/c) . -> . any/c)]))
+
+(require 'motion 'H)
+
+(begin (f1 world->world) (f2 world-change-dir))

@@ -37,38 +37,27 @@
    [world-snake (world/c . -> . snake/c)]
    [world-food (world/c . -> . posn/c)]))
 
-(module D racket
+(module cut-tail racket
   (require 'data)
-  (provide/contract
-   [f-posn ((exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c) . -> . any/c)]
-   [f-posn? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-posn-x ((posn/c . -> . exact-nonnegative-integer?) . -> . any/c)]
-   [f-posn-y ((posn/c . -> . exact-nonnegative-integer?) . -> . any/c)]
-   [f-posn=? ((posn/c posn/c . -> . boolean?) . -> . any/c)]
-   [f-snake ((direction/c (cons/c posn/c (listof posn/c)) . -> . snake/c) . -> . any/c)]
-   [f-snake? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-snake-dir ((snake/c . -> . direction/c) . -> . any/c)]
-   [f-snake-segs ((snake/c . -> . (non-empty-listof posn/c)) . -> . any/c)]
-   [f-world ((snake/c posn/c . -> . world/c) . -> . any/c)]
-   [f-world? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-world-snake ((world/c . -> . snake/c) . -> . any/c)]
-   [f-world-food ((world/c . -> . posn/c) . -> . any/c)]))
 
-;; We're not doing demonic of structures right (ie, we don't do anything).
+  ;; NeSegs is one of:
+  ;; - (cons Posn empty)
+  ;; - (cons Posn NeSegs)
 
-(require 'data 'D)
+  ;; cut-tail : NeSegs -> Segs
+  ;; Cut off the tail.
+  (define (cut-tail segs)
+    (let ([r (cdr segs)])
+      (cond [(empty? r) empty]
+            [else
+             (cons (car segs)
+                   (cut-tail r))])))
 
-(begin
-  (f-posn posn)
-  (f-posn? posn?)
-  (f-posn-x posn-x)
-  (f-posn-y posn-y)
-  (f-posn=? posn=?)
-  (f-snake snake)
-  (f-snake? snake?)
-  (f-snake-dir snake-dir)
-  (f-snake-segs snake-segs)
-  (f-world world)
-  (f-world? world?)
-  (f-world-snake world-snake)
-  (f-world-food world-food))
+  (provide/contract [cut-tail ((non-empty-listof posn/c) . -> . (listof posn/c))]))
+
+(module H racket
+  (require 'data)
+  (provide/contract [f (((non-empty-listof posn/c) . -> . (listof posn/c)) . -> . any/c)]))
+
+(require 'cut-tail 'H)
+(f cut-tail)

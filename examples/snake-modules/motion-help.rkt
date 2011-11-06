@@ -1,5 +1,7 @@
 #lang var rho
 
+;; THIS FILE TAKES over 4k steps
+
 (define-contract posn/c (struct/c posn exact-nonnegative-integer? exact-nonnegative-integer?))
 (define-contract direction/c (one-of/c 'up 'down 'left 'right))
 (define-contract snake/c
@@ -10,6 +12,7 @@
   (struct/c world
             snake/c
             posn/c))
+
 (module image racket
   ;(require 2htdp/image) ;; COMMENT OUT THIS LINE
   (provide/contract
@@ -44,49 +47,46 @@
    [world-snake (world/c . -> . snake/c)]
    [world-food (world/c . -> . posn/c)]))
 
-(module collide racket
+(module cut-tail racket
   (require 'data)
-  (provide/contract [snake-wall-collide? (snake/c . -> . boolean?)]
-                    [snake-self-collide? (snake/c . -> . boolean?)]))
+  (provide/contract [cut-tail ((non-empty-listof posn/c) . -> . (listof posn/c))]))
+
+(module motion-help racket
+  (require 'data 'cut-tail)
+
+  ;; next-head : Posn Direction -> Posn
+  ;; Compute next position for head.
+  (define (next-head seg dir)
+    (cond [(symbol=? 'right dir) (posn (add1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? 'left dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? 'down dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
+          [else                  (posn (posn-x seg) (add1 (posn-y seg)))]))
+
+  ;; snake-slither : Snake -> Snake
+  ;; move the snake one step
+  (define (snake-slither snk)
+    (let ([d (snake-dir snk)])
+      (snake d
+             (cons (next-head (car (snake-segs snk))
+                              d)
+                   (cut-tail (snake-segs snk))))))
 
 
-(module motion racket
-  (require 'data)
-  ;; motion left opaque
-  (provide/contract [world-change-dir (world/c direction/c . -> . world/c)]
-                    [world->world (world/c . -> . world/c)])
-)
-
-(module handlers racket
-  (require 'data 'motion 'collide)
-
-  ;; Movie handlers
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-  ;; handle-key : World String -> World
-  (define (handle-key w ke)
-    (cond [(string=? ke "w") (world-change-dir w 'up)]
-          [(string=? ke "s") (world-change-dir w 'down)]
-          [(string=? ke "a") (world-change-dir w 'left)]
-          [(string=? ke "d") (world-change-dir w 'right)]
-          [else w]))
-
-  ;; game-over? : World -> Boolean
-  (define (game-over? w)
-    (or (snake-wall-collide? (world-snake w))
-        (snake-self-collide? (world-snake w))))
-
-  (provide/contract [handle-key (world/c string? . -> . world/c)]
-                    [game-over? (world/c . -> . boolean?)]))
+  ;; snake-grow : Snake -> Snake
+  ;; Grow the snake one segment.
+  (define (snake-grow snk)
+    (let ([d (snake-dir snk)])
+      (snake d
+             (cons (next-head (car (snake-segs snk))
+                              d)
+                   (snake-segs snk)))))
+  (provide/contract [snake-slither (snake/c . -> . snake/c)]
+                    [snake-grow (snake/c . -> . snake/c)]))
 
 (module H racket
   (require 'data)
-  (provide/contract [D1 ((world/c . -> . boolean?) . -> . any/c)]
-                    [D2 ((world/c string? . -> . world/c) . -> . any/c)]))
+  (provide/contract [f ((snake/c . -> . snake/c) . -> . any/c)]))
 
-(require 'handlers 'H)
+(require 'motion-help 'H)
 
-(begin
-  (D1 game-over?)
-  (D2 handle-key))
-
+(begin (f snake-slither) (f snake-grow))
