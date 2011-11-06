@@ -1,6 +1,18 @@
 #lang var rho
+
+(define-contract posn/c (struct/c posn exact-nonnegative-integer? exact-nonnegative-integer?))
+(define-contract direction/c (one-of/c 'up 'down 'left 'right))
+(define-contract snake/c
+  (struct/c snake
+            direction/c
+            (non-empty-listof posn/c)))
+(define-contract world/c
+  (struct/c world
+            snake/c
+            posn/c))
+
 (module image racket
-  (require 2htdp/image) ;; COMMENT OUT THIS LINE
+  ;(require 2htdp/image) ;; COMMENT OUT THIS LINE
   (provide/contract
    [image? (any/c . -> . boolean?)]
    [circle (exact-nonnegative-integer? string? string? . -> . image?)]
@@ -10,16 +22,7 @@
 (module data racket 
   (struct posn (x y))
   (struct snake (dir segs))
-  (struct world (snake food))
-  
-  ;; direction? : Any -> Boolean
-  ;; Is s a direction?
-  (define (direction? s)
-    (and (string? s)
-         (or (string=? s "up")
-             (string=? s "down")
-             (string=? s "left")
-             (string=? s "right"))))
+  (struct world (snake food))  
   
   ;; posn=? : Posn Posn -> Boolean
   ;; Are the posns the same?
@@ -28,20 +31,19 @@
          (= (posn-y p1) (posn-y p2))))  
   
   (provide/contract 
-   [direction? (any/c . -> . boolean?)]
-   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn?)]
+   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
    [posn? (any/c . -> . boolean?)]
-   [posn-x (posn? . -> . exact-nonnegative-integer?)]
-   [posn-y (posn? . -> . exact-nonnegative-integer?)]
-   [posn=? (posn? posn? . -> . boolean?)]
-   [snake (direction? (cons/c posn? (listof posn?)) . -> . snake?)]
+   [posn-x (posn/c . -> . exact-nonnegative-integer?)]
+   [posn-y (posn/c . -> . exact-nonnegative-integer?)]
+   [posn=? (posn/c posn/c . -> . boolean?)]
+   [snake (direction/c (cons/c posn/c (listof posn/c)) . -> . snake/c)]
    [snake? (any/c . -> . boolean?)]
-   [snake-dir (snake? . -> . direction?)]
-   [snake-segs (snake? . -> . (non-empty-listof posn?))]
-   [world (snake? posn? . -> . world?)]
+   [snake-dir (snake/c . -> . direction/c)]
+   [snake-segs (snake/c . -> . (non-empty-listof posn/c))]
+   [world (snake/c posn/c . -> . world/c)]
    [world? (any/c . -> . boolean?)]
-   [world-snake (world? . -> . snake?)]
-   [world-food (world? . -> . posn?)]))
+   [world-snake (world/c . -> . snake/c)]
+   [world-food (world/c . -> . posn/c)]))
 
 (module const racket
   (require 'image 'data)  
@@ -65,7 +67,7 @@
   (define (WORLD) (world (snake "right" (cons (posn 5 3) empty))
                          (posn 8 12)))
   
-  (provide/contract [WORLD (-> world?)]
+  (provide/contract [WORLD (-> world/c)]
                     [BACKGROUND (-> image?)]
                     [FOOD-IMAGE (-> image?)]
                     [SEGMENT-IMAGE (-> image?)]

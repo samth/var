@@ -1,4 +1,16 @@
 #lang var rho
+
+(define-contract posn/c (struct/c posn exact-nonnegative-integer? exact-nonnegative-integer?))
+(define-contract direction/c (one-of/c 'up 'down 'left 'right))
+(define-contract snake/c
+  (struct/c snake
+            direction/c
+            (non-empty-listof posn/c)))
+(define-contract world/c
+  (struct/c world
+            snake/c
+            posn/c))
+
 (module image racket
   ;(require 2htdp/image) ;; COMMENT OUT THIS LINE
   (provide/contract
@@ -6,21 +18,11 @@
    [circle (exact-nonnegative-integer? string? string? . -> . image?)]
    [empty-scene (exact-nonnegative-integer? exact-nonnegative-integer? . -> . image?)]
    [place-image (image? exact-nonnegative-integer? exact-nonnegative-integer? image? . -> . image?)]))
-  
-;; -- Source
+
 (module data racket 
   (struct posn (x y))
   (struct snake (dir segs))
-  (struct world (snake food))
-  
-  ;; direction? : Any -> Boolean
-  ;; Is s a direction?
-  (define (direction? s)
-    (and (string? s)
-         (or (string=? s "up")
-             (string=? s "down")
-             (string=? s "left")
-             (string=? s "right"))))
+  (struct world (snake food))  
   
   ;; posn=? : Posn Posn -> Boolean
   ;; Are the posns the same?
@@ -29,36 +31,20 @@
          (= (posn-y p1) (posn-y p2))))  
   
   (provide/contract 
-   [direction? (any/c . -> . boolean?)]
-   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn?)]
+   [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
    [posn? (any/c . -> . boolean?)]
-   [posn-x (posn? . -> . exact-nonnegative-integer?)]
-   [posn-y (posn? . -> . exact-nonnegative-integer?)]
-   [posn=? (posn? posn? . -> . boolean?)]
-   [snake (direction? (cons/c posn? (listof posn?)) . -> . snake?)]
+   [posn-x (posn/c . -> . exact-nonnegative-integer?)]
+   [posn-y (posn/c . -> . exact-nonnegative-integer?)]
+   [posn=? (posn/c posn/c . -> . boolean?)]
+   [snake (direction/c (cons/c posn/c (listof posn/c)) . -> . snake/c)]
    [snake? (any/c . -> . boolean?)]
-   [snake-dir (snake? . -> . direction?)]
-   [snake-segs (snake? . -> . (non-empty-listof posn?))]
-   [world (snake? posn? . -> . world?)]
+   [snake-dir (snake/c . -> . direction/c)]
+   [snake-segs (snake/c . -> . (non-empty-listof posn/c))]
+   [world (snake/c posn/c . -> . world/c)]
    [world? (any/c . -> . boolean?)]
-   [world-snake (world? . -> . snake?)]
-   [world-food (world? . -> . posn?)]))
-  
-;; SNAKE WORLD 
-;;;
-;; World is: (world Snake Food)
-;; Food is: Posn
-;; Snake is: (snake Direction Segs)
-;;   A snake's Segs may not be empty.
-;;   The first element of the list is the head.
-;; Direction is one of: "up" "down" "left" "right"
-;; Segs is one of:
-;;  -- empty
-;;  -- (cons Posn Segs)
-;; Coordinates are in "grid" units, with X running left-to-right,
-;; and Y running bottom-to-top.
+   [world-snake (world/c . -> . snake/c)]
+   [world-food (world/c . -> . posn/c)]))
 
- 
 (module const racket
   (require 'image 'data)  
   
@@ -81,14 +67,14 @@
   (define (WORLD) (world (snake "right" (cons (posn 5 3) empty))
                          (posn 8 12)))
   
-  (provide/contract [WORLD (-> world?)]
+  (provide/contract [WORLD (-> world/c)]
                     [BACKGROUND (-> image?)]
                     [FOOD-IMAGE (-> image?)]
                     [SEGMENT-IMAGE (-> image?)]
                     [GRID-SIZE exact-nonnegative-integer?]
                     [BOARD-HEIGHT-PIXELS (-> exact-nonnegative-integer?)]
                     [BOARD-WIDTH exact-nonnegative-integer?]
-                    [BOARD-HEIGHT exact-nonnegative-integer?]))  
+                    [BOARD-HEIGHT exact-nonnegative-integer?]))
 
 (module scenes racket
   (require 'data 'const 'image)
@@ -133,18 +119,19 @@
     (place-image-on-grid (SEGMENT-IMAGE) (posn-x seg) (posn-y seg) scn))
   
   (provide/contract
-   [world->scene (world? . -> . image?)]
+   [world->scene (world/c . -> . image?)]
    [food+scene (posn? image? . -> . image?)]
    [place-image-on-grid 
     (image? exact-nonnegative-integer? exact-nonnegative-integer? image? . -> . image?)]
-   [snake+scene (snake? image? . -> . image?)]
-   [segments+scene ((listof posn?) image? . -> . image?)]
-   [segment+scene (posn? image? . -> . image?)])
+   [snake+scene (snake/c image? . -> . image?)]
+   [segments+scene ((listof posn/c) image? . -> . image?)]
+   [segment+scene (posn/c image? . -> . image?)])
   
   )
 
 (module hole racket
-  (provide/contract [f (any/c . -> . any/c)]))
+  (require 'data 'image)
+  (provide/contract [f ((world/c . -> . image?) . -> . any/c)]))
 
 (require 'scenes 'hole)
 (f world->scene)
