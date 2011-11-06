@@ -55,6 +55,7 @@
   [(restrict #f ρ) (env)]
   [(restrict natural ρ) (env)]
   [(restrict string ρ) (env)]
+  [(restrict empty ρ) (env)]
   [(restrict OP ρ) (env)]
   [(restrict MODREF ρ) (env)]
   [(restrict X ρ) ,(for/hash ([(k v) (term ρ)]

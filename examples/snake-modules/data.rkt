@@ -1,4 +1,4 @@
-#lang var rho 
+#lang var rho
 
 (define-contract posn/c (struct/c posn exact-nonnegative-integer? exact-nonnegative-integer?))
 (define-contract direction/c (one-of/c 'up 'down 'left 'right))

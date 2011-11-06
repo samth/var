@@ -2,7 +2,7 @@
 (require "lang.rkt" "meta.rkt" "util.rkt")
 (require redex/reduction-semantics)
 (test-suite test simple-cesk)
-(provide CESK inj CESK-trace-it)
+(provide CESK inj CESK-trace-it CESK-run)
 
 (define-extended-language λCESK λcρ
   ; Continuations
@@ -122,6 +122,10 @@
 
 (define (CESK Ms)
   (union-reduction-relations co (ap Ms)))
+
+(define (CESK-run P)
+  (apply-reduction-relation* (CESK (program-modules P))
+                             (term (inj ,(last P)))))
                       
 (define-syntax-rule (CESK-trace-it P . rest)
   (traces (CESK (program-modules P))

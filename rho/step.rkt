@@ -7,15 +7,24 @@
 (provide v c c~ m m~ e)
 (test-suite test step)
 
+(define step-count 0)
+
 (define (-->_vcme Ms) 
   (define r 
     (union-reduction-relations v c c~ (m Ms) (m~ Ms)))    
   (reduction-relation 
-   λcρ #:domain (D σ)
-   (--> ((in-hole 𝓔 D_redex) σ)
+   λcρ #:domain (D σ) ;; runs faster if you use REDEX
+   (--> ((in-hole 𝓔 REDEX) σ)
         ((in-hole 𝓔 D_contractum) σ_1)
         (where (any_0 ... (any_name (D_contractum σ_1)) any_1 ...)
-               ,(apply-reduction-relation/tag-with-names r (term (D_redex σ))))
+               ,(let ([r (apply-reduction-relation/tag-with-names r (term (REDEX σ)))])
+                  (set! step-count (add1 step-count))                  
+                  (when (zero? (modulo step-count 50))
+                    (printf "steps: ~a, terms: ~a\n" step-count (length r))
+                    #;
+                    (when (not (null? r))
+                      (displayln (first r))))
+                  r))
         (computed-name (term any_name))
         redex!)
    (--> (D σ)

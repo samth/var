@@ -174,6 +174,24 @@
      (side-condition (CON_1 ρ <= LAB LAB V LAB 𝓔)
                      (not (redex-match λcρ ANYCON (term CON_1)))))
   
+  (REDEX (clos • ρ)
+         (clos X ρ)
+         (clos (@ any ... LAB) ρ)
+         (clos (if any ...) ρ)
+         (clos (begin any ...) ρ)
+         (clos (let ((X any) ...) EXP) ρ)
+         (clos MODREF ρ)
+         (@ V V ... LAB)
+         (if V D D)
+         (begin V D)
+         (let ((X V) ...) D)
+         PREVAL
+         
+         MODREF   
+         (CON ρ <= LAB LAB any LAB V)
+         (ANYCON ρ <= LAB LAB any LAB any)
+         BLAME)
+  
   ;; Conveniences  
   (OP? zero? procedure? empty? cons?
        exact-nonnegative-integer? string? symbol? boolean? false?)

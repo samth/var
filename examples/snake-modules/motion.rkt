@@ -129,8 +129,57 @@
   
   )
 
+(module slither racket
+  (require 'data 'const)
+  #|
+  ;; snake-slither : Snake -> Snake
+  (define (snake-slither snk)
+    (snake (snake-dir snk)                                                       
+           (cons (next-head (car (snake-segs snk))
+                            (snake-dir snk))
+                 (cut-tail (snake-segs snk)))))
+   
+  ;; next-head : Posn Direction -> Posn
+  ;; Compute next position for head.
+  (define (next-head seg dir)
+    (cond [(symbol=? "right" dir) (posn (add1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? "left" dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? "down" dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
+          [else                   (posn (posn-x seg) (add1 (posn-y seg)))]))
+    
+  ;; NeSegs is one of:
+  ;; - (cons Posn empty)
+  ;; - (cons Posn NeSegs)
+  
+  ;; cut-tail : NeSegs -> Segs
+  ;; Cut off the tail.
+  (define (cut-tail segs) 
+    (cond [(empty? (cdr segs)) empty]
+          [else
+           (cons (car segs)
+                 (cut-tail (cdr segs)))]))
+  
+  (define (cut-tail/acc segs a) 
+    (cond [(empty? (cdr segs)) (reverse a empty)]
+          [else (cut-tail/acc (cdr segs) (cons (car segs) a))]))
+  
+  (define (reverse l a)
+    (cond [(empty? l) empty]
+          [else (reverse (cdr l) (cons (car l) a))]))
+  |#
+  (provide/contract [snake-slither (snake/c . -> . snake/c)]))
+
 (module motion racket
   (require 'data 'const)  
+  
+  
+  ;; next-head : Posn Direction -> Posn
+  ;; Compute next position for head.
+  (define (next-head seg dir)
+    (cond [(symbol=? "right" dir) (posn (add1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? "left" dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
+          [(symbol=? "down" dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
+          [else                   (posn (posn-x seg) (add1 (posn-y seg)))]))
   
   ;; Snake motion & growth
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -148,32 +197,6 @@
     (posn=? (world-food w)
             (car (snake-segs (world-snake w)))))
   
-  ;; snake-slither : Snake -> Snake
-  (define (snake-slither snk)
-    (snake (snake-dir snk)                                                       
-           (cons (next-head (car (snake-segs snk))
-                            (snake-dir snk))
-                 (cut-tail (snake-segs snk)))))
-   
-  ;; next-head : Posn Direction -> Posn
-  ;; Compute next position for head.
-  (define (next-head seg dir)
-    (cond [(string=? "right" dir) (posn (add1 (posn-x seg)) (posn-y seg))]
-          [(string=? "left" dir)  (posn (sub1 (posn-x seg)) (posn-y seg))]
-          [(string=? "down" dir)  (posn (posn-x seg) (sub1 (posn-y seg)))]
-          [else                   (posn (posn-x seg) (add1 (posn-y seg)))]))
-    
-  ;; NeSegs is one of:
-  ;; - (cons Posn empty)
-  ;; - (cons Posn NeSegs)
-  
-  ;; cut-tail : NeSegs -> Segs
-  ;; Cut off the tail.
-  (define (cut-tail segs) 
-    (cond [(empty? (cdr segs)) empty]
-          [else
-           (cons (car segs)
-                 (cut-tail (cdr segs)))]))
     
   ;; snake-change-direction : Snake Direction -> Snake
   ;; Change the direction of the snake.
@@ -207,8 +230,10 @@
 (module hole racket
   (require 'data)
   (provide/contract [f1 ((world/c direction/c . -> . world/c) . -> . any/c)]
-                    [f2 ((world/c . -> . world/c) . -> . any/c)]))
+                    [f2 ((world/c . -> . world/c) . -> . any/c)]
+                    [f3 ((snake/c . -> . snake/c) . -> . any/c)]))
 
-(require 'motion 'hole)
-(begin (f1 world-change-dir)
+(require 'motion 'hole 'slither)
+(begin #;(f1 world-change-dir)
+       #;(f2 snake-slither)
        (f2 world->world))

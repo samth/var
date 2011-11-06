@@ -105,7 +105,7 @@
                  #,(case trace
                      [(trace) #'(rho:CESK-trace-it the-program)]
                      [(step) #'(rho:step-it rho:CESK the-program)]
-                     [(eval) (finish-values #'(λ (x) (rho:eval-it rho:CESK x))
+                     [(eval) (finish-values #'rho:CESK-run
                                             #'the-program
                                             #'first)]))]
             [(fast) 
