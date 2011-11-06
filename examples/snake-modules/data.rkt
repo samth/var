@@ -66,18 +66,20 @@
  ; (f-posn-x posn-x)
 
 (begin    
-  #|
+  
   (f-posn posn)
   (f-posn? posn?)
   (f-posn-x posn-x)
   (f-posn-y posn-y)
   (f-posn=? posn=?)
-  (f-snake snake)
-  (f-snake? snake?)
-  (f-snake-dir snake-dir)
-  (f-snake-segs snake-segs)  
+  
+  (f-snake snake)   
+  (f-snake? snake?)  
+  (f-snake-dir snake-dir)  
+  (f-snake-segs snake-segs) 
+
   (f-world world)
   (f-world? world?)
   (f-world-snake world-snake)
-|#
-  (f-world-food world-food))
+  (f-world-food world-food)
+)

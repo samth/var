@@ -241,7 +241,7 @@ Pass 3: Annotate expressions/predicates
   [(ann-con OP LAB MODENV (X ...))
    (pred OP LAB)]
   [(ann-con (listof RCON) LAB MODENV (X ...))
-   ,(let ((x (gensym)))
+   ,(let ((x (variable-not-in (term (RCON MODENV X ...)) 'LST)))
       (term (ann-con (rec/c ,x (or/c empty? (cons/c RCON ,x))) LAB MODENV (X ...))))]
   [(ann-con (non-empty-listof RCON) LAB MODENV (X ...))
    (ann-con (cons/c RCON (listof RCON)) LAB MODENV (X ...))]

@@ -33,7 +33,7 @@
 ;; pairs.
 ;; NOTE the environment of a contract is irrelevant.
 (define-metafunction λcρ
-  demonic : CON -> V
+  demonic : CON -> D
   [(demonic (pred ATOM? LAB)) (-- (clos (λ (x) #t) (env)))]
   [(demonic (atom/c any any_1)) (-- (clos (λ (x) #t) (env)))]
   
@@ -64,6 +64,14 @@
              (env (D1 (demonic CON_0))
                   (D2 (demonic CON_1)))))]
   
+  [(demonic (struct/c X_m X_tag CON ...))
+   (-- (clos (λ (x) (begin (@ D EXP_acc Λ) ...))
+             (env (D (demonic CON)) ...)))
+   (where (EXP_acc ...)
+          ,(for/list ([i (length (term (CON ...)))])
+             (term (@ (s-ref X_m X_tag ,i) x ★))))
+   (where (D ...) ,(gen-xs (term (CON ...))))]
+  
   [(demonic (or/c CON_0 CON_1))
    (-- (clos (λ (x) (begin (@ D1 x Λ)
                            (@ D2 x Λ)))
@@ -80,9 +88,10 @@
    (demonic (∧))]  ;; Safe.  What else could you do?
   
   [(demonic (CON_0 ... -> CON_1))
-   (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
-             (env (X (-- (CON_0 (env)))) ...  ;; FIXME not the right env -- need to be given env.
-                  (D1 (demonic CON_1)))))
+   (-- (clos (λ (f) (@ D1 (@ f (@ X ★) ... ★) Λ))
+             (env   ;; FIXME not the right env -- need to be given env.
+              [X (-- ((-> CON_0) (env)))] ... ;; this stupid η expansion is b/c or/c is not a value
+              (D1 (demonic CON_1)))))
    (where (X ...) ,(gen-xs (term (CON_0 ...))))]
   
   [(demonic (struct/c X_mod X_tag CON ...))
@@ -91,8 +100,8 @@
   [(demonic (CON_0 ... -> (λ (X_0 ...) CON_1)))
    ;; NOTE: Since the environment of a CON plays no role in demonic,
    ;; we do not do extend the environment of CON_1 with ((X_0 (-- CON_0)) ...).
-   (-- (clos (λ (f) (@ D1 (@ f X ... ★) Λ))
-             (env (X (-- (CON_0 (env)))) ...   ;; FIXME not the right env -- need to be given env.
+   (-- (clos (λ (f) (@ D1 (@ f (CON_0 (env) <= ★ Λ (-- (clos "BOGUS" (env))) ★ X) ... ★) Λ))
+             (env (X (-- (CON_0* (env)))) ...   ;; FIXME not the right env -- need to be given env.
                   (D1 (demonic CON_1)))))
    (where (X ...) ,(gen-xs (term (CON_0 ...))))])
 

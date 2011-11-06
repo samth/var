@@ -57,6 +57,9 @@
   [(restrict string ρ) (env)]
   [(restrict OP ρ) (env)]
   [(restrict MODREF ρ) (env)]
+  [(restrict X ρ) ,(for/hash ([(k v) (term ρ)]
+                              #:when (eq? k (term X)))
+                     (values k v))]
   [(restrict EXP ρ) ρ])
 
 (define-metafunction λcρ
@@ -221,6 +224,8 @@
         (term (implies ATOM?_2 ATOM?_1)))
    (where ((pred ATOM?_1 LAB_1) ρ_1) ATOMC_1)
    (where ((pred ATOM?_2 LAB_2) ρ_2) ATOMC_2)]
+  [(feasible ((atom/c any_1 LAB_1) ρ_1) ((atom/c any_2 LAB_2) ρ_2)) 
+   ,(eqv? (term any_1) (term any_2))]
   [(feasible C_1 C_2) #t])
 
 (define-metafunction λcρ
@@ -415,7 +420,7 @@
 (define-metafunction λcρ
   remember-contract/any : V C ... -> (V ...)
   [(remember-contract/any V C* ...)
-   ((remember-contract V C* ...))]
+   ((remember-contract V C* ...))]  
   [(remember-contract/any V C ... ((and/c CON_1 CON_2) ρ) C_1 ...)
    (remember-contract/any V C ... (CON_1 ρ) (CON_2 ρ) C_1 ...)]
   [(remember-contract/any V C ...)
