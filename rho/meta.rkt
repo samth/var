@@ -243,7 +243,7 @@
     (-- (clos #f (env))))]
      
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
-   (proj-struct V natural)
+   (proj-struct AV X_m X_tag natural)
    (where #t (has-struct/c? AV X_m X_tag))]
   
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
@@ -409,6 +409,12 @@
   [(plain-δ procedure-arity-includes? PROC (-- (clos natural ρ) C ...) LAB)
    ;; FIXME: tune up for ABSTRACT values   
    (-- (clos ,(= (term natural) (term (arity PROC))) (env)))]
+  [(plain-δ procedure-arity-includes? OP1 (-- (clos natural ρ) C ...) LAB)
+   ;; FIXME: tune up for ABSTRACT values   
+   (-- (clos ,(= (term natural) 1) (env)))]
+  [(plain-δ procedure-arity-includes? OP2 (-- (clos natural ρ) C ...) LAB)
+   ;; FIXME: tune up for ABSTRACT values   
+   (-- (clos ,(= (term natural) 2) (env)))]
   ;; Interpreted differently than Racket `-'.
   [(plain-δ -
             (-- (clos natural_1 ρ_1) C_1 ...)
@@ -771,7 +777,7 @@
   proves-con : C OP -> #t or #f  
   [(proves-con ((pred OP_0 LAB) ρ) OP_1)
    (proves-predicate OP_0 OP_1)]
-  [(proves-con ((struct/c X_tag X_m any_s ...) ρ) (s-pred X_m X_tag))
+  [(proves-con ((struct/c X_m X_tag any_s ...) ρ) (s-pred X_m X_tag))
    #t]
   [(proves-con ((pred (X_spred ^ LAB_0 LAB_p) LAB) ρ) (s-pred LAB_p X_tag))
    #t
@@ -876,9 +882,9 @@
 
 (define-metafunction λcρ
   has-struct/c? : AV X X -> #t or #f
-  [(has-struct/c? (-- C_1 ... ((struct/c X_tag X_m CON ...) ρ) C_2 ...) X_m X_tag)
+  [(has-struct/c? (-- C_1 ... ((struct/c X_m X_tag CON ...) ρ) C_2 ...) X_m X_tag)
    #t]
-  [(has-struct/c? (-- C) X_m X_tag) #f])
+  [(has-struct/c? (-- C ...) X_m X_tag) #f])
 
 
 ;; modulename x valuename x modules -> value
@@ -990,7 +996,7 @@
 (define-metafunction λcρ
   proj-struct/a : X X natural ((-- C ...) ...) C ... -> (V ...)
   [(proj-struct/a X_m X_tag natural (AV ...)) (AV ...)]    ;; FIXME, this case is not matching
-  [(proj-struct/a X_m X_tag natural (AV ...) ((struct/c X_tag X_m CON_0 ... CON CON_1 ...) ρ) C_2 ...)
+  [(proj-struct/a X_m X_tag natural (AV ...) ((struct/c X_m X_tag CON_0 ... CON CON_1 ...) ρ) C_2 ...)
    (proj-struct/a X_m X_tag natural (AV_R ...) C_2 ...)
    (side-condition (= (length (term (CON_0 ...))) (term natural)))
    (where (AV_R ...) 

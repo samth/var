@@ -35,6 +35,7 @@
 (define-metafunction λcρ
   demonic : CON -> V
   [(demonic (pred ATOM? LAB)) (-- (clos (λ (x) #t) (env)))]
+  [(demonic (atom/c any any_1)) (-- (clos (λ (x) #t) (env)))]
   
   ;; FIXME: I don't think we're doing the right thing here in terms
   ;; of arity.  And I worry about what to do with things that have unknown arity.

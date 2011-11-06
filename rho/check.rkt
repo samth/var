@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "util.rkt" "demonic.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test check)
 
@@ -24,7 +24,7 @@
   [(fc/c X any FLAT ρ V)
    (λ (X) #f)
    (where #t (contract-not-in (FLAT ρ) V))]
-  [(fc/c X any (atom/c ATOMLIT LAB) V)
+  [(fc/c X any (atom/c ATOMLIT LAB) ρ V)
    (λ (X) (@ eqv? X ATOMLIT Λ))]
   [(fc/c X any (and/c FLAT_1 FLAT_2) ρ V)
    (λ (X) (IFF (@@ EXP_1 X Λ) (@@ EXP_2 X Λ) #f))
@@ -91,9 +91,9 @@
           ,(remove-duplicates
             (let ()
               (define all-combos
-                (xprod (for/list ([i (length (term (CON ...)))])
-                         (term (proj-struct AV X_m X_tag ,i)))))
-              (for/list ([c all-combos])
+                (apply xprod (for/list ([i (length (term (CON ...)))])
+                               (term (proj-struct AV X_m X_tag ,i)))))
+              (for/list ([c (in-list all-combos)])
                 (redex-let λcρ
                            ([(AV ...) c]
                             [(EXP_acc ...) (for/list ([i (length (term (CON ...)))])
@@ -107,14 +107,13 @@
                                         #t))))))))
    (where #t (proves AV (s-pred X_m X_tag)))]
   [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ AV)
-   (λ (x) (AND (@@ cons? x Λ)
-               (@@ EXP_1 • Λ)
-               (@@ EXP_2 • Λ)))
+   (λ (x) (AND (@@ (s-pred X_m X_tag) x Λ)
+               (@@ EXP • Λ) ...))
    (where (EXP ...) ((fc/c X any FLAT ρ (join-contracts)) ...))
                   
    ;; using • instead of the results of the accessors avoids spurious blame of the language
-   ;; (proj-{left,right} AV) can't produce anything interesting here, 
-   ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
+   ;; (proj-struct n AV) can't produce anything interesting here, 
+   ;; b/c then either AV is an or/c (impossible), or AV is a struct/c (also impossible)   
    (where #f (proves AV (s-pred X_m X_tag)))
    (where #f (refutes AV (s-pred X_m X_tag)))])
 

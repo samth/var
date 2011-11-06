@@ -298,6 +298,8 @@
   [(≡C ((cons/c CON_1 CON_2) ρ_1) ((cons/c CON_3 CON_4) ρ_2))
    ,(and (term (≡C (CON_1 ρ_1) (CON_3 ρ_2)))
          (term (≡C (CON_2 ρ_1) (CON_4 ρ_2))))]
+  [(≡C ((struct/c X_m X_tag CON_1 ...) ρ_1) ((struct/c X_m X_tag CON_2 ...) ρ_2))
+   ,(andmap values (term ((≡C (CON_1 ρ_1) (CON_2 ρ_2)) ...)))]
   [(≡C ((CON_1 ..._1 -> CON_2) ρ_1)
        ((CON_3 ..._1 -> CON_4) ρ_2))
    #t

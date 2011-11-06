@@ -71,7 +71,7 @@
               #'(void))
         (set-box! the-module-context '(m ...))
         (current-exact? #,exact?)
-        (initial-char-width 170)
+        (initial-char-width 140)
         #,(case run
             [(rho)             
              #`(begin                  

@@ -23,7 +23,6 @@
          (= (posn-y p1) (posn-y p2))))  
   
   (provide/contract 
-   [direction? (any/c . -> . boolean?)]
    [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
    [posn? (any/c . -> . boolean?)]
    [posn-x (posn/c . -> . exact-nonnegative-integer?)]
@@ -41,15 +40,14 @@
 (module D racket
   (require 'data)
   (provide/contract 
-   [f-direction? ((any/c . -> . boolean?) . -> . any/c)]
    [f-posn ((exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c) . -> . any/c)]
-   [f-posn/c ((any/c . -> . boolean?) . -> . any/c)]
+   [f-posn? ((any/c . -> . boolean?) . -> . any/c)]
    [f-posn-x ((posn/c . -> . exact-nonnegative-integer?) . -> . any/c)]
    [f-posn-y ((posn/c . -> . exact-nonnegative-integer?) . -> . any/c)]
    [f-posn=? ((posn/c posn/c . -> . boolean?) . -> . any/c)]
-   [f-snake ((direction? (cons/c posn/c (listof posn/c)) . -> . snake/c) . -> . any/c)]
-   [f-snake/c ((any/c . -> . boolean?) . -> . any/c)]
-   [f-snake-dir ((snake/c . -> . direction?) . -> . any/c)]
+   [f-snake ((direction/c (cons/c posn/c (listof posn/c)) . -> . snake/c) . -> . any/c)]
+   [f-snake? ((any/c . -> . boolean?) . -> . any/c)]
+   [f-snake-dir ((snake/c . -> . direction/c) . -> . any/c)]
    [f-snake-segs ((snake/c . -> . (non-empty-listof posn/c)) . -> . any/c)]
    [f-world ((snake/c posn/c . -> . world/c) . -> . any/c)]
    [f-world? ((any/c . -> . boolean?) . -> . any/c)]
@@ -65,10 +63,10 @@
 ;; We're not doing demonic of structures right (ie, we don't do anything).
 
 (require 'data 'D)
-(f-posn posn)
-#|
-(begin  
-  (f-direction? direction?)
+ ; (f-posn-x posn-x)
+
+(begin    
+  #|
   (f-posn posn)
   (f-posn? posn?)
   (f-posn-x posn-x)
@@ -81,4 +79,5 @@
   (f-world world)
   (f-world? world?)
   (f-world-snake world-snake)
-  (f-world-food world-food))|#
+|#
+  (f-world-food world-food))

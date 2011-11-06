@@ -57,6 +57,7 @@
        (not/c CON)       
        (CON ... -> CON)
        (CON ..._1 -> (λ (X ..._1) CON)))
+  (ANYCON (pred (λ (X) #t) LAB))
   (ATOMLIT natural
            boolean
            empty
@@ -170,10 +171,11 @@
      (if 𝓔 D D) 
      (let ((X V) ... (X 𝓔) (X D) ...) D)
      (begin 𝓔 D)
-     (CON ρ <= LAB LAB V LAB 𝓔))
+     (side-condition (CON_1 ρ <= LAB LAB V LAB 𝓔)
+                     (not (redex-match λcρ ANYCON (term CON_1)))))
   
   ;; Conveniences  
-  (OP? zero? procedure? empty? cons? eqv?
+  (OP? zero? procedure? empty? cons?
        exact-nonnegative-integer? string? symbol? boolean? false?)
   (OP1 car cdr add1 sub1 random OP?)
   (OP2 + - * expt quotient eqv?

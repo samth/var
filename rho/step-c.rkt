@@ -7,6 +7,10 @@
 (define c
   (reduction-relation
    λcρ #:domain (D σ)
+      
+   (--> ((ANYCON ρ <= LAB_1 LAB_2 V_1 LAB_3 D) σ)
+        (D σ)
+        any/c-drop)
    
    ;; FLAT CONTRACTS   
    (--> ((FLAT ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)  ; FIXME: first V_1 was V-or-AE
@@ -15,6 +19,7 @@
              (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
          σ)
         (where (any_1 ... V_2 any_2 ...) (remember-contract/any V (FLAT ρ)))
+        (side-condition (not (redex-match λcρ (term ANYCON) (term FLAT))))
         flat-check)
    
    ;; HIGHER-ORDER CONTRACTS   
