@@ -14,8 +14,7 @@
    [empty-scene (exact-nonnegative-integer? exact-nonnegative-integer? . -> . image?)]
    [line (exact-nonnegative-integer? exact-nonnegative-integer? (one-of/c 'red) . -> . image?)]
    [beside (image? image? . -> . image?)]
-   )
-  (provide overlay/align))
+   [overlay/align (one-of/c 'left) (one-of/c 'middle) image? image? . -> . image?]))
                     
 ;; -- Source
 
