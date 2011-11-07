@@ -230,7 +230,8 @@
 	[else w]))
 
 (provide/contract [world-key-move (world/c string? . -> . world/c)]
-		  [next-world (world/c . -> . world/c)])
+		  [next-world (world/c . -> . world/c)]
+		  [ghost-blocks (world/c . -> . bset/c)])
 )
 
 (module H racket
