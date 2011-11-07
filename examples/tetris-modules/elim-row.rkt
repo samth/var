@@ -13,7 +13,7 @@
   ;; Data Definitions
   (struct posn (x y))
 
-  ;; A Block is a (make-block Number Number Color)
+  ;; A Block is a (block Number Number Color)
   (struct block (x y color))
 
   ;; A Tetra is a (make-tetra Posn BSet)
@@ -35,18 +35,8 @@
     (and (= (posn-x p1) (posn-x p2))
          (= (posn-y p1) (posn-y p2))))
 
-  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  ;; Defined constants
-
-  (define block-size   20)  ;; in Pixels
-  (define board-width  10)  ;; in Blocks
-  (define board-height 20)
-
   (provide/contract [block (exact-nonnegative-integer? exact-nonnegative-integer? color/c . -> . block/c)]
                     [block? (any/c . -> . boolean?)]
-                    [block-size exact-nonnegative-integer?]
-                    [board-height exact-nonnegative-integer?]
-                    [board-width exact-nonnegative-integer?]
                     [posn (exact-nonnegative-integer? exact-nonnegative-integer? . -> . posn/c)]
                     [posn? (any/c . -> . boolean?)]
                     [posn-x (posn/c . -> . exact-nonnegative-integer?)]
@@ -65,36 +55,52 @@
                     [world-blocks (world/c . -> . bset/c)]))
 
 
+(module consts racket
+    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Defined constants
+  ;; opaque
+  (provide/contract [block-size exact-nonnegative-integer?]
+                    [board-width exact-nonnegative-integer?]
+                    [board-height exact-nonnegative-integer?]))
+
+
+(module bset racket
+  (require 'data)
+  ;; opaque
+  (provide/contract [blocks-contains? (bset/c block/c . -> . boolean?)]
+                    [blocks=? (bset/c bset/c . -> . boolean?)]
+                    [blocks-subset? (bset/c bset/c . -> . boolean?)]
+                    [blocks-intersect (bset/c bset/c . -> . bset/c)]
+                    [blocks-count (bset/c . -> . exact-nonnegative-integer?)]
+                    [blocks-overflow? (bset/c . -> . boolean?)]
+                    [blocks-union (bset/c bset/c . -> . bset/c)]
+                    [blocks-move (exact-nonnegative-integer? exact-nonnegative-integer? bset/c . -> . bset/c)]
+                    [blocks-rotate-cw (posn/c bset/c . -> . bset/c)]
+                    [blocks-rotate-ccw (posn/c bset/c . -> . bset/c)]
+                    [blocks-change-color (bset/c color/c . -> . bset/c)]
+                    [blocks-row (bset/c exact-nonnegative-integer? . -> . bset/c)]
+                    [full-row? (bset/c exact-nonnegative-integer? . -> . boolean?)])
+)
+
+
+(module elim-row racket
+  (require 'data 'bset 'consts 'elim-row)
+  (define elim-row
+    (λ elim-row (bs i offset)
+       (cond [(< i 0) bs]
+             [(full-row? bs i) (elim-row bs (sub1 i) (add1 offset))]
+             [else (elim-row (blocks-union bs
+                              (blocks-move 0 offset (blocks-row bs i)))
+                             (sub1 i)
+                             offset)])))
+  (provide/contract [elim-row (bset/c exact-nonnegative-integer? exact-nonnegative-integer? . -> . bset/c)])
+)
+
+
 (module H racket
   (require 'data)
-  (provide/contract
-   [f-block ((exact-nonnegative-integer? exact-nonnegative-integer? color/c . -> . block/c) . -> . any/c)]
-   [f-block? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-tetra? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-world? ((any/c . -> . boolean?) . -> . any/c)]
-   [f-block-x ((block/c . -> . exact-nonnegative-integer?) . -> . any/c)]
-   [f-block-y ((block/c . -> . exact-nonnegative-integer?) . -> . any/c)]
-   [f-block-color ((block/c . -> . color/c) . -> . any/c)]
-   [f-tetra ((posn/c bset/c . -> . tetra/c) . -> . any/c)]
-   [f-tetra-center ((tetra/c . -> . posn/c) . -> . any/c)]
-   [f-tetra-blocks ((tetra/c . -> . bset/c) . -> . any/c)]
-   [f-world ((tetra/c bset/c . -> . world/c) . -> . any/c)]
-   [f-world-tetra ((world/c . -> . tetra/c) . -> . any/c)]
-   [f-world-blocks ((world/c . -> . bset/c) . -> . any/c)]))
+  (provide/contract [b bset/c]
+                    [n exact-nonnegative-integer?]))
 
-(require 'data 'H)
-
-(begin
- (f-world-blocks world-blocks)
- (f-world-tetra world-tetra)
- (f-world world)
- (f-world? world?)
- (f-tetra tetra)
- (f-tetra-center tetra-center)
- (f-tetra-blocks tetra-blocks)
- (f-tetra? tetra?)
- (f-block block)
- (f-block? block?)
- (f-block-color block-color)
- (f-block-x block-x)
- (f-block-y block-y))
+(require 'elim 'H)
+(elim-row b n n)
