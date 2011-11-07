@@ -1,5 +1,5 @@
 #lang var rho eval
-(module e-o racket 
+(module eo racket 
   (define even? (λ (n) (if (zero? n) #t (odd? (sub1 n)))))
   (define odd?  (λ (n) (if (zero? n) #f (even? (sub1 n)))))
   (provide/contract 
@@ -7,12 +7,12 @@
    [odd?  (-> exact-nonnegative-integer? boolean?)]))
 
 (module dbl racket
-  (require 'e-o)
+  (require 'eo)
   (define dbl (λ (f) (λ (x) (f (f x)))))
   (provide/contract [dbl (-> (-> even? even?) (-> even? even?))]))
 
 (module fun racket
-  (require 'e-o)
+  (require 'eo)
   (provide/contract [fun (-> even? even?)]))
 
 (require 'dbl 'fun)
