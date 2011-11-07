@@ -65,7 +65,7 @@
      (define exact? (attribute exact.sym))
      (define direct? (attribute direct.sym))
      #`(r:#%module-begin
-        (printf "module starting ~a\n" (current-process-milliseconds))
+        ; (printf "module starting ~a\n" (current-process-milliseconds))
         #,(if (memq trace '(trace step))
               #'((dynamic-require 'redex 'reduction-steps-cutoff) 100)
               #'(void))
