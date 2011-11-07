@@ -82,6 +82,9 @@ Pass 3: Annotate expressions/predicates
    (X_1 ^ LAB X_3)]
   
   [(ann-exp X LAB MODENV any) X]
+  [(ann-exp (list) LAB MODENV any) empty]
+  [(ann-exp (list any_1 any_2 ...) LAB MODENV any) 
+   (ann-exp (cons any_1 (list any_2 ...)) LAB MODENV any)]
   [(ann-exp (cond [else REXP]) LAB MODENV any)
    (ann-exp REXP LAB MODENV any)]
   [(ann-exp (cond [REXP REXP_1] [REXP_2 REXP_3] ... [else REXP_4]) LAB MODENV any)
