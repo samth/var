@@ -284,12 +284,10 @@
 (test
  (test-equal (term (∧)) (term (pred (λ (x) #t) Λ)))
  (test-equal (term (∧ (pred boolean? †)))
-             (term (and/c (pred boolean? †)
-                          (pred (λ (x) #t) Λ))))
+             (term (pred boolean? †)))
  (test-equal (term (∧ (pred boolean? †) (pred string? †)))
              (term (and/c (pred boolean? †)
-                          (and/c (pred string? †)
-                                 (pred (λ (x) #t) Λ))))))
+                          (pred string? †)))))
 
 (define-metafunction λcρ
   modref=? : MODREF MODREF -> #t or #f
