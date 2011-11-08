@@ -5,6 +5,8 @@
 (provide (all-from-out "meta-misc.rkt"))
 (test-suite test meta)
 
+
+
 (define-metafunction λcρ
   δ : OP V ... LAB -> (A A ...) 
   [(δ cons V_0 V_1 LAB) ; cons works same for concrete and abstract
@@ -355,9 +357,7 @@
              (term ((-- ((∧) (env)))
                     (blame f Λ (-- ((∧) (env))) (s-ref p posn 0) (-- ((∧) (env))))))) 
  )
- 
- 
- 
+
 
 (define-metafunction λcρ
   plain-δ : OP V ... LAB -> A
@@ -557,13 +557,14 @@
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
+
 ;; Does this value definitely pass this contract?
 ;; FIXME -- this needs a cached version
 (define-metafunction λcρ
   contract-in : C V -> #t or #f
   [(contract-in C (-- any ... C_0 C_1 ...))
    #t
-   (where #t (≡C C C_0))]
+   (judgment-holds (≡C C C_0))]
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
   [(contract-in ((atom/c ATOMLIT LAB) ρ) (-- (clos ATOMLIT ρ) C ...))
