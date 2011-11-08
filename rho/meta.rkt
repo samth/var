@@ -13,9 +13,14 @@
     (pred exact-nonnegative-integer? Λ)
     -> (pred exact-nonnegative-integer? Λ))]
   [(op-con quotient)
-   ((and/c (pred exact-nonnegative-integer? Λ)
+   ((pred exact-nonnegative-integer? Λ)
+    (and/c (pred exact-nonnegative-integer? Λ)
            (not/c (pred zero? Λ)))
     -> (pred exact-nonnegative-integer? Λ))]
+  [(op-con random)
+   ((and/c (pred exact-nonnegative-integer? Λ)
+           (not/c (pred zero? Λ)))
+    -> (pred exact-nonnegative-integer? Λ))]  
   [(op-con natural->natural)
    ((pred exact-nonnegative-integer? Λ)
     -> (pred exact-nonnegative-integer? Λ))]
@@ -101,155 +106,47 @@
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))
    (where #t (proves V_0 procedure?))
-   (where #t (proves V_1 exact-nonnegative-integer?))]
-  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
-   ((blame LAB Λ V_0 procedure-arity-includes? V_0))
-   (where #t (refutes V_0 procedure?))]
-  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
-   ((blame LAB Λ V_1 procedure-arity-includes? V_1))
-   (where #t (proves V_0 procedure?))
-   (where #t (refutes V_1 exact-nonnegative-integer?))]
-  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
-   ((-- (↓ #t (env)))
-    (-- (↓ #f (env)))
-    (blame LAB Λ V_0 procedure-arity-includes? V_0)
-    (blame LAB Λ V_1 procedure-arity-includes? V_1))]
+   (where #t (proves V_1 exact-nonnegative-integer?))]  
   
-  [(abs-δ random V LAB)
-   ((blame LAB Λ V random V))
-   (where #t (proves V zero?))]
   [(abs-δ random V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))
    (where #t (proves V exact-nonnegative-integer?))
    (where #t (refutes V zero?))]
-  [(abs-δ random V LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-    (blame LAB Λ V random V))]
 
   ;; natural->natural
   [(abs-δ natural->natural V LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))
    (where #t (proves V exact-nonnegative-integer?))]
-  [(abs-δ natural->natural V LAB)
-   ((blame LAB Λ V natural->natural V))
-   (where #t (refutes V exact-nonnegative-integer?))]
-  [(abs-δ natural->natural V LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-    (blame LAB Λ V natural->natural V))]
   
-  [(abs-δ quotient V_1 V_2 LAB)
-   ((blame LAB Λ V_2 quotient V_2))
-   (where #t (proves V_1 exact-nonnegative-integer?))
-   (where #t (proves V_2 zero?))]  
   [(abs-δ quotient V_1 V_2 LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))
    (where #t (proves V_1 exact-nonnegative-integer?))
    (where #t (proves V_2 exact-nonnegative-integer?))
    (where #t (refutes V_2 exact-non-negative-integer?))]
-  [(abs-δ quotient V_1 V_2 LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-    ((blame LAB Λ V_1 quotient V_1)
-    (blame LAB Λ V_2 quotient V_2)))]  
   
   ;; natural-natural->natural
-  [(abs-δ natural-natural->natural V_1 V_2 LAB)
-   ((blame LAB Λ V_1 natural-natural->natural V_1))
-   (where #t (refutes V_1 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->natural V_1 V_2 LAB)
-   ((blame LAB Λ V_2 natural-natural->natural V_2))
-   (where #t (proves V_1 exact-nonnegative-integer?))
-   (where #t (refutes V_2 exact-nonnegative-integer?))]
   [(abs-δ natural-natural->natural V_1 V_2 LAB)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))
    (where #t (proves V_1 exact-nonnegative-integer?))
    (where #t (proves V_2 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->natural V_1 V_2 LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-    (blame LAB Λ V_2 natural-natural->natural V_2))
-   (where #t (proves V_1 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->natural V_1 V_2 LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-    (blame LAB Λ V_1 natural-natural->natural V_1))
-   (where #t (proves V_2 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->natural V_1 V_2 LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-    (blame LAB Λ V_1 natural-natural->natural V_1)
-    (blame LAB Λ V_2 natural-natural->natural V_2))]
   
   ;; natural-natural->bool
   [(abs-δ natural-natural->bool V_1 V_2 LAB)
-   ((blame LAB Λ V_1 natural-natural->bool V_1))
-   (where #t (refutes V_1 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->bool V_1 V_2 LAB)
-   ((blame LAB Λ V_2 natural-natural->bool V_2))
-   (where #t (proves V_1 exact-nonnegative-integer?))
-   (where #t (refutes V_2 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->bool V_1 V_2 LAB)
    ((-- ((pred boolean? Λ) (env))))
    (where #t (proves V_1 exact-nonnegative-integer?))
    (where #t (proves V_2 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_2 natural-natural->bool V_2))
-   (where #t (proves V_1 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_1 natural-natural->bool V_1))
-   (where #t (proves V_2 exact-nonnegative-integer?))]
-  [(abs-δ natural-natural->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_1 natural-natural->bool V_1)
-    (blame LAB Λ V_2 natural-natural->bool V_2))]
   
   ;; symbol-symbol->bool
   [(abs-δ symbol=? V_1 V_2 LAB)
-   ((blame LAB Λ V_1 symbol=? V_1))
-   (where #t (refutes V_1 symbol?))]
-  [(abs-δ symbol=? V_1 V_2 LAB)
-   ((blame LAB Λ V_2 symbol=? V_2))
-   (where #t (proves V_1 symbol?))
-   (where #t (refutes V_2 symbol?))]
-  [(abs-δ symbol=? V_1 V_2 LAB)
    ((-- ((pred boolean? Λ) (env))))
    (where #t (proves V_1 symbol?))
    (where #t (proves V_2 symbol?))]
-  [(abs-δ symbol=? V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_2 symbol=? V_2))
-   (where #t (proves V_1 symbol?))]
-  [(abs-δ symbol=? V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_1 symbol=? V_1))
-   (where #t (proves V_2 symbol?))]
-  [(abs-δ symbol=? V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_1 symbol=? V_1)
-    (blame LAB Λ V_2 symbol=? V_2))]
    
   ;; string-string->string
   [(abs-δ string-string->bool V_1 V_2 LAB)
-   ((blame LAB Λ V_1 string-string->bool V_1))
-   (where #t (refutes V_1 string?))]
-  [(abs-δ string-string->bool V_1 V_2 LAB)
-   ((blame LAB Λ V_2 string-string->bool V_2))
-   (where #t (proves V_1 string?))
-   (where #t (refutes V_2 string?))]
-  [(abs-δ string-string->bool V_1 V_2 LAB)
    ((-- ((pred boolean? Λ) (env))))
    (where #t (proves V_1 string?))
    (where #t (proves V_2 string?))]
-  [(abs-δ string-string->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_2 string-string->bool V_2))
-   (where #t (proves V_1 string?))]
-  [(abs-δ string-string->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_1 string-string->bool V_1))
-   (where #t (proves V_2 string?))]
-  [(abs-δ string-string->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env)))
-    (blame LAB Λ V_1 string-string->bool V_1)
-    (blame LAB Λ V_2 string-string->bool V_2))]    
   
   ;; car
   [(abs-δ car V LAB)
@@ -300,8 +197,7 @@
   
   [(abs-δ eqv? V_1 V_2 LAB)
    ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))])
-   
+    (-- (↓ #f (env))))])   
   
 (test
  (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
@@ -316,68 +212,25 @@
              (term ((-- (↓ #t (env))) (-- (↓ #f (env))))))
  (test-equal (term (δ add1 (-- ((pred exact-nonnegative-integer? †) (env))) f))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))
- (test-equal (term (δ add1 (-- ((pred string? †) (env))) f))
-             (term ((blame f Λ (-- ((pred string? †) (env))) add1 (-- ((pred string? †) (env)))))))
- (test-equal (term (δ add1 (-- ((∧) (env))) f))
-             (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-                    (blame f Λ (-- ((∧) (env))) add1 (-- ((∧) (env)))))))
  
  (test-equal (term (δ + (-- (↓ 0 (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))
  (test-equal (term (δ + (-- ((pred exact-nonnegative-integer? †) (env))) (-- (↓ 0 (env))) f))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))   
- (test-equal (term (δ + (-- ((pred string? †) (env))) (-- (↓ 0 (env))) f))
-             (term ((blame f Λ (-- ((pred string? †) (env))) + (-- ((pred string? †) (env)))))))
- (test-equal (term (δ + (-- (↓ 0 (env))) (-- ((pred string? †) (env))) f))
-             (term ((blame f Λ (-- ((pred string? †) (env))) + (-- ((pred string? †) (env)))))))   
- (test-equal (term (δ + (-- (↓ 0 (env))) (-- ((∧) (env))) f))
-             (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-                    (blame f Λ (-- ((∧) (env))) + (-- ((∧) (env)))))))
- (test-equal (term (δ + (-- ((∧) (env))) (-- (↓ 0 (env))) f))
-             (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-                    (blame f Λ (-- ((∧) (env))) + (-- ((∧) (env))))))) 
- (test-equal (term (δ + (-- ((pred (p? ^ f g) f) (env))) (-- ((∧) (env))) f))
-             (term ((-- ((pred exact-nonnegative-integer? Λ) (env)))
-                    (blame f Λ (-- ((pred (p? ^ f g) f) (env))) + (-- ((pred (p? ^ f g) f) (env))))
-                    (blame f Λ (-- ((∧) (env))) + (-- ((∧) (env)))))))
  
  (test-equal (term (δ string=? (-- (↓ "" (env))) (-- ((pred string? †) (env))) f))
              (term ((-- ((pred boolean? Λ) (env))))))
  (test-equal (term (δ string=? (-- ((pred string? †) (env))) (-- (↓ "" (env))) f))
              (term ((-- ((pred boolean? Λ) (env))))))   
- (test-equal (term (δ string=? (-- ((pred exact-nonnegative-integer? †) (env))) (-- (↓ "" (env))) f))
-             (term ((blame f Λ (-- ((pred exact-nonnegative-integer? †) (env))) string=? (-- ((pred exact-nonnegative-integer? †) (env)))))))
- (test-equal (term (δ string=? (-- (↓ "" (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
-             (term ((blame f Λ (-- ((pred exact-nonnegative-integer? †) (env))) string=? (-- ((pred exact-nonnegative-integer? †) (env)))))))   
- (test-equal (term (δ string=? (-- (↓ "" (env))) (-- ((∧) (env))) f))
-             (term ((-- ((pred boolean? Λ) (env)))
-                    (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
- (test-equal (term (δ string=? (-- ((∧) (env))) (-- (↓ "" (env))) f))
-             (term ((-- ((pred boolean? Λ) (env)))
-                    (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
- (test-equal (term (δ string=? (-- ((pred (p? ^ f g) f) (env))) (-- ((∧) (env))) f))
-             (term ((-- ((pred boolean? Λ) (env)))
-                    (blame f Λ (-- ((pred (p? ^ f g) f) (env))) string=? (-- ((pred (p? ^ f g) f) (env))))
-                    (blame f Λ (-- ((∧) (env))) string=? (-- ((∧) (env)))))))
  
  (test-equal (term (δ car (-- ((cons/c (pred string? f) (∧)) (env))) f))
              (term ((-- ((pred string? f) (env))))))
  (test-equal (term (δ car (-- ((pred cons? f) (env))) f))
              (term ((-- ((∧) (env))))))
- (test-equal (term (δ car (-- ((pred string? f) (env))) f))
-             (term ((blame f Λ (-- ((pred string? f) (env))) car (-- ((pred string? f) (env)))))))
- (test-equal (term (δ car (-- ((∧) (env))) f))
-             (term ((-- ((∧) (env)))
-                    (blame f Λ (-- ((∧) (env))) car (-- ((∧) (env)))))))
  (test-equal (term (δ cdr (-- ((cons/c (∧) (pred string? f)) (env))) f))
              (term ((-- ((pred string? f) (env))))))
  (test-equal (term (δ cdr (-- ((pred cons? f) (env))) f))
              (term ((-- ((∧) (env))))))
- (test-equal (term (δ cdr (-- ((pred string? f) (env))) f))
-             (term ((blame f Λ (-- ((pred string? f) (env))) cdr (-- ((pred string? f) (env)))))))
- (test-equal (term (δ cdr (-- ((∧) (env))) f))
-             (term ((-- ((∧) (env)))
-                    (blame f Λ (-- ((∧) (env))) cdr (-- ((∧) (env)))))))
 
  (test-equal (term (abs-δ (s-pred p posn) (-- ((pred (posn? ^ g p) f) (env))) f))
              (term ((-- (↓ #t (env))))))
