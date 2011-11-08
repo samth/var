@@ -120,47 +120,47 @@
 
 (test 
  (test-equal 
-  (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (clos 0 (env)))))
+  (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (↓ 0 (env)))))
   (term (λ (x) #t)))
  (test-equal
-  (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (clos "x" (env)))))
+  (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (↓ "x" (env)))))
   (term (λ (x) #f)))
  (test-equal
-  (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))))
+  (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env)))))
   (term (λ (x) (@ (prime? ^ f g) x f))))
  (test-equal
-  (term (flat-check ((not/c (pred (prime? ^ f g) f)) (env)) (-- (clos 0 (env)))))
-  (term (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f #t))))        
+  (term (flat-check ((not/c (pred (prime? ^ f g) f)) (env)) (-- (↓ 0 (env)))))
+  (term (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env)))) x Λ) #f #t))))        
  (test-equal
   (term (flat-check ((and/c (pred (prime? ^ f g) f)
                             (pred (composite? ^ f g) f)) 
                      (env)) 
-                    (-- (clos 0 (env)))))
-  (term (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ)
-                   (@@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (clos 0 (env)))) x Λ) #f))))        
+                    (-- (↓ 0 (env)))))
+  (term (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env)))) x Λ)
+                   (@@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (↓ 0 (env)))) x Λ) #f))))        
  (test-equal 
   (term (flat-check ((or/c (pred (prime? ^ f g) f)
                            (pred (composite? ^ f g) f)) 
                      (env)) 
-                    (-- (clos 0 (env)))))
+                    (-- (↓ 0 (env)))))
   (term (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) 
-                                  (-- (clos 0 (env)))) x Λ)
+                                  (-- (↓ 0 (env)))) x Λ)
                    #t 
                    (@@ (flat-check ((pred (composite? ^ f g) f) (env)) 
-                                  (-- (clos 0 (env)))) x Λ)))))
+                                  (-- (↓ 0 (env)))) x Λ)))))
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
                      (env))
-                    (-- (cons (-- (clos 0 (env))) (-- (clos 1 (env)))))))
+                    (-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env)))))))
   (term 
-   (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env))))
+   (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env))))
                  (@ car x Λ) Λ)
-              (@@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (clos 1 (env))))
+              (@@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (↓ 1 (env))))
                  (@ cdr x Λ) Λ) #f))))
  (test-equal
-  (term (flat-check ((rec/c z (pred (prime? ^ f g) f)) (env)) (-- (clos 0 (env)))))
-  (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (clos 0 (env))))))
+  (term (flat-check ((rec/c z (pred (prime? ^ f g) f)) (env)) (-- (↓ 0 (env)))))
+  (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env))))))
  
  (test-equal
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)

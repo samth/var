@@ -14,7 +14,7 @@
         ((amb V_result
               (let ((DEMONIC (demonic* CON_demon V_demon))
                     (r V_result))
-                (clos r (env))) 
+                (↓ r (env))) 
               ...)
          σ)
         (side-condition (term (∈ #t (δ procedure? AV ★))))
@@ -35,7 +35,7 @@
         ((amb (join-contracts)
               (let ((DEMONIC (demonic* (∧) V))
                     (r (join-contracts)))
-                (clos r (env)))
+                (↓ r (env)))
               ...)
          σ)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
@@ -46,21 +46,21 @@
 (test 
  (test/σ--> c~
             (term (@ (-- (((pred (even? ^ fun e/o) fun) -> (pred (even? ^ fun e/o) fun)) (env)))
-                     (-- (clos 4 (env))
+                     (-- (↓ 4 (env))
                          ((pred (even? ^ dbl e/o) dbl) (env))
                          ((pred (even? ^ fun e/o) fun) (env)))
                      †))
             (term (amb (-- ((pred (even? ^ fun e/o) fun) (env))) 
-                       (let ((DEMONIC(-- (clos 0 (env)))) 
+                       (let ((DEMONIC (-- (↓ 0 (env)))) 
                              (r (-- ((pred (even? ^ fun e/o) fun) (env))))) 
-                         (clos r (env))))))
+                         (↓ r (env))))))
  
  (test/σ--> c~
             (term (@ (-- ((pred procedure? †) (env)))
-                     (-- (clos 4 (env)))
+                     (-- (↓ 4 (env)))
                      †))
             (term (if (-- ((∧) (env)))
                       (-- ((pred (λ (x) #t) Λ) (env)))
-                      (let ((DEMONIC(-- (clos 0 (env)))) 
+                      (let ((DEMONIC(-- (↓ 0 (env)))) 
                             (r (-- ((pred (λ (x) #t) Λ) (env))))) 
-                        (clos r (env)))))))
+                        (↓ r (env)))))))

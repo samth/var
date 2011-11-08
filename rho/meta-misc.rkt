@@ -230,14 +230,14 @@
    ,(length (term (CON ...)))])
 
 (test
- (test-equal (term (arity (-- (clos (λ () x) (env))))) 0)
- (test-equal (term (arity (-- (clos (λ (x y z) x) (env))))) 3)
- (test-equal (term (arity (-- (clos (λ f (x y z) x) (env))))) 3)
+ (test-equal (term (arity (-- (↓ (λ () x) (env))))) 0)
+ (test-equal (term (arity (-- (↓ (λ (x y z) x) (env))))) 3)
+ (test-equal (term (arity (-- (↓ (λ f (x y z) x) (env))))) 3)
  (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (pred string? h)) (env))))) 2)
  (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (λ (x y) (pred string? h))) (env))))) 2)
  (test-equal (term (arity (-- ((pred string? h) (env)) (((pred string? f) (pred string? g) -> (pred string? h)) (env))))) 2)
  (test-equal (term (arity (-- ((pred procedure? f) (env))))) #f)
- (test-equal (term (arity ((--> (pred string? †)) (env) <= f g (-- (clos 0 (env))) f (-- (clos (λ () 1) (env)))))) 0)
+ (test-equal (term (arity ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))))) 0)
  )
 
 ;; Is C_1 /\ C_2 inhabited
@@ -504,20 +504,20 @@
  ;; drop duplicates
  (test-equal (term (remember-contract (-- ((pred (p? ^ f g) f) (env))) ((pred (p? ^ f g) f) (env))))
              (term (-- ((pred (p? ^ f g) f) (env)))))
- (test-equal (term (remember-contract (-- (clos 0 (env)) 
+ (test-equal (term (remember-contract (-- (↓ 0 (env)) 
                                           ((pred (p? ^ f g) f) (env)))
                                       ((pred (p? ^ f g) f) (env))))
-             (term (-- (clos 0 (env)) 
+             (term (-- (↓ 0 (env)) 
                        ((pred (p? ^ f g) f) (env)))))
  
  ;; push past blessed arrow
  (test-equal (term (remember-contract ((--> (pred (p? ^ f g) f))
-                                       (env) <= f g (-- (clos 0 (env))) f 
-                                       (-- (clos (λ () "x") (env))))
+                                       (env) <= f g (-- (↓ 0 (env))) f 
+                                       (-- (↓ (λ () "x") (env))))
                                       ((pred (q? ^ h j) f) (env))))
              (term ((--> (pred (p? ^ f g) f))
-                    (env) <= f g (-- (clos 0 (env))) f 
-                    (-- (clos (λ () "x") (env))
+                    (env) <= f g (-- (↓ 0 (env))) f 
+                    (-- (↓ (λ () "x") (env))
                         ((pred (q? ^ h j) f) (env)))))))
 
 ;; FIXME
@@ -589,14 +589,14 @@
                                        (pred empty? f) -> 
                                        (pred exact-nonnegative-integer? f)) 
                                       (env)))
-                                    ((-- (clos 0 (env))) (-- (clos 9 (env))))))
+                                    ((-- (↓ 0 (env))) (-- (↓ 9 (env))))))
              (term (((pred exact-nonnegative-integer? f) (env))
                     ((pred exact-nonnegative-integer? f) (env)))))
  (test-equal (term (range-contracts ((((pred exact-nonnegative-integer? f) 
                                        -> (λ (x) (pred (λ (y) (@ = x y f)) f))) (env)))
-                                    ((-- (clos 0 (env))))))
+                                    ((-- (↓ 0 (env))))))
              (term (((pred (λ (y) (@ = x y f)) f) 
-                     (env (x (-- (clos 0 (env))))))))))
+                     (env (x (-- (↓ 0 (env))))))))))
 
 
 (define-metafunction λcρ

@@ -19,11 +19,11 @@
         (where (any_0 ... (any_name (D_contractum σ_1)) any_1 ...)
                ,(let ([r (apply-reduction-relation/tag-with-names r (term (REDEX σ)))])
                   (set! step-count (add1 step-count))                  
-                  (when (zero? (modulo step-count 50))
-                    (printf "steps: ~a, terms: ~a\n" step-count (length r))
-                    #;
-                    (when (not (null? r))
-                      (displayln (first r))))
+                  #;(when (zero? (modulo step-count 50))
+                      (printf "steps: ~a, terms: ~a\n" step-count (length r))
+                      #;
+                      (when (not (null? r))
+                        (displayln (first r))))
                   r))
         (computed-name (term any_name))
         redex!)
@@ -33,7 +33,7 @@
                ,(apply-reduction-relation/tag-with-names e (term (D σ))))
         (computed-name (term any_name))
         blame!)))
-                        
+
 (test
  (define Ms 
    (term [(module m racket 
@@ -43,7 +43,7 @@
              [n (pred exact-nonnegative-integer? m)]))]))
  (test/v-->> (-->_vcme Ms)
              (term (n ^ † m))
-             (term (-- (clos 7 (env))))))
+             (term (-- (↓ 7 (env))))))
 
 
 (test
@@ -59,8 +59,8 @@
              [fact ((pred exact-nonnegative-integer? f) 
                     -> (pred exact-nonnegative-integer? f))]))]))
  (test/v-->> (-->_vcme Ms)
-             (term (clos (@ (fact ^ † f) 5 †) (env)))
-             (term (-- (clos 120 (env))))))
+             (term (↓ (@ (fact ^ † f) 5 †) (env)))
+             (term (-- (↓ 120 (env))))))
 
 
 ;; FIXME -- this is hard to express without GC.
@@ -81,10 +81,10 @@
                       (and/c (pred exact-nonnegative-integer? f)
                              (pred (λ (y) (@ <= x y f)) f))))]))]))
  (test/v-->> (-->_vcme Ms)
-             (term (clos (@ (fact ^ † f) 5 †) (env)))
-             (term (-- (clos 120 (env))
+             (term (↓ (@ (fact ^ † f) 5 †) (env)))
+             (term (-- (↓ 120 (env))
                        ((pred (λ (y) (@ <= x y f)) f)
-                        (env (x (-- (clos 5 (env))))))))))
+                        (env (x (-- (↓ 5 (env))))))))))
 
 (test
  (define Ms
@@ -100,26 +100,26 @@
              [posn-y ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]))]))
  
  (test/v-->> (-->_vcme Ms)
-             (term (clos (@ (posn ^ † p) 1 2 †) (env)))
+             (term (↓ (@ (posn ^ † p) 1 2 †) (env)))
              (term (-- (struct posn
-                         (-- (clos 1 (env)))
-                         (-- (clos 2 (env))))
+                         (-- (↓ 1 (env)))
+                         (-- (↓ 2 (env))))
                        ((pred (posn? ^ p p) p) (env)))))
  (test/v-->> (-->_vcme Ms)
-             (term (clos (@ (posn? ^ † p)
-                            (@ (posn ^ † p) 1 2 †)
-                            †)
-                         (env)))
-             (term (-- (clos #t (env)))))
+             (term (↓ (@ (posn? ^ † p)
+                         (@ (posn ^ † p) 1 2 †)
+                         †)
+                      (env)))
+             (term (-- (↓ #t (env)))))
  (test/v-->> (-->_vcme Ms)
-             (term (clos (@ (posn-x ^ † p)
-                            (@ (posn ^ † p) 1 2 †)
-                            †)
-                         (env)))
-             (term (-- (clos 1 (env)))))
+             (term (↓ (@ (posn-x ^ † p)
+                         (@ (posn ^ † p) 1 2 †)
+                         †)
+                      (env)))
+             (term (-- (↓ 1 (env)))))
  (test/v-->> (-->_vcme Ms)
-             (term (clos (@ (posn-y ^ † p)
-                            (@ (posn ^ † p) 1 2 †)
-                            †)
-                         (env)))
-             (term (-- (clos 2 (env))))))
+             (term (↓ (@ (posn-y ^ † p)
+                         (@ (posn ^ † p) 1 2 †)
+                         †)
+                      (env)))
+             (term (-- (↓ 2 (env))))))

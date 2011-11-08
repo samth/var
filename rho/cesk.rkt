@@ -34,7 +34,7 @@
 (define-metafunction λCESK
   inj : EXP -> ς
   [(inj EXP)
-   (ev (clos EXP (env)) (sto) MT)])
+   (ev (↓ EXP (env)) (sto) MT)])
 
 (define-metafunction λCESK
   bind : σ K -> (a σ)
@@ -49,13 +49,13 @@
   [(ev REDEX σ K) (ap REDEX σ K)]
   [(ev PREVAL σ K) (ev (-- PREVAL) σ K)]
   [(ev (clos (@ EXP ... LAB) ρ) σ K)
-   (ev (@ (clos EXP ρ) ... LAB) σ K)]
+   (ev (@ (↓ EXP ρ) ... LAB) σ K)]
   [(ev (clos (if EXP ...) ρ) σ K)
-   (ev (if (clos EXP ρ) ...) σ K)]
+   (ev (if (↓ EXP ρ) ...) σ K)]
   [(ev (clos (let ((X EXP) ...) EXP_1) ρ) σ K)
-   (ev (let ((X (clos EXP ρ)) ...) (clos EXP_1 ρ)) σ K)]
+   (ev (let ((X (↓ EXP ρ)) ...) (↓ EXP_1 ρ)) σ K)]
   [(ev (clos (begin EXP EXP_1) ρ) σ K)
-   (ev (begin (clos EXP ρ) (clos EXP_1 ρ)) σ K)]
+   (ev (begin (↓ EXP ρ) (↓ EXP_1 ρ)) σ K)]
   [(ev (clos MODREF ρ) σ K)
    (ev MODREF σ K)]
   [(ev (@ D_1 D_2 ... LAB) σ K)
@@ -88,9 +88,9 @@
 (define co
   (reduction-relation
    λCESK #:domain ς
-   (--> (co (APP (V_1 ...) ((clos EXP ρ) D ...) LAB a) V σ)    
-        (ev (clos EXP ρ) σ (APP (V_1 ... V) (D ...) LAB a))
-        co-next-@)            
+   (--> (co (APP (V_1 ...) (D_1 D_2 ...) LAB a) V σ)    
+        (ev D_1 σ (APP (V_1 ... V) (D_2 ...) LAB a))
+        co-next-@)
    (--> (co (APP (V_1 ...) () LAB a) V σ)
         (ap (@ V_1 ... V LAB) σ K)
         (where (S_0 ... K S_1 ...)
@@ -101,8 +101,8 @@
         (where (S_0 ... K S_1 ...)
                (sto-lookup σ a))
         co-done-if)
-   (--> (co (LET ((X_1 V_1) ...) X ((X_2 (clos EXP ρ)) (X_3 D) ...) D_b a) V σ)
-        (ev (clos EXP ρ) σ (LET ((X_1 V_1) ... (X V)) X_2 ((X_3 D) ...) D_b a))
+   (--> (co (LET ((X_1 V_1) ...) X ((X_2 D_2) (X_3 D_3) ...) D_b a) V σ)
+        (ev D_2 σ (LET ((X_1 V_1) ... (X V)) X_2 ((X_3 D_3) ...) D_b a))
         co-next-let)
    (--> (co (LET ((X_1 V_1) ...) X () D_b a) V σ)
         (ap (let ((X_1 V_1) ... (X V)) D_b) σ K)

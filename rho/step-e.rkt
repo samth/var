@@ -23,11 +23,11 @@
 
 (test
  (test/σ--> e
-            (term (@ (blame f f (-- (clos 0 (env))) 
+            (term (@ (blame f f (-- (↓ 0 (env))) 
                             ((pred exact-nonnegative-integer? f) (env))
-                            (-- (clos 5 (env))))
-                     (clos (@ string? 3 †) (env))
+                            (-- (↓ 5 (env))))
+                     (↓ (@ string? 3 †) (env))
                      †))
-            (term (blame f f (-- (clos 0 (env))) 
+            (term (blame f f (-- (↓ 0 (env))) 
                          ((pred exact-nonnegative-integer? f) (env))
-                         (-- (clos 5 (env)))))))
+                         (-- (↓ 5 (env)))))))

@@ -11,21 +11,21 @@
 
 (define-syntax-rule (step-it R P)
   (stepper (R (program-modules P))
-           (term ((clos ,(last P) (env)) (sto)))))
+           (term ((↓ ,(last P) (env)) (sto)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Eval
 
 (define (eval-it R P)
   (apply-reduction-relation* (R (program-modules P))
-                             (term ((clos ,(last P) (env)) (sto)))))
+                             (term ((↓ ,(last P) (env)) (sto)))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Trace 
 
 (define-syntax-rule (trace-it R P . rest)
   (traces (R (program-modules P))
-          (term ((clos ,(last P) (env)) (sto)))
+          (term ((↓ ,(last P) (env)) (sto)))
           #:pred (colorize (program-modules P))
           . rest))
 
