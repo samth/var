@@ -67,11 +67,11 @@
      (IFF (@@ cons? x Λ)
           (IFF (@@ EXP_1 • Λ)
                (@@ EXP_2 • Λ)
-              #f)
+               #f)
           #F))
    (where EXP_1 (fc/c X any CON_1 ρ (join-contracts)))
    (where EXP_2 (fc/c X any CON_2 ρ (join-contracts)))
-                  
+   
    ;; using • instead of (car X) and (cdr X) avoids spurious blame of the language
    ;; (proj-{left,right} AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
@@ -110,7 +110,7 @@
    (λ (x) (AND (@@ (s-pred X_m X_tag) x Λ)
                (@@ EXP • Λ) ...))
    (where (EXP ...) ((fc/c X any FLAT ρ (join-contracts)) ...))
-                  
+   
    ;; using • instead of the results of the accessors avoids spurious blame of the language
    ;; (proj-struct n AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a struct/c (also impossible)   
@@ -144,10 +144,10 @@
                      (env)) 
                     (-- (↓ 0 (env)))))
   (term (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) 
-                                  (-- (↓ 0 (env)))) x Λ)
+                                   (-- (↓ 0 (env)))) x Λ)
                    #t 
                    (@@ (flat-check ((pred (composite? ^ f g) f) (env)) 
-                                  (-- (↓ 0 (env)))) x Λ)))))
+                                   (-- (↓ 0 (env)))) x Λ)))))
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
@@ -155,9 +155,9 @@
                     (-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env)))))))
   (term 
    (λ (x) (if (@@ (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env))))
-                 (@ car x Λ) Λ)
+                  (@ car x Λ) Λ)
               (@@ (flat-check ((pred (composite? ^ f g) f) (env)) (-- (↓ 1 (env))))
-                 (@ cdr x Λ) Λ) #f))))
+                  (@ cdr x Λ) Λ) #f))))
  (test-equal
   (term (flat-check ((rec/c z (pred (prime? ^ f g) f)) (env)) (-- (↓ 0 (env)))))
   (term (flat-check ((pred (prime? ^ f g) f) (env)) (-- (↓ 0 (env))))))
@@ -168,9 +168,9 @@
                      (env))
                     (-- ((pred cons? f) (env)))))
   (term (λ (x) (@ (λ (x) (if (@ (λ (x) (@ (prime? ^ f g) x f))
-                                          (@ car x Λ) Λ)
-                                       (@ (λ (x) (@ (composite? ^ f g) x f))
-                                          (@ cdr x Λ) Λ) #f)) x Λ))))         
+                                (@ car x Λ) Λ)
+                             (@ (λ (x) (@ (composite? ^ f g) x f))
+                                (@ cdr x Λ) Λ) #f)) x Λ))))         
  (test-equal 
   (term (flat-check ((cons/c (pred (prime? ^ f g) f)
                              (pred (composite? ^ f g) f)) 
@@ -190,8 +190,7 @@
           (if (@@ (flat-check ((pred empty? †) (env)) (join-contracts)) x1 Λ)
               #t
               (@@ (λ (x1) (amb/e #f 
-                                (if (@ (flat-check ((pred zero? †) (env)) (join-contracts)) • Λ)
-                                    (@ (λ (x1) #t) • Λ)
-                                    #f)))
-                 x1 Λ))))))
- 
+                                 (if (@ (flat-check ((pred zero? †) (env)) (join-contracts)) • Λ)
+                                     (@ (λ (x1) #t) • Λ)
+                                     #f)))
+                  x1 Λ))))))
