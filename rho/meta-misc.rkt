@@ -49,23 +49,50 @@
 
 
 (define-metafunction λcρ
+  fv : EXP -> (side-condition any_s (set? (term any_s)))
+  [(fv (λ (X ...) EXP))
+   ,(set-subtract (term (fv EXP)) (apply set (term (X ...))))]
+  [(fv (λ X_1 (X_2 ...) EXP))
+   ,(set-subtract (term (fv EXP)) (apply set (term (X_1 X_2 ...))))]
+  [(fv (cons VAL_1 VAL_2)) 
+   ,(set-union (term (fv VAL_1))
+               (term (fv VAL_2)))]
+  [(fv VAL) ,(set)]
+  [(fv X) ,(set (term X))]
+  [(fv MODREF) ,(set)]
+  [(fv (@ EXP ... LAB))
+   ,(apply set-union (term ((fv EXP) ...)))]
+  [(fv (if EXP ...))
+   ,(apply set-union (term ((fv EXP) ...)))]
+  [(fv (let ((X EXP) ...) EXP_1))
+   ,(apply set-union (set-subtract (term (fv EXP_1)) (apply set (term (X ...))))
+           (term ((fv EXP) ...)))]
+  [(fv (begin EXP ...))
+   ,(apply set-union (term ((fv EXP) ...)))]
+  [(fv •) ,(set)])
+
+(test
+ ;; totality check
+ (redex-check λcρ EXP (set? (term (fv EXP)))))
+
+(define-metafunction λcρ
   restrict : EXP ρ -> ρ
-  ;; FIXME : dummy placeholder for now.
-  [(restrict #t ρ) (env)]
-  [(restrict #f ρ) (env)]
-  [(restrict natural ρ) (env)]
-  [(restrict string ρ) (env)]
-  [(restrict empty ρ) (env)]
-  [(restrict OP ρ) (env)]
-  [(restrict MODREF ρ) (env)]
-  [(restrict X ρ) ,(for/hash ([(k v) (term ρ)]
-                              #:when (eq? k (term X)))
-                     (values k v))]
-  [(restrict EXP ρ) ρ])
+  [(restrict EXP ρ)
+   ,(for/hash ([(k v) (term ρ)]
+               #:when (set-member? (term (fv EXP)) k))
+      (values k v))])
+
+(test
+ (test-equal (term (restrict empty (env (x 0)))) (term (env)))
+ (test-equal (term (restrict x (env (x 0)))) (term (env (x 0)))))
 
 (define-metafunction λcρ
   ↓ : EXP ρ -> D
   [(↓ EXP ρ) (clos EXP (restrict EXP ρ))])
+
+(test
+ (test-equal (term (↓ x (env (x 0))))
+             (term (clos x (env (x 0))))))
 
 (define-metafunction λcρ
   env : (X any) ... -> ρ
