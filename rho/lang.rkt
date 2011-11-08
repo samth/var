@@ -22,19 +22,20 @@
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Expressions  
-  (EXP VAL X MODREF 
+  (EXP VAL X OPREF MODREF 
        (@ EXP EXP ... LAB) 
        (if EXP EXP EXP)
        (let ((X EXP) ...) EXP)
        (begin EXP EXP))
+  (OPREF (OP ^ LAB))
   (MODREF (X ^ LAB X)) ;; X_1 is occurs in LAB and is defined in X_2.
-  (LAB X †) ;; † is top-level  
+  (LAB X OP †) ;; † is top-level  
   ((F X) variable-not-otherwise-mentioned)  
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Values (syntactic)  
   (VAL natural #t #f string empty 'variable
-       LAM OP 
+       LAM 
        (cons VAL VAL) 
        #;(struct X VAL ...))      
   (LAM (λ (X ...) EXP)
@@ -85,7 +86,8 @@
   (S V)
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
-  (EXP .... •)
+  (EXP .... OP •)
+  (VAL .... OP)
   
   (OP .... 
       ;struct?
@@ -101,8 +103,8 @@
      (if D D D)
      (let ((X D) ...) (clos EXP ρ))
      (begin D (clos EXP ρ))
-     (CON ρ <= LAB LAB V X D)
-     BLAME)  
+     (CON ρ <= LAB LAB V LAB D)
+     BLAME)    
   
   ;; Values (semantic)
   (PREVAL (clos VAL ρ)
@@ -175,6 +177,7 @@
                      (not (redex-match λcρ ANYCON (term CON_1)))))
   
   (REDEX (clos • ρ)
+         (clos OPREF ρ)
          (clos X ρ)
          (clos (@ any ... LAB) ρ)
          (clos (if any ...) ρ)
@@ -238,7 +241,7 @@
   (RL (λ (X ...) REXP) (λ X (X ...) REXP))
   (RPV VAL RL)      
   (RSV RL X OP) ; Syntactic values for pred.  
-  (REXP RPV X         
+  (REXP RPV X OP         
         (REXP REXP ...)
         (cond [REXP REXP] ... [else REXP])
         (if REXP REXP REXP) 
