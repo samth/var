@@ -15,7 +15,7 @@
   fc/c : X ((C V) ...) FLAT ρ V -> EXP
   [(fc/c X (any_1 ... (C V) any_2 ...) FLAT ρ V) 
    (λ (X) #t)
-   (judgement-holds (≡C C (FLAT ρ)))]
+   (judgment-holds (≡C C (FLAT ρ)))]
   ;; Why did we bother with something like this?
   ;;[(fc/c X any anyc V) (λ (x) #t)]  
   [(fc/c X any FLAT ρ V)
