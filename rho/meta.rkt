@@ -243,20 +243,15 @@
   ;; Interpreted different than Racket's `sub1', `random', etc.
   [(plain-δ sub1 (-- (clos natural ρ) C ...) LAB)
    (-- (↓ ,(max 0 (sub1 (term natural))) (env)))]  
-  [(plain-δ random (-- (clos 0 ρ) C ...) LAB)
-   (blame LAB Λ (-- (↓ 0 ρ) C ...) OP (-- (↓ 0 ρ) C ...))]    
   [(plain-δ natural->natural (-- (clos natural ρ) C ...) LAB)
    (meta-apply natural->natural natural)]
   [(plain-δ car (-- (cons V_0 V_1) C ...) LAB) V_0]
   [(plain-δ cdr (-- (cons V_0 V_1) C ...) LAB) V_1]
-  [(plain-δ procedure-arity-includes? PROC (-- (↓ natural ρ) C ...) LAB)
-   ;; FIXME: tune up for ABSTRACT values   
+  [(plain-δ procedure-arity-includes? PROC (-- (↓ natural ρ) C ...) LAB)   
    (-- (↓ ,(= (term natural) (term (arity PROC))) (env)))]
   [(plain-δ procedure-arity-includes? OP1 (-- (↓ natural ρ) C ...) LAB)
-   ;; FIXME: tune up for ABSTRACT values   
    (-- (↓ ,(= (term natural) 1) (env)))]
-  [(plain-δ procedure-arity-includes? OP2 (-- (↓ natural ρ) C ...) LAB)
-   ;; FIXME: tune up for ABSTRACT values   
+  [(plain-δ procedure-arity-includes? OP2 (-- (↓ natural ρ) C ...) LAB)   
    (-- (↓ ,(= (term natural) 2) (env)))]
   ;; Interpreted differently than Racket `-'.
   [(plain-δ -
@@ -264,11 +259,6 @@
             (-- (clos natural_2 ρ_2) C_2 ...)
             LAB)
    (-- (↓ ,(max 0 (- (term natural_1) (term natural_2))) (env)))]
-  [(plain-δ quotient
-            (-- (clos natural ρ_1) C_1 ...)
-            (-- (clos 0 ρ_2) C_2 ...)
-            LAB)
-   (blame LAB Λ (-- (↓ 0 ρ_2) C_2 ...) quotient (-- (↓ 0 ρ_2) C_2 ...))]
   [(plain-δ quotient
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...)
@@ -322,9 +312,7 @@
    (-- (↓ #t (env)))
    (side-condition (eqv? (term VAL_1) (term VAL_2)))]
   [(plain-δ eqv? V_1 V_2 LAB)
-   (-- (↓ #f (env)))]               
-  [(plain-δ OP V V_1 ... LAB)       ;; catches domain errors
-   (blame LAB Λ V OP V)])
+   (-- (↓ #f (env)))])
 
 (test 
  (test-equal (term (δ cons (-- (↓ 0 (env))) (-- (↓ 1 (env))) †))
@@ -352,11 +340,6 @@
                             (-- (↓ 3 (env)))
                             †))
              (term (-- (↓ #t (env)))))
- (test-equal (term (plain-δ = 
-                            (-- (↓ "Hi" (env)))
-                            (-- (↓ 7 (env)))
-                            †))
-             (term (blame † Λ (-- (↓ "Hi" (env))) = (-- (↓ "Hi" (env))))))
  
  (test-equal (term (plain-δ (s-pred p posn) (-- (struct p posn)) †))
              (term (-- (↓ #t (env)))))
