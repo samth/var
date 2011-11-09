@@ -20,10 +20,10 @@
   ;;[(fc/c X any anyc V) (λ (x) #t)]  
   [(fc/c X any FLAT ρ V)
    (λ (X) #t)
-   (where #t (contract-in (FLAT ρ) V))]
+   (judgment-holds (contract-in (FLAT ρ) V))]
   [(fc/c X any FLAT ρ V)
    (λ (X) #f)
-   (where #t (contract-not-in (FLAT ρ) V))]
+   (judgment-holds (contract-not-in (FLAT ρ) V))]
   [(fc/c X any (atom/c ATOMLIT LAB) ρ V)
    (λ (X) (@ eqv? X ATOMLIT Λ))]
   [(fc/c X any (and/c FLAT_1 FLAT_2) ρ V)
