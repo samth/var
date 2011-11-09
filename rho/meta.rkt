@@ -47,309 +47,297 @@
   [(op-con (s-pred X_1 X_2)) (∧)]  ;; Already taken care of.
   [(op-con (s-cons X_1 X_2 natural)) (∧)]
   [(op-con (s-ref X_1 X_2 natural)) (∧)])
-           
 
 (test
  (redex-check λcρ OP (term (op-con OP))))
 
 (define-metafunction λcρ
-  δ : OP V ... LAB -> (A A ...) ;; FIXME: eventually should be (V ...)
-  [(δ cons V_0 V_1 LAB) ; cons works same for concrete and abstract
+  δ : OP V ... -> (A A ...) ;; FIXME: eventually should be (V ...)
+  [(δ cons V_0 V_1) ; cons works same for concrete and abstract
    ((-- (cons V_0 V_1)))]  
-  [(δ (s-cons X_m X_tag natural) V ... LAB)
+  [(δ (s-cons X_m X_tag natural) V ...)
    ((-- (struct X_m X_tag V ...)))
    (side-condition (= (length (term (V ...))) (term natural)))]  
-  [(δ OP V_1 ... AV V_2 ... LAB)
-   (abs-δ OP V_1 ... AV V_2 ... LAB)]  
-  [(δ OP V ... LAB) 
-   ((plain-δ OP V ... LAB))])
+  [(δ OP V_1 ... AV V_2 ...)
+   (abs-δ OP V_1 ... AV V_2 ...)]  
+  [(δ OP V ...) 
+   ((plain-δ OP V ...))])
 
 (define-metafunction λcρ
-  abs-δ : OP V ... AV V ... LAB -> (A ...)   
-  [(abs-δ OP? AV LAB)
+  abs-δ : OP V ... AV V ... LAB -> (A ...) ;; FIXME: eventually should be (V ...)
+  [(abs-δ OP? AV)
    ((-- (↓ #t (env))))
    (where #t (proves AV OP?))]
-  [(abs-δ OP? AV LAB)
+  [(abs-δ OP? AV)
    ((-- (↓ #f (env))))
    (where #t (refutes AV OP?))]
-  [(abs-δ OP? AV LAB)
+  [(abs-δ OP? AV)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]   
-  [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...) LAB)
+  [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...))
    ((-- (↓ any_b (env))))
    (where natural_a (arity AV))
    (where any_b ,(= (term natural) (term natural_a)))]
-  [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
+  [(abs-δ procedure-arity-includes? V_0 V_1)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]  
-  [(abs-δ random V LAB)
+  [(abs-δ random V)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
-  [(abs-δ natural->natural V LAB)
+  [(abs-δ natural->natural V)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
-  [(abs-δ quotient V_1 V_2 LAB)
+  [(abs-δ quotient V_1 V_2)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
-  [(abs-δ natural-natural->natural V_1 V_2 LAB)
+  [(abs-δ natural-natural->natural V_1 V_2)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
-  [(abs-δ natural-natural->bool V_1 V_2 LAB)
+  [(abs-δ natural-natural->bool V_1 V_2)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]    
-  [(abs-δ symbol=? V_1 V_2 LAB)
+  [(abs-δ symbol=? V_1 V_2)
    ((-- ((pred boolean? Λ) (env))))]     
-  [(abs-δ string-string->bool V_1 V_2 LAB)
+  [(abs-δ string-string->bool V_1 V_2)
    ((-- ((pred boolean? Λ) (env))))]
   ;; FIXME: could discriminate many more things
-  [(abs-δ eqv? V_1 V_2 LAB)
+  [(abs-δ eqv? V_1 V_2)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]
   
   ;; car
-  [(abs-δ car V LAB)
+  [(abs-δ car V)
    (proj-left V)
    (where #t (proves V cons?))]
   
   ;; cdr
-  [(abs-δ cdr V LAB)
+  [(abs-δ cdr V)
    (proj-right V)
    (where #t (proves V cons?))]
   
   ;; struct ops
-  [(abs-δ (s-pred X_m X_tag) AV LAB)
+  [(abs-δ (s-pred X_m X_tag) AV)
    ((-- (↓ #t (env))))
    (where #t (proves AV (s-pred X_m X_tag)))]  
-  [(abs-δ (s-pred X_m X_tag) AV LAB)
+  [(abs-δ (s-pred X_m X_tag) AV)
    ((-- (↓ #f (env))))
    (where #t (refutes AV (s-pred X_m X_tag)))]  
-  [(abs-δ (s-pred X_m X_tag) AV LAB)
+  [(abs-δ (s-pred X_m X_tag) AV)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]
      
-  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+  [(abs-δ (s-ref X_m X_tag natural) AV)
    (proj-struct AV X_m X_tag natural)
    (where #t (has-struct/c? AV X_m X_tag))]
   
-  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+  [(abs-δ (s-ref X_m X_tag natural) AV)
    ((-- ((∧) (env))))
    (where #t (proves AV (s-pred X_m X_tag)))] 
-  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
-   ((blame LAB Λ AV (s-ref X_m X_tag natural) AV))
+  [(abs-δ (s-ref X_m X_tag natural) AV)     ;; FIXME should expressed as a contract
+   ((blame FIXMELAB Λ AV (s-ref X_m X_tag natural) AV))
    (where #t (refutes AV (s-pred X_m X_tag)))]
-  [(abs-δ (s-ref X_m X_tag natural) AV LAB)
+  [(abs-δ (s-ref X_m X_tag natural) AV) ;; FIXME should expressed as a contract
    ((-- ((∧) (env)))
-    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))])
+    (blame FIXMELAB Λ AV (s-ref X_m X_tag natural) AV))])
   
 (test
- (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
+ (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- ((pred exact-nonnegative-integer? †) (env)))))
              (term ((-- (↓ #t (env))) (-- (↓ #f (env))))))
- (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- (↓ 3 (env))) f))
+ (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- (↓ 3 (env)))))
              (term ((-- (↓ #t (env))) (-- (↓ #f (env))))))
- (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) (env))) (-- (↓ 0 (env))) f))
+ (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) (env))) (-- (↓ 0 (env)))))
              (term ((-- (↓ #t (env))))))
- (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) (env))) (-- (↓ 1 (env))) f))
+ (test-equal (term (δ procedure-arity-includes? (-- ((-> (∧)) (env))) (-- (↓ 1 (env)))))
              (term ((-- (↓ #f (env))))))
- (test-equal (term (δ procedure-arity-includes? (-- (↓ (λ () 0) (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
+ (test-equal (term (δ procedure-arity-includes? (-- (↓ (λ () 0) (env))) (-- ((pred exact-nonnegative-integer? †) (env)))))
              (term ((-- (↓ #t (env))) (-- (↓ #f (env))))))
- (test-equal (term (δ add1 (-- ((pred exact-nonnegative-integer? †) (env))) f))
+ (test-equal (term (δ add1 (-- ((pred exact-nonnegative-integer? †) (env)))))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))
  
- (test-equal (term (δ + (-- (↓ 0 (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
+ (test-equal (term (δ + (-- (↓ 0 (env))) (-- ((pred exact-nonnegative-integer? †) (env)))))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))
- (test-equal (term (δ + (-- ((pred exact-nonnegative-integer? †) (env))) (-- (↓ 0 (env))) f))
+ (test-equal (term (δ + (-- ((pred exact-nonnegative-integer? †) (env))) (-- (↓ 0 (env)))))
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))   
  
- (test-equal (term (δ string=? (-- (↓ "" (env))) (-- ((pred string? †) (env))) f))
+ (test-equal (term (δ string=? (-- (↓ "" (env))) (-- ((pred string? †) (env)))))
              (term ((-- ((pred boolean? Λ) (env))))))
- (test-equal (term (δ string=? (-- ((pred string? †) (env))) (-- (↓ "" (env))) f))
+ (test-equal (term (δ string=? (-- ((pred string? †) (env))) (-- (↓ "" (env)))))
              (term ((-- ((pred boolean? Λ) (env))))))   
  
- (test-equal (term (δ car (-- ((cons/c (pred string? f) (∧)) (env))) f))
+ (test-equal (term (δ car (-- ((cons/c (pred string? f) (∧)) (env)))))
              (term ((-- ((pred string? f) (env))))))
- (test-equal (term (δ car (-- ((pred cons? f) (env))) f))
+ (test-equal (term (δ car (-- ((pred cons? f) (env)))))
              (term ((-- ((∧) (env))))))
- (test-equal (term (δ cdr (-- ((cons/c (∧) (pred string? f)) (env))) f))
+ (test-equal (term (δ cdr (-- ((cons/c (∧) (pred string? f)) (env)))))
              (term ((-- ((pred string? f) (env))))))
- (test-equal (term (δ cdr (-- ((pred cons? f) (env))) f))
+ (test-equal (term (δ cdr (-- ((pred cons? f) (env)))))
              (term ((-- ((∧) (env))))))
 
- (test-equal (term (abs-δ (s-pred p posn) (-- ((pred (posn? ^ g p) f) (env))) f))
+ (test-equal (term (abs-δ (s-pred p posn) (-- ((pred (posn? ^ g p) f) (env)))))
              (term ((-- (↓ #t (env))))))
  ;; FIXME fails (returns both #t, #f), but want just #f.
- (test-equal (term (abs-δ (s-pred p posn) (-- ((pred string? f) (env))) f))
+ (test-equal (term (abs-δ (s-pred p posn) (-- ((pred string? f) (env)))))
              (term ((-- (↓ #f (env))))))
- (test-equal (term (abs-δ (s-pred p posn) (-- ((∧) (env))) f))
+ (test-equal (term (abs-δ (s-pred p posn) (-- ((∧) (env)))))
              (term ((-- (↓ #t (env)))
                     (-- (↓ #f (env)))))) 
  
- (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred (posn? ^ g p) f) (env))) f))
+ (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred (posn? ^ g p) f) (env)))))
              (term ((-- ((∧) (env))))))
  ;; FIXME fails because we don't prove string?s can't be posn?s, but want that.
- (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred string? f) (env))) f))
+ (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred string? f) (env)))))
              (term ((blame f Λ (-- ((pred string? f) (env))) (s-ref p posn 0) (-- ((pred string? f) (env)))))))
- (test-equal (term (abs-δ (s-ref p posn 0) (-- ((∧) (env))) f))
+ (test-equal (term (abs-δ (s-ref p posn 0) (-- ((∧) (env)))))
              (term ((-- ((∧) (env)))
                     (blame f Λ (-- ((∧) (env))) (s-ref p posn 0) (-- ((∧) (env))))))) 
  )
 
 
 (define-metafunction λcρ
-  plain-δ : OP V ... LAB -> A
-  [(plain-δ procedure? PROC LAB)
+  plain-δ : OP V ... -> V
+  [(plain-δ procedure? PROC)
    (-- (↓ #t (env)))]
   [(plain-δ procedure? V LAB)
    (-- (↓ #f (env)))]
-  [(plain-δ string? (-- (clos string ρ)) LAB) 
+  [(plain-δ string? (-- (clos string ρ))) 
    (-- (↓ #t (env)))]
-  [(plain-δ string? V LAB) 
+  [(plain-δ string? V) 
    (-- (↓ #f (env)))]
-  [(plain-δ boolean? (-- (clos bool ρ) C ...) LAB) 
+  [(plain-δ boolean? (-- (clos bool ρ) C ...)) 
    (-- (↓ #t (env)))]
-  [(plain-δ boolean? V LAB) 
+  [(plain-δ boolean? V) 
    (-- (↓ #f (env)))]
-  [(plain-δ zero? (-- (clos 0 ρ) C ...) LAB) 
+  [(plain-δ zero? (-- (clos 0 ρ) C ...)) 
    (-- (↓ #t (env)))]
-  [(plain-δ zero? (-- (clos natural ρ) C ...) LAB) 
+  [(plain-δ zero? (-- (clos natural ρ) C ...)) 
    (-- (↓ #f (env)))]  
-  [(plain-δ empty? (-- (clos empty ρ) C ...) LAB)
+  [(plain-δ empty? (-- (clos empty ρ) C ...))
    (-- (↓ #t (env)))]
-  [(plain-δ empty? V LAB)
+  [(plain-δ empty? V)
    (-- (↓ #f (env)))]
-  [(plain-δ cons? (-- (cons V_0 V_1) C ...) LAB)
+  [(plain-δ cons? (-- (cons V_0 V_1) C ...))
    (-- (↓ #t (env)))]    
-  [(plain-δ cons? V LAB)
+  [(plain-δ cons? V)
    (-- (↓ #f (env)))]  
-  [(plain-δ exact-nonnegative-integer? (-- (clos natural ρ) C ...) LAB)
+  [(plain-δ exact-nonnegative-integer? (-- (clos natural ρ) C ...))
    (-- (↓ #t (env)))]
-  [(plain-δ exact-nonnegative-integer? V LAB) 
+  [(plain-δ exact-nonnegative-integer? V) 
    (-- (↓ #f (env)))]  
-  [(plain-δ false? (-- (clos #f ρ) C ...) LAB) 
+  [(plain-δ false? (-- (clos #f ρ) C ...)) 
    (-- (↓ #t (env)))]
-  [(plain-δ false? V LAB) 
+  [(plain-δ false? V) 
    (-- (↓ #f (env)))]
-  [(plain-δ symbol? (-- (clos 'variable ρ) C ...) LAB)
+  [(plain-δ symbol? (-- (clos 'variable ρ) C ...))
    (-- (↓ #t (env)))]
-  [(plain-δ symbol? (-- (clos 'variable ρ) C ...) LAB) 
+  [(plain-δ symbol? (-- (clos 'variable ρ) C ...)) 
    (-- (↓ #f (env)))]
   ;; Interpreted different than Racket's `sub1', `random', etc.
-  [(plain-δ sub1 (-- (clos natural ρ) C ...) LAB)
+  [(plain-δ sub1 (-- (clos natural ρ) C ...))
    (-- (↓ ,(max 0 (sub1 (term natural))) (env)))]  
-  [(plain-δ natural->natural (-- (clos natural ρ) C ...) LAB)
+  [(plain-δ natural->natural (-- (clos natural ρ) C ...))
    (meta-apply natural->natural natural)]
-  [(plain-δ car (-- (cons V_0 V_1) C ...) LAB) V_0]
-  [(plain-δ cdr (-- (cons V_0 V_1) C ...) LAB) V_1]
-  [(plain-δ procedure-arity-includes? PROC (-- (↓ natural ρ) C ...) LAB)   
+  [(plain-δ car (-- (cons V_0 V_1) C ...)) V_0]
+  [(plain-δ cdr (-- (cons V_0 V_1) C ...)) V_1]
+  [(plain-δ procedure-arity-includes? PROC (-- (↓ natural ρ) C ...))   
    (-- (↓ ,(= (term natural) (term (arity PROC))) (env)))]
-  [(plain-δ procedure-arity-includes? OP1 (-- (↓ natural ρ) C ...) LAB)
+  [(plain-δ procedure-arity-includes? OP1 (-- (↓ natural ρ) C ...))
    (-- (↓ ,(= (term natural) 1) (env)))]
-  [(plain-δ procedure-arity-includes? OP2 (-- (↓ natural ρ) C ...) LAB)   
+  [(plain-δ procedure-arity-includes? OP2 (-- (↓ natural ρ) C ...))   
    (-- (↓ ,(= (term natural) 2) (env)))]
   ;; Interpreted differently than Racket `-'.
   [(plain-δ -
             (-- (clos natural_1 ρ_1) C_1 ...)
-            (-- (clos natural_2 ρ_2) C_2 ...)
-            LAB)
+            (-- (clos natural_2 ρ_2) C_2 ...))
    (-- (↓ ,(max 0 (- (term natural_1) (term natural_2))) (env)))]
   [(plain-δ quotient
             (-- (clos natural_1 ρ_1) C_1 ...)
-            (-- (clos natural_2 ρ_2) C_2 ...)
-            LAB)
+            (-- (clos natural_2 ρ_2) C_2 ...))
    (meta-apply quotient natural_1 natural_2)]
   [(plain-δ natural-natural->natural
             (-- (clos natural_1 ρ_1) C_1 ...)
-            (-- (clos natural_2 ρ_2) C_2 ...)
-            LAB)
+            (-- (clos natural_2 ρ_2) C_2 ...))
    (meta-apply natural-natural->natural natural_1 natural_2)]   
   [(plain-δ natural-natural->bool
             (-- (clos natural_1 ρ_1) C_1 ...)
-            (-- (clos natural_2 ρ_2) C_2 ...)
-            LAB)
+            (-- (clos natural_2 ρ_2) C_2 ...))
    (meta-apply natural-natural->bool natural_1 natural_2)]
   [(plain-δ string-string->bool
             (-- (clos string_1 ρ_1) C_1 ...)
-            (-- (clos string_2 ρ_2) C_2 ...)
-            LAB)
+            (-- (clos string_2 ρ_2) C_2 ...))
    (meta-apply string-string->bool string_1 string_2)]
   [(plain-δ symbol=?
             (-- (clos 'variable_1 ρ_1) C_1 ...)
-            (-- (clos 'variable_2 ρ_2) C_2 ...)
-            LAB)
+            (-- (clos 'variable_2 ρ_2) C_2 ...))
    (meta-apply symbol=? variable_1 variable_2)]
   ;; Structs
-  [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...) LAB)
+  [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...))
    (-- (↓ #t (env)))]
-  [(plain-δ (s-pred X_m X_tag) V LAB)
+  [(plain-δ (s-pred X_m X_tag) V)
    (-- (↓ #f (env)))]
-  [(plain-δ (s-ref X_m X_tag natural) (-- (struct X_m X_tag V ...) C ...) LAB)
+  [(plain-δ (s-ref X_m X_tag natural) (-- (struct X_m X_tag V ...) C ...))
    V_i
    (where V_i ,(list-ref (term (V ...)) (term natural)))]
-  [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...) LAB)
+  [(plain-δ (s-pred X_m X_tag) (-- (struct X_m X_tag V ...) C ...))
    (-- (↓ #t (env)))]
-  [(plain-δ (s-pred X_m X_tag) V LAB)
+  [(plain-δ (s-pred X_m X_tag) V)
    (-- (↓ #f (env)))]
   ;; eqv?
-  [(plain-δ eqv? PROC_1 PROC_2 LAB) 
+  [(plain-δ eqv? PROC_1 PROC_2) 
    (-- (↓ #f (env)))]
   [(plain-δ eqv? 
             (-- (clos 'variable_1 ρ_1) C_1 ...)
-            (-- (clos 'variable_2 ρ_2) C_2 ...) 
-            LAB)
+            (-- (clos 'variable_2 ρ_2) C_2 ...))
    (-- (↓ #t (env)))
    (side-condition (eqv? (term variable_1) (term variable_2)))]
   [(plain-δ eqv? 
             (-- (clos VAL_1 ρ_1) C_1 ...)
-            (-- (clos VAL_2 ρ_2) C_2 ...) 
-            LAB)
+            (-- (clos VAL_2 ρ_2) C_2 ...))
    (-- (↓ #t (env)))
    (side-condition (eqv? (term VAL_1) (term VAL_2)))]
-  [(plain-δ eqv? V_1 V_2 LAB)
+  [(plain-δ eqv? V_1 V_2)
    (-- (↓ #f (env)))])
 
 (test 
- (test-equal (term (δ cons (-- (↓ 0 (env))) (-- (↓ 1 (env))) †))
+ (test-equal (term (δ cons (-- (↓ 0 (env))) (-- (↓ 1 (env)))))
              (term ((-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env))))))))
- (test-equal (term (plain-δ add1 (-- (↓ 5 (env))) †))
+ (test-equal (term (plain-δ add1 (-- (↓ 5 (env)))))
              (term (-- (↓ 6 (env)))))
- (test-equal (term (plain-δ sub1 (-- (↓ 5 (env))) †))
+ (test-equal (term (plain-δ sub1 (-- (↓ 5 (env)))))
              (term (-- (↓ 4 (env)))))
- (test-equal (term (plain-δ sub1 (-- (↓ 0 (env))) †))
+ (test-equal (term (plain-δ sub1 (-- (↓ 0 (env)))))
              (term (-- (↓ 0 (env))))) 
  (test-equal (term (plain-δ +
                             (-- (↓ 3 (env)))
-                            (-- (↓ 3 (env)))
-                            †))
+                            (-- (↓ 3 (env)))))
              (term (-- (↓ 6 (env)))))
  (test-equal (term (plain-δ string=? 
                             (-- (↓ "Hi" (env)))
-                            (-- (↓ "Hi" (env)))
-                            †))
+                            (-- (↓ "Hi" (env)))))
              (term (-- (↓ #t (env)))))
- (test-equal (term (plain-δ empty? (-- (↓ empty #hash())) Λ))
+ (test-equal (term (plain-δ empty? (-- (↓ empty #hash()))))
              (term (-- (↓ #t (env)))))
  (test-equal (term (plain-δ =
                             (-- (↓ 3 (env)))
-                            (-- (↓ 3 (env)))
-                            †))
+                            (-- (↓ 3 (env)))))
              (term (-- (↓ #t (env)))))
  
- (test-equal (term (plain-δ (s-pred p posn) (-- (struct p posn)) †))
+ (test-equal (term (plain-δ (s-pred p posn) (-- (struct p posn))))
              (term (-- (↓ #t (env)))))
- (test-equal (term (plain-δ (s-pred p posn) (-- (struct p blah)) †))
+ (test-equal (term (plain-δ (s-pred p posn) (-- (struct p blah))))
              (term (-- (↓ #f (env)))))
- (test-equal (term (plain-δ (s-pred p posn) (-- (↓ 0 (env))) †))
+ (test-equal (term (plain-δ (s-pred p posn) (-- (↓ 0 (env)))))
              (term (-- (↓ #f (env)))))
- (test-equal (term (δ (s-cons p posn 0) †))
+ (test-equal (term (δ (s-cons p posn 0)))
              (term ((-- (struct p posn)))))
- (test-equal (term (δ (s-cons p posn 2) (-- (↓ 0 (env))) (-- (↓ 1 (env))) †))
+ (test-equal (term (δ (s-cons p posn 2) (-- (↓ 0 (env))) (-- (↓ 1 (env)))))
              (term ((-- (struct p posn (-- (↓ 0 (env))) (-- (↓ 1 (env))))))))
- (test-equal (term (plain-δ (s-ref p posn 0) (-- (struct p posn (-- (↓ 0 (env))) (-- (↓ 5 (env))))) †))
+ (test-equal (term (plain-δ (s-ref p posn 0) (-- (struct p posn (-- (↓ 0 (env))) (-- (↓ 5 (env)))))))
              (term (-- (↓ 0 (env)))))
- (test-equal (term (plain-δ (s-ref p posn 1) (-- (struct p posn (-- (↓ 0 (env))) (-- (↓ 5 (env))))) †))
+ (test-equal (term (plain-δ (s-ref p posn 1) (-- (struct p posn (-- (↓ 0 (env))) (-- (↓ 5 (env)))))))
              (term (-- (↓ 5 (env)))))
- (test-equal (term (plain-δ eqv? (-- (↓ 0 (env))) (-- (↓ 0 (env))) f))
+ (test-equal (term (plain-δ eqv? (-- (↓ 0 (env))) (-- (↓ 0 (env)))))
              (term (-- (↓ #t (env)))))
- (test-equal (term (plain-δ eqv? (-- (↓ (λ (x) x) (env))) (-- (↓ (λ (x) x) (env))) f))
+ (test-equal (term (plain-δ eqv? (-- (↓ (λ (x) x) (env))) (-- (↓ (λ (x) x) (env)))))
              (term (-- (↓ #f (env)))))
- (test-equal (term (plain-δ eqv? (-- (↓ 'x (env))) (-- (↓ 'x (env))) f))
+ (test-equal (term (plain-δ eqv? (-- (↓ 'x (env))) (-- (↓ 'x (env)))))
              (term (-- (↓ #t (env)))))
- (test-equal (term (plain-δ eqv? (-- (↓ 'x (env))) (-- (↓ 'y (env))) f))
+ (test-equal (term (plain-δ eqv? (-- (↓ 'x (env))) (-- (↓ 'y (env)))))
              (term (-- (↓ #f (env)))))
  )
 
@@ -502,8 +490,8 @@
    (side-condition (not (eq? (term OP) 'struct?)))]   
   [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
    ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
-   (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V ★))))  ;; FIXME no longer works since car assume safe
-   (where (V_cdr ...) ,(filter (redex-match λcρ V) (term (δ cdr V ★))))
+   (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V))))  ;; FIXME no longer works since car assume safe
+   (where (V_cdr ...) ,(filter (redex-match λcρ V) (term (δ cdr V))))
    (where bool_cars ,(andmap values (term ((contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))
    (where bool_cdrs ,(andmap values (term ((contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))]      
   [(contract-not-in/cache ((and/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
@@ -536,7 +524,7 @@
   proves : V OP -> #t or #f
   [(proves (-- PREVAL C ...) OP)
    #t
-   (where TRUE (plain-δ OP (-- PREVAL C ...) ★))]  
+   (where TRUE (plain-δ OP (-- PREVAL C ...)))]
   [(proves (-- C_0 ... C C_1 ...) OP)
    #t
    (where #t (proves-con C OP))] 
@@ -571,7 +559,7 @@
    (where #t (refutes-con C OP))]  
   [(refutes (-- PREVAL C ...) OP)
    #t
-   (where FALSE (plain-δ OP (-- PREVAL C ...) ★))]  
+   (where FALSE (plain-δ OP (-- PREVAL C ...)))]  
   [(refutes (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 any_1) OP)
    #t
    (side-condition (not (eq? 'procedure? (term OP))))]

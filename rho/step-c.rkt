@@ -52,15 +52,15 @@
             Λ)
          σ)
         (where HOC (cons/c CON_0 CON_1))
-        (where #t (∈ #t (δ cons? V Λ)))
-        (where (any_0 ... V_car any_1 ...) (δ car V Λ))
-        (where (any_2 ... V_cdr any_3 ...) (δ cdr V Λ))                
+        (where #t (∈ #t (δ cons? V)))
+        (where (any_0 ... V_car any_1 ...) (δ car V))
+        (where (any_2 ... V_cdr any_3 ...) (δ cdr V))
         check-cons-pass)
    
    (--> (((cons/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
         ((blame LAB_1 LAB_3 V_1 (HOC ρ) V) σ)
         (where HOC (cons/c CON_0 CON_1))
-        (where #t (∈ #f (δ cons? V Λ)))
+        (where #t (∈ #f (δ cons? V)))
         check-cons-fail)
    
    ;; STRUCT CONTRACTS
@@ -71,15 +71,15 @@
             Λ)
          σ)
         (where HOC (struct/c X_m X_tag CON ...))
-        (where #t (∈ #t (δ (s-pred X_m X_tag) V Λ)))
+        (where #t (∈ #t (δ (s-pred X_m X_tag) V)))
         (where (natural_1 ...) ,(for/list ([i (length (term (CON ...)))]) i))
-        (where ((any_0 ... V_r any_1 ...) ...) ((δ (s-ref X_m X_tag natural_1) V Λ) ...))
+        (where ((any_0 ... V_r any_1 ...) ...) ((δ (s-ref X_m X_tag natural_1) V) ...))
         check-struct-pass)
    
    (--> (((struct/c X_m X_tag CON ...) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
         ((blame LAB_1 LAB_3 V_1 (HOC ρ) V) σ)
         (where HOC (struct/c X_m X_tag CON ...))
-        (where #t (∈ #f (δ (s-pred X_m X_tag) V Λ)))
+        (where #t (∈ #f (δ (s-pred X_m X_tag) V)))
         check-struct-fail)
    
    ;; PROCEDURE CONTRACTS      
@@ -104,13 +104,13 @@
         (((CON_1 ... --> any) ρ <= LAB_1 LAB_2 V_1 LAB_3
                               (remember-contract V ((pred procedure? Λ) (env))))
          σ)
-        (side-condition (term (∈ #t (δ procedure? V ★))))
+        (side-condition (term (∈ #t (δ procedure? V))))
         chk-fun-pass) 
    
    ;; DAMNING
    (--> (((CON_1 ... -> any) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
         ((blame LAB_1 LAB_3 V_1 ((CON_1 ... -> any) (env)) V) σ)
-        (side-condition (term (∈ #f (δ procedure? V ★))))
+        (side-condition (term (∈ #f (δ procedure? V))))
         chk-fun-fail-flat)))
 
 (test

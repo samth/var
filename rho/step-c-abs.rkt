@@ -17,7 +17,7 @@
                 (↓ r (env))) 
               ...)
          σ)
-        (side-condition (term (∈ #t (δ procedure? AV ★))))
+        (side-condition (term (∈ #t (δ procedure? AV))))
         (where natural (arity AV))
         (side-condition (= (term natural) (length (term (V ...)))))
         
@@ -39,7 +39,7 @@
               ...)
          σ)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
-        (side-condition (term (∈ #t (δ procedure? AV ★))))
+        (side-condition (term (∈ #t (δ procedure? AV))))
         (side-condition (not (term (arity AV))))
         apply-abs-no-arity)))
      
