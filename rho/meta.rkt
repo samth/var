@@ -630,18 +630,18 @@
    (where #f (meq? OP procedure?))]
   
   ;; structs are disjoint
-  [(refutes-con (struct/c X_tag X_m any_s ...) (s-pred X_tag2 X_m2))
+  [(refutes-con ((struct/c X_tag X_m any_s ...) ρ) (s-pred X_tag2 X_m2))
    (where #f (meq? X_tag X_tag2))]
-  [(refutes-con (struct/c X_tag X_m any_s ...) (s-pred X_tag2 X_m2))
-   (where #f (meq? X_m X_m))]
+  [(refutes-con ((struct/c X_tag X_m any_s ...) ρ) (s-pred X_tag2 X_m2))
+   (where #f (meq? X_m X_m2))]
   ;; structs are not op? for any op?
-  [(refutes-con (struct/c X_tag X_m any_s ...) OP?)]
+  [(refutes-con ((struct/c X_tag X_m any_s ...) ρ) OP?)]
   [(refutes-con (pred OP? LAB) (s-pred any ...))]
   
   [(refutes-con ((pred OP_0 LAB) ρ) OP_1) 
    (refutes-pred OP_0 OP_1)]
   [(refutes-con ((atom/c ATOMLIT LAB) ρ) OP)   
-   (where FALSE (plain-δ OP (-- (↓ ATOMLIT (env))) Λ))]
+   (where FALSE (plain-δ OP (-- (↓ ATOMLIT (env)))))]
   [(refutes-con ((or/c CON_0 CON_1) ρ) OP)
    (refutes-con (CON_0 ρ) OP)
    (refutes-con (CON_1 ρ) OP)]
@@ -649,8 +649,10 @@
    (refutes-con (CON_0 ρ) OP)]
   [(refutes-con ((and/c CON_0 CON_1) ρ) OP)
    (refutes-con (CON_1 ρ) OP)]
-  [(refutes-con ((not/c CON_0) ρ) OP)
-   (proves-con (CON_0 ρ) OP)]
+  ; This isn't right either: let CON = zero?, OP = nat?
+  ;[(refutes-con ((not/c CON) ρ) OP)
+  ; (proves-con (CON ρ) OP)]
+  [(refutes-con ((not/c (pred OP LAB)) ρ) OP)] ; As good as I can do.
   [(refutes-con ((cons/c CON_0 CON_1) ρ) OP) 
    (where #f (meq? OP cons?))]
   
@@ -659,9 +661,23 @@
    (refutes-con ((unroll (rec/c X CON)) ρ) OP)])
 
 (test 
- (test-equal (judgment-holds (refutes-con ((pred string? f) (env)) exact-nonnegative-integer?))
-             #t))
-
+ (test-equal (judgment-holds (refutes-con ((-> (∧)) (env)) procedure?)) #f)
+ (test-equal (judgment-holds (refutes-con ((-> (∧)) (env)) cons?)) #t) 
+ (test-equal (judgment-holds (refutes-con ((struct/c p posn) (env)) (s-pred p pair))) #t)
+ (test-equal (judgment-holds (refutes-con ((struct/c p posn) (env)) (s-pred p posn))) #f)
+ (test-equal (judgment-holds (refutes-con ((struct/c p posn) (env)) (s-pred m posn))) #t)
+ (test-equal (judgment-holds (refutes-con ((or/c (atom/c 'x f) (atom/c 'y f)) (env)) cons?)) #t)
+ (test-equal (judgment-holds (refutes-con ((or/c (atom/c 'x f) (atom/c 'y f)) (env)) symbol?)) #f)
+ (test-equal (judgment-holds (refutes-con ((and/c (pred symbol? f) (atom/c 'y f)) (env)) symbol?)) #f)
+ (test-equal (judgment-holds (refutes-con ((and/c (pred symbol? f) (atom/c 'y f)) (env)) cons?)) #t)
+ (test-equal (judgment-holds (refutes-con ((not/c (pred symbol? f)) (env)) symbol?)) #t)
+ (test-equal (judgment-holds (refutes-con ((not/c (pred zero? f)) (env)) exact-nonnegative-integer?)) #f)
+ (test-equal (judgment-holds (refutes-con ((atom/c 'x f) (env)) cons?)) #t)
+ (test-equal (judgment-holds (refutes-con ((atom/c 'x f) (env)) symbol?)) #f)
+ (test-equal (judgment-holds (refutes-con ((cons/c (∧) (∧)) (env)) symbol?)) #t)
+ (test-equal (judgment-holds (refutes-con ((cons/c (∧) (∧)) (env)) cons?)) #f)
+ (test-equal (judgment-holds (refutes-con ((rec/c X (pred string? f)) (env)) symbol?)) #t)
+ (test-equal (judgment-holds (refutes-con ((pred string? f) (env)) exact-nonnegative-integer?)) #t))
  
 (define-judgment-form λcρ
   #:mode (refutes-pred I I)
