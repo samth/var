@@ -57,14 +57,16 @@
    ((-- (cons V_0 V_1)))]  
   [(δ (s-cons X_m X_tag natural) V ...)
    ((-- (struct X_m X_tag V ...)))
-   (side-condition (= (length (term (V ...))) (term natural)))]  
+   (side-condition (= (length (term (V ...))) (term natural)))]
+  [(δ car V) (proj-left V)]
+  [(δ cdr V) (proj-right V)]
   [(δ OP V_1 ... AV V_2 ...)
    (abs-δ OP V_1 ... AV V_2 ...)]  
   [(δ OP V ...) 
    ((plain-δ OP V ...))])
 
 (define-metafunction λcρ
-  abs-δ : OP V ... AV V ... LAB -> (A ...) ;; FIXME: eventually should be (V ...)
+  abs-δ : OP V ... AV V ... -> (A ...) ;; FIXME: eventually should be (V ...)
   [(abs-δ OP? AV)
    ((-- (↓ #t (env))))
    (where #t (proves AV OP?))]
@@ -100,16 +102,6 @@
   [(abs-δ eqv? V_1 V_2)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]
-  
-  ;; car
-  [(abs-δ car V)
-   (proj-left V)
-   (where #t (proves V cons?))]
-  
-  ;; cdr
-  [(abs-δ cdr V)
-   (proj-right V)
-   (where #t (proves V cons?))]
   
   ;; struct ops
   [(abs-δ (s-pred X_m X_tag) AV)
@@ -179,14 +171,7 @@
                     (-- (↓ #f (env)))))) 
  
  (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred (posn? ^ g p) f) (env)))))
-             (term ((-- ((∧) (env))))))
- ;; FIXME fails because we don't prove string?s can't be posn?s, but want that.
- (test-equal (term (abs-δ (s-ref p posn 0) (-- ((pred string? f) (env)))))
-             (term ((blame f Λ (-- ((pred string? f) (env))) (s-ref p posn 0) (-- ((pred string? f) (env)))))))
- (test-equal (term (abs-δ (s-ref p posn 0) (-- ((∧) (env)))))
-             (term ((-- ((∧) (env)))
-                    (blame f Λ (-- ((∧) (env))) (s-ref p posn 0) (-- ((∧) (env))))))) 
- )
+             (term ((-- ((∧) (env)))))))
 
 
 (define-metafunction λcρ
@@ -232,8 +217,6 @@
    (-- (↓ ,(max 0 (sub1 (term natural))) (env)))]  
   [(plain-δ natural->natural (-- (clos natural ρ) C ...))
    (meta-apply natural->natural natural)]
-  [(plain-δ car (-- (cons V_0 V_1) C ...)) V_0]
-  [(plain-δ cdr (-- (cons V_0 V_1) C ...)) V_1]
   [(plain-δ procedure-arity-includes? PROC (-- (↓ natural ρ) C ...))   
    (-- (↓ ,(= (term natural) (term (arity PROC))) (env)))]
   [(plain-δ procedure-arity-includes? OP1 (-- (↓ natural ρ) C ...))
@@ -359,164 +342,170 @@
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
+;; placeholder
+(define-judgment-form λcρ
+  #:mode (provesj I I)
+  #:contract (provesj V OP)
+  [(provesj V OP)
+   (where #t (proves V OP))])
+(define-judgment-form λcρ
+  #:mode (refutesj I I)
+  #:contract (refutesj V OP)
+  [(refutesj V OP)
+   (where #t (refutes V OP))])
 
-;; Does this value definitely pass this contract?
-;; FIXME -- this needs a cached version
-(define-metafunction λcρ
-  contract-in : C V -> #t or #f
+(define-judgment-form λcρ
+  #:mode (contract-in I I)
+  #:contract (contract-in C V)
   [(contract-in C (-- any ... C_0 C_1 ...))
-   #t
-   (judgment-holds (≡C C C_0))]
+   (≡C C_0 C)]
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
-  [(contract-in ((atom/c ATOMLIT LAB) ρ) (-- (clos ATOMLIT ρ) C ...))
-   #t]  
+  [(contract-in ((atom/c ATOMLIT LAB) ρ) (-- (clos ATOMLIT ρ) C ...))]
   [(contract-in ((pred OP LAB) ρ) V)
-   (proves V OP)]    
+   (provesj V OP)]    
   [(contract-in ((and/c CON_1 CON_2) ρ) V)
-   ,(and (term (contract-in (CON_1 ρ) V))
-         (term (contract-in (CON_2 ρ) V)))]
+   (contract-in (CON_1 ρ) V)
+   (contract-in (CON_2 ρ) V)]
   [(contract-in ((or/c CON_1 CON_2) ρ) V)
-   ,(or (term (contract-in (CON_1 ρ) V)) 
-        (term (contract-in (CON_2 ρ) V)))]
+   (contract-in (CON_1 ρ) V)]
+  [(contract-in ((or/c CON_1 CON_2) ρ) V)
+   (contract-in (CON_2 ρ) V)]
   [(contract-in ((cons/c CON_1 CON_2) ρ) (-- (cons V_1 V_2) C ...))
-   ,(and (term (contract-in (CON_1 ρ) V_1)) 
-         (term (contract-in (CON_2 ρ) V_2)))]
+   (contract-in (CON_1 ρ) V_1)
+   (contract-in (CON_2 ρ) V_2)]
   [(contract-in ((not/c CON_1) ρ) V)
    (contract-not-in (CON_1 ρ) V)]
   [(contract-in ((cons/c CON_1 CON_2) ρ) AV)
-   ,(and (andmap (λ (x) (term (contract-in (CON_1 ρ) ,x))) (term (proj-left AV)))
-         (andmap (λ (x) (term (contract-in (CON_2 ρ) ,x))) (term (proj-right AV))))] 
-  [(contract-in C V) #f])
+   (provesj AV cons?)
+   (where (V_left ...) (proj-left AV))
+   (where (V_right ...) (proj-right AV))
+   (contract-in (CON_1 ρ) V_left) 
+   ...
+   (contract-in (CON_2 ρ) V_right)
+   ...
+   ])  
 
 (test
- (test-equal (term (contract-in ((pred procedure? †) (env))
-                                (-- (↓ (λ (x) x) (env))))) 
+ (test-equal (judgment-holds (contract-in ((pred procedure? †) (env))
+                                          (-- (↓ (λ (x) x) (env)))))
              #t)
- (test-equal (term (contract-in ((pred zero? †) (env))
-                                (-- (↓ 0 (env))))) 
+ (test-equal (judgment-holds (contract-in ((pred zero? †) (env))
+                                          (-- (↓ 0 (env))))) 
              #t)
- (test-equal (term (contract-in ((pred procedure? †) (env))
-                                ((--> (pred (λ (x) x) †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ (x) x) (env))))))
+ (test-equal (judgment-holds (contract-in ((pred procedure? †) (env))
+                                          ((--> (pred (λ (x) x) †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ (x) x) (env))))))
              #t)
- (test-equal (term (contract-in ((pred (prime? ^ f g) †) (env))
-                                (-- (↓ "a" (env)) ((pred (prime? ^ f g) †) (env)))))
+ (test-equal (judgment-holds (contract-in ((pred (prime? ^ f g) †) (env))
+                                          (-- (↓ "a" (env)) ((pred (prime? ^ f g) †) (env)))))
              #t)
- (test-equal (term (contract-in ((pred (prime? ^ g f) †) (env))
-                                (-- (↓ "a" (env)) ((pred (prime? ^ h f) †) (env)))))
+ (test-equal (judgment-holds (contract-in ((pred (prime? ^ g f) †) (env))
+                                          (-- (↓ "a" (env)) ((pred (prime? ^ h f) †) (env)))))
              #t)
- (test-equal (term (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) (env))
-                                (-- (↓ 0 (env)))))
+ (test-equal (judgment-holds (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) (env))
+                                          (-- (↓ 0 (env)))))
              #t)
- (test-equal (term (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) (env))
-                                (-- (↓ 1 (env)))))
+ (test-equal (judgment-holds (contract-in ((and/c (pred zero? †) (pred exact-nonnegative-integer? †)) (env))
+                                          (-- (↓ 1 (env)))))
              #f)
- (test-equal (term (contract-in ((or/c (pred zero? †) (pred exact-nonnegative-integer? †)) (env))
-                                (-- (↓ 1 (env)))))
+ (test-equal (judgment-holds (contract-in ((or/c (pred zero? †) (pred exact-nonnegative-integer? †)) (env))
+                                          (-- (↓ 1 (env)))))
              #t)
- (test-equal (term (contract-in ((cons/c (pred zero? †) (pred string? †)) (env))
-                                (-- (cons (-- (↓ 0 (env))) (-- (↓ "s" (env)))))))
+ (test-equal (judgment-holds (contract-in ((cons/c (pred zero? †) (pred string? †)) (env))
+                                          (-- (cons (-- (↓ 0 (env))) (-- (↓ "s" (env)))))))
              #t)
- (test-equal (term (contract-in ((cons/c (pred zero? †) (pred string? †)) (env))
-                                (-- (cons (-- (↓ 0 (env))) (-- (↓ 2 (env)))))))
+ (test-equal (judgment-holds (contract-in ((cons/c (pred zero? †) (pred string? †)) (env))
+                                          (-- (cons (-- (↓ 0 (env))) (-- (↓ 2 (env)))))))
              #f)
  
- (test-equal (term (contract-in ((not/c (pred cons? †)) (env))
-                                (-- (↓ 1 (env)))))
+ (test-equal (judgment-holds (contract-in ((not/c (pred cons? †)) (env))
+                                          (-- (↓ 1 (env)))))
              #t)
  
- (test-equal (term (contract-in ((not/c (pred cons? †)) (env))
-                                (-- (cons (-- (↓ 0 (env))) (-- (↓ 2 (env)))))))
+ (test-equal (judgment-holds (contract-in ((not/c (pred cons? †)) (env))
+                                          (-- (cons (-- (↓ 0 (env))) (-- (↓ 2 (env)))))))
              #f)
  ;; We should really get true here, but it requires more work.
  ;; FIXME known to fail; requires caching
- (test-equal (term (contract-in ((rec/c x 
-                                        (or/c (pred empty? †)
-                                              (cons/c (pred zero? †) x))) 
-                                 (env))
-                                (-- (cons (-- (↓ 0 (env)))
-                                          (-- (↓ empty (env)))))))
+ (test-equal (judgment-holds (contract-in ((rec/c x 
+                                                  (or/c (pred empty? †)
+                                                        (cons/c (pred zero? †) x))) 
+                                           (env))
+                                          (-- (cons (-- (↓ 0 (env)))
+                                                    (-- (↓ empty (env)))))))
              #t))
 
 ;; Does this value *definitely* fail this contract?
-(define-metafunction λcρ
-  contract-not-in : C V -> #t or #f  
+(define-judgment-form λcρ
+  #:mode (contract-not-in I I)
+  #:contract (contract-not-in C V)
   [(contract-not-in C V)
-   (contract-not-in/cache C V ())])
+   (contract-not-in/cache C V () #t)])
 
+(define-judgment-form λcρ
+  #:mode (contract-not-in/cache I I I O)
+  #:contract (contract-not-in/cache C V ((C V) ...) any_bool)
+  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...) #f)] ;; FIXME -- use ≡C 
+  [(contract-not-in/cache C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) any #t)
+   (contract-not-in/cache C V any #t)]
+  [(contract-not-in/cache ((atom/c ATOMLIT_!_1 LAB) ρ_1) (-- (clos ATOMLIT_!_1 ρ_2) C_1 ...) any #t)]
+  [(contract-not-in/cache ((pred OP LAB) ρ) V any #t)
+   (refutesj V OP)]
+  
+  [(contract-not-in/cache ((struct/c any_1 ...) ρ) (-- C ... ((pred OP? LAB) ρ_1) C_1 ...) any #f)]
+   
+  ;; FIXME
+  ;[(contract-not-in/cache ((struct/c X_m X_tag any_1 ...) ρ) (-- PREVAL C_1 ...) any #t
+  ; #t
+  ; (side-condition (not (redex-match λcρ (struct X_m X_tag any_2 ...) (term PREVAL)))))]
+  
+  [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)
+   (refutesj V cons?)]
+  [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)   
+   (where (V_car ...) (proj-left V))
+   (contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)
+   ...]
+  [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)
+   (where (V_cdr ...) (proj-right V))
+   (contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)
+   ...]
+  [(contract-not-in/cache ((and/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)
+   (contract-not-in/cache (CON_1 ρ) V ((((and/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)]
+  [(contract-not-in/cache ((and/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)
+   (contract-not-in/cache (CON_2 ρ) V ((((and/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)]  
+  [(contract-not-in/cache ((or/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)
+   (contract-not-in/cache (CON_1 ρ) V ((((or/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)
+   (contract-not-in/cache (CON_2 ρ) V ((((or/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)]  
+  [(contract-not-in/cache ((not/c CON_1) ρ) V ((C_3 V_3) ...) #t)
+   (contract-in (CON_1 ρ) V)] ;; FIXME -- use contract-not-in/cache when it exists 
+  [(contract-not-in/cache ((rec/c X CON) ρ) V ((C_3 V_3) ...) #t)
+   (contract-not-in/cache ((unroll (rec/c X CON)) ρ) V ((((rec/c X CON) ρ) V) (C_3 V_3) ...) #t)])
+  
+ 
+ 
 (test
- (test-equal (term (contract-not-in ((pred string? †) (env)) 
-                                    (-- (↓ 3 (env)))))
+ (test-equal (judgment-holds (contract-not-in ((pred string? †) (env)) 
+                                              (-- (↓ 3 (env)))))
              #t)
- (test-equal (term (contract-not-in ((pred string? †) (env)) 
-                                    ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ (x) x) (env))))))
+ (test-equal (judgment-holds (contract-not-in ((pred string? †) (env)) 
+                                              ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ (x) x) (env))))))
              #t)
- (test-equal (term (contract-not-in ((cons/c (pred string? †) (pred zero? †)) (env))
-                                    (-- (cons (-- (↓ "" (env))) (-- (↓ 0 (env)))))))
+ (test-equal (judgment-holds (contract-not-in ((cons/c (pred string? †) (pred zero? †)) (env))
+                                              (-- (cons (-- (↓ "" (env))) (-- (↓ 0 (env)))))))
              #f)
- (test-equal (term (contract-not-in ((cons/c (pred string? †) (pred zero? †)) (env))
-                                    (-- (cons (-- (↓ "" (env))) (-- (↓ 2 (env)))))))
+ (test-equal (judgment-holds (contract-not-in ((cons/c (pred string? †) (pred zero? †)) (env))
+                                              (-- (cons (-- (↓ "" (env))) (-- (↓ 2 (env)))))))
              #t)
- (test-equal (term (contract-not-in ((rec/c x (or/c (pred empty? †) (cons/c (pred string? †) x))) (env))
-                                    (-- (↓ (λ (x) x) (env)))))
+ (test-equal (judgment-holds (contract-not-in ((rec/c x (or/c (pred empty? †) (cons/c (pred string? †) x))) (env))
+                                              (-- (↓ (λ (x) x) (env)))))
              #t))
 
-(define-metafunction λcρ
-  contract-not-in/cache : C V ((C V) ...) -> #t or #f
-  [(contract-not-in/cache C V ((C_0 V_0) ... (C V) (C_1 V_1) ...)) #f] ;; FIXME -- use ≡C
-  ;; Pretty sure this is not needed
-  #;
-  [(contract-not-in/cache (CON-INAPPLICABLE ρ) V any)
-   #t
-   (where #t (proves V procedure?))]
-  [(contract-not-in/cache C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) any)
-   (contract-not-in/cache C V any)] 
-  [(contract-not-in/cache ((atom/c ATOMLIT_1 LAB) ρ_1) (-- (clos ATOMLIT_2 ρ_2) C_1 ...) any)
-   #t
-   (side-condition (not (equal? (term ATOMLIT_1) (term ATOMLIT_2))))]   
-  [(contract-not-in/cache ((pred OP LAB) ρ) V any)
-   (refutes V OP)]
-  [(contract-not-in/cache ((struct/c any_1 ...) ρ) (-- C ... ((pred OP? LAB) ρ_1) C_1 ...) any)
-   #t]
-  [(contract-not-in/cache ((struct/c X_m X_tag any_1 ...) ρ) (-- PREVAL C_1 ...) any)
-   #t
-   (side-condition (not (redex-match λcρ (struct X_m X_tag any_2 ...) (term PREVAL))))]
-  
-  ;; FIXME maybe add struct?
-  #;
-  [(contract-not-in/cache ((pred OP LAB) ρ) V any)
-   #f
-   (where #t (proves V struct?))
-   (side-condition (not (eq? (term OP) 'struct?)))]   
-  [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
-   ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
-   (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V))))  ;; FIXME no longer works since car assume safe
-   (where (V_cdr ...) ,(filter (redex-match λcρ V) (term (δ cdr V))))
-   (where bool_cars ,(andmap values (term ((contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))
-   (where bool_cdrs ,(andmap values (term ((contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))]      
-  [(contract-not-in/cache ((and/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
-   ,(or (term (contract-not-in/cache (CON_1 ρ) V ((((and/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)))
-        (term (contract-not-in/cache (CON_2 ρ) V ((((and/c CON_1 CON_2) ρ) V) (C_3 V_3) ...))))]
-  
-  [(contract-not-in/cache ((or/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
-   ,(and (term (contract-not-in/cache (CON_1 ρ) V ((((or/c C_1 C_2) ρ) V) (C_3 V_3) ...)))
-         (term (contract-not-in/cache (CON_2 ρ) V ((((or/c C_1 C_2) ρ) V) (C_3 V_3) ...))))]
-  
-  [(contract-not-in/cache ((not/c CON_1) ρ) V ((C_3 V_3) ...))
-   (contract-in (CON_1 ρ) V)] ;; FIXME -- use contract-not-in/cache when it exists
-  
-  [(contract-not-in/cache ((rec/c X CON) ρ) V ((C_3 V_3) ...))
-   (contract-not-in/cache ((unroll (rec/c X CON)) ρ) V ((((rec/c X CON) ρ) V) (C_3 V_3) ...))
-   ;; Can't we just assume this?
-   #;
-   (where #t (productive? (rec/c x C)))]
-                    
   #|
   [(contract-not-in/cache (C_1 ... -> any) V any_1)
    #t
    (where #t (refutes V procedure?))]
     |#
-  [(contract-not-in/cache C V any) #f])
+
 
 ;; Does OP hold on all values abstracted by V
 ;; [Gives an approximate answer: #f means "failed to prove"]
@@ -818,21 +807,31 @@
  (test-equal (term (proj-struct (-- ((struct/c p posn (pred string? f) (pred string? f)) (env))) p posn 0))
              (term ((-- ((pred string? f) (env)))))))
 
-;; Project an AV to the left
+;; Project an V to the left
 ;; (proj-left (-- (cons/c exact-nonnegative-integer? string?) (cons/c zero? string?)))
 ;; ≡ (-- exact-nonnegative-integer? zero?)
 (define-metafunction λcρ
-  proj-left : AV -> (V ...)
+  proj-left : V -> (V ...) 
+  [(proj-left (-- (cons V_1 V_2))) (V_1)]
+  [(proj-left (-- (cons V_1 V_2) C_1 C_2 ...))
+   ((remember-contract V_1 C_left ...) ...)
+   (where ((-- C_left ...) ...) (proj-left (-- C_1 C_2 ...)))]
   [(proj-left (-- C_0 C ...))
-   (proj-left/a ((join-contracts)) C_0 C ...)])
+   (proj-left/a ((join-contracts)) C_0 C ...)]
+  [(proj-left V) ()])
 
 (define-metafunction λcρ
-  proj-right : AV -> (V ...)
+  proj-right : V -> (V ...)
+  [(proj-right (-- (cons V_1 V_2))) (V_2)]
+  [(proj-right (-- (cons V_1 V_2) C_1 C_2 ...))
+   ((remember-contract V_2 C_right ...) ...)
+   (where ((-- C_right ...) ...) (proj-right (-- C_1 C_2 ...)))]
   [(proj-right (-- C_0 C ...))
-   (proj-right/a ((join-contracts)) C_0 C ...)])
+   (proj-right/a ((join-contracts)) C_0 C ...)]
+  [(proj-right V) ()])
 
 (define-metafunction λcρ
-  proj-left/a : ((-- C ...) ...) C ... -> (V ...)
+  proj-left/a : ((-- C ...) ...) C ... -> (AV ...)
   [(proj-left/a (AV ...)) (AV ...)]  
   [(proj-left/a (AV ...) ((cons/c CON_0 CON_1) ρ) C_2 ...)
    (proj-left/a (AV_R ...) C_2 ...)
@@ -844,7 +843,7 @@
    (proj-left/a (AV ...) C_1 ...)])
 
 (define-metafunction λcρ
-  proj-right/a : ((-- C ...) ...) C ... -> (V ...)
+  proj-right/a : ((-- C ...) ...) C ... -> (AV ...)
   [(proj-right/a (AV ...)) (AV ...)]  
   [(proj-right/a (AV ...) ((cons/c CON_0 CON_1) ρ) C_2 ...)
    (proj-right/a (AV_R ...) C_2 ...)
