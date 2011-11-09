@@ -69,10 +69,10 @@
   abs-δ : OP V ... AV V ... -> (A ...) ;; FIXME: eventually should be (V ...)
   [(abs-δ OP? AV)
    ((-- (↓ #t (env))))
-   (where #t (proves AV OP?))]
+   (judgment-holds (proves AV OP?))]
   [(abs-δ OP? AV)
    ((-- (↓ #f (env))))
-   (where #t (refutes AV OP?))]
+   (judgment-holds (refutes AV OP?))]
   [(abs-δ OP? AV)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]   
@@ -106,13 +106,14 @@
   ;; struct ops
   [(abs-δ (s-pred X_m X_tag) AV)
    ((-- (↓ #t (env))))
-   (where #t (proves AV (s-pred X_m X_tag)))]  
+   (judgment-holds (proves AV (s-pred X_m X_tag)))]
   [(abs-δ (s-pred X_m X_tag) AV)
    ((-- (↓ #f (env))))
-   (where #t (refutes AV (s-pred X_m X_tag)))]  
+   (judgment-holds (refutes AV (s-pred X_m X_tag)))]  
   [(abs-δ (s-pred X_m X_tag) AV)
    ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))]
+    (-- (↓ #f (env))))
+   (judgment-holds (indy AV (s-pred X_m X_tag)))]
      
   [(abs-δ (s-ref X_m X_tag natural) AV)
    (proj-struct AV X_m X_tag natural)
@@ -120,10 +121,10 @@
   
   [(abs-δ (s-ref X_m X_tag natural) AV)
    ((-- ((∧) (env))))
-   (where #t (proves AV (s-pred X_m X_tag)))] 
+   (judgment-holds (proves AV (s-pred X_m X_tag)))]
   [(abs-δ (s-ref X_m X_tag natural) AV)     ;; FIXME should expressed as a contract
    ((blame FIXMELAB Λ AV (s-ref X_m X_tag natural) AV))
-   (where #t (refutes AV (s-pred X_m X_tag)))]
+   (judgment-holds (refutes AV (s-pred X_m X_tag)))]
   [(abs-δ (s-ref X_m X_tag natural) AV) ;; FIXME should expressed as a contract
    ((-- ((∧) (env)))
     (blame FIXMELAB Λ AV (s-ref X_m X_tag natural) AV))])
@@ -342,18 +343,6 @@
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 
-;; placeholder
-(define-judgment-form λcρ
-  #:mode (provesj I I)
-  #:contract (provesj V OP)
-  [(provesj V OP)
-   (where #t (proves V OP))])
-(define-judgment-form λcρ
-  #:mode (refutesj I I)
-  #:contract (refutesj V OP)
-  [(refutesj V OP)
-   (where #t (refutes V OP))])
-
 (define-judgment-form λcρ
   #:mode (contract-in I I)
   #:contract (contract-in C V)
@@ -363,7 +352,7 @@
    (contract-in C V)]
   [(contract-in ((atom/c ATOMLIT LAB) ρ) (-- (clos ATOMLIT ρ) C ...))]
   [(contract-in ((pred OP LAB) ρ) V)
-   (provesj V OP)]    
+   (proves V OP)]    
   [(contract-in ((and/c CON_1 CON_2) ρ) V)
    (contract-in (CON_1 ρ) V)
    (contract-in (CON_2 ρ) V)]
@@ -377,7 +366,7 @@
   [(contract-in ((not/c CON_1) ρ) V)
    (contract-not-in (CON_1 ρ) V)]
   [(contract-in ((cons/c CON_1 CON_2) ρ) AV)
-   (provesj AV cons?)
+   (proves AV cons?)
    (where (V_left ...) (proj-left AV))
    (where (V_right ...) (proj-right AV))
    (contract-in (CON_1 ρ) V_left) 
@@ -450,7 +439,7 @@
    (contract-not-in/cache C V any #t)]
   [(contract-not-in/cache ((atom/c ATOMLIT_!_1 LAB) ρ_1) (-- (clos ATOMLIT_!_1 ρ_2) C_1 ...) any #t)]
   [(contract-not-in/cache ((pred OP LAB) ρ) V any #t)
-   (refutesj V OP)]
+   (refutes V OP)]
   
   [(contract-not-in/cache ((struct/c any_1 ...) ρ) (-- C ... ((pred OP? LAB) ρ_1) C_1 ...) any #f)]
    
@@ -460,7 +449,7 @@
   ; (side-condition (not (redex-match λcρ (struct X_m X_tag any_2 ...) (term PREVAL)))))]
   
   [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)
-   (refutesj V cons?)]
+   (refutes V cons?)]
   [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...) #t)   
    (where (V_car ...) (proj-left V))
    (contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...) #t)
@@ -507,62 +496,77 @@
     |#
 
 
+(define-metafunction λcρ
+  indy-hack : V OP -> #t or #f
+  [(indy-hack V OP) #t
+   (side-condition (not (judgment-holds (proves V OP))))
+   (side-condition (not (judgment-holds (refutes V OP))))])
+
+(define-judgment-form λcρ
+  #:mode (indy I I)
+  #:contract (indy V OP)
+  [(indy V OP)
+   (where #t (indy-hack V OP))
+   ;; This doesn't work:
+   #;(where #f (judgment-holds (proves V OP)))
+   #;(where #f (judgment-holds (refutes V OP)))])
+
 ;; Does OP hold on all values abstracted by V
 ;; [Gives an approximate answer: #f means "failed to prove"]
-(define-metafunction λcρ
-  proves : V OP -> #t or #f
+(define-judgment-form λcρ
+  #:mode (proves I I)
+  #:contract (proves V OP)
   [(proves (-- PREVAL C ...) OP)
-   #t
    (where TRUE (plain-δ OP (-- PREVAL C ...)))]
   [(proves (-- C_0 ... C C_1 ...) OP)
-   #t
-   (where #t (proves-con C OP))] 
+   (proves-con C OP)]
   [(proves (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) OP)
-   (proves V OP)]    
-  [(proves V OP) #f])
+   (proves V OP)])
 
 (test
- (test-equal (term (proves (-- (↓ "Hi" (env))) string?)) #t)
- (test-equal (term (proves ((--> (pred (λ (x) #t) f)) (env) <= f g 
-                                                      (-- (↓ 0 (env))) h 
-                                                      (-- (↓ (λ (x) x) (env))))
-                           procedure?))
+ (test-equal (judgment-holds (proves (-- (↓ "Hi" (env))) string?)) #t)
+ (test-equal (judgment-holds (proves ((--> (pred (λ (x) #t) f)) (env) <= f g 
+                                                                (-- (↓ 0 (env))) h 
+                                                                (-- (↓ (λ (x) x) (env))))
+                                     procedure?))
              #t) 
  
- (test-equal (term (proves (-- ((pred procedure? Λ) (env)))
-                           procedure?))
+ (test-equal (judgment-holds (proves (-- ((pred procedure? Λ) (env)))
+                                     procedure?))
              #t)
  
- (test-equal (term (proves ((--> (pred (λ (x) #t) f)) 
-                            (env) <= f g 
-                            (-- (↓ 0 (env))) h 
-                            (-- ((pred procedure? Λ) (env))))
-                           procedure?))
+ (test-equal (judgment-holds (proves ((--> (pred (λ (x) #t) f)) 
+                                      (env) <= f g 
+                                      (-- (↓ 0 (env))) h 
+                                      (-- ((pred procedure? Λ) (env))))
+                                     procedure?))
              #t))
 
-;; Does (negate o?) hold on all values abstracted by AV
+;; side-condition
 (define-metafunction λcρ
-  refutes : V OP -> #t or #f
+  meq? : any any -> #t or #f
+  [(meq? any_x any_y) ,(eq? (term any_x) (term any_y))])
+  
+;; Does (negate o?) hold on all values abstracted by AV
+(define-judgment-form λcρ
+  #:mode (refutes I I)
+  #:contract (refutes V OP)
   [(refutes (-- C_0 ... C C_1 ...) OP) 
-   #t
-   (where #t (refutes-con C OP))]  
-  [(refutes (-- PREVAL C ...) OP)
-   #t
-   (where FALSE (plain-δ OP (-- PREVAL C ...)))]  
+   (refutes-con C OP)]  
+  [(refutes (-- PREVAL C ...) OP)  
+   (where FALSE (plain-δ OP (-- PREVAL C ...)))]
   [(refutes (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 any_1) OP)
-   #t
-   (side-condition (not (eq? 'procedure? (term OP))))]
+   (where #f (meq? OP procedure?))]   
   [(refutes (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V) OP)
-   (refutes V OP)]
-  [(refutes V OP) #f])
+   (refutes V OP)])
 
 (test
- (test-equal (term (refutes (-- (↓ 0 (env))) empty?)) #t)
- (test-equal (term (refutes (-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env))))) cons?)) #f)
- (test-equal (term (refutes (-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env))))) string?)) #t)
- (test-equal (term (refutes ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))) string?))
+ (test-equal (judgment-holds (refutes (-- (↓ 0 (env))) empty?)) #t)
+ (test-equal (judgment-holds (refutes (-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env))))) cons?)) #f)
+ (test-equal (judgment-holds (refutes (-- (cons (-- (↓ 0 (env))) (-- (↓ 1 (env))))) string?)) #t)
+ (test-equal (judgment-holds (refutes ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))) string?))
              #t)
- (test-equal (term (refutes ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))) procedure?))
+ (test-equal (judgment-holds (refutes ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))) procedure?))
              #f)
                    
  #;
@@ -570,113 +574,113 @@
  )
 
 ;; Does satisfying C imply o?
-(define-metafunction λcρ
-  proves-con : C OP -> #t or #f  
+(define-judgment-form λcρ
+  #:mode (proves-con I I)
+  #:contract (proves-con C OP)
   [(proves-con ((pred OP_0 LAB) ρ) OP_1)
-   (proves-predicate OP_0 OP_1)]
-  [(proves-con ((struct/c X_m X_tag any_s ...) ρ) (s-pred X_m X_tag))
-   #t]
-  [(proves-con ((pred (X_spred ^ LAB_0 LAB_p) LAB) ρ) (s-pred LAB_p X_tag))
-   #t
+   (proves-pred OP_0 OP_1)]
+  [(proves-con ((struct/c X_m X_tag any_s ...) ρ) (s-pred X_m X_tag))]  
+  [(proves-con ((pred (X_spred ^ LAB_0 LAB_p) LAB) ρ) (s-pred LAB_p X_tag))  
    (where X_spred (tag->pred X_tag))]
-  [(proves-con ((atom/c ATOMLIT LAB) ρ) OP)
-   #t
+  [(proves-con ((atom/c ATOMLIT LAB) ρ) OP)   
    (where TRUE (plain-δ OP (-- (↓ ATOMLIT (env))) Λ))]
   [(proves-con ((or/c CON_0 CON_1) ρ) OP)
-   ,(and (term (proves-con (CON_0 ρ) OP))
-         (term (proves-con (CON_1 ρ) OP)))]
+   (proves-con (CON_0 ρ) OP)
+   (proves-con (CON_1 ρ) OP)]
   [(proves-con ((and/c CON_0 CON_1) ρ) OP)
-   ,(or (term (proves-con (CON_0 ρ) OP))
-        (term (proves-con (CON_1 ρ) OP)))]
+   (proves-con (CON_0 ρ) OP)]
+  [(proves-con ((and/c CON_0 CON_1) ρ) OP)
+   (proves-con (CON_1 ρ) OP)]
   [(proves-con ((not/c CON_0) ρ) OP)
    (refutes-con (CON_0 ρ) OP)]
-  [(proves-con ((cons/c CON_0 CON_1) ρ) cons?) #t]
-  [(proves-con ((CON_0 ... -> any) ρ) procedure?) #t]
-  [(proves-con C OP) #f])
+  [(proves-con ((cons/c CON_0 CON_1) ρ) cons?)]
+  [(proves-con ((CON_0 ... -> any) ρ) procedure?)])
 
 (test
- (test-equal (term (proves-con ((pred procedure? Λ) (env)) procedure?)) #t)
- (test-equal (term (proves-con ((pred procedure? Λ) (env)) string?)) #f)
- (test-equal (term (proves-con ((pred false? †) (env)) boolean?)) #t)
- (test-equal (term (proves-con ((cons/c (pred string? †) (pred boolean? †)) (env))
-                               cons?))
+ (test-equal (judgment-holds (proves-con ((pred procedure? Λ) (env)) procedure?)) #t)
+ (test-equal (judgment-holds (proves-con ((pred procedure? Λ) (env)) string?)) #f)
+ (test-equal (judgment-holds (proves-con ((pred false? †) (env)) boolean?)) #t)
+ (test-equal (judgment-holds (proves-con ((cons/c (pred string? †) (pred boolean? †)) (env))
+                                         cons?))
              #t)
- (test-equal (term (proves-con ((-> (pred string? †)) (env)) procedure?)) #t)
- (test-equal (term (proves-con ((-> (pred string? †)) (env)) string?)) #f)
- (test-equal (term (proves-con ((and/c (pred boolean? †) (pred false? †)) (env)) false?)) #t)
- (test-equal (term (proves-con ((or/c (pred boolean? †) (pred false? †)) (env)) false?)) #f)
- (test-equal (term (proves-con ((or/c (pred false? †) (pred boolean? †)) (env)) false?)) #f))
+ (test-equal (judgment-holds (proves-con ((-> (pred string? †)) (env)) procedure?)) #t)
+ (test-equal (judgment-holds (proves-con ((-> (pred string? †)) (env)) string?)) #f)
+ (test-equal (judgment-holds (proves-con ((and/c (pred boolean? †) (pred false? †)) (env)) false?)) #t)
+ (test-equal (judgment-holds (proves-con ((or/c (pred boolean? †) (pred false? †)) (env)) false?)) #f)
+ (test-equal (judgment-holds (proves-con ((or/c (pred false? †) (pred boolean? †)) (env)) false?)) #f))
 
- 
-                   
- 
-
-(define-metafunction λcρ
-  proves-predicate : OP OP -> #t or #f
-  [(proves-predicate OP OP) #t]
-  [(proves-predicate zero? exact-nonnegative-integer?) #t]
-  [(proves-predicate false? boolean?) #t]
-  [(proves-predicate OP_0 OP_1) #f])
+(define-judgment-form λcρ
+  #:mode (proves-pred I I)
+  #:contract (proves-pred OP OP)
+  [(proves-pred OP OP)]
+  [(proves-pred zero? exact-nonnegative-integer?)]
+  [(proves-pred false? boolean?)])
 
 ;; Does satisfying C imply (negate o?)
-(define-metafunction λcρ
-  refutes-con : C OP -> #t or #f
-  [(refutes-con ((CON_0 ... -> any) ρ) procedure?) #f]
-  [(refutes-con ((CON_0 ... -> any) ρ) OP) #t]
+(define-judgment-form λcρ
+  #:mode (refutes-con I I)
+  #:contract (refutes-con C OP)      
+  [(refutes-con ((CON_0 ... -> any) ρ) OP)
+   (where #f (meq? OP procedure?))]
+  
   ;; structs are disjoint
   [(refutes-con (struct/c X_tag X_m any_s ...) (s-pred X_tag2 X_m2))
-   #t
-   (side-condition (or (not (eq? (term X_tag) (term X_tag2)))
-                       (not (eq? (term X_m) (term X_m2)))))]
+   (where #f (meq? X_tag X_tag2))]
+  [(refutes-con (struct/c X_tag X_m any_s ...) (s-pred X_tag2 X_m2))
+   (where #f (meq? X_m X_m))]
   ;; structs are not op? for any op?
-  [(refutes-con (struct/c X_tag X_m any_s ...) OP?)
-   #t]
-  [(refutes-con (pred OP? LAB) (s-pred any ...))
-   #t]
+  [(refutes-con (struct/c X_tag X_m any_s ...) OP?)]
+  [(refutes-con (pred OP? LAB) (s-pred any ...))]
   
   [(refutes-con ((pred OP_0 LAB) ρ) OP_1) 
-   (refutes-predicate OP_0 OP_1)]
-  [(refutes-con ((atom/c ATOMLIT LAB) ρ) OP)
-   #t
+   (refutes-pred OP_0 OP_1)]
+  [(refutes-con ((atom/c ATOMLIT LAB) ρ) OP)   
    (where FALSE (plain-δ OP (-- (↓ ATOMLIT (env))) Λ))]
   [(refutes-con ((or/c CON_0 CON_1) ρ) OP)
-   ,(and (term (refutes-con (CON_0 ρ) OP))
-         (term (refutes-con (CON_1 ρ) OP)))]
+   (refutes-con (CON_0 ρ) OP)
+   (refutes-con (CON_1 ρ) OP)]
   [(refutes-con ((and/c CON_0 CON_1) ρ) OP)
-   ,(or (term (refutes-con (CON_0 ρ) OP))
-        (term (refutes-con (CON_1 ρ) OP)))]
+   (refutes-con (CON_0 ρ) OP)]
+  [(refutes-con ((and/c CON_0 CON_1) ρ) OP)
+   (refutes-con (CON_1 ρ) OP)]
   [(refutes-con ((not/c CON_0) ρ) OP)
    (proves-con (CON_0 ρ) OP)]
   [(refutes-con ((cons/c CON_0 CON_1) ρ) OP) 
-   #t
-   (side-condition (not (eq? (term OP) 'cons?)))]
+   (where #f (meq? OP cons?))]
+  
   [(refutes-con ((rec/c X CON) ρ) OP) 
    ;; Productive implies you'll never get a loop
-   (refutes-con ((unroll (rec/c X C)) ρ) OP)]
-  [(refutes-con C OP) #f])
+   (refutes-con ((unroll (rec/c X CON)) ρ) OP)])
 
 (test 
- (test-equal (term (refutes-con ((pred string? f) (env)) exact-nonnegative-integer?))
+ (test-equal (judgment-holds (refutes-con ((pred string? f) (env)) exact-nonnegative-integer?))
              #t))
 
  
-
-(define-metafunction λcρ  
-  refutes-predicate : OP OP -> #t or #f
-  [(refutes-predicate OP OP) #f]
-  [(refutes-predicate empty? OP) #t]
-  [(refutes-predicate cons? OP) #t]
-  [(refutes-predicate exact-nonnegative-integer? zero?) #f]
-  [(refutes-predicate zero? exact-nonnegative-integer?) #f]
-  [(refutes-predicate exact-nonnegative-integer? OP) #t]
-  [(refutes-predicate zero? OP) #t]
-  [(refutes-predicate procedure? OP) #t]
-  [(refutes-predicate boolean? false?) #f]
-  [(refutes-predicate boolean? OP) #t]
-  [(refutes-predicate string? OP) #t]
-  [(refutes-predicate false? boolean?) #f]
-  [(refutes-predicate false? OP) #t])
-
+(define-judgment-form λcρ
+  #:mode (refutes-pred I I)
+  #:contract (refutes-pred OP OP)  
+  [(refutes-pred empty? OP) 
+   (where #f (meq? empty? OP))]
+  [(refutes-pred cons? OP)
+   (where #f (meq? cons? OP))]
+  [(refutes-pred exact-nonnegative-integer? OP)
+   (where #f (meq? exact-nonnegative-integer? OP))
+   (where #f (meq? zero? OP))]  
+  [(refutes-pred zero? OP)
+   (where #f (meq? exact-nonnegative-integer? OP))
+   (where #f (meq? zero? OP))]  
+  [(refutes-pred procedure? OP) 
+   (where #f (meq? procedure? OP))]  
+  [(refutes-pred boolean? OP) 
+   (where #f (meq? boolean? OP))
+   (where #f (meq? false? OP))]    
+  [(refutes-pred string? OP) 
+   (where #f (meq? string? OP))]
+  [(refutes-pred false? OP) 
+   (where #f (meq? false? OP))
+   (where #f (meq? boolean? OP))])
+     
 (define-metafunction λcρ
   has-struct/c? : AV X X -> #t or #f
   [(has-struct/c? (-- C_1 ... ((struct/c X_m X_tag CON ...) ρ) C_2 ...) X_m X_tag)

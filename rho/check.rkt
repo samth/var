@@ -61,7 +61,7 @@
                                 #f)
                            ;; final result is #t b/c this is a spurious result if we get here
                            #t)))))) 
-   (where #t (proves AV cons?))]
+   (judgment-holds (proves AV cons?))]
   [(fc/c X any (cons/c CON_1 CON_2) ρ AV)
    (λ (x)
      (IFF (@@ cons? x Λ)
@@ -75,8 +75,7 @@
    ;; using • instead of (car X) and (cdr X) avoids spurious blame of the language
    ;; (proj-{left,right} AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a cons/c (also impossible)
-   (where #f (proves AV cons?))
-   (where #f (refutes AV cons?))]
+   (judgment-holds (indy AV cons?))]
   
   ;; struct/c
   [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ (-- (struct X_m X_tag V ...) C ...))
@@ -105,7 +104,7 @@
                                         (AND (@@ (fc/c X any CON ρ AV) (@ EXP_acc x Λ) Λ) ...)
                                         ;; final result is #t b/c this is a spurious result if we get here
                                         #t))))))))
-   (where #t (proves AV (s-pred X_m X_tag)))]
+   (judgment-holds (proves AV (s-pred X_m X_tag)))]
   [(fc/c X any (struct/c X_m X_tag FLAT ...) ρ AV)
    (λ (x) (AND (@@ (s-pred X_m X_tag) x Λ)
                (@@ EXP • Λ) ...))
@@ -114,8 +113,7 @@
    ;; using • instead of the results of the accessors avoids spurious blame of the language
    ;; (proj-struct n AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a struct/c (also impossible)   
-   (where #f (proves AV (s-pred X_m X_tag)))
-   (where #f (refutes AV (s-pred X_m X_tag)))])
+   (judment-holds (indy AV (s-pred X_m X_tag)))])
 
 
 (test 
