@@ -65,19 +65,7 @@
    ((plain-δ OP V ... LAB))])
 
 (define-metafunction λcρ
-  abs-δ : OP V ... AV V ... LAB -> (A ...)
-  ;; FIXME holdover from old model
-  #;
-  [(abstract-δ op V_0 ... V V_1 ... ℓ)
-   ((-- #f)) ;; V is impossible, so why not?
-   (where #t (impossible? V))]
-  
-  ;; O? 
-  [(abs-δ OP? AV LAB)
-   ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))
-   (where #t (proves AV OP?))
-   (where #t (refutes AV OP?))]
+  abs-δ : OP V ... AV V ... LAB -> (A ...)   
   [(abs-δ OP? AV LAB)
    ((-- (↓ #t (env))))
    (where #t (proves AV OP?))]
@@ -86,67 +74,33 @@
    (where #t (refutes AV OP?))]
   [(abs-δ OP? AV LAB)
    ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))]
-  
-  ;; procedure-arity-includes?
-  [(abs-δ procedure-arity-includes? (-- PREVAL C ...) AV LAB)
-   ((-- (↓ #t (env))) 
-    (-- (↓ #f (env))))
-   (where #t (proves AV exact-nonnegative-integer?))]  
+    (-- (↓ #f (env))))]   
   [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...) LAB)
-   ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))
-   (where #t (proves AV procedure?))
-   (where #f (arity AV))]  
-  [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...) LAB)
-   ((-- (↓ bool (env))))   
+   ((-- (↓ any_b (env))))
    (where natural_a (arity AV))
-   (where bool ,(= (term natural) (term natural_a)))]
+   (where any_b ,(= (term natural) (term natural_a)))]
   [(abs-δ procedure-arity-includes? V_0 V_1 LAB)
    ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))
-   (where #t (proves V_0 procedure?))
-   (where #t (proves V_1 exact-nonnegative-integer?))]  
-  
+    (-- (↓ #f (env))))]  
   [(abs-δ random V LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env))))
-   (where #t (proves V exact-nonnegative-integer?))
-   (where #t (refutes V zero?))]
-
-  ;; natural->natural
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
   [(abs-δ natural->natural V LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env))))
-   (where #t (proves V exact-nonnegative-integer?))]
-  
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
   [(abs-δ quotient V_1 V_2 LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env))))
-   (where #t (proves V_1 exact-nonnegative-integer?))
-   (where #t (proves V_2 exact-nonnegative-integer?))
-   (where #t (refutes V_2 exact-non-negative-integer?))]
-  
-  ;; natural-natural->natural
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
   [(abs-δ natural-natural->natural V_1 V_2 LAB)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env))))
-   (where #t (proves V_1 exact-nonnegative-integer?))
-   (where #t (proves V_2 exact-nonnegative-integer?))]
-  
-  ;; natural-natural->bool
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
   [(abs-δ natural-natural->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env))))
-   (where #t (proves V_1 exact-nonnegative-integer?))
-   (where #t (proves V_2 exact-nonnegative-integer?))]
-  
-  ;; symbol-symbol->bool
+   ((-- (↓ #t (env)))
+    (-- (↓ #f (env))))]    
   [(abs-δ symbol=? V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env))))
-   (where #t (proves V_1 symbol?))
-   (where #t (proves V_2 symbol?))]
-   
-  ;; string-string->string
+   ((-- ((pred boolean? Λ) (env))))]     
   [(abs-δ string-string->bool V_1 V_2 LAB)
-   ((-- ((pred boolean? Λ) (env))))
-   (where #t (proves V_1 string?))
-   (where #t (proves V_2 string?))]
+   ((-- ((pred boolean? Λ) (env))))]
+  ;; FIXME: could discriminate many more things
+  [(abs-δ eqv? V_1 V_2 LAB)
+   ((-- (↓ #t (env)))
+    (-- (↓ #f (env))))]
   
   ;; car
   [(abs-δ car V LAB)
@@ -193,11 +147,7 @@
    (where #t (refutes AV (s-pred X_m X_tag)))]
   [(abs-δ (s-ref X_m X_tag natural) AV LAB)
    ((-- ((∧) (env)))
-    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))]                    
-  
-  [(abs-δ eqv? V_1 V_2 LAB)
-   ((-- (↓ #t (env)))
-    (-- (↓ #f (env))))])   
+    (blame LAB Λ AV (s-ref X_m X_tag natural) AV))])
   
 (test
  (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- ((pred exact-nonnegative-integer? †) (env))) f))
