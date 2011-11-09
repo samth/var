@@ -594,8 +594,9 @@
    (proves-con (CON_0 ρ) OP)]
   [(proves-con ((and/c CON_0 CON_1) ρ) OP)
    (proves-con (CON_1 ρ) OP)]
-  [(proves-con ((not/c CON_0) ρ) OP)
-   (refutes-con (CON_0 ρ) OP)]
+  ; This isn't right at all -- pretty sure (not/c C) proves no OP.
+  ;[(proves-con ((not/c CON_0) ρ) OP)
+  ; (refutes-con (CON_0 ρ) OP)]
   [(proves-con ((cons/c CON_0 CON_1) ρ) cons?)]
   [(proves-con ((CON_0 ... -> any) ρ) procedure?)])
 
@@ -610,7 +611,9 @@
  (test-equal (judgment-holds (proves-con ((-> (pred string? †)) (env)) string?)) #f)
  (test-equal (judgment-holds (proves-con ((and/c (pred boolean? †) (pred false? †)) (env)) false?)) #t)
  (test-equal (judgment-holds (proves-con ((or/c (pred boolean? †) (pred false? †)) (env)) false?)) #f)
- (test-equal (judgment-holds (proves-con ((or/c (pred false? †) (pred boolean? †)) (env)) false?)) #f))
+ (test-equal (judgment-holds (proves-con ((or/c (pred false? †) (pred boolean? †)) (env)) false?)) #f)
+ (test-equal (judgment-holds (proves-con ((not/c (atom/c 's f)) (env)) symbol?)) #f)
+ (test-equal (judgment-holds (proves-con ((not/c (pred cons? f)) (env)) symbol?)) #f))
 
 (define-judgment-form λcρ
   #:mode (proves-pred I I)
