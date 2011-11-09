@@ -53,7 +53,7 @@
  (redex-check λcρ OP (term (op-con OP))))
 
 (define-metafunction λcρ
-  δ : OP V ... LAB -> (A A ...) 
+  δ : OP V ... LAB -> (A A ...) ;; FIXME: eventually should be (V ...)
   [(δ cons V_0 V_1 LAB) ; cons works same for concrete and abstract
    ((-- (cons V_0 V_1)))]  
   [(δ (s-cons X_m X_tag natural) V ... LAB)
@@ -106,23 +106,11 @@
   [(abs-δ car V LAB)
    (proj-left V)
    (where #t (proves V cons?))]
-  [(abs-δ car V LAB)
-   ((blame LAB Λ V car V))
-   (where #t (refutes V cons?))]
-  [(abs-δ car V LAB)
-   (A ... (blame LAB Λ V car V))
-   (where (A ...) (proj-left V))]
   
   ;; cdr
   [(abs-δ cdr V LAB)
    (proj-right V)
    (where #t (proves V cons?))]
-  [(abs-δ cdr V LAB)
-   ((blame LAB Λ V cdr V))
-   (where #t (refutes V cons?))]
-  [(abs-δ cdr V LAB)
-   (A ... (blame LAB Λ V cdr V))
-   (where (A ...) (proj-right V))]
   
   ;; struct ops
   [(abs-δ (s-pred X_m X_tag) AV LAB)
@@ -514,7 +502,7 @@
    (side-condition (not (eq? (term OP) 'struct?)))]   
   [(contract-not-in/cache ((cons/c CON_1 CON_2) ρ) V ((C_3 V_3) ...))
    ,(or (term (refutes V cons?)) (term bool_cars) (term bool_cdrs))
-   (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V ★))))
+   (where (V_car ...) ,(filter (redex-match λcρ V) (term (δ car V ★))))  ;; FIXME no longer works since car assume safe
    (where (V_cdr ...) ,(filter (redex-match λcρ V) (term (δ cdr V ★))))
    (where bool_cars ,(andmap values (term ((contract-not-in/cache (CON_1 ρ) V_car ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))
    (where bool_cdrs ,(andmap values (term ((contract-not-in/cache (CON_2 ρ) V_cdr ((((cons/c CON_1 CON_2) ρ) V) (C_3 V_3) ...)) ...))))]      
