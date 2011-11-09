@@ -113,7 +113,7 @@
    ;; using • instead of the results of the accessors avoids spurious blame of the language
    ;; (proj-struct n AV) can't produce anything interesting here, 
    ;; b/c then either AV is an or/c (impossible), or AV is a struct/c (also impossible)   
-   (judment-holds (indy AV (s-pred X_m X_tag)))])
+   (judgment-holds (indy AV (s-pred X_m X_tag)))])
 
 
 (test 
