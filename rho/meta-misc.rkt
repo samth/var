@@ -60,6 +60,7 @@
   [(fv VAL) ,(set)]
   [(fv X) ,(set (term X))]
   [(fv MODREF) ,(set)]
+  [(fv OPREF) ,(set)]
   [(fv (@ EXP ... LAB))
    ,(apply set-union (term ((fv EXP) ...)))]
   [(fv (if EXP ...))
