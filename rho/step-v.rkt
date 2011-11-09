@@ -58,7 +58,7 @@
         ;((↓ EXP ρ_1) σ_1)
         (where (ρ_1 σ_1) (bind-vars ρ σ (X AV*) ...))
         (where ((CON_a #hash()) ... ((CON_0 ... -> any_c3) #hash()) (CON_b #hash()) ...) (C* ...))
-        (side-condition (printf "widening ~a\n" (term F)))
+        #;(side-condition (printf "widening ~a\n" (term F)))
         special-β-rec)
    
    
