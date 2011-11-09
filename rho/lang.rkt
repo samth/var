@@ -206,8 +206,8 @@
        string=? string<? string<=? string>? string>=? 
        string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
        procedure-arity-includes?)
-  
-  (natural->natural add1 sub1 random)
+    
+  (natural->natural add1 sub1)
   (natural-natural->natural + - * expt) ; does not include quotient (partial).
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
