@@ -406,6 +406,9 @@
  (test-equal (judgment-holds (contract-in ((cons/c (pred zero? †) (pred string? †)) (env))
                                           (-- (cons (-- (↓ 0 (env))) (-- (↓ 2 (env)))))))
              #f)
+ (test-equal (judgment-holds (contract-in ((cons/c (pred zero? †) (pred symbol? †)) (env))
+                                          (-- ((cons/c (atom/c 0 f) (atom/c 's f)) (env)))))
+             #t)
  
  (test-equal (judgment-holds (contract-in ((not/c (pred cons? †)) (env))
                                           (-- (↓ 1 (env)))))
@@ -583,7 +586,7 @@
   [(proves-con ((pred (X_spred ^ LAB_0 LAB_p) LAB) ρ) (s-pred LAB_p X_tag))  
    (where X_spred (tag->pred X_tag))]
   [(proves-con ((atom/c ATOMLIT LAB) ρ) OP)   
-   (where TRUE (plain-δ OP (-- (↓ ATOMLIT (env))) Λ))]
+   (where TRUE (plain-δ OP (-- (↓ ATOMLIT (env)))))]
   [(proves-con ((or/c CON_0 CON_1) ρ) OP)
    (proves-con (CON_0 ρ) OP)
    (proves-con (CON_1 ρ) OP)]
