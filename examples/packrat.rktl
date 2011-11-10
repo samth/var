@@ -151,19 +151,19 @@
            ((or (parse-position>? p1 p2) (parse-error-empty? e2)) e1)
            ((or (parse-position>? p2 p1) (parse-error-empty? e1)) e2)
            (else (parse-error p1
-                                   (lset-union equal?
-                                               (parse-error-expected e1)
-                                               (parse-error-expected e2))
-                                   (lset-union equal?
-                                               (parse-error-messages e1)
-                                               (parse-error-messages e2)))))))))
+                              (lset-union equal?
+                                          (parse-error-expected e1)
+                                          (parse-error-expected e2))
+                              (lset-union equal?
+                                          (parse-error-messages e1)
+                                          (parse-error-messages e2)))))))))
   
   (define/contract (merge-result-errors result errs)
     (-> parse-result? (or/c parse-error? false?) parse-result?)
     (parse-result (parse-result-successful? result)
-                       (parse-result-semantic-value result)
-                       (parse-result-next result)
-                       (merge-parse-errors (parse-result-error result) errs)))
+                  (parse-result-semantic-value result)
+                  (parse-result-next result)
+                  (merge-parse-errors (parse-result-error result) errs)))
   
   ;---------------------------------------------------------------------------
   ; Combinators
