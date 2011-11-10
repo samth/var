@@ -170,7 +170,8 @@
   [(no-behavior blessed-A) #f]
   [(no-behavior AV) #t]
   [(no-behavior (-- (clos natural ρ) any ...)) #t]
-  [(no-behavior (-- (clos bool ρ) any ...)) #t]
+  [(no-behavior (-- (clos boolean ρ) any ...)) #t]
+  [(no-behavior (-- (clos character ρ) any ...)) #t]
   [(no-behavior (-- (clos string ρ) any ...)) #t]
   [(no-behavior (-- (clos empty ρ) any ...)) #t]
   [(no-behavior (-- (cons V_1 V_2) any ...))

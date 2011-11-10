@@ -30,6 +30,10 @@
    ((pred exact-nonnegative-integer? Λ)
     (pred exact-nonnegative-integer? Λ)
     -> (pred boolean? Λ))]
+  [(op-con char-char->bool)
+   ((pred char? Λ)
+    (pred char? Λ)
+    -> (pred boolean? Λ))]
   [(op-con string-string->bool)
    ((pred string? Λ)
     (pred string? Λ)
@@ -185,7 +189,11 @@
    (-- (↓ #t (env)))]
   [(plain-δ string? V) 
    (-- (↓ #f (env)))]
-  [(plain-δ boolean? (-- (clos bool ρ) C ...)) 
+  [(plain-δ char? (-- (clos character ρ))) 
+   (-- (↓ #t (env)))]
+  [(plain-δ char? V) 
+   (-- (↓ #f (env)))]  
+  [(plain-δ boolean? (-- (clos boolean ρ) C ...)) 
    (-- (↓ #t (env)))]
   [(plain-δ boolean? V) 
    (-- (↓ #f (env)))]
@@ -236,7 +244,7 @@
   [(plain-δ natural-natural->natural
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
-   (meta-apply natural-natural->natural natural_1 natural_2)]   
+   (meta-apply natural-natural->natural natural_1 natural_2)]  
   [(plain-δ natural-natural->bool
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
@@ -245,6 +253,10 @@
             (-- (clos string_1 ρ_1) C_1 ...)
             (-- (clos string_2 ρ_2) C_2 ...))
    (meta-apply string-string->bool string_1 string_2)]
+  [(plain-δ char-char->bool
+            (-- (clos character_1 ρ_1) C_1 ...)
+            (-- (clos character_2 ρ_2) C_2 ...))
+   (meta-apply char-char->bool character_1 character_2)]
   [(plain-δ symbol=?
             (-- (clos 'variable_1 ρ_1) C_1 ...)
             (-- (clos 'variable_2 ρ_2) C_2 ...))
@@ -340,6 +352,7 @@
          [else (error 'lift "unknown procedure: ~a" f)])]))
   (reflect add1 random + * expt quotient = < <= > >=        
            symbol=?
+           char=? char<? char<=? char>=? char>?
            string=? string<? string>? string<=? string>=?
            string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?))
 

@@ -34,7 +34,7 @@
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Values (syntactic)  
-  (VAL natural #t #f string empty 'variable
+  (VAL natural boolean character string empty 'variable
        LAM 
        (cons VAL VAL) 
        #;(struct X VAL ...))      
@@ -61,18 +61,22 @@
   (ANYCON (pred (λ (X) #t) LAB))
   (ATOMLIT natural
            boolean
+           character
            empty
            'variable)
+  (boolean #t #f)
+  (character (side-condition any_c (char? (term any_c))))
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
   (OP car cdr add1 sub1 random
-      zero? procedure? empty? cons? eqv?
+      zero? procedure? empty? cons? eqv? char?
       exact-nonnegative-integer? string? symbol? boolean? false?
       + - * expt quotient
       = < <= > >=             
       cons 
       symbol=?
+      char=? char<? char<=? char>? char>=?
       string=? string<? string<=? string>? string>=? 
       string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
       procedure-arity-includes?))
@@ -196,24 +200,26 @@
          BLAME)
   
   ;; Conveniences  
-  (OP? zero? procedure? empty? cons?
+  (OP? zero? procedure? empty? cons? char?
        exact-nonnegative-integer? string? symbol? boolean? false?)
   (OP1 car cdr add1 sub1 random OP?)
   (OP2 + - * expt quotient eqv?
        = < <= > >=             
        cons 
+       char=? char<? char<=? char>? char>=?
        symbol=?
        string=? string<? string<=? string>? string>=? 
        string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
        procedure-arity-includes?)
     
   (natural->natural add1 sub1)
+  (char-char->bool char=? char<? char<=? char>? char>=?)
   (natural-natural->natural + - * expt) ; does not include quotient (partial).
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
                        string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
   
-  (bool #t #f)
+  
   (TRUE (-- (clos #t ρ) C* ...))
   (FALSE (-- (clos #f ρ) C* ...))) 
 
