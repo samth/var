@@ -28,7 +28,7 @@
        (let ((X EXP) ...) EXP)
        (begin EXP EXP))
   (OPREF (OP ^ LAB))
-  (MODREF (X ^ LAB X)) ;; X_1 is occurs in LAB and is defined in X_2.
+  (MODREF (X ^ LAB X)) ;; X_1 occurs in LAB, defined in X_2.
   (LAB X OP †) ;; † is top-level  
   ((F X) variable-not-otherwise-mentioned)  
     
