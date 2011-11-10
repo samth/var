@@ -19,7 +19,7 @@
              (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
          σ)
         (where (any_1 ... V_2 any_2 ...) (remember-contract/any V (FLAT ρ)))
-        (side-condition (not (redex-match λcρ (term ANYCON) (term FLAT))))
+        (side-condition (not (redex-match λcρ ANYCON (term FLAT))))
         flat-check)
    
    ;; HIGHER-ORDER CONTRACTS   
