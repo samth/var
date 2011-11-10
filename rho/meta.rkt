@@ -710,36 +710,76 @@
   [(has-struct/c? (-- C ...) X_m X_tag) #f])
 
 
-;; modulename x valuename x modules -> value
 (define-metafunction λcρ
-  lookup-modref/val : X X (MOD ...) -> VAL or •
-  [(lookup-modref/val X X_1 (MOD ... 
-                             (module X LANG REQ STRUCT ... DEF ... (define X_1 any_result) DEF_1 ... 
-                               any_p) ;; FIXME should make sure it's provided.
-                             MOD_1 ...))
-   any_result]
-  [(lookup-modref/val X X_1 (MOD ...))
-   OP
-   (where OP (struct-cons? X X_1 (struct-env (MOD ...))))]
-  [(lookup-modref/val X X_1 (MOD ...))
-   OP
-   (where OP (struct-ref? X X_1 (struct-env (MOD ...))))]
-  [(lookup-modref/val X X_1 (MOD ...))
-   OP
-   (where OP (struct-pred? X X_1 (struct-env (MOD ...))))]
-  [(lookup-modref/val X X_1 any)
-   ,(format "unbound module variable ~a from ~a" (term X_1) (term X))])
+  push-close : VAL -> V
+  [(push-close (cons VAL_1 VAL_2))
+   (-- (cons (push-close VAL_1)
+             (push-close VAL_2)))]
+  [(push-close VAL)
+   (-- (clos VAL (env)))])
+
+(define-metafunction λcρ
+  struct-op/contract : OP LAB -> V
+  [(struct-op/contract (s-pred X_mod X_tag) LAB_use)
+   (((∧) --> (pred boolean? Λ)) 
+    (env) <= Λ LAB_use
+    (-- (clos ((tag->pred X_tag) ^ LAB_use X_mod) (env)))
+    Λ
+    (-- (clos ((tag->pred X_tag) ^ LAB_use X_mod) (env))))]
+  [(struct-op/contract (s-cons X_mod X_tag natural) LAB_use)
+   ((,@(build-list (term natural)
+                   (λ (_) (term (∧))))
+     --> (pred ((tag->pred X_tag) ^ LAB_use X_mod) Λ))
+    (env) <= Λ LAB_use
+    (-- (clos ((tag->cons X_tag) ^ LAB_use X_mod) (env)))
+    Λ
+    (-- (clos ((tag->cons X_tag) ^ LAB_use X_mod) (env))))]                      
+  [(struct-op/contract (s-ref X_mod X_tag natural) LAB_use) 
+   (((pred ((tag->pred X_tag) ^ LAB_use X_mod) Λ) --> (∧))
+    (env) <= Λ LAB_use
+    ;; FIXME: turn s-ref back into "user"-level names.
+    (-- (clos (s-ref X_mod X_tag natural) (env)))
+    Λ
+    (-- (clos (s-ref X_mod X_tag natural) (env))))])
+
+;; valuename x modname x modules -> value
+(define-metafunction λcρ
+  lookup-modref/val : X LAB X (MOD ...) -> V or •
+  [(lookup-modref/val X_name LAB_use X_mod
+                      (MOD ... 
+                       ;; FIXME should make sure it's provided.
+                       (module X_def LANG REQ STRUCT ... DEF ... (define X_mod •) DEF_1 ... any_p) 
+                       MOD_1 ...))
+   •]
+  [(lookup-modref/val X_name LAB_use X_mod
+                      (MOD ... 
+                       ;; FIXME should make sure it's provided.
+                       (module X_mod LANG REQ STRUCT ... DEF ... (define X_name VAL) DEF_1 ... any_p) 
+                       MOD_1 ...))
+   (push-close VAL)]
+  [(lookup-modref/val X_name LAB_use X_mod (MOD ...))
+   (struct-op/contract OP LAB_use)   
+   (where OP (struct-cons? X_mod X_name (struct-env (MOD ...))))]
+  [(lookup-modref/val X_name LAB_use X_mod (MOD ...))
+   (struct-op/contract OP LAB_use)
+   (where OP (struct-ref? X_mod X_name (struct-env (MOD ...))))]
+  [(lookup-modref/val X_name LAB_use X_mod (MOD ...))
+   (struct-op/contract OP LAB_use)
+   (where OP (struct-pred? X_mod X_name (struct-env (MOD ...))))]
+  [(lookup-modref/val X_name LAB_use X_mod any)
+   ,(format "unbound module variable ~a from ~a in ~a" (term X_name) (term X_mod) (term LAB_use))])
           
-;; modulename x valuename x modules -> contract
+;; valuename x modulename x modules -> contract
 (define-metafunction λc-user
-  lookup-modref/con : X X (MOD ...) -> CON
-  [(lookup-modref/con X X_1 (MOD ... 
-                             (module X LANG REQ STRUCT ... DEF ... 
-                               (provide/contract any_1 ... [X_1 CON] any_2 ...))
-                             MOD_1 ...))
+  lookup-modref/con : X LAB X (MOD ...) -> CON
+  [(lookup-modref/con X_name LAB_use X_mod
+                      (MOD ... 
+                       (module X_mod LANG REQ STRUCT ... DEF ... 
+                         (provide/contract any_1 ... [X_name CON] any_2 ...))
+                       MOD_1 ...))
    CON] 
-  [(lookup-modref/con X X_1 any)
-   (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a" (term X_1) (term X))) ★)])
+  [(lookup-modref/con X_name LAB_use X_mod any)
+   (pred (λ (x) ,(format "contract for unbound module variable ~a from ~a in ~a" (term X_name) (term X_mod) (term LAB_use))) ★)])
    
 (test
  (define Ms 

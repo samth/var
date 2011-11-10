@@ -8,23 +8,15 @@
   (reduction-relation
    λcρ #:domain (D σ)
    (--> ((X_1 ^ X X) σ)
-        ((push-close VAL) σ)
-        (where VAL (lookup-modref/val X X_1 ,Ms))
+        (V σ)
+        (where V (lookup-modref/val X_1 X X ,Ms))
         m-self)
    (--> ((X_1 ^ LAB X) σ)
-        ((CON (env) <= X LAB (push-close VAL) X_1 (push-close VAL)) σ)
-        (where CON (lookup-modref/con X X_1 ,Ms))
-        (where VAL (lookup-modref/val X X_1 ,Ms))        
+        ((CON (env) <= X LAB V X_1 V) σ)
+        (where CON (lookup-modref/con X_1 LAB X ,Ms))
+        (where V (lookup-modref/val X_1 LAB X ,Ms))
         (side-condition (not (eq? (term X) (term LAB))))
         m-other)))
-
-(define-metafunction λcρ
-  push-close : VAL -> D
-  [(push-close (cons VAL_1 VAL_2))
-   (-- (cons (push-close VAL_1)
-             (push-close VAL_2)))]
-  [(push-close VAL)
-   (-- (clos VAL (env)))])
     
 (test 
  (define Ms 
