@@ -10,10 +10,7 @@
       
    (--> ((clos (apply ^ LAB) ρ) σ)
         ((-- (clos apply ρ)) σ)
-        apply-wrap)
-        
-   (--> ((@ (-- (clos apply ρ)) V LAB) σ)
-        ((blame LAB Λ V apply V) σ))
+        apply-wrap)          
    
    (--> ((@ (-- (clos apply ρ)) V_1 V_2 LAB) σ)        
         ((@ V_1 V ... LAB) σ)
