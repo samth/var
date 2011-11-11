@@ -60,7 +60,7 @@
   [(fv VAL) ,(set)]
   [(fv X) ,(set (term X))]
   [(fv MODREF) ,(set)]
-  [(fv OPREF) ,(set)]
+  [(fv PRIMREF) ,(set)]
   [(fv (@ EXP ... LAB))
    ,(apply set-union (term ((fv EXP) ...)))]
   [(fv (if EXP ...))
@@ -208,7 +208,7 @@
 ;; If there are multiple arrows, we (arbitrarily) take the first arity.
 (define-metafunction λcρ
   arity : V -> number or #f
-  
+  [(arity (-- (clos apply ρ) C ...)) 2]
   [(arity (-- (clos OP1 ρ) C ...)) 1]
   [(arity (-- (clos OP2 ρ) C ...)) 2]
   [(arity (-- (clos (s-pred X_m X_tag) ρ) C ...)) 1]

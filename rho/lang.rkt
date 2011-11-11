@@ -22,14 +22,14 @@
 
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Expressions  
-  (EXP VAL X OPREF MODREF 
+  (EXP VAL X PRIMREF MODREF 
        (@ EXP EXP ... LAB) 
        (if EXP EXP EXP)
        (let ((X EXP) ...) EXP)
        (begin EXP EXP))
-  (OPREF (OP ^ LAB))
+  (PRIMREF (PRIM ^ LAB))
   (MODREF (X ^ LAB X)) ;; X_1 occurs in LAB, defined in X_2.
-  (LAB X OP †) ;; † is top-level  
+  (LAB X PRIM †) ;; † is top-level  
   ((F X) variable-not-otherwise-mentioned)  
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -69,6 +69,7 @@
     
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
+  (PRIM OP apply values)
   (OP car cdr add1 sub1 random
       zero? procedure? empty? cons? eqv? char?
       exact-nonnegative-integer? string? symbol? boolean? false?
@@ -90,8 +91,8 @@
   (S V)
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
-  (EXP .... OP •)
-  (VAL .... OP)
+  (EXP .... PRIM •)
+  (VAL .... PRIM)
   
   (OP .... 
       ;struct?
@@ -123,7 +124,7 @@
   
   ;; Types of values
   (PROC (-- (clos LAM ρ) C* ...) 
-        (-- (clos OP ρ) C* ...)
+        (-- (clos PRIM ρ) C* ...)
         (-- C* ...) ;; FIXME: could be more restrictive
         BLESSED)  
         
@@ -167,7 +168,7 @@
   (NOTPROCC ATOMC CONSC)
   
   (BLAME (blame LAB LAB V C V)
-         (blame LAB LAB V OP V)
+         (blame LAB LAB V PRIM V)
          (blame LAB LAB V λ V))
       
   (LAB .... ★ Λ) ; ★ is demonic generated, Λ is language generated
@@ -181,7 +182,7 @@
                      (not (redex-match λcρ ANYCON (term CON_1)))))
   
   (REDEX (clos • ρ)
-         (clos OPREF ρ)
+         (clos PRIMREF ρ)
          (clos X ρ)
          (clos (@ any ... LAB) ρ)
          (clos (if any ...) ρ)
@@ -247,11 +248,11 @@
   (RL (λ (X ...) REXP) (λ X (X ...) REXP))
   (RPV VAL RL)      
   (RSV RL X OP) ; Syntactic values for pred.  
-  (REXP RPV X OP         
+  (REXP RPV X PRIM         
         (REXP REXP ...)
         (cond [REXP REXP] ... [else REXP])
         (if REXP REXP REXP) 
-        (OP REXP REXP ...) 
+        (PRIM REXP REXP ...) 
         (let ((X REXP) ...) REXP) 
         (begin REXP REXP ...)
         (and REXP ...)

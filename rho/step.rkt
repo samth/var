@@ -2,16 +2,17 @@
 (require redex/reduction-semantics)
 (require "lang.rkt" "meta.rkt" "util.rkt"
          "step-v.rkt" "step-c.rkt" "step-c-abs.rkt"
-         "step-m.rkt" "step-m-abs.rkt" "step-e.rkt")
+         "step-m.rkt" "step-m-abs.rkt" "step-e.rkt"
+         "step-a.rkt")
 (provide (except-out (all-defined-out) test))
-(provide v c c~ m m~ e)
+(provide v c c~ m m~ e a)
 (test-suite test step)
 
 (define step-count 0)
 
 (define (-->_vcme Ms) 
   (define r 
-    (union-reduction-relations v c c~ (m Ms) (m~ Ms)))    
+    (union-reduction-relations v c c~ a (m Ms) (m~ Ms)))    
   (reduction-relation 
    λcρ #:domain (D σ) ;; runs faster if you use REDEX
    (--> ((in-hole 𝓔 REDEX) σ)
