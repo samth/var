@@ -761,7 +761,7 @@
   [(lookup-modref/val X_name LAB_use X_mod
                       (MOD ... 
                        ;; FIXME should make sure it's provided.
-                       (module X_def LANG REQ STRUCT ... DEF ... (define X_mod •) DEF_1 ... any_p) 
+                       (module X_mod LANG REQ STRUCT ... DEF ... (define X_name •) DEF_1 ... any_p) 
                        MOD_1 ...))
    •]
   [(lookup-modref/val X_name LAB_use X_mod
