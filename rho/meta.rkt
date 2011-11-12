@@ -563,7 +563,10 @@
                                       (-- (↓ 0 (env))) h 
                                       (-- ((pred procedure? Λ) (env))))
                                      procedure?))
+             #t)
+ (test-equal (judgment-holds (proves (-- ((rec/c X (pred cons? m)) (env))) cons?))
              #t))
+                                                           
 
 ;; side-condition
 (define-metafunction λcρ
@@ -618,7 +621,9 @@
   ;[(proves-con ((not/c CON_0) ρ) OP)
   ; (refutes-con (CON_0 ρ) OP)]
   [(proves-con ((cons/c CON_0 CON_1) ρ) cons?)]
-  [(proves-con ((CON_0 ... -> any) ρ) procedure?)])
+  [(proves-con ((CON_0 ... -> any) ρ) procedure?)]
+  [(proves-con ((rec/c X CON) ρ) OP)
+   (proves-con ((unroll (rec/c X CON)) ρ) OP)])
 
 (test
  (test-equal (judgment-holds (proves-con ((pred procedure? Λ) (env)) procedure?)) #t)
@@ -918,25 +923,29 @@
 
 (define-metafunction λcρ
   proj-left/a : ((-- C ...) ...) C ... -> (AV ...)
-  [(proj-left/a (AV ...)) (AV ...)]  
+  [(proj-left/a (AV ...)) (AV ...)]
+  [(proj-left/a (AV ...) ((rec/c X CON) ρ) C ...)
+   (proj-left/a (AV ...) ((unroll (rec/c X CON)) ρ) C ...)]
+  [(proj-left/a (AV ...) ((or/c CON_1 CON_2) ρ) C ...)
+   (AV_1 ... AV_2 ...)
+   (where (AV_1 ...) (proj-left/a (AV ...) (CON_1 ρ) C ...))
+   (where (AV_2 ...) (proj-left/a (AV ...) (CON_2 ρ) C ...))]
   [(proj-left/a (AV ...) ((cons/c CON_0 CON_1) ρ) C_2 ...)
-   (proj-left/a (AV_R ...) C_2 ...)
-   (where (AV_R ...) 
-          ,(for*/list ([av (in-list (term (AV ...)))]
-                       [cnew (in-list (term (explode (CON_0 ρ))))])
-             (term (remember-contract ,av ,cnew))))]
+   (proj-left/a ((remember-contract AV (CON_0 ρ)) ...) C_2 ...)]
   [(proj-left/a (AV ...) C_0 C_1 ...)
    (proj-left/a (AV ...) C_1 ...)])
 
 (define-metafunction λcρ
   proj-right/a : ((-- C ...) ...) C ... -> (AV ...)
-  [(proj-right/a (AV ...)) (AV ...)]  
+  [(proj-right/a (AV ...)) (AV ...)]
+  [(proj-right/a (AV ...) ((rec/c X CON) ρ) C ...)
+   (proj-right/a (AV ...) ((unroll (rec/c X CON)) ρ) C ...)]
+  [(proj-right/a (AV ...) ((or/c CON_1 CON_2) ρ) C ...)
+   (AV_1 ... AV_2 ...)
+   (where (AV_1 ...) (proj-right/a (AV ...) (CON_1 ρ) C ...))
+   (where (AV_2 ...) (proj-right/a (AV ...) (CON_2 ρ) C ...))]
   [(proj-right/a (AV ...) ((cons/c CON_0 CON_1) ρ) C_2 ...)
-   (proj-right/a (AV_R ...) C_2 ...)
-   (where (AV_R ...) 
-          ,(for*/list ([av (in-list (term (AV ...)))]
-                       [cnew (in-list (term (explode (CON_1 ρ))))])
-             (term (remember-contract ,av ,cnew))))]
+   (proj-right/a ((remember-contract AV (CON_1 ρ)) ...) C_2 ...)]
   [(proj-right/a (AV ...) C_0 C_1 ...)
    (proj-right/a (AV ...) C_1 ...)])
 

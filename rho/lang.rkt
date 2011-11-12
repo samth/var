@@ -149,11 +149,15 @@
          (cons/c FLAT FLAT) 
          (struct/c X X FLAT ...)
          (not/c FLAT)
-         (atom/c ATOMLIT LAB))
+         (atom/c ATOMLIT LAB)
+         (or/c FLAT FLAT)
+         (rec/c X FLAT))
   (HOC* CARROW       
         (cons/c HOC CON) 
         (cons/c CON HOC)
-        (struct/c X X CON ... HOC CON ...))
+        (struct/c X X CON ... HOC CON ...)
+        (or/c FLAT HOC)
+        (rec/c X HOC))
   
   (ATOM? exact-nonnegative-integer?
          boolean?

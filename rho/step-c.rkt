@@ -18,7 +18,7 @@
              V_2
              (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
          σ)
-        (where (any_1 ... V_2 any_2 ...) (remember-contract/any V (FLAT ρ)))
+        (where V_2 (remember-contract V (FLAT ρ)))
         (side-condition (not (redex-match λcρ ANYCON (term FLAT))))
         flat-check)
    
@@ -28,7 +28,7 @@
              V_2
              (HOC ρ <= LAB_1 LAB_2 V_1 LAB_3 V))
          σ)
-        (where (any_1 ... V_2 any_2 ...) (remember-contract/any V (FLAT ρ)))
+        (where V_2 (remember-contract V (FLAT ρ)))
         or/c-hoc)
    
    (--> (((and/c CON_0 CON_1) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)

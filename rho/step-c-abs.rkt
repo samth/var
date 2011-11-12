@@ -26,7 +26,7 @@
         (where (V_demon ..._1) (V ...))
         (where (C_0 ...) (range-contracts (C ...) (V ...)))
         ;; abstract value constrained by all possible domains
-        (where (any_1 ... V_result any_2 ...) (remember-contract/any (-- ((pred (λ (x) #t) Λ) (env))) C_0 ...))
+        (where V_result (remember-contract (-- ((pred (λ (x) #t) Λ) (env))) C_0 ...))
         apply-abs-known-arity)
       
    (--> ((@ AV V ... LAB) σ)
