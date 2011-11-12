@@ -128,12 +128,20 @@ Pass 3: Annotate expressions/predicates
   [(ann-exp (λ (X ...) REXP) LAB MODENV (X_m ...))
    (λ (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))]
   [(ann-exp (λ X_f (X ...) REXP) LAB MODENV (X_m ...))
-   (λ X_f (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ... X_f)) (set-minus (X_m ...) (X ... X_f))))]  
+   (λ X_f (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ... X_f)) (set-minus (X_m ...) (X ... X_f))))]
+  [(ann-exp (λ XS-DOT-X REXP) LAB MODENV (X_m ...))
+   (λ* (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))
+   (where (X ...) ,(improper-formals->list (term XS-DOT-X)))] 
   [(ann-exp (REXP_0 REXP_1 ...) LAB MODENV (X_m ...))
    (@ (ann-exp REXP_0 LAB MODENV (X_m ...))
       (ann-exp REXP_1 LAB MODENV (X_m ...))
       ...
       LAB)])
+
+(define (improper-formals->list xs)
+  (cond [(symbol? xs) (list xs)]
+        [else 
+         (cons (car xs) (improper-formals->list (cdr xs)))]))
 
 (define-metafunction λc-raw
   mod-env-minus : MODENV (X ...) -> MODENV
@@ -283,10 +291,14 @@ Pass 3: Annotate expressions/predicates
   [(ann-con (rec/c X_c RCON) LAB MODENV (X ...))
    (rec/c X_c (ann-con RCON LAB MODENV (X ...)))]
   
-  [(ann-con (RARR RCON_0 ... RCON_1) LAB MODENV (X ...))
+  [(ann-con (-> RCON_0 ... RCON_1) LAB MODENV (X ...))
    ((ann-con RCON_0 LAB MODENV (X ...)) ... -> (ann-con RCON_1 LAB MODENV (X ...)))]
-  [(ann-con (RARR RCON_0 ... (λ (X_c ...) RCON_1)) LAB MODENV (X ...))
+  [(ann-con (-> RCON_0 ... (λ (X_c ...) RCON_1)) LAB MODENV (X ...))
    ((ann-con RCON_0 LAB MODENV (X ...)) ... -> (λ (X_c ...) (ann-con RCON_1 LAB MODENV (X ...))))]
+  [(ann-con (->* (RCON_0 ...) #:rest RCON_1 RCON_2) LAB MODENV (X ...))
+   ((ann-con RCON_0 LAB MODENV (X ...)) ... 
+    (ann-con RCON_1 LAB MODENV (X ...))
+    -> (ann-con RCON_2 LAB MODENV (X ...)))]  
   [(ann-con (pred X) LAB MODENV (X_1 ...)) 
    (pred (λ (x) "this is the fall-through case") ★)]
   [(ann-con RCON LAB MODENV (X ...)) RCON])

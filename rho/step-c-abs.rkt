@@ -18,8 +18,7 @@
               ...)
          σ)
         (side-condition (term (∈ #t (δ procedure? AV))))
-        (where natural (arity AV))
-        (side-condition (= (term natural) (length (term (V ...)))))
+        (where #t (arity-includes? AV ,(length (term (V ...)))))
         
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (where (((CON_D ρ_D) ..._1) ...) (domain-contracts (C ...)))
@@ -40,7 +39,7 @@
          σ)
         (where (-- C ...) AV) ;; Intentionally doesn't match blessed-AV.
         (side-condition (term (∈ #t (δ procedure? AV))))
-        (side-condition (not (term (arity AV))))
+        (where #t (arity-includes? AV ,(length (term (V ...)))))        
         apply-abs-no-arity)))
      
 (test 

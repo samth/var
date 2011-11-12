@@ -36,6 +36,10 @@
         ((↓ EXP ρ_1) σ_1)
         (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ...))
         β)
+   (--> ((@ (-- (clos (λ* (X ..._1 X_r) EXP) ρ) C* ...) V ..._1 V_r ... LAB) σ)
+        ((↓ EXP ρ_1) σ_1)
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ... (X_r (list->list-value (V_r ...)))))
+        β*)
    (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) V ..._1 LAB) σ)        
         ((↓ EXP ρ_1) σ_1)
         (where (ρ_1 σ_1)
@@ -91,6 +95,13 @@
         ((↓ EXP ρ_1) σ_1)
         (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ...))                
         let)))
+
+(define-metafunction λcρ
+  list->list-value : (V ...) -> V
+  [(list->list-value ())
+   (-- (clos empty (env)))]
+  [(list->list-value (V_1 V_2 ...))
+   (-- (cons V_1 (list->list-value (V_2 ...))))])
 
 (test
  (define -->_v 

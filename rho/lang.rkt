@@ -39,7 +39,8 @@
        (cons VAL VAL) 
        #;(struct X VAL ...))      
   (LAM (λ (X ...) EXP)
-       (λ X (X ...) EXP))
+       (λ X (X ...) EXP)
+       (λ* (X ... X) EXP))
   
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Contracts
@@ -139,7 +140,8 @@
           (CON ..._1 --> (λ (X ..._1) CON)))
           
   (CARROW (CON ... -> CON)
-          (CON ..._1 -> (λ (X ..._1) CON)))
+          (CON ..._1 -> (λ (X ..._1) CON))
+          (CON ... CON ->* CON))
   
   (C  (CON ρ))
   (C* (FLAT* ρ) (HOC* ρ))
@@ -149,8 +151,7 @@
          (struct/c X X FLAT ...)
          (not/c FLAT)
          (atom/c ATOMLIT LAB))
-  (HOC* (CON ... -> CON)
-        (CON ..._1 -> (λ (X ..._1) CON))        
+  (HOC* CARROW       
         (cons/c HOC CON) 
         (cons/c CON HOC)
         (struct/c X X CON ... HOC CON ...))
@@ -226,7 +227,6 @@
 
 (define-extended-language λc-raw λc-user
   ;; Raw, unannotated language
-  (RARR ->)
   (RP (RMOD ... RREQ REXP))
   
   (RMOD (module X LANG RREQ ... RSTRUCT ... RDEF ...
@@ -245,7 +245,12 @@
   (RSTRUCT STRUCT)
     
   (bullet •)
-  (RL (λ (X ...) REXP) (λ X (X ...) REXP))
+  (RL (λ (X ...) REXP)
+      (λ X (X ...) REXP)
+      (λ XS-DOT-X REXP))
+  
+  (XS-DOT-X (side-condition any_xs (improper-formals? (term any_xs))))
+      
   (RPV VAL RL)      
   (RSV RL X OP) ; Syntactic values for pred.  
   (REXP RPV X PRIM         
@@ -271,12 +276,20 @@
         (one-of/c ATOMLIT ATOMLIT ...)
         (symbols 'variable 'variable ...)
         (list/c RCON ...)
-        (RARR RCON ... RCON)
-        (RARR RCON ..._1 (λ (X ..._1) RCON))
+        (-> RCON ... RCON)
+        (-> RCON ..._1 (λ (X ..._1) RCON))
+        (->* (RCON ...) #:rest RCON RCON)
         (listof RCON)
         (non-empty-listof RCON)
         X)
   )
+
+(define (improper-formals? x)
+  (or (symbol? x)
+      (and (cons? x)
+           (symbol? (car x))
+           (improper-formals? (cdr x)))))
+       
 
 ;; A valid provide contract is closed and has the or/c invariant.
 (define-metafunction λc-user

@@ -74,6 +74,7 @@
 
 (test
  ;; totality check
+ #;
  (redex-check λcρ EXP (set? (term (fv EXP)))))
 
 (define-metafunction λcρ
@@ -195,6 +196,7 @@
    (subst/μ X (rec/c X CON) CON)])
 
 (test
+ #;
  (redex-check λc-user (X CON) 
               (equal? (term (unroll (rec/c X CON)))
                       (term (subst/μ X (rec/c X CON) CON)))))
@@ -206,39 +208,45 @@
   [(∈ any_0 any_1) #f])
 
 ;; If there are multiple arrows, we (arbitrarily) take the first arity.
+;; Does this value *definitely* include the given arity?
 (define-metafunction λcρ
-  arity : V -> number or #f
-  [(arity (-- (clos apply ρ) C ...)) 2]
-  [(arity (-- (clos OP1 ρ) C ...)) 1]
-  [(arity (-- (clos OP2 ρ) C ...)) 2]
-  [(arity (-- (clos (s-pred X_m X_tag) ρ) C ...)) 1]
-  [(arity (-- (clos (s-ref X_m X_tag natural) ρ) C ...)) 1]
-  [(arity (-- (clos (s-cons X_m X_tag natural) ρ) C ...)) natural]
+  arity-includes? : V natural -> #t or #f
+  [(arity-includes? (-- (clos apply ρ) C ...) 2) #t]
+  [(arity-includes? (-- (clos OP1 ρ) C ...) 1) #t]
+  [(arity-includes? (-- (clos OP2 ρ) C ...) 2) #t]
+  [(arity-includes? (-- (clos (s-pred X_m X_tag) ρ) C ...) 1) #t]
+  [(arity-includes? (-- (clos (s-ref X_m X_tag natural) ρ) C ...) 1) #t]
+  [(arity-includes? (-- (clos (s-cons X_m X_tag natural) ρ) C ...) natural) #t]
   
-  [(arity (-- (clos (λ X (X_0 ...) EXP) ρ) C ...))
-   ,(length (term (X_0 ...)))]
-  [(arity (-- (clos (λ (X ...) EXP) ρ) C ...))
-   ,(length (term (X ...)))]
+  [(arity-includes? (-- (clos (λ X (X_0 ...) EXP) ρ) C ...) natural)
+   ,(= (length (term (X_0 ...))) (term natural))]
+  [(arity-includes? (-- (clos (λ (X ...) EXP) ρ) C ...) natural)
+   ,(= (length (term (X ...))) (term natural))]
   ;; ABSTRACT VALUES  
-  [(arity (-- ((CON_0 ... -> CON_1) ρ) C ...))
-   ,(length (term (CON_0 ...)))]
-  [(arity (-- ((CON_0 ... -> (λ (X ...) CON_1)) ρ) C ...))
-   ,(length (term (CON_0 ...)))]
-  [(arity (-- C)) #f]
-  [(arity (-- C_0 C ...))
-   (arity (-- C ...))]
-  [(arity ((CON ... --> any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0))
-   ,(length (term (CON ...)))])
+  [(arity-includes? (-- ((CON_0 ... -> CON_1) ρ) C ...) natural)
+   ,(= (length (term (CON_0 ...))) (term natural))]
+  [(arity-includes? (-- ((CON_0 ... -> (λ (X ...) CON_1)) ρ) C ...) natural)
+   ,(= (length (term (CON_0 ...))) (term natural))]
+  [(arity-includes? (-- C) natural) #f]
+  [(arity-includes? (-- C_0 C ...) natural)
+   (arity-includes? (-- C ...) natural)]
+  [(arity-includes? ((CON ... --> any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0) natural)
+   ,(= (length (term (CON ...))) (term natural))]
+  [(arity-includes? (-- (clos (λ* (X ... X_r) EXP) ρ) C ...) natural)
+   ,(<= (length (term (X ...))) (term natural))])
 
 (test
- (test-equal (term (arity (-- (↓ (λ () x) (env))))) 0)
- (test-equal (term (arity (-- (↓ (λ (x y z) x) (env))))) 3)
- (test-equal (term (arity (-- (↓ (λ f (x y z) x) (env))))) 3)
- (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (pred string? h)) (env))))) 2)
- (test-equal (term (arity (-- (((pred string? f) (pred string? g) -> (λ (x y) (pred string? h))) (env))))) 2)
- (test-equal (term (arity (-- ((pred string? h) (env)) (((pred string? f) (pred string? g) -> (pred string? h)) (env))))) 2)
- (test-equal (term (arity (-- ((pred procedure? f) (env))))) #f)
- (test-equal (term (arity ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))))) 0)
+ (test-equal (term (arity-includes? (-- (↓ (λ () x) (env))) 0)) #t)
+ (test-equal (term (arity-includes? (-- (↓ (λ (x y z) x) (env))) 3)) #t)
+ (test-equal (term (arity-includes? (-- (↓ (λ f (x y z) x) (env))) 3)) #t)
+ (test-equal (term (arity-includes? (-- (((pred string? f) (pred string? g) -> (pred string? h)) (env))) 2)) #t)
+ (test-equal (term (arity-includes? (-- (((pred string? f) (pred string? g) -> (λ (x y) (pred string? h))) (env))) 2)) #t)
+ (test-equal (term (arity-includes? (-- ((pred string? h) (env)) (((pred string? f) (pred string? g) -> (pred string? h)) (env))) 2)) #t)
+ (test-equal (term (arity-includes? (-- ((pred procedure? f) (env))) 8)) #f)
+ (test-equal (term (arity-includes? ((--> (pred string? †)) (env) <= f g (-- (↓ 0 (env))) f (-- (↓ (λ () 1) (env)))) 0)) #t)
+ (test-equal (term (arity-includes? (-- (↓ (λ* (x y) x) (env))) 0)) #f)
+ (test-equal (term (arity-includes? (-- (↓ (λ* (x y) x) (env))) 1)) #t)
+ (test-equal (term (arity-includes? (-- (↓ (λ* (x y) x) (env))) 100)) #t)
  )
 
 ;; Is C_1 /\ C_2 inhabited

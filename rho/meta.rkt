@@ -82,7 +82,7 @@
     (-- (↓ #f (env))))]   
   [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...))
    ((-- (↓ any_b (env))))
-   (where natural_a (arity AV))
+   (where natural_a (arity-includes? AV natural))
    (where any_b ,(= (term natural) (term natural_a)))]
   [(abs-δ procedure-arity-includes? V_0 V_1)
    ((-- (↓ #t (env)))
@@ -227,7 +227,7 @@
   [(plain-δ natural->natural (-- (clos natural ρ) C ...))
    (meta-apply natural->natural natural)]
   [(plain-δ procedure-arity-includes? PROC (-- (clos natural ρ) C ...))   
-   (-- (↓ ,(= (term natural) (term (arity PROC))) (env)))]
+   (-- (↓ (arity-includes? PROC natural) (env)))]
   [(plain-δ procedure-arity-includes? OP1 (-- (clos natural ρ) C ...))
    (-- (↓ ,(= (term natural) 1) (env)))]
   [(plain-δ procedure-arity-includes? OP2 (-- (clos natural ρ) C ...))
