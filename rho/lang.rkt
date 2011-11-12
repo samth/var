@@ -56,9 +56,11 @@
        (cons/c CON CON) 
        (and/c CON CON)
        (or/c CON CON)
-       (not/c CON)       
-       (CON ... -> CON)
-       (CON ..._1 -> (λ (X ..._1) CON)))
+       (not/c CON) 
+       CARROW)
+  (CARROW (CON ... -> CON)
+          (CON ..._1 -> (λ (X ..._1) CON))
+          (CON ... CON ->* CON))
   (ANYCON (pred (λ (X) #t) LAB))
   (ATOMLIT natural
            boolean
@@ -137,11 +139,8 @@
              (BARROW ρ <= LAB LAB V LAB BLESSEDAV))
     
   (BARROW (CON ... --> CON)
-          (CON ..._1 --> (λ (X ..._1) CON)))
-          
-  (CARROW (CON ... -> CON)
-          (CON ..._1 -> (λ (X ..._1) CON))
-          (CON ... CON ->* CON))
+          (CON ..._1 --> (λ (X ..._1) CON))
+          (CON ... CON -->* CON))
   
   (C  (CON ρ))
   (C* (FLAT* ρ) (HOC* ρ))
@@ -204,6 +203,7 @@
   ;; Conveniences  
   (OP? zero? procedure? empty? cons? char?
        exact-nonnegative-integer? string? symbol? boolean? false?)
+  (OP0* +)
   (OP1 car cdr add1 sub1 random OP?)
   (OP2 + - * expt quotient eqv?
        = < <= > >=             
@@ -216,7 +216,8 @@
     
   (natural->natural add1 sub1)
   (char-char->bool char=? char<? char<=? char>? char>=?)
-  (natural-natural->natural + - * expt) ; does not include quotient (partial).
+  (natural*->natural +)
+  (natural-natural->natural - * expt) ; does not include quotient (partial).
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
                        string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
@@ -315,6 +316,8 @@
   [(valid? (CON_1 ... -> CON_2))
    ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))]
   [(valid? (CON_1 ... -> (λ (X ...) CON_2)))
+   ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))]
+  [(valid? (CON_1 ... ->* CON_2))
    ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))])
 
 ;; A flat contract can be checked immediately.
@@ -336,7 +339,7 @@
    ,(and (term (flat? CON_1))
          (term (flat? CON_2)))]
   [(flat? (not/c CON)) (flat? CON)]
-  [(flat? (CON ... -> any)) #f])
+  [(flat? CARROW) #f])
 
 (define-metafunction λc-user
   subst/μ : X CON CON -> CON

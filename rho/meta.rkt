@@ -8,6 +8,9 @@
 (define-metafunction λcρ
   op-con : OP -> CON
   [(op-con OP?) ((∧) -> (pred boolean? Λ))]
+  [(op-con natural*->natural)
+   ((rec/c X (or/c (atom/c empty Λ) (cons/c (pred exact-nonnegative-integer? Λ) X)))
+    ->* (pred exact-nonnegative-integer? Λ))]
   [(op-con natural-natural->natural) 
    ((pred exact-nonnegative-integer? Λ)
     (pred exact-nonnegative-integer? Λ)
@@ -231,7 +234,7 @@
   [(plain-δ procedure-arity-includes? OP1 (-- (clos natural ρ) C ...))
    (-- (↓ ,(= (term natural) 1) (env)))]
   [(plain-δ procedure-arity-includes? OP2 (-- (clos natural ρ) C ...))
-   (-- (↓ ,(= (term natural) 2) (env)))]
+   (-- (↓ ,(= (term natural) 2) (env)))]  
   ;; Interpreted differently than Racket `-'.
   [(plain-δ -
             (-- (clos natural_1 ρ_1) C_1 ...)
@@ -241,6 +244,10 @@
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
    (meta-apply quotient natural_1 natural_2)]
+  [(plain-δ natural*->natural V)
+   (-- (↓ ,(apply (lift (term natural*->natural)) (term (natural ...))) (env)))
+   (where ((-- (clos natural ρ) C ...) ...)
+          (list-value->list V))]
   [(plain-δ natural-natural->natural
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
@@ -958,3 +965,17 @@
                                                       (pred string? f))) (env)))))
              (term ((-- ((pred exact-nonnegative-integer? f) (env)))
                     (-- ((pred string? f) (env)))))))
+
+(define-metafunction λcρ
+  list->list-value : (V ...) -> V
+  [(list->list-value ())
+   (-- (clos empty (env)))]
+  [(list->list-value (V_1 V_2 ...))
+   (-- (cons V_1 (list->list-value (V_2 ...))))])
+
+
+(define-metafunction λcρ
+  list-value->list : V -> (V ...)
+  [(list-value->list (-- (clos empty ρ) C ...)) ()]
+  [(list-value->list (-- (cons V_1 V_2) C ...))
+   ,(cons (term V_1) (term (list-value->list V_2)))])

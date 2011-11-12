@@ -298,7 +298,7 @@ Pass 3: Annotate expressions/predicates
   [(ann-con (->* (RCON_0 ...) #:rest RCON_1 RCON_2) LAB MODENV (X ...))
    ((ann-con RCON_0 LAB MODENV (X ...)) ... 
     (ann-con RCON_1 LAB MODENV (X ...))
-    -> (ann-con RCON_2 LAB MODENV (X ...)))]  
+    ->* (ann-con RCON_2 LAB MODENV (X ...)))]  
   [(ann-con (pred X) LAB MODENV (X_1 ...)) 
    (pred (λ (x) "this is the fall-through case") ★)]
   [(ann-con RCON LAB MODENV (X ...)) RCON])

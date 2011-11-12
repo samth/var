@@ -99,10 +99,21 @@
          σ)
         blessed-β)
    
+   (--> ((@ ((CON_0 ..._1 CON_r -->* CON_1) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 V_r ... LAB) σ)
+        ((CON_1 ρ <= LAB_1 LAB_2 V_2 LAB_3 
+                (@ (remember-contract V ((CON_0 ... CON_r ->* CON_1) ρ))
+                   (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) 
+                   ... 
+                   (CON_r ρ <= LAB_2 LAB_1 V_ls LAB_3 V_ls)
+                   Λ))
+         σ)
+        (where V_ls (list->list-value (V_r ...)))
+        blessed-β*)
+   
    ;; BLESSING
-   (--> (((CON_1 ... -> any) ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
-        (((CON_1 ... --> any) ρ <= LAB_1 LAB_2 V_1 LAB_3
-                              (remember-contract V ((pred procedure? Λ) (env))))
+   (--> ((CARROW ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
+        (((bless CARROW) ρ <= LAB_1 LAB_2 V_1 LAB_3
+                         (remember-contract V ((pred procedure? Λ) (env))))
          σ)
         (side-condition (term (∈ #t (δ procedure? V))))
         chk-fun-pass) 
@@ -112,6 +123,12 @@
         ((blame LAB_1 LAB_3 V_1 ((CON_1 ... -> any) (env)) V) σ)
         (side-condition (term (∈ #f (δ procedure? V))))
         chk-fun-fail-flat)))
+
+
+(define-metafunction λcρ
+  bless : CARROW -> BARROW
+  [(bless (CON_1 ... -> any)) (CON_1 ... --> any)]
+  [(bless (CON_1 ... ->* any)) (CON_1 ... -->* any)])
 
 (test
  (test/σ--> c ; (nat? <= 5)   -- provable

@@ -212,6 +212,7 @@
 (define-metafunction λcρ
   arity-includes? : V natural -> #t or #f
   [(arity-includes? (-- (clos apply ρ) C ...) 2) #t]
+  [(arity-includes? (-- (clos OP0* ρ) C ...) natural) #t]
   [(arity-includes? (-- (clos OP1 ρ) C ...) 1) #t]
   [(arity-includes? (-- (clos OP2 ρ) C ...) 2) #t]
   [(arity-includes? (-- (clos (s-pred X_m X_tag) ρ) C ...) 1) #t]
@@ -233,7 +234,9 @@
   [(arity-includes? ((CON ... --> any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0) natural)
    ,(= (length (term (CON ...))) (term natural))]
   [(arity-includes? (-- (clos (λ* (X ... X_r) EXP) ρ) C ...) natural)
-   ,(<= (length (term (X ...))) (term natural))])
+   ,(<= (length (term (X ...))) (term natural))]
+  [(arity-includes? ((CON ... CON_r -->* any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0) natural)
+   ,(<= (length (term (CON ...))) (term natural))])
 
 (test
  (test-equal (term (arity-includes? (-- (↓ (λ () x) (env))) 0)) #t)

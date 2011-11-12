@@ -96,13 +96,6 @@
         (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ...))                
         let)))
 
-(define-metafunction λcρ
-  list->list-value : (V ...) -> V
-  [(list->list-value ())
-   (-- (clos empty (env)))]
-  [(list->list-value (V_1 V_2 ...))
-   (-- (cons V_1 (list->list-value (V_2 ...))))])
-
 (test
  (define -->_v 
    (reduction-relation 

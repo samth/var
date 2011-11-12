@@ -29,9 +29,3 @@
    (list-value? V_2)]
   ;; FIXME not handling abstract values
   [(list-value? V) #f])
-  
-(define-metafunction λcρ
-  list-value->list : V -> (V ...)
-  [(list-value->list (-- (clos empty ρ) C ...)) ()]
-  [(list-value->list (-- (cons V_1 V_2) C ...))
-   ,(cons (term V_1) (term (list-value->list V_2)))])
