@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "util.rkt")
+(require "lang.rkt" "meta.rkt" "op.rkt" "util.rkt")
 (provide v)
 (test-suite test step-v)
 
@@ -70,9 +70,7 @@
    (--> ((@ V U ... LAB) σ)
         ((blame LAB Λ V λ V) σ)
         (side-condition (term (∈ #t (δ procedure? V))))
-        (side-condition (term (∈ #f (δ procedure-arity-includes? 
-                                       V 
-                                       (-- (↓ ,(length (term (U ...))) (env)))))))
+        (where #f (arity-includes? V ,(length (term (U ...)))))
         wrong-arity)   
    (--> ((@ V U ... LAB) σ)
         ((blame LAB Λ V λ V) σ)

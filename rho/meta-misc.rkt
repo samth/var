@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt")
+(require "lang.rkt" "op.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test meta-misc)
 
@@ -211,34 +211,35 @@
 ;; Does this value *definitely* include the given arity?
 (define-metafunction λcρ
   arity-includes? : V natural -> #t or #f
-  [(arity-includes? (-- (clos apply ρ) C ...) 2) #t]
-  [(arity-includes? (-- (clos OP0* ρ) C ...) natural) #t]
-  [(arity-includes? (-- (clos OP1 ρ) C ...) 1) #t]
-  [(arity-includes? (-- (clos OP2 ρ) C ...) 2) #t]
-  [(arity-includes? (-- (clos (s-pred X_m X_tag) ρ) C ...) 1) #t]
-  [(arity-includes? (-- (clos (s-ref X_m X_tag natural) ρ) C ...) 1) #t]
-  [(arity-includes? (-- (clos (s-cons X_m X_tag natural) ρ) C ...) natural) #t]
-  
+  [(arity-includes? (-- (clos apply ρ) C ...) 2) #t]  
+  [(arity-includes? (-- (clos OP ρ) C ...) natural)
+   (arity-includes? (-- ((op-con OP) ρ) C ...) natural)]    
   [(arity-includes? (-- (clos (λ X (X_0 ...) EXP) ρ) C ...) natural)
    ,(= (length (term (X_0 ...))) (term natural))]
   [(arity-includes? (-- (clos (λ (X ...) EXP) ρ) C ...) natural)
    ,(= (length (term (X ...))) (term natural))]
+  [(arity-includes? (-- (clos (λ* (X ... X_r) EXP) ρ) C ...) natural)
+   ,(<= (length (term (X ...))) (term natural))]  
   ;; ABSTRACT VALUES  
   [(arity-includes? (-- ((CON_0 ... -> CON_1) ρ) C ...) natural)
    ,(= (length (term (CON_0 ...))) (term natural))]
   [(arity-includes? (-- ((CON_0 ... -> (λ (X ...) CON_1)) ρ) C ...) natural)
    ,(= (length (term (CON_0 ...))) (term natural))]
-  [(arity-includes? (-- C) natural) #f]
-  [(arity-includes? (-- C_0 C ...) natural)
-   (arity-includes? (-- C ...) natural)]
   [(arity-includes? ((CON ... --> any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0) natural)
    ,(= (length (term (CON ...))) (term natural))]
-  [(arity-includes? (-- (clos (λ* (X ... X_r) EXP) ρ) C ...) natural)
-   ,(<= (length (term (X ...))) (term natural))]
   [(arity-includes? ((CON ... CON_r -->* any) ρ <= LAB_0 LAB_1 V_b LAB_2 any_0) natural)
-   ,(<= (length (term (CON ...))) (term natural))])
+   ,(<= (length (term (CON ...))) (term natural))]
+  [(arity-includes? (-- ((CON ... CON_r ->* CON_1) ρ) C ...) natural)
+   ,(<= (length (term (CON ...))) (term natural))]
+  [(arity-includes? (-- C) natural) #f]
+  [(arity-includes? (-- C_0 C ...) natural)
+   (arity-includes? (-- C ...) natural)])
 
 (test
+ (test-equal (term (arity-includes? (-- (clos + (env))) 0)) #t)
+ (test-equal (term (arity-includes? (-- (clos + (env))) 3)) #t)
+ (test-equal (term (arity-includes? (-- (clos * (env))) 0)) #f)
+ (test-equal (term (arity-includes? (-- (clos * (env))) 1)) #t)
  (test-equal (term (arity-includes? (-- (↓ (λ () x) (env))) 0)) #t)
  (test-equal (term (arity-includes? (-- (↓ (λ (x y z) x) (env))) 3)) #t)
  (test-equal (term (arity-includes? (-- (↓ (λ f (x y z) x) (env))) 3)) #t)
@@ -286,20 +287,6 @@
  (test-equal (term (join-contracts ((pred boolean? †) (env))))
              (term (-- ((pred boolean? †) (env))))))
 
-(define-metafunction λcρ
-  ∧ : CON ... -> CON
-  [(∧)  (pred (λ (x) #t) Λ)]
-  [(∧ CON) CON]
-  [(∧ CON_0 CON_1  ...)
-   (and/c CON_0 (∧ CON_1 ...))])
-
-(test
- (test-equal (term (∧)) (term (pred (λ (x) #t) Λ)))
- (test-equal (term (∧ (pred boolean? †)))
-             (term (pred boolean? †)))
- (test-equal (term (∧ (pred boolean? †) (pred string? †)))
-             (term (and/c (pred boolean? †)
-                          (pred string? †)))))
 
 (define-metafunction λcρ
   modref=? : MODREF MODREF -> #t or #f

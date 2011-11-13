@@ -108,7 +108,7 @@
      V
      MODREF 
      (@ D D ... LAB)     
-     (@* D D ... LAB)     
+     (@* D D ... LAB) ; like @, but last arg is a rest list [created by ->* checks].
      (if D D D)
      (let ((X D) ...) (clos EXP ρ))
      (begin D (clos EXP ρ))
@@ -210,21 +210,12 @@
   ;; Conveniences  
   (OP? zero? procedure? empty? cons? char?
        exact-nonnegative-integer? string? symbol? boolean? false?)
-  (OP0* +)
-  (OP1 car cdr add1 sub1 random OP?)
-  (OP2 + - * expt quotient eqv?
-       = < <= > >=             
-       cons 
-       char=? char<? char<=? char>? char>=?
-       symbol=?
-       string=? string<? string<=? string>? string>=? 
-       string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
-       procedure-arity-includes?)
     
   (natural->natural add1 sub1)
   (char-char->bool char=? char<? char<=? char>? char>=?)
   (natural*->natural +)
-  (natural-natural->natural - * expt) ; does not include quotient (partial).
+  (natural-natural*->natural * -)
+  (natural-natural->natural expt) ; does not include quotient (partial).
   (natural-natural->bool = < <= > >=)  
   (string-string->bool string=? string<? string>? string<=? string>=?
                        string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
@@ -396,6 +387,21 @@
           (define v (cons (λ () "a") (λ () "b"))) 
           (provide/contract 
            [v (rec/c X (or/c (cons/c X X) (-> (pred string? f))))])))))
+
+(define-metafunction λcρ
+  ∧ : CON ... -> CON
+  [(∧)  (pred (λ (x) #t) Λ)]
+  [(∧ CON) CON]
+  [(∧ CON_0 CON_1  ...)
+   (and/c CON_0 (∧ CON_1 ...))])
+
+(test
+ (test-equal (term (∧)) (term (pred (λ (x) #t) Λ)))
+ (test-equal (term (∧ (pred boolean? †)))
+             (term (pred boolean? †)))
+ (test-equal (term (∧ (pred boolean? †) (pred string? †)))
+             (term (and/c (pred boolean? †)
+                          (pred string? †)))))
 
 (define (program-modules ls)
   (drop-right ls 2))

@@ -1,62 +1,9 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "util.rkt" "meta-misc.rkt")
+(require "lang.rkt" "meta-misc.rkt" "op.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (provide (all-from-out "meta-misc.rkt"))
 (test-suite test meta)
-
-(define-metafunction λcρ
-  op-con : OP -> CON
-  [(op-con OP?) ((∧) -> (pred boolean? Λ))]
-  [(op-con natural*->natural)
-   ((rec/c X (or/c (atom/c empty Λ) (cons/c (pred exact-nonnegative-integer? Λ) X)))
-    ->* (pred exact-nonnegative-integer? Λ))]
-  [(op-con natural-natural->natural) 
-   ((pred exact-nonnegative-integer? Λ)
-    (pred exact-nonnegative-integer? Λ)
-    -> (pred exact-nonnegative-integer? Λ))]
-  [(op-con quotient)
-   ((pred exact-nonnegative-integer? Λ)
-    (and/c (pred exact-nonnegative-integer? Λ)
-           (not/c (pred zero? Λ)))
-    -> (pred exact-nonnegative-integer? Λ))]
-  [(op-con random)
-   ((and/c (pred exact-nonnegative-integer? Λ)
-           (not/c (pred zero? Λ)))
-    -> (pred exact-nonnegative-integer? Λ))]  
-  [(op-con natural->natural)
-   ((pred exact-nonnegative-integer? Λ)
-    -> (pred exact-nonnegative-integer? Λ))]
-  [(op-con car) ((pred cons? Λ) -> (∧))]
-  [(op-con cdr) ((pred cons? Λ) -> (∧))]
-  [(op-con natural-natural->bool)
-   ((pred exact-nonnegative-integer? Λ)
-    (pred exact-nonnegative-integer? Λ)
-    -> (pred boolean? Λ))]
-  [(op-con char-char->bool)
-   ((pred char? Λ)
-    (pred char? Λ)
-    -> (pred boolean? Λ))]
-  [(op-con string-string->bool)
-   ((pred string? Λ)
-    (pred string? Λ)
-    -> (pred boolean? Λ))]
-  [(op-con procedure-arity-includes?)
-   ((pred procedure? Λ) 
-    (pred exact-nonnegative-integer? Λ) 
-    -> (pred boolean? Λ))]
-  [(op-con cons)
-   ((∧) (∧) -> (pred cons? Λ))]
-  [(op-con eqv?)
-   ((∧) (∧) -> (pred boolean? Λ))]
-  [(op-con symbol=?)
-   ((pred symbol? Λ) (pred symbol? Λ) -> (pred boolean? Λ))]
-  [(op-con (s-pred X_1 X_2)) (∧)]  ;; Already taken care of.
-  [(op-con (s-cons X_1 X_2 natural)) (∧)]
-  [(op-con (s-ref X_1 X_2 natural)) (∧)])
-
-(test
- (redex-check λcρ OP (term (op-con OP))))
 
 (define-metafunction λcρ
   δ : OP V ... -> (A A ...) ;; FIXME: eventually should be (V ...)
@@ -66,11 +13,12 @@
    ((-- (struct X_m X_tag V ...)))
    (side-condition (= (length (term (V ...))) (term natural)))]
   [(δ car V) (proj-left V)]
-  [(δ cdr V) (proj-right V)]
+  [(δ cdr V) (proj-right V)]  
   [(δ OP V_1 ... AV V_2 ...)
    (abs-δ OP V_1 ... AV V_2 ...)]  
   [(δ OP V ...) 
    ((plain-δ OP V ...))])
+  
 
 (define-metafunction λcρ
   abs-δ : OP V ... AV V ... -> (A ...) ;; FIXME: eventually should be (V ...)
@@ -85,7 +33,7 @@
     (-- (↓ #f (env))))]   
   [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...))
    ((-- (↓ any_b (env))))
-   (where natural_a (arity-includes? AV natural))
+   (where natural_a (arity-includes? AV natural))  ;; FIXME
    (where any_b ,(= (term natural) (term natural_a)))]
   [(abs-δ procedure-arity-includes? V_0 V_1)
    ((-- (↓ #t (env)))
@@ -228,13 +176,9 @@
   [(plain-δ sub1 (-- (clos natural ρ) C ...))
    (-- (↓ ,(max 0 (sub1 (term natural))) (env)))]  
   [(plain-δ natural->natural (-- (clos natural ρ) C ...))
-   (meta-apply natural->natural natural)]
-  [(plain-δ procedure-arity-includes? PROC (-- (clos natural ρ) C ...))   
-   (-- (↓ (arity-includes? PROC natural) (env)))]
-  [(plain-δ procedure-arity-includes? OP1 (-- (clos natural ρ) C ...))
-   (-- (↓ ,(= (term natural) 1) (env)))]
-  [(plain-δ procedure-arity-includes? OP2 (-- (clos natural ρ) C ...))
-   (-- (↓ ,(= (term natural) 2) (env)))]  
+   (meta-apply natural->natural natural)]  
+  [(plain-δ procedure-arity-includes? V (-- (clos natural ρ) C ...))
+   (-- (↓ (arity-includes? V natural) (env)))]
   ;; Interpreted differently than Racket `-'.
   [(plain-δ -
             (-- (clos natural_1 ρ_1) C_1 ...)
@@ -246,6 +190,10 @@
    (meta-apply quotient natural_1 natural_2)]
   [(plain-δ natural*->natural V ...)
    (-- (↓ ,(apply (lift (term natural*->natural)) (term (natural ...))) (env)))
+   (where ((-- (clos natural ρ) C ...) ...)
+          (V ...))]
+  [(plain-δ natural-natural*->natural V ...)
+   (-- (↓ ,(apply (lift (term natural-natural*->natural)) (term (natural ...))) (env)))
    (where ((-- (clos natural ρ) C ...) ...)
           (V ...))]
   [(plain-δ natural-natural->natural
