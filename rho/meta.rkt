@@ -748,21 +748,20 @@
   [(struct-op/contract (s-pred X_mod X_tag) LAB_use)
    (((∧) --> (pred boolean? Λ)) 
     (env) <= Λ LAB_use
-    (-- (clos ((tag->pred X_tag) ^ LAB_use X_mod) (env)))
+    (-- (clos (s-pred X_mod X_tag) (env)))
     Λ
-    (-- (clos ((tag->pred X_tag) ^ LAB_use X_mod) (env))))]
+    (-- (clos (s-pred X_mod X_tag) (env))))]
   [(struct-op/contract (s-cons X_mod X_tag natural) LAB_use)
    ((,@(build-list (term natural)
                    (λ (_) (term (∧))))
      --> (pred ((tag->pred X_tag) ^ LAB_use X_mod) Λ))
     (env) <= Λ LAB_use
-    (-- (clos ((tag->cons X_tag) ^ LAB_use X_mod) (env)))
+    (-- (clos (s-cons X_mod X_tag natural) (env)))
     Λ
-    (-- (clos ((tag->cons X_tag) ^ LAB_use X_mod) (env))))]                      
+    (-- (clos (s-cons X_mod X_tag natural) (env))))]                      
   [(struct-op/contract (s-ref X_mod X_tag natural) LAB_use) 
    (((pred ((tag->pred X_tag) ^ LAB_use X_mod) Λ) --> (∧))
     (env) <= Λ LAB_use
-    ;; FIXME: turn s-ref back into "user"-level names.
     (-- (clos (s-ref X_mod X_tag natural) (env)))
     Λ
     (-- (clos (s-ref X_mod X_tag natural) (env))))])
