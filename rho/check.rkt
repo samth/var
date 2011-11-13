@@ -115,7 +115,40 @@
    ;; b/c then either AV is an or/c (impossible), or AV is a struct/c (also impossible)   
    (judgment-holds (indy AV (s-pred X_m X_tag)))])
 
-
+;(current-traced-metafunctions '(fc/c))
+;; BUG
+#;(term (flat-check
+       ((rec/c X (or/c (atom/c empty Λ) (cons/c (pred exact-nonnegative-integer? Λ) X))) (env))
+       (--
+        (cons
+         (-- (clos 1 (env)))
+         (-- (clos empty (env)))))))
+#;(λ (x) 
+    (if ((λ (x) (eqv? x empty)) x) #t 
+        ((λ (x) (if ((λ (x) #t) (car x)) 
+                    ((λ (x) #t) (cdr x))
+                    #f))
+         x)))
+#;
+(term (flat-check 
+       ((rec/c
+         X
+         (or/c
+          (atom/c empty Λ)
+          (cons/c (pred exact-nonnegative-integer? Λ) X)))
+        #hash())       
+       (--
+        (cons
+         (--
+          (cons
+           (-- (clos 2 #hash()))
+           (--
+            (cons
+             (-- (clos 3 #hash()))
+             (-- (clos empty #hash()))))))
+         (-- (clos empty #hash()))))))
+ 
+          
 (test 
  (test-equal 
   (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (↓ 0 (env)))))

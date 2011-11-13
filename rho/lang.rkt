@@ -94,7 +94,7 @@
   (S V)
   (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
-  (EXP .... PRIM •)
+  (EXP .... PRIM (@* EXP ... LAB) •)
   (VAL .... PRIM)
   
   (OP .... 
@@ -108,6 +108,7 @@
      V
      MODREF 
      (@ D D ... LAB)     
+     (@* D D ... LAB)     
      (if D D D)
      (let ((X D) ...) (clos EXP ρ))
      (begin D (clos EXP ρ))
@@ -179,6 +180,7 @@
   
   (𝓔 hole 
      (@ V ... 𝓔 D ... LAB)
+     (@* V ... 𝓔 D ... LAB)
      (if 𝓔 D D) 
      (let ((X V) ... (X 𝓔) (X D) ...) D)
      (begin 𝓔 D)
@@ -194,6 +196,7 @@
          (clos (let ((X any) ...) EXP) ρ)
          (clos MODREF ρ)
          (@ V V ... LAB)
+         (@* V V ... LAB)
          (if V D D)
          (begin V D)
          (let ((X V) ...) D)

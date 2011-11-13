@@ -1,9 +1,9 @@
-#lang var rho trace
+#lang var rho eval
 (module m racket
-  (define f (λ (n . r) r))
-  #;(provide/contract [f ((exact-nonnegative-integer?) #:rest (listof any/c) . ->* . (listof any/c))])
-  (provide/contract [f any/c]))
-  
-
+  (define f (λ (n . r) (+ n n (apply + r))))
+  (provide/contract [f ((exact-nonnegative-integer?) 
+                        #:rest (listof exact-nonnegative-integer?) 
+                        . ->* . 
+                        exact-nonnegative-integer?)]))
 (require 'm)
-(f 5 1 2 3 4 5 6 7 8 9 10)
+(f 2 3 4) ;=> 11

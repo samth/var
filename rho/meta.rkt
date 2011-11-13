@@ -244,10 +244,10 @@
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
    (meta-apply quotient natural_1 natural_2)]
-  [(plain-δ natural*->natural V)
+  [(plain-δ natural*->natural V ...)
    (-- (↓ ,(apply (lift (term natural*->natural)) (term (natural ...))) (env)))
    (where ((-- (clos natural ρ) C ...) ...)
-          (list-value->list V))]
+          (V ...))]
   [(plain-δ natural-natural->natural
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))

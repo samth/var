@@ -101,14 +101,19 @@
    
    (--> ((@ ((CON_0 ..._1 CON_r -->* CON_1) ρ <= LAB_1 LAB_2 V_2 LAB_3 V) V_1 ..._1 V_r ... LAB) σ)
         ((CON_1 ρ <= LAB_1 LAB_2 V_2 LAB_3 
-                (@ (remember-contract V ((CON_0 ... CON_r ->* CON_1) ρ))
-                   (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) 
-                   ... 
-                   (CON_r ρ <= LAB_2 LAB_1 V_ls LAB_3 V_ls)
-                   Λ))
+                (@* (remember-contract V ((CON_0 ... CON_r ->* CON_1) ρ))
+                    (CON_0 ρ <= LAB_2 LAB_1 V_1 LAB_3 V_1) 
+                    ... 
+                    (CON_r ρ <= LAB_2 LAB_1 V_ls LAB_3 V_ls)  ;; This isn't right -- double turning into a list.
+                    Λ))
          σ)
         (where V_ls (list->list-value (V_r ...)))
         blessed-β*)
+   
+   (--> ((@* V_1 ... V_r LAB) σ)
+        ((@ V_1 ... V ... LAB) σ)
+        (where (V ...) (list-value->list V_r))
+        @*)
    
    ;; BLESSING
    (--> ((CARROW ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)
