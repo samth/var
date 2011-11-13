@@ -42,17 +42,18 @@
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
   [(abs-δ natural->natural V)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
-  [(abs-δ quotient V_1 V_2)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
+  [(abs-δ natural-positive->natural V_1 V_2)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
   [(abs-δ natural-natural->natural V_1 V_2)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
-  [(abs-δ natural-natural->bool V_1 V_2)
+  [(abs-δ natural-natural-natural*->bool V_1 V_2 V_3 ...)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]    
   [(abs-δ symbol=? V_1 V_2)
    ((-- ((pred boolean? Λ) (env))))]     
-  [(abs-δ string-string->bool V_1 V_2)
-   ((-- ((pred boolean? Λ) (env))))]
+  [(abs-δ string-string-string*->bool V_1 V_2 V_3 ...)
+   ((-- (↓ #t (env)))
+    (-- (↓ #f (env))))]
   ;; FIXME: could discriminate many more things
   [(abs-δ eqv? V_1 V_2)
    ((-- (↓ #t (env)))
@@ -179,15 +180,10 @@
    (meta-apply natural->natural natural)]  
   [(plain-δ procedure-arity-includes? V (-- (clos natural ρ) C ...))
    (-- (↓ (arity-includes? V natural) (env)))]
-  ;; Interpreted differently than Racket `-'.
-  [(plain-δ -
+  [(plain-δ natural-positive->natural
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
-   (-- (↓ ,(max 0 (- (term natural_1) (term natural_2))) (env)))]
-  [(plain-δ quotient
-            (-- (clos natural_1 ρ_1) C_1 ...)
-            (-- (clos natural_2 ρ_2) C_2 ...))
-   (meta-apply quotient natural_1 natural_2)]
+   (meta-apply natural-positive->natural natural_1 natural_2)]
   [(plain-δ natural*->natural V ...)
    (-- (↓ ,(apply (lift (term natural*->natural)) (term (natural ...))) (env)))
    (where ((-- (clos natural ρ) C ...) ...)
@@ -200,18 +196,14 @@
             (-- (clos natural_1 ρ_1) C_1 ...)
             (-- (clos natural_2 ρ_2) C_2 ...))
    (meta-apply natural-natural->natural natural_1 natural_2)]  
-  [(plain-δ natural-natural->bool
-            (-- (clos natural_1 ρ_1) C_1 ...)
-            (-- (clos natural_2 ρ_2) C_2 ...))
-   (meta-apply natural-natural->bool natural_1 natural_2)]
-  [(plain-δ string-string->bool
-            (-- (clos string_1 ρ_1) C_1 ...)
-            (-- (clos string_2 ρ_2) C_2 ...))
-   (meta-apply string-string->bool string_1 string_2)]
-  [(plain-δ char-char->bool
-            (-- (clos character_1 ρ_1) C_1 ...)
-            (-- (clos character_2 ρ_2) C_2 ...))
-   (meta-apply char-char->bool character_1 character_2)]
+  [(plain-δ natural-natural-natural*->bool
+            (-- (clos natural ρ) C ...)
+            ...)
+   (meta-apply natural-natural-natural*->bool natural ...)]
+  [(plain-δ string-string-string*->bool (-- (clos string ρ) C ...) ...)            
+   (meta-apply string-string-string*->bool string ...)]
+  [(plain-δ char-char-char*->bool (-- (clos character ρ) C ...) ...)
+   (meta-apply char-char-char*->bool character ...)]
   [(plain-δ symbol=?
             (-- (clos 'variable_1 ρ_1) C_1 ...)
             (-- (clos 'variable_2 ρ_2) C_2 ...))
@@ -305,7 +297,9 @@
        (case f 
          [(id) id] ...
          [else (error 'lift "unknown procedure: ~a" f)])]))
-  (reflect add1 random + * expt quotient = < <= > >=        
+  (reflect add1 random + * expt 
+           quotient remainder modulo 
+           = < <= > >=        
            symbol=?
            char=? char<? char<=? char>=? char>?
            string=? string<? string>? string<=? string>=?

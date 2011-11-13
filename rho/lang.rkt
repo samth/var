@@ -76,7 +76,7 @@
   (OP car cdr add1 sub1 random
       zero? procedure? empty? cons? eqv? char?
       exact-nonnegative-integer? string? symbol? boolean? false?
-      + - * expt quotient
+      + - * expt quotient remainder modulo
       = < <= > >=             
       cons 
       symbol=?
@@ -212,13 +212,14 @@
        exact-nonnegative-integer? string? symbol? boolean? false?)
     
   (natural->natural add1 sub1)
-  (char-char->bool char=? char<? char<=? char>? char>=?)
+  (char-char-char*->bool char=? char<? char<=? char>? char>=?)
   (natural*->natural +)
   (natural-natural*->natural * -)
+  (natural-positive->natural quotient remainder modulo)
   (natural-natural->natural expt) ; does not include quotient (partial).
-  (natural-natural->bool = < <= > >=)  
-  (string-string->bool string=? string<? string>? string<=? string>=?
-                       string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
+  (natural-natural-natural*->bool = < <= > >=)  
+  (string-string-string*->bool string=? string<? string>? string<=? string>=?
+                               string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
   
   
   (TRUE (-- (clos #t ρ) C* ...))

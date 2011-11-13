@@ -18,7 +18,7 @@
    ((pred exact-nonnegative-integer? Λ)
     (pred exact-nonnegative-integer? Λ)
     -> (pred exact-nonnegative-integer? Λ))]
-  [(op-con quotient)
+  [(op-con natural-positive->natural)
    ((pred exact-nonnegative-integer? Λ)
     (and/c (pred exact-nonnegative-integer? Λ)
            (not/c (pred zero? Λ)))
@@ -32,18 +32,21 @@
     -> (pred exact-nonnegative-integer? Λ))]
   [(op-con car) ((pred cons? Λ) -> (∧))]
   [(op-con cdr) ((pred cons? Λ) -> (∧))]
-  [(op-con natural-natural->bool)
+  [(op-con natural-natural-natural*->bool)
    ((pred exact-nonnegative-integer? Λ)
     (pred exact-nonnegative-integer? Λ)
-    -> (pred boolean? Λ))]
-  [(op-con char-char->bool)
+    (rec/c X (or/c (atom/c empty Λ) (cons/c (pred exact-nonnegative-integer? Λ) X)))    
+    ->* (pred boolean? Λ))]
+  [(op-con char-char-char*->bool)
    ((pred char? Λ)
     (pred char? Λ)
-    -> (pred boolean? Λ))]
-  [(op-con string-string->bool)
+    (rec/c X (or/c (atom/c empty Λ) (cons/c (pred char? Λ) X)))
+    ->* (pred boolean? Λ))]
+  [(op-con string-string-string*->bool)
    ((pred string? Λ)
     (pred string? Λ)
-    -> (pred boolean? Λ))]
+    (rec/c X (or/c (atom/c empty Λ) (cons/c (pred string? Λ) X)))
+    ->* (pred boolean? Λ))]
   [(op-con procedure-arity-includes?)
    ((pred procedure? Λ) 
     (pred exact-nonnegative-integer? Λ) 
