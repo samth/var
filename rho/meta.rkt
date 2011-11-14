@@ -135,7 +135,7 @@
   plain-δ : OP V ... -> V
   [(plain-δ procedure? PROC)
    (-- (↓ #t (env)))]
-  [(plain-δ procedure? V LAB)
+  [(plain-δ procedure? V)
    (-- (↓ #f (env)))]
   [(plain-δ string? (-- (clos string ρ))) 
    (-- (↓ #t (env)))]
