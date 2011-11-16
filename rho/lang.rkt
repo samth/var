@@ -145,22 +145,19 @@
           (CON ... CON -->* CON))
   
   (C  (CON ρ))
-  (C* (FLAT* ρ) (HOC* ρ))
+  (C* (CON* ρ))
+  (C# (CON# ρ))
     
-  (FLAT* (pred PREDV LAB) 
-         (cons/c FLAT FLAT) 
-         (struct/c X X FLAT ...)
-         (not/c FLAT)
-         (atom/c ATOMLIT LAB)
-         (or/c FLAT FLAT)
-         (rec/c X FLAT))
-  (HOC* CARROW       
-        (cons/c HOC CON) 
-        (cons/c CON HOC)
-        (struct/c X X CON ... HOC CON ...)
-        (or/c FLAT HOC)
-        (rec/c X HOC))
-  
+  (CON# (pred PREDV LAB) 
+        (cons/c CON CON)          
+        (not/c FLAT)
+        (atom/c ATOMLIT LAB)
+        (struct/c X X CON ...)
+        CARROW)
+  (CON* CON#
+        (rec/c X CON)  
+        (or/c FLAT CON))
+        
   (ATOM? exact-nonnegative-integer?
          boolean?
          zero?

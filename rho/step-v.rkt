@@ -34,18 +34,21 @@
    ;; Application
    (--> ((@ (-- (clos (λ (X ..._1) EXP) ρ) C* ...) V ..._1 LAB) σ)
         ((↓ EXP ρ_1) σ_1)
-        (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ...))
+        (judgment-holds (chooses (V ...) (V_* ...)))
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X V_*) ...))        
         β)
    (--> ((@ (-- (clos (λ* (X ..._1 X_r) EXP) ρ) C* ...) V ..._1 V_r ... LAB) σ)
         ((↓ EXP ρ_1) σ_1)
-        (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ... (X_r (list->list-value (V_r ...)))))
+        (judgment-holds (chooses (V ...) (V_* ...)))
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X V_*) ... (X_r (list->list-value (V_r ...)))))        
         β*)
    (--> ((@ (-- (clos (λ F (X ..._1) EXP) ρ) C* ...) V ..._1 LAB) σ)        
         ((↓ EXP ρ_1) σ_1)
+        (judgment-holds (chooses (V ...) (V_* ...)))
         (where (ρ_1 σ_1)
                (bind-vars ρ σ 
                           (F (-- (↓ (λ F (X ...) EXP) ρ) C* ...)) 
-                          (X V) ...))
+                          (X V_*) ...))
         (side-condition 
          (not (and (redex-match λcρ (AV* ...) (term (V ...)))
                    (redex-match λcρ ((CON_a #hash()) ... ((CON_0 ... -> any_c3) #hash()) (CON_b #hash()) ...) (term (C* ...))))))
@@ -60,7 +63,8 @@
            (↓ EXP ρ_1))
          σ_1)
         ;((↓ EXP ρ_1) σ_1)
-        (where (ρ_1 σ_1) (bind-vars ρ σ (X AV*) ...))
+        (judgment-holds (chooses (AV* ...) (AV*_* ...)))
+        (where (ρ_1 σ_1) (bind-vars ρ σ (X AV*_*) ...))
         (where ((CON_a #hash()) ... ((CON_0 ... -> any_c3) #hash()) (CON_b #hash()) ...) (C* ...))
         #;(side-condition (printf "widening ~a\n" (term F)))
         special-β-rec)
@@ -94,6 +98,35 @@
         (where (ρ_1 σ_1) (bind-vars ρ σ (X V) ...))                
         let)))
 
+
+(define-judgment-form λcρ
+  #:mode (chooses I O)
+  #:contract (chooses (V ..._1) (V ..._1))
+  [(chooses (V_1 ...) (V_2 ...))
+   (choose V_1 V_2)
+   ...])
+
+(define-judgment-form λcρ
+  #:mode (choose I O)
+  #:contract (choose V V)
+  [(choose (-- C_1 ... ((or/c CON_1 CON_2) ρ) C_2 ...) V)
+   (choose (-- C_1 ... (CON_1 ρ) C_2 ...) V)]
+  [(choose (-- C_1 ... ((or/c CON_1 CON_2) ρ) C_2 ...) V)
+   (choose (-- C_1 ... (CON_2 ρ) C_2 ...) V)]
+  [(choose (-- C_1 ... ((rec/c X CON) ρ) C_2 ...) V)
+   (choose (-- C_1 ... ((unroll (rec/c X CON)) ρ) C_2 ...) V)]
+  [(choose (-- C# ...) (-- C# ...))]
+  [(choose (-- PREVAL C ...) (-- PREVAL C ...))]
+  [(choose BLESSED BLESSED)])
+
+(test
+ (test-equal (judgment-holds (choose (-- ((or/c (pred boolean? f) (pred string? f)) (env))) V) V)
+             (term ((-- ((pred boolean? f) (env)))
+                    (-- ((pred string? f) (env))))))
+ (test-equal (judgment-holds (choose (-- ((rec/c x (or/c (pred boolean? f) (pred string? f))) (env))) V) V)
+             (term ((-- ((pred boolean? f) (env)))
+                    (-- ((pred string? f) (env)))))))
+ 
 (test
  (define -->_v 
    (reduction-relation 
@@ -188,13 +221,7 @@
                    (-- (↓ 32 (env)))
                    †))
           (term (-- (↓ 4294967296 (env)))))
- (test/σ--> v
-          (term (@ (-- (↓ + (env)))
-                   (-- (↓ "foo" (env))) 
-                   (-- (↓ 7 (env)))
-                   †))
-          (term (blame † Λ (-- (↓ "foo" (env))) + (-- (↓ "foo" (env))))))
- (test/σ--> v 
+(test/σ--> v 
           (term (begin (-- (↓ 3 (env))) (↓ 5 (env))))
           (term (↓ 5 (env))))  
  (test-->> -->_v
