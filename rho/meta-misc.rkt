@@ -445,36 +445,8 @@
       (for*/list ([z (in-list (apply xprod rest))]
                   [x xs])
         (cons x z))))
-;; handles remembering rec/c and or/c
 
-(define-metafunction λcρ
-  remember-contract/any : V C ... -> (V ...)
-  [(remember-contract/any V C* ...)
-   ((remember-contract V C* ...))]  
-  [(remember-contract/any V C ... ((and/c CON_1 CON_2) ρ) C_1 ...)
-   (remember-contract/any V C ... (CON_1 ρ) (CON_2 ρ) C_1 ...)]
-  [(remember-contract/any V C ...)
-   (V_1 ... ...)
-   (where ((C_1 ...) ...)
-          ,(apply xprod (term ((explode C) ...))))
-   (where ((V_1 ...) ...)
-          ((remember-contract/any V C_1 ...) ...))])
-
-(test
- 
- (test-equal (term (remember-contract/any (-- ((pred exact-nonnegative-integer? f) (env)))
-                                          ((or/c (pred string? f) (pred boolean? f)) (env))))
-             (term ((remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
-                                       ((pred string? f) (env)))
-                    (remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
-                                       ((pred boolean? f) (env))))))
- (test-equal (term (remember-contract/any (-- ((pred exact-nonnegative-integer? f) (env)))
-                                          ((and/c (pred empty? f) (or/c (pred string? f) (pred boolean? f))) (env))))
-             (term ((remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
-                                       ((pred empty? f) (env)) ((pred string? f) (env)))
-                    (remember-contract (-- ((pred exact-nonnegative-integer? f) (env)))
-                                       ((pred empty? f) (env)) ((pred boolean? f) (env))))))
- 
+(test 
  ;; flatten and/c
  (test-equal (term (remember-contract (-- ((pred string? f) (env)))
                                       ((and/c (pred (f? ^ f g) m)
@@ -534,36 +506,33 @@
 ;; All domain contracts of all function contracts in given contracts.
 ;; produces a list of the list of contracts for each argument of a function.
 
-;; In case of arity mismatch, we take the first function contract as canonical
-;; just like `arity'.
+;; Values are just used to enforce the arity.
 (define-metafunction λcρ
-  domain-contracts : (C ...) -> ((C ...) ...)
-  [(domain-contracts (C ...))
-   (domain-contracts* (C ...) ())])
-
-(define-metafunction λcρ
-  domain-contracts* : (C ...) ((C ...) ...) -> ((C ...) ...)
-  [(domain-contracts* () any) any]
-  [(domain-contracts* (((CON_1 ... -> any) ρ) C ...) ())
-   (domain-contracts* (C ...) (((CON_1 ρ)) ...))]
-  [(domain-contracts* (((CON_1 ..._1 -> any) ρ) C ...) ((C_3 ...) ..._1))
-   (domain-contracts* (C ...) ((C_3 ... (CON_1 ρ)) ...))]
-  [(domain-contracts* (C_0 C ...) any)
-   (domain-contracts* (C ...) any)])
+  domain-contracts : (C ...) (V ..._1) -> (CON ..._1)
+  [(domain-contracts () (V ...)) 
+   (CON ...)
+   (where ((CON V_0) ...) (((∧) V) ...))]
+  [(domain-contracts (((CON ..._1 -> any) ρ) C ...) (V ..._1))
+   ((∧ CON CON_1) ...)
+   (where (CON_1 ...) (domain-contracts (C ...) (V ...)))] 
+  [(domain-contracts (C_0 C ...) any)
+   (domain-contracts (C ...) any)])
 
 (test
-  (test-equal (term (domain-contracts (((pred string? f) (env)))))
-              (term ()))
-  (test-equal (term (domain-contracts ((((pred exact-nonnegative-integer? f) 
-                                         (pred string? f) -> 
-                                         (pred exact-nonnegative-integer? f)) 
-                                        (env))
-                                       (((pred boolean? f) 
-                                         (pred empty? f) -> 
-                                         (pred exact-nonnegative-integer? f)) 
-                                        (env)))))
-              (term ((((pred exact-nonnegative-integer? f) (env)) ((pred boolean? f) (env)))
-                     (((pred string? f) (env)) ((pred empty? f) (env)))))))
+ (test-equal (term (domain-contracts (((pred string? f) (env))) ((-- (↓ 0 (env))))))
+             (term ((∧))))
+ (test-equal (term (domain-contracts ((((pred exact-nonnegative-integer? f) 
+                                        (pred string? f) -> 
+                                        (pred exact-nonnegative-integer? f))
+                                       (env))
+                                      (((pred boolean? f) 
+                                        (pred empty? f) -> 
+                                        (pred exact-nonnegative-integer? f))
+                                      (env)))
+                                     ((-- (↓ 0 (env)))
+                                      (-- (↓ 0 (env))))))
+             (term ((∧ (pred exact-nonnegative-integer? f) (pred boolean? f))
+                    (∧ (pred string? f) (pred empty? f))))))
 
 ;; All range contracts of all function contracts in given contracts.
 ;; given the specified arguments for dependent contracts

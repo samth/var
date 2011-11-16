@@ -104,7 +104,7 @@
       (s-ref X X natural))
   
   ;; Closures
-  (D (clos EXP ρ)
+  (D (clos EXP ρ)     
      V
      MODREF 
      (@ D D ... LAB)     
@@ -113,7 +113,8 @@
      (let ((X D) ...) (clos EXP ρ))
      (begin D (clos EXP ρ))
      (CON ρ <= LAB LAB V LAB D)
-     BLAME)    
+     BLAME
+     (dem CON D))
   
   ;; Values (semantic)
   (PREVAL (clos VAL ρ)
@@ -184,6 +185,7 @@
      (if 𝓔 D D) 
      (let ((X V) ... (X 𝓔) (X D) ...) D)
      (begin 𝓔 D)
+     (dem CON 𝓔)
      (side-condition (CON_1 ρ <= LAB LAB V LAB 𝓔)
                      (not (redex-match λcρ ANYCON (term CON_1)))))
   
@@ -391,7 +393,9 @@
 
 (define-metafunction λcρ
   ∧ : CON ... -> CON
-  [(∧)  (pred (λ (x) #t) Λ)]
+  [(∧ CON_1 ... ANYCON CON_2 ...)
+   (∧ CON_1 ... CON_2 ...)]
+  [(∧) (pred (λ (x) #t) Λ)]
   [(∧ CON) CON]
   [(∧ CON_0 CON_1  ...)
    (and/c CON_0 (∧ CON_1 ...))])

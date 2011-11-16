@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "util.rkt" "demonic.rkt")
+(require "lang.rkt" "meta.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test check)
 

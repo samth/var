@@ -929,3 +929,24 @@
   [(list-value->list (-- (clos empty ρ) C ...)) ()]
   [(list-value->list (-- (cons V_1 V_2) C ...))
    ,(cons (term V_1) (term (list-value->list V_2)))])
+
+(define-metafunction λcρ
+  amb : D D ... -> D
+  [(amb D) D]
+  [(amb D_1 D_3 ...)
+   (if (-- ((pred (λ (x) #t) Λ) (env))) D_1 (amb D_3 ...))])
+
+(define-metafunction λcρ
+  amb/e : EXP EXP ... -> EXP
+  [(amb/e EXP) EXP]
+  [(amb/e EXP_1 EXP_3 ...)
+   (if • EXP_1 (amb/e EXP_3 ...))])
+
+(test
+ ;; FIXME Why does this seemingly take FOREVER!?
+ #;
+ (redex-check λcρ (D_1 D_2) (term (amb D_1 D_2)))
+ ;; Must be related to this; looks like a Redex bug:
+ ;; EXHAUSTS ALL MEMORY
+ #;
+ (generate-term λcρ D_1 3))
