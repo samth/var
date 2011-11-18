@@ -115,17 +115,17 @@
    (where (any_1 ...) ,(alloc-addr (term σ) (term (any ...))))])
 
 (define (alloc-addr σ vals)
-   (cond [(current-exact?) (variables-not-in* (hash-keys σ) vals)]
-         [(andmap symbol? vals)
-          #;
-          (variables-not-in (hash-keys σ) vals)
-          vals]
-         ;; FIXME
+  (cond [(current-exact?) (variables-not-in* (hash-keys σ) vals)]
+        [(andmap symbol? vals)
          #;
-         [(andmap V? vals)
-          (build-list (length vals) values)]
-         [else ;; continuations
-          (map (λ (p) (if (list? p) (drop-right p 1) p)) vals)]))
+         (variables-not-in (hash-keys σ) vals)
+         vals]
+        ;; FIXME
+        #;
+        [(andmap V? vals)
+         (build-list (length vals) values)]
+        [else ;; continuations
+         (map (λ (p) (if (list? p) (drop-right p 1) p)) vals)]))
 
 (define-metafunction λcρ
   extend-env* : ρ (X any) ... -> ρ
@@ -172,7 +172,7 @@
   sto-lookup : σ any -> (any ...)
   [(sto-lookup σ any)
    ,(set->list (hash-ref (term σ) (term any)))])
-    
+
 (define-metafunction λcρ
   explode : C -> (C ...)
   [(explode ((or/c CON_1 CON_2) ρ))
@@ -293,9 +293,8 @@
   [(modref=? (X ^ LAB_1 X_1) (X ^ LAB_2 X_1)) #t]
   [(modref=? MODREF_1 MODREF_2) #f])
 
-(define-judgment-form λcρ
-  #:mode (≡C I I)
-  #:contract (≡C C C)
+(define-relation λcρ
+  ≡C ⊆ C × C
   [(≡C C C)]
   [(≡C ((atom/c ATOMLIT LAB_1) ρ_1)
        ((atom/c ATOMLIT LAB_2) ρ_2))]
@@ -309,18 +308,10 @@
        ((and/c CON_3 CON_4) ρ_2))
    (≡C (CON_1 ρ_1) (CON_3 ρ_2))
    (≡C (CON_2 ρ_1) (CON_4 ρ_2))]  
-  [(≡C ((and/c CON_1 CON_2) ρ_1) 
-       ((and/c CON_3 CON_4) ρ_2))
-   (≡C (CON_1 ρ_1) (CON_4 ρ_2)) 
-   (≡C (CON_2 ρ_1) (CON_3 ρ_2))]  
   [(≡C ((or/c CON_1 CON_2) ρ_1)
        ((or/c CON_3 CON_4) ρ_2))
    (≡C (CON_1 ρ_1) (CON_3 ρ_2))
    (≡C (CON_2 ρ_1) (CON_4 ρ_2))]
-  [(≡C ((or/c CON_1 CON_2) ρ_1)
-       ((or/c CON_3 CON_4) ρ_2))
-   (≡C (CON_1 ρ_1) (CON_4 ρ_2))
-   (≡C (CON_2 ρ_1) (CON_3 ρ_2))]
   [(≡C ((not/c CON_1) ρ_1)
        ((not/c CON_3) ρ_2))
    (≡C (CON_1 ρ_1) (CON_3 ρ_2))]
@@ -344,51 +335,51 @@
    (≡C (CON_1 ρ_1) (CON_3 ρ_2)) 
    ... 
    (≡C (CON_2 ρ_1) (CON_4 ρ_2))])
-  
-  
+
+
 (test 
- (test-equal (judgment-holds (≡C ((∧) (env)) ((∧) (env)))) #t)
- (test-equal (judgment-holds (≡C ((pred (f ^ g h) r) (env)) 
-                                 ((pred (f ^ j h) s) (env))))
+ (test-equal (term (≡C ((∧) (env)) ((∧) (env)))) #t)
+ (test-equal (term (≡C ((pred (f ^ g h) r) (env)) 
+                       ((pred (f ^ j h) s) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((and/c (pred (f ^ g h) r)
-                                         (pred (q ^ w x) u)) (env))
-                                 ((and/c (pred (q ^ y x) t)
-                                         (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((and/c (pred (f ^ g h) r)
+                               (pred (q ^ w x) u)) (env))
+                       ((and/c (pred (q ^ y x) t)
+                               (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((and/c (pred (q ^ w x) u)
-                                         (pred (f ^ g h) r)) (env))
-                                 ((and/c (pred (q ^ y x) t)
-                                         (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((and/c (pred (q ^ w x) u)
+                               (pred (f ^ g h) r)) (env))
+                       ((and/c (pred (q ^ y x) t)
+                               (pred (f ^ j h) s)) (env))))
              #t) 
- (test-equal (judgment-holds (≡C ((or/c (pred (f ^ g h) r)
-                                        (pred (q ^ w x) u)) (env))
-                                 ((or/c (pred (q ^ y x) t)
-                                        (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((or/c (pred (f ^ g h) r)
+                              (pred (q ^ w x) u)) (env))
+                       ((or/c (pred (q ^ y x) t)
+                              (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((or/c (pred (q ^ w x) u)
-                                        (pred (f ^ g h) r)) (env))
-                                 ((or/c (pred (q ^ y x) t)
-                                        (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((or/c (pred (q ^ w x) u)
+                              (pred (f ^ g h) r)) (env))
+                       ((or/c (pred (q ^ y x) t)
+                              (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((rec/c x (pred (f ^ g h) r)) (env)) 
-                                 ((rec/c x (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((rec/c x (pred (f ^ g h) r)) (env)) 
+                       ((rec/c x (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((not/c (pred (f ^ g h) r)) (env)) 
-                                 ((not/c (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((not/c (pred (f ^ g h) r)) (env)) 
+                       ((not/c (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((cons/c (pred (q ^ w x) u) (pred (f ^ g h) r)) (env))
-                                 ((cons/c (pred (q ^ y x) t) (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C ((cons/c (pred (q ^ w x) u) (pred (f ^ g h) r)) (env))
+                       ((cons/c (pred (q ^ y x) t) (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C ((struct/c p posn) (env)) ((struct/c p posn) (env))))
+ (test-equal (term (≡C ((struct/c p posn) (env)) ((struct/c p posn) (env))))
              #t)                                                                                         
- (test-equal (judgment-holds (≡C (((pred (q ^ w x) u) -> (pred (f ^ g h) r)) (env))
-                                 (((pred (q ^ y x) t) -> (pred (f ^ j h) s)) (env))))
+ (test-equal (term (≡C (((pred (q ^ w x) u) -> (pred (f ^ g h) r)) (env))
+                       (((pred (q ^ y x) t) -> (pred (f ^ j h) s)) (env))))
              #t)
- (test-equal (judgment-holds (≡C (((pred (q ^ w x) u) -> (λ (x) (pred (f ^ g h) r))) (env))
-                                 (((pred (q ^ y x) t) -> (λ (x) (pred (f ^ j h) s))) (env))))
+ (test-equal (term (≡C (((pred (q ^ w x) u) -> (λ (x) (pred (f ^ g h) r))) (env))
+                       (((pred (q ^ y x) t) -> (λ (x) (pred (f ^ j h) s))) (env))))
              #t))
-  
+
 ;; FIXME: don't need to remember arity-like contracts on arity-known procedures.
 (define-metafunction λcρ
   remember-contract : V C ... -> V
@@ -414,10 +405,10 @@
   ;; forget duplicates  
   [(remember-contract (-- any_0 C_0 ... C_A C_1 ...) C_B C_2 ...)   
    (remember-contract (-- any_0 C_0 ... C_A C_1 ...) C_2 ...)
-   (judgment-holds (≡C C_A C_B))]  
+   (where #t (≡C C_A C_B))]
   [(remember-contract (-- C_0 ... C_A C_1 ...) C_B C_2 ...)
    (remember-contract (-- C_0 ... C_A C_1 ...) C_2 ...)
-   (judgment-holds (≡C C_A C_B))]
+   (where #t (≡C C_A C_B))]
   ;; add feasible non-duplicates  
   [(remember-contract (-- C_1 ...) C_2 C ...)
    (remember-contract (-- C_1 ... C_2) C ...)
@@ -528,7 +519,7 @@
                                       (((pred boolean? f) 
                                         (pred empty? f) -> 
                                         (pred exact-nonnegative-integer? f))
-                                      (env)))
+                                       (env)))
                                      ((-- (↓ 0 (env)))
                                       (-- (↓ 0 (env))))))
              (term ((∧ (pred exact-nonnegative-integer? f) (pred boolean? f))

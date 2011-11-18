@@ -309,7 +309,7 @@
   #:mode (contract-in I I)
   #:contract (contract-in C V)
   [(contract-in C (-- any ... C_0 C_1 ...))
-   (≡C C_0 C)]
+   (where #t (≡C C_0 C))]
   [(contract-in C (BARROW ρ <= LAB_0 LAB_1 V_b LAB_2 V))
    (contract-in C V)]
   [(contract-in ((atom/c ATOMLIT LAB) ρ) (-- (clos ATOMLIT ρ) C ...))]
