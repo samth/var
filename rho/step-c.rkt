@@ -14,7 +14,7 @@
    
    ;; FLAT CONTRACTS   
    (--> ((FLAT ρ <= LAB_1 LAB_2 V_1 LAB_3 V) σ)  ; FIXME: first V_1 was V-or-AE
-        ((if (@ (-- (↓ (flat-check (FLAT ρ) V) (env))) V Λ)
+        ((if (@ (-- (↓ (flat-check (FLAT ρ) V) ρ)) V Λ)
              V_2
              (blame LAB_1 LAB_3 V_1 (FLAT ρ) V))
          σ)
