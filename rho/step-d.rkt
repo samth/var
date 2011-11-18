@@ -22,7 +22,7 @@
         ((dem (∧) V) σ) 
         dem-var)
    
-   (--> ((dem (not CON) V) σ) ; safe, hard to do better.
+   (--> ((dem (not/c CON) V) σ) ; safe, hard to do better.
         ((dem (∧) V) σ)
         dem-not)
    
