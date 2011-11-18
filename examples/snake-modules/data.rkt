@@ -54,8 +54,6 @@
    [f-world-snake ((world/c . -> . snake/c) . -> . any/c)]
    [f-world-food ((world/c . -> . posn/c) . -> . any/c)]))
 
-;; We're not doing demonic of structures right (ie, we don't do anything).
-
 (require 'data 'D)
 
 (begin
