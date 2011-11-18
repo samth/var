@@ -58,6 +58,15 @@
   [(abs-δ eqv? V_1 V_2)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]
+  [(abs-δ not V)
+   ((-- (↓ #t (env))))
+   (judgment-holds (proves V false?))]
+  [(abs-δ not V)
+   ((-- (↓ #f (env))))
+   (judgment-holds (refutes V false?))]
+  [(abs-δ not V)
+   ((-- (↓ #t (env)))
+    (-- (↓ #f (env))))]  
   
   ;; struct ops
   [(abs-δ (s-pred X_m X_tag) AV)
@@ -172,6 +181,10 @@
   [(plain-δ symbol? (-- (clos 'variable ρ) C ...))
    (-- (↓ #t (env)))]
   [(plain-δ symbol? (-- (clos 'variable ρ) C ...)) 
+   (-- (↓ #f (env)))]
+  [(plain-δ not (-- (clos #f ρ) C ...))
+   (-- (↓ #t (env)))]
+  [(plain-δ not V)
    (-- (↓ #f (env)))]
   ;; Interpreted different than Racket's `sub1', `random', etc.
   [(plain-δ sub1 (-- (clos natural ρ) C ...))

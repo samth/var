@@ -7,6 +7,7 @@
 (define-metafunction λcρ
   op-con : OP -> CON
   [(op-con OP?) ((∧) -> (pred boolean? Λ))]
+  [(op-con not) ((∧) -> (pred boolean? Λ))]
   [(op-con natural*->natural)
    ((rec/c X (or/c (atom/c empty Λ) (cons/c (pred exact-nonnegative-integer? Λ) X)))
     ->* (pred exact-nonnegative-integer? Λ))]

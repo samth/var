@@ -73,7 +73,7 @@
   ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
   ;; Operations (syntactic)
   (PRIM OP apply values)
-  (OP car cdr add1 sub1 random
+  (OP car cdr add1 sub1 random not
       zero? procedure? empty? cons? eqv? char?
       exact-nonnegative-integer? string? symbol? boolean? false?
       + - * expt quotient remainder modulo
