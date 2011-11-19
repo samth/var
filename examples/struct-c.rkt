@@ -1,5 +1,4 @@
 #lang var rho
-
 (module m racket
   (struct posn (x y))
   (define (p) (posn 1 2))

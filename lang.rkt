@@ -1,534 +1,437 @@
 #lang racket
+;; A reformulation of the language as a calculus of explicit substitutions.
+
 (require redex/reduction-semantics "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test lang)
-  
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; Languages
-
-
-#|
-Grammar of programs:
-
-(module m racket
-  (require (only-in m f ...) ...)
-  (struct f (x ...))
-  ...
-  (define f PV)
-  ...
-  (provide/contract [f C] ...))
-...
-(require (only-in m f ...) ...)
-E
-|#
 
 (define-language λc-user
-  
   ;; Annotated language
-  (P (M ... R E))
-  (M (module f LANG R STRUCT ... DEF ...
-       (provide/contract [f C] ...)))  
-     
-  (R (require (only-in f f ...) ...))
+  ;; This is just static syntax, no semantic notions at all.
+  
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Programs
+  (PROG (MOD ... REQ EXP))
+  (MOD (module X LANG REQ STRUCT ... DEF ... PROV))
+  (PROV (provide/contract [X PCON] ...))         
+  (REQ (require (only-in X X ...) ...))
   (LANG racket racket/base)
-  (STRUCT (struct x (x ...)))
-  (DEF (define f PV))
-     
-  (L (λ (x ...) E) 
-     ;(letrec ((x (λ (x ...) E))) x)
-     (λ x (x ...) E))     
-  (W (-- L C* ...))
-  (bool #t #f)
-  ;; Plain value
-  (PV FV L)
-  
-  ;; A flat value is definitely not a procedure
-  (FV nat bool string empty (cons V V) (struct x V ...))
-  (STRUCTV (-- (struct x V ...) C* ...))
-  
-  ;; Values
-  ((U V) WFV W)
-  
-  (WFV (-- FV C* ...))
-  
-  (MODREF (f ^ ℓ f)) ;; f_1 is occurs in ℓ and is defined in f_2.
-  
-  (SV L MODREF o) ; Syntactic values for pred.
-  (E V PV x MODREF (@ E E ... ℓ) (@ o E E ... ℓ) (if E E E) (let ((x E) ...) E) (begin E E))
-  
-  (FLAT FLAT* x (and/c FLAT FLAT))
-  (HOC HOC* (and/c HOC C)  (and/c C HOC) #;x)  ;; Not sure about x or no x.
-  
-  (FLAT* FC (pred SV ℓ) (cons/c FLAT FLAT) (or/c FLAT FLAT) (rec/c x FLAT))
-  (HOC* (C ... -> C)
-        (C ..._1 -> (λ (x ..._1) C))
-        (or/c FLAT HOC)
-        (cons/c HOC C) (cons/c C HOC)
-        (rec/c x HOC))
-     
-  (FC (pred exact-nonnegative-integer? ℓ)
-      (pred boolean? ℓ)
-      (pred string? ℓ)
-      (pred empty? ℓ)
-      (pred false? ℓ))
-  
-  (C* FLAT* HOC*)  
-  (C FLAT HOC
-     ;; Redundant [for random dist only]
-     (pred exact-nonnegative-integer? ℓ)
-     (pred boolean? ℓ)
-     (pred string? ℓ)
-     (pred empty? ℓ)
-     (pred false? ℓ))
-  
-  (anyc (pred (λ (x) #t) ℓ))  ;; Could improve by any constant that is not #f.
-  
-  (x variable-not-otherwise-mentioned)
-  (f variable-not-otherwise-mentioned)
-  (ℓ f x † ★ Λ) ;; † is top-level, ★ is demonic generated, Λ is language generated
-  (nat natural) 
-  (o x op)
-  (op o1 o2)
-  (o1 o? first rest nat->nat)
-  (nat->nat add1 sub1)
-  ;; Built-in predicates
-  (o? zero? procedure? empty? cons? exact-nonnegative-integer? string? boolean? false?)
-  (o2 nat*nat->nat nat*nat->bool cons string*string->bool)
-  (nat*nat->nat + - * expt)
-  (nat*nat->bool = < <= > >=)
-  (string*string->bool 
-   string=? string<? string<=? string>? string>=? 
-   string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?)
-  
-  (𝓔 hole (@ V ... 𝓔 E ... ℓ) (if 𝓔 E E) (@ o V ... 𝓔 E ... ℓ) (let ((x V) ... (x 𝓔) (x E) ...) E) (begin 𝓔 E)))
+  (STRUCT (struct X (X ...)))
+  (DEF (define X VAL)
+       (define X •))
 
-;; Figure 5, gray (cont).
-(define-extended-language λc λc-user
-  (B (blame ℓ ℓ V C V) (blame ℓ Λ V op V))
-  (E .... (C <= ℓ ℓ V ℓ E) B)
-  (𝓔 .... (C <= ℓ ℓ V ℓ 𝓔)))
-
-;; Figure 5, gray (cont).
-(define-extended-language λc~ λc
-  ;; Abstract expressions
-  (AE (-- C* C* ...) blessed-AE)   
-  (blessed-AE
-   ((C ... --> C) <= ℓ ℓ V ℓ AE)
-   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ AE))
-
-  ;; Abstract values
-  (AV (-- C*-top C*-top ...)
-      blessed-AV)
-  (blessed-AV
-   ((C ... --> C) <= ℓ ℓ V ℓ AV)
-   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ AV))
-  (blessed-L
-   ((C ... --> C) <= ℓ ℓ V ℓ (-- L C* ...))
-   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ (-- L C* ...))
-   ((C ... --> C) <= ℓ ℓ V ℓ blessed-L)
-   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ blessed-L))
-  ;; Only for CESK.
-  (blessed-A 
-   ((C ... --> C) <= ℓ ℓ V-or-AE ℓ (addr a))  
-   ((C ..._1 --> (λ (x ..._1) C)) <= ℓ ℓ V ℓ (addr a)))
-  
-  ;; Concrete values
-  (CV (-- PV C* ...) blessed-L)
-  (C-ext C λ)
-  
-  (V-or-AE V AE)
-  (E .... AE (C <= ℓ ℓ AE ℓ E))
-  (𝓔 .... (C <= ℓ ℓ AE ℓ 𝓔))
-  (B ....
-     (blame ℓ ℓ AE C V) 
-     (blame ℓ ℓ V λ V)) ;; broke the contract with the language
-  
-  (a (loc any))
-  
-  (WFV .... (-- C*-top ... FVC!*-top C*-top ...))
-  
-  ;; Representations of abstract values
-  ;; no or/c or rec/c at top-level
-  (C*-top (pred SV ℓ)
-          (C ... -> C)
-          (C ..._1 -> (λ (x ..._1) C))
-          (cons/c C C))
-  
-  ;; Definite flat value contract
-  ;; Contract variables are not needed: to be productive,
-  ;; contract variables must occur with C occurrences.
-  
-  (FLAT-FVC! (side-condition FVC!_1 (redex-match λc~ FLAT (term FVC!_1))))
-  
-  (FVC! FVC!*
-        (and/c C FVC!)
-        (and/c FVC! C))
-  (FVC!* FVC!*-top
-         (or/c FLAT-FVC! FVC!)         
-         (rec/c x FVC!))
-  (FVC!*-top FC (cons/c C C))
-  
-
-  
-  (V .... AV blessed-L blessed-A)
-     
-  (DEF .... (define f ☁))
-
-  (V-or-B V B)
-  
-  ;; Definite procedure contract
-  (WC! WC!* (and/c C WC!) (and/c WC! C))
-  (WC!* WC!*-top (rec/c x WC!))
-  (WC!*-top (C ... -> C) (C ..._1 -> (λ (x ..._1) C)) (pred procedure? ℓ))
-  
-  ;; Definite procedure  
-  (W .... 
-     blessed-L
-     blessed-AV 
-     blessed-A
-     (-- C*-top ... WC!*-top C*-top ...))
-  
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Expressions  
+  (EXP VAL X PRIMREF MODREF 
+       (@ EXP EXP ... LAB) 
+       (if EXP EXP EXP)
+       (let ((X EXP) ...) EXP)
+       (begin EXP EXP))
+  (PRIMREF (PRIM ^ LAB))
+  (MODREF (X ^ LAB X)) ;; X_1 occurs in LAB, defined in X_2.
+  (LAB X PRIM †) ;; † is top-level  
+  ((F X) variable-not-otherwise-mentioned)  
     
-  ;; Note: uninhabited contracts may be both definitely flat and procedures.
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Values (syntactic)  
+  (VAL natural boolean character string empty 'variable
+       LAM 
+       (cons VAL VAL) 
+       #;(struct X VAL ...))      
+  (LAM (λ (X ...) EXP)
+       (λ X (X ...) EXP)
+       (λ* (X ... X) EXP))
   
-  ;; Maybe procedure contract
-  (WC? WC?* (and/c WC? WC?))  
-  (WC?* WC?*-top
-        (or/c WC? C)
-        (or/c C WC?)       
-        (or/c FVC! WC!)
-        (or/c WC! FVC!)       
-        (rec/c x WC?))  
-  (WC?*-top (pred (side-condition SV_1 (not (equal? (term SV_1) 'procedure?))) ℓ))
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Contracts
+  (PCON  (side-condition (name c CON) (term (valid? c)))) 
+  (FLAT (side-condition (name c CON) (term (flat? c))))
+  (HOC  (side-condition (name c CON) (not (term (flat? c)))))
+  (PREDV LAM MODREF OP)
+  (CON X
+       (atom/c ATOMLIT LAB)
+       (struct/c X X CON ...)
+       (pred PREDV LAB) 
+       (rec/c X CON)       
+       (cons/c CON CON) 
+       (and/c CON CON)
+       (or/c CON CON)
+       (not/c CON) 
+       CARROW)
+  (CARROW (CON ... -> CON)
+          (CON ..._1 -> (λ (X ..._1) CON))
+          (CON ... CON ->* CON))
+  (ANYCON (pred (λ (X) #t) LAB))
+  (ATOMLIT natural
+           boolean
+           character
+           empty
+           'variable)
+  (boolean #t #f)
+  (character (side-condition any_c (char? (term any_c))))
+    
+  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+  ;; Operations (syntactic)
+  (PRIM OP apply values)
+  (OP car cdr add1 sub1 random not
+      zero? procedure? empty? cons? eqv? char?
+      exact-nonnegative-integer? string? symbol? boolean? false?
+      + - * expt quotient remainder modulo
+      = < <= > >=             
+      cons 
+      symbol=?
+      char=? char<? char<=? char>? char>=?
+      string=? string<? string<=? string>? string>=? 
+      string-ci=? string-ci<? string-ci<=? string-ci>? string-ci>=?
+      procedure-arity-includes?))
 
-  ;; Maybe procedure
-  (W? W (-- C*-top ... WC?*-top C*-top ...))
+
+(define-extended-language λcρ λc-user
+  ;; Environments, stores
+  (a (loc any))
+  (σ (side-condition any_h (hash? (term any_h))))
+  (ρ (side-condition any_h (hash? (term any_h))))
+  (S V)
+  (STRUCTENV ((X (X X X (X ...)) ...) ...))
   
-  ;; Substitutions and renamings
-  (SUBST ((x V) ...)
-         ((x x) ...))
+  (EXP .... PRIM (@* EXP ... LAB) •)
+  (VAL .... PRIM)
   
+  (OP .... 
+      ;struct?
+      (s-pred X X)
+      (s-cons X X natural)
+      (s-ref X X natural))
+  
+  ;; Closures
+  (D (clos EXP ρ)     
+     V
+     MODREF 
+     (@ D D ... LAB)     
+     (@* D D ... LAB) ; like @, but last arg is a rest list [created by ->* checks].
+     (if D D D)
+     (let ((X D) ...) (clos EXP ρ))
+     (begin D (clos EXP ρ))
+     (CON ρ <= LAB LAB V LAB D)
+     BLAME
+     (dem CON D))
+  
+  ;; Values (semantic)
+  (PREVAL (clos VAL ρ)
+          (cons V V)
+          (struct X X V ...))
+  ((V U) (-- PREVAL C* ...) AV BLESSED)
+  (AV (-- C* ...))
+  (AV* AV BLESSEDAV)
+  (A V BLAME)
+  
+  (STRUCTV (-- (struct X X V ...) C* ...))
+  
+  ;; Types of values
+  (PROC (-- (clos LAM ρ) C* ...) 
+        (-- (clos PRIM ρ) C* ...)
+        (-- C* ...) ;; FIXME: could be more restrictive
+        BLESSED)  
+        
+        
+  (BLESSED (BARROW ρ <= LAB LAB V LAB PROC)
+           (BARROW ρ <= LAB LAB V LAB BLESSED))
+  
+  (BLESSEDAV (BARROW ρ <= LAB LAB V LAB AV)
+             (BARROW ρ <= LAB LAB V LAB BLESSEDAV))
+    
+  (BARROW (CON ... --> CON)
+          (CON ..._1 --> (λ (X ..._1) CON))
+          (CON ... CON -->* CON))
+  
+  (C  (CON ρ))
+  (C* (CON* ρ))
+  (C# (CON# ρ))
+    
+  (CON# (pred PREDV LAB) 
+        (cons/c CON CON)          
+        (not/c FLAT)
+        (atom/c ATOMLIT LAB)
+        (struct/c X X CON ...)
+        CARROW)
+  (CON* CON#
+        (rec/c X CON)  
+        (or/c FLAT CON))
+        
+  (ATOM? exact-nonnegative-integer?
+         boolean?
+         zero?
+         string?
+         symbol?
+         empty?
+         false?)
+  (ATOMC ((pred ATOM? LAB) ρ))
+  (CONSC ((pred cons? LAB) ρ)
+         ((cons/c CON_1 CON_2) ρ))
+  (NOTPROCC ATOMC CONSC)
+  
+  (BLAME (blame LAB LAB V C V)
+         (blame LAB LAB V PRIM V)
+         (blame LAB LAB V λ V))
+      
+  (LAB .... ★ Λ) ; ★ is demonic generated, Λ is language generated
+  
+  (𝓔 hole 
+     (@ V ... 𝓔 D ... LAB)
+     (@* V ... 𝓔 D ... LAB)
+     (if 𝓔 D D) 
+     (let ((X V) ... (X 𝓔) (X D) ...) D)
+     (begin 𝓔 D)
+     (dem CON 𝓔)
+     (side-condition (CON_1 ρ <= LAB LAB V LAB 𝓔)
+                     (not (redex-match λcρ ANYCON (term CON_1)))))
+  
+  (REDEX (clos • ρ)
+         (clos PRIMREF ρ)
+         (clos X ρ)
+         (clos (@ any ... LAB) ρ)
+         (clos (if any ...) ρ)
+         (clos (begin any ...) ρ)
+         (clos (let ((X any) ...) EXP) ρ)
+         (clos MODREF ρ)
+         (@ V V ... LAB)
+         (@* V V ... LAB)
+         (if V D D)
+         (begin V D)
+         (let ((X V) ...) D)
+         PREVAL
+         
+         MODREF   
+         (CON ρ <= LAB LAB any LAB V)
+         (ANYCON ρ <= LAB LAB any LAB any)
+         BLAME)
+  
+  ;; Conveniences  
+  (OP? zero? procedure? empty? cons? char?
+       exact-nonnegative-integer? string? symbol? boolean? false?)
+    
+  (natural->natural add1 sub1)
+  (char-char-char*->bool char=? char<? char<=? char>? char>=?)
+  (natural*->natural + *)
+  (natural-natural*->natural -)
+  (natural-positive->natural quotient remainder modulo)
+  (natural-natural->natural expt) ; does not include quotient (partial).
+  (natural-natural-natural*->bool = < <= > >=)  
+  (string-string-string*->bool string=? string<? string>? string<=? string>=?
+                               string-ci=? string-ci<? string-ci>? string-ci<=? string-ci>=?)
+  
+  
+  (TRUE (-- (clos #t ρ) C* ...))
+  (FALSE (-- (clos #f ρ) C* ...))) 
+
+(define-extended-language λc-raw λc-user
   ;; Raw, unannotated language
-  (RARR -> →)
   (RP (RMOD ... RREQ REXP))
   
-  (RMOD (module f LANG RREQ ... RSTRUCT ... RDEF ...
-          (provide/contract [f RCON] ...))
-        (module f LANG
-          (provide/contract [f RCON] ...))
-        (define/contract f RCON RPV)
-        (define/contract f RCON bullet))
+  (RMOD (module X LANG RREQ ... RSTRUCT ... RDEF ...
+          (provide/contract [X RCON] ...))
+        (module X LANG
+          (provide/contract [X RCON] ...))
+        (define/contract X RCON RPV)
+        (define/contract X RCON bullet))
   
-  (MODENV ((f (f ...)) ...))
-  (STRUCTENV ((f (x x x (x ...)) ...) ...))
+  (MODENV ((X (X ...)) ...))
   (RREQ (require RELEM ...))
-  (RELEM f 'f (only-in 'f f ...) (only-in f f ...))
-  (RDEF (define f RPV)
-        (define (f x ...) REXP)
-        (define f bullet))
+  (RELEM X 'X (only-in 'X X ...) (only-in X X ...))
+  (RDEF (define X RPV)
+        (define (X X ...) REXP)
+        (define X bullet))
   (RSTRUCT STRUCT)
     
-  (bullet ● • ☁)
-  (RL (λ (x ...) REXP) (λ x (x ...) REXP))
-  (RPV FV RL)  
-  (RSV RL f o) ; Syntactic values for pred.
-  (REXP RPV x f 
+  (bullet •)
+  (RL (λ (X ...) REXP)
+      (λ X (X ...) REXP)
+      (λ XS-DOT-X REXP))
+  
+  (XS-DOT-X (side-condition any_xs (improper-formals? (term any_xs))))
+      
+  (RPV VAL RL)      
+  (RSV RL X OP) ; Syntactic values for pred.  
+  (REXP RPV X PRIM         
         (REXP REXP ...)
         (cond [REXP REXP] ... [else REXP])
         (if REXP REXP REXP) 
-        (o REXP REXP ...) 
-        (let ((x REXP) ...) REXP) 
-        (begin REXP REXP))  
+        (PRIM REXP REXP ...) 
+        (let ((X REXP) ...) REXP) 
+        (begin REXP REXP ...)
+        (and REXP ...)
+        (or REXP ...))
   
-  (RCFLAT o? anything any? (pred RSV) (cons/c RCFLAT RCFLAT) (or/c RCFLAT RCFLAT) (and/c RCFLAT RCFLAT)
-          (rec/c x RCFLAT) x)
-  (RCHOC (RARR RCON ... RCON)
-         (RARR RCON ..._1 (λ (x ..._1) RCON))         
-         (or/c RCFLAT RCHOC)
-         (cons/c RCHOC RCON) (cons/c RCON RCHOC)
-         (and/c RCHOC RCON)  (and/c RCON RCHOC)
-         (rec/c x RCHOC))
+  (RCON OP 
+        ATOMLIT
+        any/c 
+        (pred RSV)        
+        (cons/c RCON RCON) 
+        (struct/c X RCON ...)
+        (or/c RCON RCON) 
+        (and/c RCON RCON)          
+        (rec/c X RCON)
+        (not/c RCON)
+        (one-of/c ATOMLIT ATOMLIT ...)
+        (symbols 'variable 'variable ...)
+        (list/c RCON ...)
+        (-> RCON ... RCON)
+        (-> RCON ..._1 (λ (X ..._1) RCON))
+        (->* (RCON ...) #:rest RCON RCON)
+        (listof RCON)
+        (non-empty-listof RCON)
+        X)
+  )
+
+(define-extended-language λCESK λcρ
+  ; Continuations
+  (K MT
+     (APP (V ...) (D ...) LAB a)           ; (@ V ... 𝓔 D ... LAB)
+     (APP* (V ...) (D ...) LAB a)          ; (@* V ... 𝓔 D ... LAB)
+     (IF D D a)                            ; (if 𝓔 D D) 
+     (LET ((X V) ...) X ((X D) ...) D a)   ; (let ((X V) ... (X 𝓔) (X D) ...) D)
+     (BEGIN D a)                           ; (begin 𝓔 D)
+     (DEM CON a)                           ; (dem CON 𝓔)
+     (CHECK CON ρ LAB LAB V LAB a))        ; (CON ρ <= LAB LAB V LAB 𝓔)
+
+  ; States
+  (ς (ap D σ K)
+     (co K V σ))
   
-  (RCON RCFLAT RCHOC))
+  ; Potential redexes (that do real work).
+  (REDEX (clos • ρ)
+         (clos X ρ)
+         (V V ...)
+         (if V D D)
+         (begin V D)
+         (let ((X V) ...) D)      
+         MODREF   
+         (CON ρ <= LAB LAB V LAB V)
+         BLAME)
   
+  (S K V))
 
-(define-metafunction λc~
-  productive? : C x ... -> #t or #f
-  [(productive? x x_0 ... x x_1 ...) #f]
-  [(productive? x x_0 ...) #t]
-  [(productive? (rec/c x C) x_0 ...)
-   (productive? C x x_0 ...)]
-  [(productive? (cons/c C_1 C_2) x_0 ...)
-   ,(and (term (productive? C_1))
-         (term (productive? C_2)))]
-  [(productive? (C_1 ... -> C_2) x_0 ...)
-   ,(and (andmap (λ (c) (term (productive? ,c))) (term (C_1 ...)))
-         (term (productive? C_2)))]
-  [(productive? (C_1 ... -> (λ (x ...) C_2)) x_0 ...)
-   ,(and (andmap (λ (c) (term (productive? ,c))) (term (C_1 ...)))
-         (term (productive? C_2)))]
-  [(productive? (or/c C_1 C_2) x_0 ...)
-   ,(and (term (productive? C_1 x_0 ...))
-         (term (productive? C_2 x_0 ...)))]
-  [(productive? (and/c C_1 C_2) x_0 ...)
-   ,(and (term (productive? C_1 x_0 ...))
-         (term (productive? C_2 x_0 ...)))]
-  [(productive? C x ...) #t])
+(define (improper-formals? x)
+  (or (symbol? x)
+      (and (cons? x)
+           (symbol? (car x))
+           (improper-formals? (cdr x)))))
+       
 
-(define-syntax-rule 
-  (/c name p)  
-  (define-metafunction λc~
-    name : -> C
-    [(name) (pred p Λ)]))
+;; A valid provide contract is closed and has the or/c invariant.
+(define-metafunction λc-user
+  valid? : CON -> #t or #f
+  [(valid? X) #f]
+  [(valid? (atom/c ATOMLIT any)) #t]
+  [(valid? (pred PREDV any)) #t]
+  [(valid? (rec/c X CON))
+   (valid? (subst/μ X (subst/μ X (pred string? f) CON) CON))]
+  [(valid? (cons/c CON_1 CON_2))
+   ,(and (term (valid? CON_1))
+         (term (valid? CON_2)))]
+  [(valid? (struct/c X_1 X_2 CON ...))
+   ,(andmap values (term ((valid? CON) ...)))]
+  [(valid? (and/c CON_1 CON_2))
+   ,(and (term (valid? CON_1))
+         (term (valid? CON_2)))]  
+  [(valid? (or/c CON_1 CON_2))
+   ,(and (term (valid? CON_1))
+         (term (flat? CON_1))
+         (term (valid? CON_2)))]
+  [(valid? (not/c CON)) (flat? CON)]
+  [(valid? (CON_1 ... -> CON_2))
+   ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))]
+  [(valid? (CON_1 ... -> (λ (X ...) CON_2)))
+   ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))]
+  [(valid? (CON_1 ... ->* CON_2))
+   ,(andmap values (term ((valid? CON_1) ... (valid? CON_2))))])
 
-(/c any/c (λ (x) #t))
-(/c nat/c exact-nonnegative-integer?)
-(/c string/c string?)
-(/c empty/c empty?)
-(/c bool/c boolean?)
-(/c false/c false?)
+;; A flat contract can be checked immediately.
+(define-metafunction λc-user
+  flat? : CON -> #t or #f
+  [(flat? X) #t]
+  [(flat? (atom/c ATOMLIT any)) #t]
+  [(flat? (pred PREDV any)) #t]
+  [(flat? (rec/c X CON)) (flat? CON)]
+  [(flat? (cons/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]
+  [(flat? (struct/c X_1 X_2 CON ...))
+   ,(andmap values (term ((flat? CON) ...)))]
+  [(flat? (and/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]  
+  [(flat? (or/c CON_1 CON_2))
+   ,(and (term (flat? CON_1))
+         (term (flat? CON_2)))]
+  [(flat? (not/c CON)) (flat? CON)]
+  [(flat? CARROW) #f])
 
-(test
- (test-equal (term (productive? (pred (λ (x) #t) f))) #t)
- (test-equal (term (productive? (rec/c x x))) #f)
- (test-equal (term (productive? (or/c (any/c) (rec/c x x)))) #f)
- (test-equal (term (productive? (rec/c x (or/c (empty/c) (cons/c (any/c) x))))) #t)
- (test-equal (term (productive? ((any/c) -> (any/c)))) #t)
- (test-equal (term (productive? (or/c (rec/c a a) ((any/c) -> (any/c))))) #f))
-
-(test
- (test-equal (redex-match λc~ AV (term (-- (any/c) (and/c (nat/c) (nat/c)))))
-             #f))
-
-(define abstract-value? (redex-match λc~ (-- C* ...)))
-(define (final-state? x)
-  (or (redex-match λc~ V x)
-      (redex-match λc~ B x)
-      (redex-match λc~ (-- C_0 ...  C_1 ...))))
-
-(define-metafunction λc~
-  set-minus : (any ...) (any ...) -> (any ...)
-  [(set-minus any_0 any_1)
-   ,(set->list (set-subtract  (apply set (term any_0))
-                              (apply set (term any_1))))])
-
-;; Free *contract* variables
-(define-metafunction λc~
-  fcv/C : C -> (x ...)
-  [(fcv/C x) (x)]
-  [(fcv/C (rec/c x C))
-   (set-minus (fcv/C C) (x))]
-  [(fcv/C (cons/c C_1 C_2))
-   ,(append (term (fcv/C C_1))
-            (term (fcv/C C_2)))]
-  [(fcv/C (or/c C_1 C_2))
-   ,(append (term (fcv/C C_1))
-            (term (fcv/C C_2)))]
-  [(fcv/C (and/c C_1 C_2))
-   ,(append (term (fcv/C C_1))
-         (term (fcv/C C_2)))]
-  [(fcv/C (C_1 ... -> C_2))
-   ,(append (apply append (map (λ (c) (term (fcv/C ,c))) (term (C_1 ...))))
-            (term (fcv/C C_2)))] 
-  [(fcv/C (C_1 ... -> (λ (x ...) C_2)))
-   ,(append (apply append (map (λ (c) (term (fcv/C ,c))) (term (C_1 ...))))
-            (term (fcv/C C_2)))]
-  [(fcv/C C) ()])
-
-(define-metafunction λc~
-  closed? : C -> #t or #f
-  [(closed? C) ,(empty? (term (fcv/C C)))])
-  
-(test
- (test-equal (term (fcv/C a)) (term (a)))
- (test-equal (term (fcv/C (any/c))) (term ()))
- (test-equal (term (closed? (any/c))) #t)
- (test-equal (term (closed? a)) #f)
- (test-equal (term (closed? (rec/c a a))) #t)
- (test-equal (term (closed? (rec/c a b))) #f)
- (test-equal (term (closed? (rec/c a (rec/c b a)))) #t))
-
-;; This is not a correct closed value, but just enough to make the
-;; test generation work out.
-(define-metafunction λc~
-  FAKE-closed-value? : V -> #t or #f
-  [(FAKE-closed-value? (-- C_0 C_1 ...)) 
-   ,(andmap values (term ((closed? C_0) (closed? C_1) ...)))]
-  [(FAKE-closed-value? (-- PV C ...))
-   ,(andmap values (term ((closed? C) ...)))]
-  [(FAKE-closed-value? V) #t])
-  
-
-(define-metafunction λc~
-  valid? : C -> #t or #f
-  [(valid? C) 
-   ,(and (term (closed? C))
-         (term (productive? C)))])
-
-;; Ignores abstract values embeded in λs.
-(define-metafunction λc~
-  valid-value? : V -> #t or #f
-  [(valid-value? (-- PV C ...))
-   ,(andmap values (term ((valid? C) ...)))]
-  [(valid-value? (-- C ...))
-   ,(andmap values (term ((valid? C) ...)))]
-  [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
-   ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))]
-  [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V_b ℓ_2 V))
-   ,(andmap values (term ((valid? C_0) ... (valid? C_1) (valid-value? V))))]
-  [(valid-value? ((C_0 ... --> C_1) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))) ;; CESK only
-   ,(andmap values (term ((valid? C_0) ... (valid? C_1))))]
-  [(valid-value? ((C_0 ... --> (λ (x ...) C_1)) <= ℓ_0 ℓ_1 V_b ℓ_2 (addr a))) ;; CESK only
-   ,(andmap values (term ((valid? C_0) ... (valid? C_1))))])
-
-(define-metafunction λc~
-  fv : E -> (x ...)
-  [(fv x) (x)]
-  [(fv MODREF) ()]
-  [(fv (λ (x ...) E)) (set-minus (fv E) (x ...))]
-  [(fv (let ((x E_1) ...) E_2))
-   (x_1 ... ... x_2 ...)
-   (where (x_2 ...) (set-minus (fv E_2) (x ...)))
-   (where ((x_1 ...) ...) ((fv E_1) ...))]
-  [(fv (λ x_0 (x ...) E)) (set-minus (fv E) (x_0 x ...))]
-  [(fv PV) ()]
-  [(fv (-- PV C ...)) (fv PV)]
-  [(fv (-- C ...)) ()]
-  [(fv (if E ...)) (fv/list (E ...))]
-  [(fv (begin E ...)) (fv/list (E ...))]
-  [(fv (@ E ... ℓ)) (fv/list (E ...))]
-  [(fv (@ o E ... ℓ)) (fv/list (E ...))]
-  [(fv (C <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) 
-   (x_1 ... x_2 ...)
-   (where (x_1 ...) (fv E))
-   (where (x_2 ...) (fv/C C))]          
-  [(fv (blame ℓ_1 ℓ_2 V-or-AE any_C V)) (fv/list (V-or-AE V))]
-  [(fv (addr a)) ()]
-  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 E)) 
-   (x_1 ... x_2 ...)
-   (where (x_1 ...) (fv/C (C_0 ... -> any)))
-   (where (x_2 ...) (fv E))]
-  [(fv ((C_0 ... --> any) <= ℓ_1 ℓ_2 any_1 ℓ_3 (addr a))) 
-   (fv/C (C_0 ... -> any))]) ;; for CESK only
-
-(define-metafunction λc~
-  fv/C  : C -> (x ...)
-  [(fv/C (pred E ℓ))
-   (fv E)]
-  [(fv/C (pred any ℓ))
-   ()]
-  [(fv/C (and/c C_1 C_2))
-   (x_1 ... x_2 ...)
-   (where (x_1 ...) (fv/C C_1))
-   (where (x_2 ...) (fv/C C_2))]
-  [(fv/C (or/c C_1 C_2))
-   (x_1 ... x_2 ...)
-   (where (x_1 ...) (fv/C C_1))
-   (where (x_2 ...) (fv/C C_2))]  
-  [(fv/C (C_1 ... -> C_2))
-   (x_1 ... ... x_2 ...)
-   (where ((x_1 ...) ...) ((fv/C C_1) ...))
-   (where (x_2 ...) (fv/C C_2))]  
-  [(fv/C (C_1 ... -> (λ (x ...) C_2)))
-   (x_1 ... ... x_2 ...)
-   (where ((x_1 ...) ...) ((fv/C C_1) ...))
-   (where (x_2 ...) (set-minus (fv/C C_2) (x ...)))]
-  [(fv/C (rec/c x C))
-   (fv/C C)]
-  [(fv/C x)
-   ()]
-  [(fv/C (cons/c C_1 C_2))
-   (x_1 ... x_2 ...)
-   (where (x_1 ...) (fv/C C_1))
-   (where (x_2 ...) (fv/C C_2))])
-
-(define-metafunction λc~
-  fv/list : (E ...) -> (x ...)
-  [(fv/list (E ...)) (x ... ...)
-   (where ((x ...) ...) ((fv E) ...))])
-  
-(define-metafunction λc~
-  program-structs : P -> (STRUCT ...)
-  [(program-structs (M ... R E))
-   (STRUCT ... ...)
-   (where ((STRUCT ...) ...) ((module-struct M) ...))])
-
-(define-metafunction λc~
-  module-struct : M -> (STRUCT ...)
-  [(module-struct (module f_1 LANG R STRUCT ... DEF ...
-                    (provide/contract [f_2 C] ...)))
-   (STRUCT ...)])
-  
+(define-metafunction λc-user
+  subst/μ : X CON CON -> CON
+  [(subst/μ X CON X) CON]
+  [(subst/μ X CON X_0) X_0]
+  [(subst/μ X CON (atom/c ATOMLIT any)) (atom/c ATOMLIT any)]
+  [(subst/μ X CON (and/c CON_0 CON_1))
+   (and/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (or/c CON_0 CON_1))
+   (or/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (not/c CON_0))
+   (not/c (subst/μ X CON CON_0))]
+  [(subst/μ X CON (cons/c CON_0 CON_1))
+   (cons/c (subst/μ X CON CON_0) (subst/μ X CON CON_1))]
+  [(subst/μ X CON (struct/c X_1 X_2 CON_0 ...))
+   (struct/c X_1 X_2 (subst/μ X CON CON_0) ...)]
+  [(subst/μ X CON (rec/c X CON_1))
+   (rec/c X CON_1)]
+  [(subst/μ X CON (rec/c X_1 CON_1))
+   (rec/c X_1 (subst/μ X CON CON_1))]  
+  [(subst/μ X CON (CON_1 ... -> CON_2))
+   ((subst/μ X CON CON_1) ... -> (subst/μ X CON CON_2))]  
+  [(subst/μ X CON (CON_1 ... -> (λ (X_1 ...) CON_2))) ; distinct class of variables
+   ((subst/μ X CON CON_1) ... -> (λ (X_1 ...) (subst/μ X CON CON_2)))]   
+  [(subst/μ X CON (pred any any_0))
+   (pred any any_0)])
 
 
 (test
- (redex-check λc~ P (term (program-structs P)))
- (redex-check λc~ E (redex-match λc~ (x ...) (term (fv E))))
+ ;; totality test
+ (redex-check λc-user (X PCON_1 PCON_2) (term (subst/μ X PCON_1 PCON_2))))
+
+
+;; https://github.com/samth/var/issues/3
+(test 
+ (define CON? (redex-match λcρ CON))
+ (define PCON? (redex-match λcρ PCON))
+ (test-predicate (negate PCON?) (term (rec/c X (or/c (cons/c X X) (-> (pred string? †))))))           
+ (test-predicate CON? (term (rec/c X (or/c (cons/c X X) (-> (pred string? †))))))            
+ (test-predicate CON? (term X))
+ (test-predicate (negate PCON?) (term X))
  
- (test-equal (list? (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #t)
- (test-equal (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (λ () 1)))) #f)
- (test-equal (redex-match λc~ V (term (-- ((--> (any/c)) <= f g (-- 0) h (-- (λ () 1)))))) #f)
- (test-equal (list? (redex-match λc~ V (term ((--> (any/c)) <= f g (-- 0) h (-- (any/c)))))) #t)
- 
- (test-equal
-  (redex-match λc~ HOC (term (cons/c
-                              (nat/c)
-                              (cons/c
-                               (rec/c
-                                X
-                                (or/c
-                                 (nat/c)
-                                 (cons/c
-                                  (nat/c)
-                                  (cons/c X X))))
-                               (rec/c
-                                X
-                                (or/c
-                                 (nat/c)
-                                 (cons/c
-                                  (nat/c)
-                                  (cons/c X X))))))))
-  #f)
- 
- (redex-check λc~ C* (redex-match λc~ C (term C*)))
- (redex-check λc~ WC!* (redex-match λc~ C (term WC!*)))
- (redex-check λc~ FVC!* (redex-match λc~ C (term FVC!*)))
- 
- ;; Every contract is FLAT xor HOC.
- (redex-check λc~ (side-condition C_1 (term (valid? C_1)))
-              (or (and (redex-match λc~ FLAT (term C_1))
-                       (not (redex-match λc~ HOC (term C_1))))
-                  (and (redex-match λc~ HOC (term C_1))
-                       (not (redex-match λc~ FLAT (term C_1)))))
-              #:attempts 10000)
- 
- ;; Every valid contract is one of:
- ;; - WC?
- ;; - WC!
- ;; - FVC!
- (redex-check λc~ (side-condition C_1 (term (valid? C_1)))
-              (or (redex-match λc~ WC? (term C_1))
-                  (redex-match λc~ WC! (term C_1))
-                  (redex-match λc~ FVC! (term C_1)))              
-              #:attempts 10000)
- 
- ;; No inhabited contract is in both of:
- ;; - WC?
- ;; - WC!
- ;; FIXME: need an inhabited? metafunction to make this work.
- #;
- (redex-check λc~ (side-condition C_1 (term (closed? C_1)))
-              (not (and (redex-match λc~ WC? (term C_1))
-                        (redex-match λc~ WC! (term C_1))))
-              #:attempts 10000)
- 
- ;; Completeness check for matching V with these patterns.
- ;; Used for case analysis in application rule.
- (redex-check λc~ (side-condition V_1 (and (term (FAKE-closed-value? V_1))
-                                           (term (valid-value? V_1))))
-              (or (redex-match λc~ W? (term V_1))
-                  (redex-match λc~ WFV (term V_1)))                  
-              #:attempts 10000))
+ (test-predicate 
+  (negate (redex-match λcρ MOD))
+  (term (module f racket
+          (require)
+          (define v (cons (λ () "a") (λ () "b"))) 
+          (provide/contract 
+           [v (rec/c X (or/c (cons/c X X) (-> (pred string? f))))])))))
+
+(define-metafunction λcρ
+  ∧ : CON ... -> CON
+  [(∧ CON_1 ... ANYCON CON_2 ...)
+   (∧ CON_1 ... CON_2 ...)]
+  [(∧) (pred (λ (x) #t) Λ)]
+  [(∧ CON) CON]
+  [(∧ CON_0 CON_1  ...)
+   (and/c CON_0 (∧ CON_1 ...))])
+
+(test
+ (test-equal (term (∧)) (term (pred (λ (x) #t) Λ)))
+ (test-equal (term (∧ (pred boolean? †)))
+             (term (pred boolean? †)))
+ (test-equal (term (∧ (pred boolean? †) (pred string? †)))
+             (term (and/c (pred boolean? †)
+                          (pred string? †)))))
 
 (define (program-modules ls)
   (drop-right ls 2))

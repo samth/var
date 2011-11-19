@@ -1,12 +1,6 @@
 #lang racket
-(require "trace.rkt" "annotate.rkt" "eval.rkt" "lang.rkt" "step.rkt" "util.rkt"
-         (prefix-in c: "cesk.rkt")
-         (prefix-in f: "cesk-fast.rkt")
+(require "run.rkt" "annotate.rkt" "meta.rkt" "cesk.rkt" "lang.rkt" "util.rkt"
          redex/reduction-semantics)
-(require (prefix-in rho: "rho/run.rkt")
-         (prefix-in rho: "rho/annotate.rkt")
-         (prefix-in rho: "rho/meta.rkt")
-         (prefix-in rho: "rho/cesk.rkt"))
 (require (for-syntax syntax/parse))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
@@ -14,6 +8,8 @@
 (provide clean-up)
 (define the-module-context (box null))
 
+;; FIXME
+#;
 (define-syntax (#%top-interaction stx)  
   (syntax-parse stx
     [(_ . e)
@@ -30,9 +26,8 @@
   (define-syntax-class run-opt
     [pattern (~datum cesk) #:attr sym 'cesk]
     [pattern (~datum rho) #:attr sym 'rho]
-    [pattern (~datum count) #:attr sym 'count]
-    [pattern (~datum fast) #:attr sym 'fast]
-    [pattern (~datum subst) #:attr sym 'subst])
+    #;[pattern (~datum count) #:attr sym 'count]
+    #;[pattern (~datum fast) #:attr sym 'fast])
   (define-syntax-class exact-opt
     [pattern (~datum exact) #:attr sym #t]
     [pattern (~datum approx) #:attr sym #f])
@@ -75,22 +70,15 @@
         #,(case run
             [(rho)             
              #`(begin                  
-                 (define the-program (term (rho:annotator [m ... e])))
-                 (rho:current-direct? #,direct?)
-                 #,(case trace
-                     [(trace) #'(rho:trace-it rho:-->_vcme the-program)]
-                     [(step)  #'(rho:step-it rho:-->_vcme the-program)] 
-                     [(eval)  (finish-values #'(λ (x) (rho:eval-it rho:-->_vcme x))
-                                             #'the-program
-                                             #'first)]))]
-            [(subst)
-             #`(begin
                  (define the-program (term (annotator [m ... e])))
+                 (current-direct? #,direct?)
                  #,(case trace
-                     [(trace) #'(trace-it -->_vcc~Δ the-program)]
-                     [(step)  #'(step-it -->_vcc~Δ the-program)]
-                     [(eval) (finish-values #'(λ (p) (map clean-up (eval_vcc~Δ p)))
-                                            #'the-program)]))]
+                     [(trace) #'(trace-it -->_vcme the-program)]
+                     [(step)  #'(step-it -->_vcme the-program)] 
+                     [(eval)  (finish-values #'(λ (x) (eval-it -->_vcme x))
+                                             #'the-program
+                                             #'first)]))]            
+            #;
             [(count)             
              #'(begin 
                  (define the-program (term (annotator [m ... e])))
@@ -99,31 +87,20 @@
                    (printf "~a terms explored\n" k)))]
             [(cesk)
              #`(begin 
-                 (define the-program (term (rho:annotator [m ... e])))
-                 ;; Always redirect through store for CESK machine.
-                 (rho:current-direct? #f)
-                 #,(case trace
-                     [(trace) #'(rho:CESK-trace-it the-program)]
-                     [(step) #'(rho:step-it rho:CESK the-program)]
-                     [(eval) (finish-values #'rho:CESK-run
-                                            #'the-program
-                                            #'first)]))]
-            [(fast) 
-             #`(begin 
-                 (printf "starting annotator: ~a\n" (current-process-milliseconds))
                  (define the-program (term (annotator [m ... e])))
-                 (printf "finished annotator: ~a\n" (current-process-milliseconds))
+                 ;; Always redirect through store for CESK machine.
+                 (current-direct? #f)
                  #,(case trace
-                     [(trace) #'(f:trace-it the-program)]
-                     [(step) #'(f:step-it the-program)]
-                     [(eval) (finish-values #'f:step-fixpoint
+                     [(trace) #'(CESK-trace-it the-program)]
+                     [(step) #'(step-it CESK the-program)]
+                     [(eval) (finish-values #'CESK-run
                                             #'the-program
-                                            #'f:st-c)]))]))]))
+                                            #'first)]))]))]))
 
 (define (clean-up r)
   (match r
     [(list '-- c-or-v c ...)
-     (if (redex-match λc~ PV c-or-v)
+     (if (redex-match λcρ PREVAL c-or-v)
          c-or-v     
          (cons '● (remove-duplicates (filter-map clean-up-c (cons c-or-v c)))))]
     [(list 'blame f g v0 c v1)

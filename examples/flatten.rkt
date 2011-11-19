@@ -1,19 +1,15 @@
-#lang var fast
-
-(define-contract list/c
-  (rec/c X (or/c empty? (cons/c exact-nonnegative-integer? X))))
-
+#lang var rho
 (module F racket  
   (define append 
     (λ (l1 l2)
       (cond [(empty? l1) l2]
-            [else (cons (first l1) (append (rest l1) l2))])))
+            [else (cons (car l1) (append (cdr l1) l2))])))
   (define (flatten l)
     (cond [(empty? l) empty]
-          [(cons? l) (append (flatten (first l)) (flatten (rest l)))]
+          [(cons? l) (append (flatten (car l)) (flatten (cdr l)))]
           [else (cons l empty)]))
-  (provide/contract [flatten (anything . -> . list/c)]))
+  (provide/contract [flatten (any/c . -> . (listof exact-nonnegative-integer?))]))
 (module L racket
-  (provide/contract [l anything]))
+  (provide/contract [l any/c]))
 (require 'F 'L)
 (flatten l)
