@@ -45,7 +45,11 @@
   [(abs-δ natural-positive->natural V_1 V_2)
    ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
   [(abs-δ natural-natural->natural V_1 V_2)
-   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]  
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))] 
+  [(abs-δ natural*->natural V_1 ...)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
+  [(abs-δ natural*-natural->natural V_1 ...)
+   ((-- ((pred exact-nonnegative-integer? Λ) (env))))]
   [(abs-δ natural-natural-natural*->bool V_1 V_2 V_3 ...)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]    

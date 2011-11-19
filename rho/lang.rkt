@@ -212,8 +212,8 @@
     
   (natural->natural add1 sub1)
   (char-char-char*->bool char=? char<? char<=? char>? char>=?)
-  (natural*->natural +)
-  (natural-natural*->natural * -)
+  (natural*->natural + *)
+  (natural-natural*->natural -)
   (natural-positive->natural quotient remainder modulo)
   (natural-natural->natural expt) ; does not include quotient (partial).
   (natural-natural-natural*->bool = < <= > >=)  
