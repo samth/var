@@ -3,7 +3,7 @@
 (require "lang.rkt" "meta.rkt" "util.rkt"
          "step-v.rkt" "step-c.rkt" "step-c-abs.rkt"
          "step-m.rkt" "step-m-abs.rkt" "step-e.rkt"
-         "step-a.rkt" "step-d.rkt")
+         "step-a.rkt" "step-d.rkt" "garbage.rkt")
 (provide (except-out (all-defined-out) test))
 (provide v c c~ m m~ e a)
 (test-suite test step)
@@ -16,7 +16,7 @@
   (reduction-relation 
    λcρ #:domain (D σ) ;; runs faster if you use REDEX
    (--> ((in-hole 𝓔 REDEX) σ)
-        ((in-hole 𝓔 D_contractum) σ_1)
+        (gc ((in-hole 𝓔 D_contractum) σ_1))
         (where (any_0 ... (any_name (D_contractum σ_1)) any_1 ...)
                ,(let ([r (apply-reduction-relation/tag-with-names r (term (REDEX σ)))])
                   (set! step-count (add1 step-count))                  
@@ -29,7 +29,7 @@
         (computed-name (term any_name))
         redex!)
    (--> (D σ)
-        (BLAME σ)
+        (gc (BLAME σ))
         (where (any_0 ... (any_name (BLAME σ)) any_1 ...)
                ,(apply-reduction-relation/tag-with-names e (term (D σ))))
         (computed-name (term any_name))
