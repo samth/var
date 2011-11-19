@@ -283,6 +283,34 @@
         X)
   )
 
+(define-extended-language λCESK λcρ
+  ; Continuations
+  (K MT
+     (APP (V ...) (D ...) LAB a)           ; (@ V ... 𝓔 D ... LAB)
+     (APP* (V ...) (D ...) LAB a)          ; (@* V ... 𝓔 D ... LAB)
+     (IF D D a)                            ; (if 𝓔 D D) 
+     (LET ((X V) ...) X ((X D) ...) D a)   ; (let ((X V) ... (X 𝓔) (X D) ...) D)
+     (BEGIN D a)                           ; (begin 𝓔 D)
+     (DEM CON a)                           ; (dem CON 𝓔)
+     (CHECK CON ρ LAB LAB V LAB a))        ; (CON ρ <= LAB LAB V LAB 𝓔)
+
+  ; States
+  (ς (ap D σ K)
+     (co K V σ))
+  
+  ; Potential redexes (that do real work).
+  (REDEX (clos • ρ)
+         (clos X ρ)
+         (V V ...)
+         (if V D D)
+         (begin V D)
+         (let ((X V) ...) D)      
+         MODREF   
+         (CON ρ <= LAB LAB V LAB V)
+         BLAME)
+  
+  (S K V))
+
 (define (improper-formals? x)
   (or (symbol? x)
       (and (cons? x)

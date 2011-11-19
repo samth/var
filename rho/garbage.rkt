@@ -1,13 +1,24 @@
 #lang racket
 (require redex/reduction-semantics)
 (require "lang.rkt" "meta.rkt" "util.rkt")
-(provide gc)
+(provide gc gc-state)
 (test-suite test garbage)
 
+(define-metafunction λCESK
+  gc-state : ς -> ς
+  [(gc-state (ap D σ K))
+   (ap D (clean σ ,(set-union (term (live-loc D)) (term (live-loc-cont K)))) K)]
+  [(gc-state (co K V σ))
+   (co K V (clean σ ,(set-union (term (live-loc-val V)) (term (live-loc-cont K)))))])
+
+(define-metafunction λCESK
+  clean : σ any -> σ
+  [(clean σ any) (restrict-sto σ ,(reachable (term any) (set) (term σ)))])
+                  
 (define-metafunction λcρ
   gc : (D σ) -> (D σ)
   [(gc (D σ))
-   (D (restrict-sto σ ,(reachable (term (live-loc D)) (set) (term σ))))
+   (D (clean σ (live-loc D)))
    (side-condition (not (current-direct?)))]
   [(gc (D σ)) (D σ)])  
 
@@ -28,15 +39,19 @@
   (if (set-empty? g) b
       (let ()
         (define a (for/first ([a (in-set g)]) a))
-        (define Ds (term (sto-lookup ,σ ,a)))        
-        (reachable (set-subtract (apply set-union g (map (λ (D) (term (live-loc ,D))) Ds))
+        (define Ss (term (sto-lookup ,σ ,a)))        
+        (reachable (set-subtract (apply set-union g (map (λ (S) (term (live-loc-sto ,S))) Ss))
                                  (set-add b a))
                    (set-add b a)
                    σ))))
-        
+ 
+(define-metafunction λCESK
+  live-loc-sto : S -> any
+  [(live-loc-sto V) (live-loc-val V)]
+  [(live-loc-sto K) (live-loc-cont K)])  
 
 (define-metafunction λcρ
-  live-loc : D -> (side-condition any_s (set? (term any_s)))
+  live-loc : D -> any
   [(live-loc (clos EXP ρ))
    (live-loc-env ρ)]
   [(live-loc V) (live-loc-val V)]
@@ -80,19 +95,21 @@
   live-loc-val : V -> any
   [(live-loc-val (-- (clos VAL ρ) C ...))
    ,(apply set-union 
+           (set)
            (term (live-loc-env ρ))
            (term ((live-loc-con C) ...)))]
   [(live-loc-val (-- (cons V_1 V_2) C ...))
    ,(apply set-union
+           (set)
            (term (live-loc-val V_1))
            (term (live-loc-val V_2))
            (term ((live-loc-con C) ...)))]
   [(live-loc-val (-- (struct X_1 X_2 V ...) C ...))
-   ,(set-union (apply set-union (term ((live-loc-val V) ...)))
-               (apply set-union (term ((live-loc-val C) ...))))]
+   ,(set-union (apply set-union (set) (term ((live-loc-val V) ...)))
+               (apply set-union (set) (term ((live-loc-val C) ...))))]
   [(live-loc-val BLESSED) (live-loc-blessed BLESSED)]
   [(live-loc-val (-- C ...))
-   ,(apply set-union (term ((live-loc-con C) ...)))])
+   ,(apply set-union (set) (term ((live-loc-con C) ...)))])
 
 (define-metafunction λcρ
   live-loc-blessed : BLESSED -> any
@@ -105,6 +122,35 @@
                (term (live-loc-val V))
                (term (live-loc-val PROC)))])
     
+(define-metafunction λCESK
+  live-loc-cont : K -> any
+  [(live-loc-cont MT) ,(set)]
+  [(live-loc-cont (APP (V ...) (D ...) LAB a))
+   ,(set-union (set (term a))
+               (apply set-union (set) (term ((live-loc V) ...)))
+               (apply set-union (set) (term ((live-loc D) ...))))]
+  [(live-loc-cont (APP* (V ...) (D ...) LAB a))
+   ,(set-union (set (term a))
+               (apply set-union (set) (term ((live-loc V) ...)))
+               (apply set-union (set) (term ((live-loc D) ...))))]
+  [(live-loc-cont (IF D_1 D_2 a))
+   ,(set-union (set (term a))
+               (term (live-loc D_1))
+               (term (live-loc D_2)))]
+  [(live-loc-cont (LET ((X_1 V) ...) X ((X_2 D) ...) D_1 a))
+   ,(set-union (set (term a))
+               (term (live-loc D_1))
+               (apply set-union (set) (term ((live-loc V) ...)))
+               (apply set-union (set) (term ((live-loc D) ...))))]
+  [(live-loc-cont (BEGIN D a))
+   ,(set-union (set (term a))
+               (term (live-loc D)))]
+  [(live-loc-cont (DEM CON a))
+   ,(set (term a))]
+  [(live-loc-cont (CHECK CON ρ LAB_1 LAB_2 V LAB_3 a))
+   ,(set-union (set (term a))
+               (term (live-loc V))
+               (term (live-loc-env ρ)))])
 
 (test
  (test-equal (term (live-loc (clos x #hash((x . 3))))) (set 3)))
