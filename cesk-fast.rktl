@@ -2,7 +2,7 @@
 (require (except-in redex/reduction-semantics plug) (for-syntax syntax/parse) (prefix-in c: racket/contract))
 (require (except-in "lang.rkt" final-state?) "flat-check.rkt" "meta.rkt" "alpha.rkt" "util.rkt" "annotate.rkt" "examples.rkt" 
          (only-in "step.rkt" lookup-modref/val lookup-modref/con) (prefix-in s: "step.rkt"))
-(require (prefix-in ce: "cesk.rkt") (only-in unstable/match ==))
+(require (prefix-in ce: "cesk.rkt") (only-in racket/match ==))
 (provide (except-out (all-defined-out) test))
 (test-suite test cesk)
 

@@ -1,6 +1,6 @@
 #lang racket
 (require redex/reduction-semantics)
-(require "lang.rkt" "meta.rkt" "util.rkt" "demonic.rkt")
+(require "lang.rkt" "meta.rkt" "util.rkt")
 (provide (except-out (all-defined-out) test))
 (test-suite test check)
 
@@ -15,7 +15,7 @@
   fc/c : X ((C V) ...) FLAT ρ V -> EXP
   [(fc/c X (any_1 ... (C V) any_2 ...) FLAT ρ V) 
    (λ (X) #t)
-   (judgment-holds (≡C C (FLAT ρ)))]
+   (where #t (≡C C (FLAT ρ)))]
   ;; Why did we bother with something like this?
   ;;[(fc/c X any anyc V) (λ (x) #t)]  
   [(fc/c X any FLAT ρ V)
@@ -115,7 +115,7 @@
    ;; b/c then either AV is an or/c (impossible), or AV is a struct/c (also impossible)   
    (judgment-holds (indy AV (s-pred X_m X_tag)))])
 
-
+          
 (test 
  (test-equal 
   (term (flat-check ((pred exact-nonnegative-integer? f) (env)) (-- (↓ 0 (env)))))

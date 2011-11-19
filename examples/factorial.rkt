@@ -1,4 +1,4 @@
-#lang var rho trace indirect
+#lang var rho eval
 (module factorial racket 
   (define (fact-acc n acc)
     (if (zero? n) acc (fact-acc (sub1 n) (* n acc))))
