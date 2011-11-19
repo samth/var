@@ -25,3 +25,18 @@
   (variables-not-in a (map (λ (b) (if (symbol? b) b 'loc)) bs)))
 
 (test-suite test util)
+
+(define-syntax test/σ-->
+  (syntax-rules (term) 
+    [(test/σ R (term T1) (term T2) ...)
+     (test--> R 
+              (term (T1 #hash()))
+              (term (T2 #hash()))
+              ...)]))
+
+(define-syntax test/v-->>
+  (syntax-rules (term) 
+    [(test/σ R (term T1) (term T2))
+     (test-equal 
+      (caar (apply-reduction-relation* R (term (T1 #hash()))))
+      (term T2))]))

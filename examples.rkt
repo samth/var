@@ -9,63 +9,69 @@
 
 ;; Modified from Figure 8 in paper (8 -> #f).
 (define example-8-raw
-  (term [(module f racket (require) (define (f x) x) (provide/contract [f (anything . -> . (anything . -> . anything))]))
+  (term [(module f racket (require) (define (f x) x) (provide/contract [f (any/c . -> . (any/c . -> . any/c))]))
          (module g racket (require) (define (g x) 0) (provide/contract [g ((pred (λ (x) x)) . -> . exact-nonnegative-integer?)]))
-         (module h racket (require (only-in f f) (only-in g g)) (define (h z) ((f g) #f)) (provide/contract [h anything]))
+         (module h racket (require (only-in f f) (only-in g g)) (define (h z) ((f g) #f)) (provide/contract [h any/c]))
          (require (only-in h h))
          (h 0)]))
 
 ;; a module with one export, named the same as the module
-(define-metafunction λc~
-  simple-module : f any any -> any
-  [(simple-module f any_C any)
-   (module f racket (require) (define f any) (provide/contract [f any_C]))])
+(define-metafunction λcρ
+  simple-module : X any any -> any
+  [(simple-module X any_C any)
+   (module X racket (require) (define X any) (provide/contract [X any_C]))])
 
 (define example-8
-  (term [(simple-module f ((any/c) -> ((any/c)  ->  (any/c))) (λ (x) x))
-         (simple-module g ((pred (λ (x) x) g)  ->  (nat/c)) (λ (x) 0))
-         (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h (any/c)]))
+  (term [(simple-module f ((pred (λ (x) #t) f) -> ((pred (λ (x) #t) f)  ->  (pred (λ (x) #t) f))) (λ (x) x))
+         (simple-module g ((pred (λ (x) x) g)  ->  (pred exact-nonnegative-integer? g)) (λ (x) 0))
+         (module h racket (require (only-in f f) (only-in g g)) 
+           (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) 
+           (provide/contract [h (pred (λ (x) #t) h)]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
 
 (define example-8-opaque-raw
-  (term [(simple-module f (anything . -> . (anything . -> . anything)) ☁)
-         (simple-module g ((pred (λ (x) x)) . -> . exact-nonnegative-integer?) ☁)
-         (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) ((f g) #f))) (provide/contract [h anything]))
+  (term [(simple-module f (any/c . -> . (any/c . -> . any/c)) •)
+         (simple-module g ((pred (λ (x) x)) . -> . exact-nonnegative-integer?) •)
+         (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) ((f g) #f))) (provide/contract [h any/c]))
          (require (only-in h h))
          (h 0)]))
 
 (define example-8-opaque
-  (term [(simple-module f ((any/c)  ->  ((any/c)  ->  (any/c))) ☁)
-         (simple-module g ((pred (λ (x) x) g)  ->  (nat/c)) ☁)
-         (module h racket (require (only-in f f) (only-in g g)) (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) (provide/contract [h (any/c)]))
+  (term [(simple-module f ((pred (λ (x) #t) f) ->  ((pred (λ (x) #t) f)  ->  (pred (λ (x) #t) f))) •)
+         (simple-module g ((pred (λ (x) x) g)  ->  (pred exact-nonnegative-integer? g)) •)
+         (module h racket 
+           (require (only-in f f) (only-in g g)) 
+           (define h (λ (z) (@ (@ (f ^ h f) (g ^ h g) h) #f h))) 
+           (provide/contract [h (pred (λ (x) #t) h)]))
          (require (only-in h h))
          (@ (h ^ † h) 0 †)]))
 
 (test
- (test-predicate (redex-match λc-user M) (first example-8))
- (test-predicate (redex-match λc-user M) (second example-8))
- (test-predicate (redex-match λc-user M) (third example-8))
- (test-predicate (redex-match λc-user E) (last example-8))
- (test-predicate (redex-match λc~ P) example-8-opaque)
- (test-predicate (redex-match λc-user P) example-8)
- (test-predicate (redex-match λc P) example-8)
- (test-predicate (redex-match λc~ P) example-8) 
- (test-predicate (redex-match λc~ RP) example-8-raw)
- (test-predicate (redex-match λc~ RP) example-8-opaque-raw) 
+ (test-predicate (redex-match λc-user MOD) (first example-8))
+ (test-predicate (redex-match λc-user MOD) (second example-8))
+ (test-predicate (redex-match λc-user MOD) (third example-8))
+ (test-predicate (redex-match λc-user EXP) (last example-8))
+ (test-predicate (redex-match λc-user PROG) example-8-opaque)
+ (test-predicate (redex-match λc-user PROG) example-8)
+ (test-predicate (redex-match λc-user PROG) example-8)
+ (test-predicate (redex-match λc-user PROG) example-8) 
+ (test-predicate (redex-match λc-raw RP) example-8-raw)
+ (test-predicate (redex-match λc-raw RP) example-8-opaque-raw) 
 
- (test-predicate (redex-match λc-user C) (term ((pred (λ (x) x) ℓ)  ->  (nat/c)))))
+ (test-predicate (redex-match λc-user CON) 
+                 (term ((pred (λ (x) x) f)  ->  (pred exact-nonnegative-integer? f)))))
 
-(define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? . -> . anything) ☁)))
-(define mod-rsa-raw    (term (simple-module rsa ((pred prime?) . -> . (string? . -> . string?)) ☁)))
-(define mod-keygen-raw (term (simple-module keygen (anything . -> . (pred prime?)) ☁)))
-(define mod-keygen-7-raw (term (simple-module keygen (anything . -> . (pred prime?)) (λ (x) 7))))
-(define mod-keygen-str-raw (term (simple-module keygen (anything . -> . (pred prime?)) (λ (x) "Key"))))
+(define mod-prime-raw  (term (simple-module prime? (exact-nonnegative-integer? . -> . any/c) •)))
+(define mod-rsa-raw    (term (simple-module rsa ((pred prime?) . -> . (string? . -> . string?)) •)))
+(define mod-keygen-raw (term (simple-module keygen (any/c . -> . (pred prime?)) •)))
+(define mod-keygen-7-raw (term (simple-module keygen (any/c . -> . (pred prime?)) (λ (x) 7))))
+(define mod-keygen-str-raw (term (simple-module keygen (any/c . -> . (pred prime?)) (λ (x) "Key"))))
 (define top-fit-raw (term ((rsa (keygen #f)) "Plain")))
 
-(define mod-prime  (term (simple-module prime? ((pred exact-nonnegative-integer? prime?)  ->  (pred (λ (x) #t) prime?)) ☁)))
-(define mod-rsa    (term (simple-module rsa ((pred (prime? ^ rsa prime?) rsa)  ->  ((pred string? rsa)  ->  (pred string? rsa))) ☁)))
-(define mod-keygen (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) ☁)))
+(define mod-prime  (term (simple-module prime? ((pred exact-nonnegative-integer? prime?)  ->  (pred (λ (x) #t) prime?)) •)))
+(define mod-rsa    (term (simple-module rsa ((pred (prime? ^ rsa prime?) rsa)  ->  ((pred string? rsa)  ->  (pred string? rsa))) •)))
+(define mod-keygen (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) •)))
 (define mod-keygen-7 (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) (λ (x) 7))))
 (define mod-keygen-str (term (simple-module keygen ((pred (λ (x) #t) keygen)  ->  (pred (prime? ^ keygen prime?) keygen)) (λ (x) "Key"))))
 (define top-fit (term (@ (@ (rsa ^ † rsa) (@ (keygen ^ † keygen) #f †) †) "Plain" †)))
@@ -100,7 +106,7 @@
 
 (define list-id-example-raw
   (term [(simple-module id 
-           anything
+           any/c
            (λ (ls)
              (if (empty? ls) 
                  ls 
@@ -124,7 +130,7 @@
 
 (define list-of-nat/c
   (term (rec/c x (or/c (empty/c)
-                       (cons/c (nat/c) x)))))               
+                       (cons/c (pred exact-nonnegative-integer?) x)))))               
 
 (define list-id-example-contract
   (term [(simple-module id 
@@ -142,7 +148,7 @@
 
 (define list-rev-example-raw
   (term [(simple-module rev
-           anything
+           any/c
            (λ (ls)
              ((λ rev* (ls r*)
                    (if (empty? ls)
@@ -155,7 +161,7 @@
 (define cons/c-example-raw
   (term [(simple-module p
            (cons/c exact-nonnegative-integer? exact-nonnegative-integer?)
-           (cons (-- 1) (-- 2)))
+           (cons 1 2))
          (require (only-in p p))
          (first p)]))
 
@@ -170,49 +176,23 @@
          l]))
 
 (test
- (test-predicate (redex-match λc~ RP) nat/c-example-raw) 
+ (test-predicate (redex-match λc-raw RP) nat/c-example-raw) 
  
- (test-predicate (redex-match λc~ RP) list-id-example-raw)
- (test-predicate (redex-match λc~ P) list-id-example)
+ (test-predicate (redex-match λc-raw RP) list-id-example-raw)
+ (test-predicate (redex-match λc-user PROG) list-id-example)
  
- (test-predicate (redex-match λc~ RP) list-rev-example-raw)
- (test-predicate (redex-match λc~ RP) cons/c-example-raw)
+ (test-predicate (redex-match λc-raw RP) list-rev-example-raw)
+ (test-predicate (redex-match λc-raw RP) cons/c-example-raw)
  
- (test-predicate (redex-match λc~ P) fit-example)
- (test-predicate (redex-match λc~ P) fit-example-alt)
+ (test-predicate (redex-match λc-user PROG) fit-example)
+ (test-predicate (redex-match λc-user PROG) fit-example-alt)
  
- (test-predicate (redex-match λc~ REXP) top-fit-raw)
- (test-predicate (redex-match λc~ RMOD) mod-prime-raw)
- (test-predicate (redex-match λc~ RMOD) mod-rsa-raw)
- (test-predicate (redex-match λc~ RMOD) mod-keygen-raw)
- (test-predicate (redex-match λc~ RMOD) mod-keygen-7-raw)
- (test-predicate (redex-match λc~ RMOD) mod-keygen-str-raw)
+ (test-predicate (redex-match λc-raw REXP) top-fit-raw)
+ (test-predicate (redex-match λc-raw RMOD) mod-prime-raw)
+ (test-predicate (redex-match λc-raw RMOD) mod-rsa-raw)
+ (test-predicate (redex-match λc-raw RMOD) mod-keygen-raw)
+ (test-predicate (redex-match λc-raw RMOD) mod-keygen-7-raw)
+ (test-predicate (redex-match λc-raw RMOD) mod-keygen-str-raw)
  
- (test-predicate (redex-match λc~ RP) fit-example-raw))
+ (test-predicate (redex-match λc-raw RP) fit-example-raw))
 
-
-(define list-id-example-contract2
-  (term [(simple-module id 
-                        (,list-of-nat/c  ->  ,list-of-nat/c)
-                        (λ (ls)
-                          (if (@ empty? ls id)
-                              ls 
-                              (@ cons 
-                                 (@ first ls id)
-                                 (@ (id ^ id id) (@ rest ls id) id)
-                                 id))))
-         (require (only-in id id))
-         (@ (id ^ † id) (@ cons 1 empty †) †)]))
-
-(define list-id-example-contract3
-  (term [(simple-module id 
-                        (,list-of-nat/c  ->  ,list-of-nat/c)
-                        (λ (ls)
-                          (if (@ empty? ls id)
-                              ls 
-                              (@ cons 
-                                 (@ first ls id)
-                                 (@ (id ^ id id) (@ rest ls id) id)
-                                 id))))
-         (require (only-in id id))
-         (@ (id ^ † id) empty †)]))
