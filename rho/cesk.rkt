@@ -8,9 +8,11 @@
   ; Continuations
   (K MT
      (APP (V ...) (D ...) LAB a)           ; (@ V ... 𝓔 D ... LAB)
+     (APP* (V ...) (D ...) LAB a)          ; (@* V ... 𝓔 D ... LAB)
      (IF D D a)                            ; (if 𝓔 D D) 
      (LET ((X V) ...) X ((X D) ...) D a)   ; (let ((X V) ... (X 𝓔) (X D) ...) D)
      (BEGIN D a)                           ; (begin 𝓔 D)
+     (DEM CON a)                           ; (dem CON 𝓔)
      (CHECK CON ρ LAB LAB V LAB a))        ; (CON ρ <= LAB LAB V LAB 𝓔)
 
   ; States

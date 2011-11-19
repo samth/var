@@ -7,7 +7,7 @@
 (define-metafunction λcρ
   gc : (D σ) -> (D σ)
   [(gc (D σ))
-   (D (restrict-sto σ (live-loc D)))
+   (D (restrict-sto σ ,(reachable (term (live-loc D)) (set) (term σ))))
    (side-condition (not (current-direct?)))]
   [(gc (D σ)) (D σ)])  
 
@@ -24,6 +24,17 @@
    ,(for/set ((a (in-hash-values (term ρ))))
              a)])
   
+(define (reachable g b σ)
+  (if (set-empty? g) b
+      (let ()
+        (define a (for/first ([a (in-set g)]) a))
+        (define Ds (term (sto-lookup ,σ ,a)))        
+        (reachable (set-subtract (apply set-union g (map (λ (D) (term (live-loc ,D))) Ds))
+                                 (set-add b a))
+                   (set-add b a)
+                   σ))))
+        
+
 (define-metafunction λcρ
   live-loc : D -> (side-condition any_s (set? (term any_s)))
   [(live-loc (clos EXP ρ))
@@ -39,7 +50,7 @@
   [(live-loc (let ((X D) ...) D_1))
    ,(foldl set-union (set) (term ((live-loc D_1) (live-loc D) ...)))]
   [(live-loc (begin D ...))
-   ,(foldl set-union (set) (term ((live-loc D) ...)))]
+   ,(foldl set-union (set) (term ((live-loc D) ...)))] 
   [(live-loc (CON ρ <= LAB_1 LAB_2 V LAB_3 D))
    ,(set-union (term (live-loc-env ρ))
                (term (live-loc V))
@@ -97,22 +108,3 @@
 
 (test
  (test-equal (term (live-loc (clos x #hash((x . 3))))) (set 3)))
- 
-
-
-#|
-(D (clos EXP ρ)     
-     V
-     MODREF 
-     (@ D D ... LAB)     
-     (@* D D ... LAB) ; like @, but last arg is a rest list [created by ->* checks].
-     (if D D D)
-     (let ((X D) ...) (clos EXP ρ))
-     (begin D (clos EXP ρ))
-     (CON ρ <= LAB LAB V LAB D)
-     BLAME
-     (dem CON D))
-|#
-
-
-
