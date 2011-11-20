@@ -301,7 +301,9 @@
   ; Potential redexes (that do real work).
   (REDEX (clos • ρ)
          (clos X ρ)
-         (V V ...)
+         (clos PRIMREF ρ)
+         (@ V V ... LAB)
+         (@* V V ... LAB)
          (if V D D)
          (begin V D)
          (let ((X V) ...) D)      
