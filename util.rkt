@@ -1,6 +1,8 @@
 #lang racket
-(provide (except-out (all-defined-out) test))
-(require redex/reduction-semantics)
+(provide (except-out (all-defined-out) test)
+         traces stepper initial-char-width term-node-children reduction-steps-cutoff)
+(require redex/reduction-semantics unstable/lazy-require)
+(lazy-require [redex (traces stepper initial-char-width term-node-children reduction-steps-cutoff)])
 
 (define-syntax-rule (test-suite test suite)
   (begin (define test-thunk (box test-results))
@@ -9,14 +11,8 @@
 	 (define-syntax-rule (test e (... ...))
 	   (set-box! test-thunk
 		     (let ((rest (unbox test-thunk)))
-		       (lambda ()
+		       (λ ()
 			 e (... ...) (rest)))))))
-
-(define-syntax-rule (traces . args) ((dynamic-require 'redex 'traces) . args))
-(define-syntax-rule (stepper . args) ((dynamic-require 'redex 'stepper) . args))
-(define-syntax-rule (initial-char-width . args) ((dynamic-require 'redex 'initial-char-width) . args))
-(define (term-node-children . args)
-  (apply (dynamic-require 'redex 'term-node-children) args))
 
 (define current-exact? (make-parameter #t))
 

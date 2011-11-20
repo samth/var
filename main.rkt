@@ -1,26 +1,16 @@
 #lang racket
 (require "run.rkt" "annotate.rkt" "meta.rkt" "cesk.rkt" "lang.rkt" "util.rkt"
-         redex/reduction-semantics)
-(require (for-syntax syntax/parse))
+         redex/reduction-semantics racket/list)
+(require (for-syntax syntax/parse racket/syntax))
 (require (prefix-in r: (only-in racket/base #%module-begin)))
 (provide #%module-begin #%top-interaction)
 (require unstable/pretty)
 (provide clean-up)
 (define the-module-context (box null))
 
-;; FIXME
-#;
-(define-syntax (#%top-interaction stx)  
-  (syntax-parse stx
-    [(_ . e)
-     #'(apply values
-              (eval-it ---> x g f)
-              #'the-program
-              #'first)]
-    (eval_vcc~Δ  (term-let ([(m (... ...)) (unbox the-module-context)])
-                           (term (annotator [m (... ...) e]))))))
 
 (begin-for-syntax 
+  (define/with-syntax the-program (generate-temporary 'the-program))
   (define-syntax-class run-opt
     [pattern (~datum cesk) #:attr sym 'cesk]
     [pattern (~datum rho) #:attr sym 'rho]
@@ -36,6 +26,14 @@
   (define-syntax-class direct-opt
     [pattern (~datum direct) #:attr sym #t]
     [pattern (~datum indirect) #:attr sym #f]))
+
+(define-syntax (#%top-interaction stx)  
+  (syntax-parse stx
+    [(_ . e)
+     #`(let ([ctxt (unbox the-module-context)])
+         #,(finish-values #'(λ (x) (eval-it ---> x))
+                          #'(term (annotator [,@ctxt e]))
+                          #'first))]))
 
 (define-for-syntax (finish-values op prog [extract #'values])
   #`(apply values
@@ -60,15 +58,15 @@
      #`(r:#%module-begin
         ; (printf "module starting ~a\n" (current-process-milliseconds))
         #,(if (memq trace '(trace step))
-              #'((dynamic-require 'redex 'reduction-steps-cutoff) 100)
+              #'(reduction-steps-cutoff 100)
               #'(void))
         (set-box! the-module-context '(m ...))
         (current-exact? #,exact?)
         (initial-char-width 140)
+        (define the-program (term (annotator [m ... e])))
         #,(case run
             [(rho)             
-             #`(begin                  
-                 (define the-program (term (annotator [m ... e])))
+             #`(begin  
                  (current-direct? #,direct?)
                  #,(case trace
                      [(trace) #'(trace-it ---> the-program)]
@@ -79,13 +77,11 @@
             #;
             [(count)             
              #'(begin 
-                 (define the-program (term (annotator [m ... e])))
                  (let ([k 0]) 
                    (count-it the-program k)
                    (printf "~a terms explored\n" k)))]
             [(cesk)
-             #`(begin 
-                 (define the-program (term (annotator [m ... e])))
+             #`(begin
                  ;; Always redirect through store for CESK machine.
                  (current-direct? #f)
                  #,(case trace
