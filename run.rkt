@@ -4,7 +4,7 @@
 (provide (except-out (all-defined-out) test))
 (test-suite test run)
 
-(provide -->_vcme)
+(provide --->)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; Step 

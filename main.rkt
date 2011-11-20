@@ -14,13 +14,11 @@
   (syntax-parse stx
     [(_ . e)
      #'(apply values
-              (map clean-up
-                   (filter-not
-                    (λ (p)
-                      (match p
-                        [(list 'blame '★ _ (... ...)) #t] [_ #f]))
-                    (eval_vcc~Δ  (term-let ([(m (... ...)) (unbox the-module-context)])
-                                           (term (annotator [m (... ...) e])))))))]))
+              (eval-it ---> x g f)
+              #'the-program
+              #'first)]
+    (eval_vcc~Δ  (term-let ([(m (... ...)) (unbox the-module-context)])
+                           (term (annotator [m (... ...) e]))))))
 
 (begin-for-syntax 
   (define-syntax-class run-opt
@@ -73,9 +71,9 @@
                  (define the-program (term (annotator [m ... e])))
                  (current-direct? #,direct?)
                  #,(case trace
-                     [(trace) #'(trace-it -->_vcme the-program)]
-                     [(step)  #'(step-it -->_vcme the-program)] 
-                     [(eval)  (finish-values #'(λ (x) (eval-it -->_vcme x))
+                     [(trace) #'(trace-it ---> the-program)]
+                     [(step)  #'(step-it ---> the-program)] 
+                     [(eval)  (finish-values #'(λ (x) (eval-it ---> x))
                                              #'the-program
                                              #'first)]))]            
             #;
