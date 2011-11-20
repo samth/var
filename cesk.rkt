@@ -25,6 +25,8 @@
   [(ev PREVAL σ K) (ev (-- PREVAL) σ K)]
   [(ev (clos (@ EXP ... LAB) ρ) σ K)
    (ev (@ (↓ EXP ρ) ... LAB) σ K)]
+  [(ev (clos (@* EXP ... LAB) ρ) σ K)
+   (ev (@* (↓ EXP ρ) ... LAB) σ K)]  
   [(ev (clos (if EXP ...) ρ) σ K)
    (ev (if (↓ EXP ρ) ...) σ K)]
   [(ev (clos (let ((X EXP) ...) EXP_1) ρ) σ K)
@@ -36,6 +38,9 @@
   [(ev (@ D_1 D_2 ... LAB) σ K)
    (ev D_1 σ_1 (APP () (D_2 ...) LAB a))
    (where (a σ_1) (bind σ K))]
+  [(ev (@* D_1 D_2 ... LAB) σ K)
+   (ev D_1 σ_1 (APP* () (D_2 ...) LAB a))
+   (where (a σ_1) (bind σ K))]  
   [(ev (if D_1 D_2 D_3) σ K)
    (ev D_1 σ_1 (IF D_2 D_3 a))
    (where (a σ_1) (bind σ K))]
@@ -68,11 +73,19 @@
    (--> (co (APP (V_1 ...) (D_1 D_2 ...) LAB a) V σ)    
         (gc-state (ev D_1 σ (APP (V_1 ... V) (D_2 ...) LAB a)))
         co-next-@)
+   (--> (co (APP* (V_1 ...) (D_1 D_2 ...) LAB a) V σ)    
+        (gc-state (ev D_1 σ (APP* (V_1 ... V) (D_2 ...) LAB a)))
+        co-next-@*)
    (--> (co (APP (V_1 ...) () LAB a) V σ)
         (gc-state (ap (@ V_1 ... V LAB) σ K))
         (where (S_0 ... K S_1 ...)
                (sto-lookup σ a))
         co-done-@)
+   (--> (co (APP* (V_1 ...) () LAB a) V σ)
+        (gc-state (ap (@* V_1 ... V LAB) σ K))
+        (where (S_0 ... K S_1 ...)
+               (sto-lookup σ a))
+        co-done-@*)
    (--> (co (IF D_1 D_2 a) V σ)     
         (gc-state (ap (if V D_1 D_2) σ K))
         (where (S_0 ... K S_1 ...)

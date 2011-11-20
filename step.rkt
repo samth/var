@@ -10,7 +10,7 @@
 
 (define step-count 0)
 
-(define (-->_vcme Ms) 
+(define (---> Ms) 
   (define r 
     (union-reduction-relations v c c~ a d (m Ms) (m~ Ms)))    
   (reduction-relation 
@@ -42,7 +42,7 @@
             (define n 7)
             (provide/contract 
              [n (pred exact-nonnegative-integer? m)]))]))
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (n ^ † m))
              (term (-- (↓ 7 (env))))))
 
@@ -59,7 +59,7 @@
             (provide/contract 
              [fact ((pred exact-nonnegative-integer? f) 
                     -> (pred exact-nonnegative-integer? f))]))]))
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (↓ (@ (fact ^ † f) 5 †) (env)))
              (term (-- (↓ 120 (env))))))
 
@@ -81,7 +81,7 @@
                     (λ (x)
                       (and/c (pred exact-nonnegative-integer? f)
                              (pred (λ (y) (@ <= x y f)) f))))]))]))
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (↓ (@ (fact ^ † f) 5 †) (env)))
              (term (-- (↓ 120 (env))
                        ((pred (λ (y) (@ <= x y f)) f)
@@ -100,25 +100,25 @@
              [posn-x ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]
              [posn-y ((pred (posn? ^ p p) p) -> (pred exact-nonnegative-integer? p))]))]))
  
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (↓ (@ (posn ^ † p) 1 2 †) (env)))
              (term (-- (struct posn
                          (-- (↓ 1 (env)))
                          (-- (↓ 2 (env))))
                        ((pred (posn? ^ p p) p) (env)))))
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (↓ (@ (posn? ^ † p)
                          (@ (posn ^ † p) 1 2 †)
                          †)
                       (env)))
              (term (-- (↓ #t (env)))))
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (↓ (@ (posn-x ^ † p)
                          (@ (posn ^ † p) 1 2 †)
                          †)
                       (env)))
              (term (-- (↓ 1 (env)))))
- (test/v-->> (-->_vcme Ms)
+ (test/v-->> (---> Ms)
              (term (↓ (@ (posn-y ^ † p)
                          (@ (posn ^ † p) 1 2 †)
                          †)

@@ -31,7 +31,7 @@
   (syntax-parse stx
     [(_ . e)
      #`(let ([ctxt (unbox the-module-context)])
-         #,(finish-values #'(λ (x) (eval-it -->_vcme x))
+         #,(finish-values #'(λ (x) (eval-it ---> x))
                           #'(term (annotator [,@ctxt e]))
                           #'first))]))
 
@@ -69,9 +69,9 @@
              #`(begin  
                  (current-direct? #,direct?)
                  #,(case trace
-                     [(trace) #'(trace-it -->_vcme the-program)]
-                     [(step)  #'(step-it -->_vcme the-program)] 
-                     [(eval)  (finish-values #'(λ (x) (eval-it -->_vcme x))
+                     [(trace) #'(trace-it ---> the-program)]
+                     [(step)  #'(step-it ---> the-program)] 
+                     [(eval)  (finish-values #'(λ (x) (eval-it ---> x))
                                              #'the-program
                                              #'first)]))]            
             #;
