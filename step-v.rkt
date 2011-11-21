@@ -9,7 +9,8 @@
    λcρ #:domain (D σ)
    (--> ((clos • ρ) σ) ((join-contracts) σ) bullet)
    (--> ((clos (OP ^ LAB) ρ) σ)
-        (((op-con OP) (env) <= Λ LAB (-- (↓ OP (env))) OP (-- (↓ OP (env)))) σ))
+        (((op-con OP) (env) <= Λ LAB (-- (↓ OP (env))) OP (-- (↓ OP (env)))) σ)
+        op-ref)
    (--> (PREVAL σ) ((-- PREVAL) σ) wrap)
    ;; Environment propagation
    (--> ((clos (@ EXP ... LAB) ρ) σ)
