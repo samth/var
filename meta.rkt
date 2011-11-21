@@ -750,7 +750,7 @@
    (struct-op/contract OP LAB_use)
    (where OP (struct-pred? X_mod X_name (struct-env (MOD ...))))]
   [(lookup-modref/val X_name LAB_use X_mod any)
-   ,(format "unbound module variable ~a from ~a in ~a" (term X_name) (term X_mod) (term LAB_use))])
+   (-- (↓ ,(format "unbound module variable ~a from ~a in ~a" (term X_name) (term X_mod) (term LAB_use)) (env)))])
           
 ;; valuename x modulename x modules -> contract
 (define-metafunction λc-user
@@ -767,10 +767,10 @@
 (test
  (define Ms 
    (term [(module m racket (require) (define f 1) (provide/contract [f (pred string? m)]))]))
- (test-equal (term (lookup-modref/val m f ,Ms)) 1)
- (test-equal (term (lookup-modref/val m g ,Ms)) "unbound module variable g from m")
- (test-equal (term (lookup-modref/con m f ,Ms)) (term (pred string? m)))
- (test-equal (term (lookup-modref/con m g ,Ms)) 
+ (test-equal (term (lookup-modref/val m h f ,Ms)) 1)
+ (test-equal (term (lookup-modref/val m h g ,Ms)) "unbound module variable g from m")
+ (test-equal (term (lookup-modref/con m h f ,Ms)) (term (pred string? m)))
+ (test-equal (term (lookup-modref/con m h g ,Ms)) 
              (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
  
 
@@ -835,20 +835,30 @@
 ;; Projections
 
 (define-metafunction λcρ
-  proj-struct : AV X X natural -> (V ...)
+  proj-struct : V X X natural -> (V ...)
+  [(proj-struct (-- (struct X_m X_tag V ...)) X_m X_tag natural)
+   ,(list-ref (term (V ...)) (term natural))]
+  [(proj-struct (-- (struct X_m X_tag V ...) C_1 C_2 ...) X_m X_tag natural)
+   ((remember-contract V_i C_i ...) ...)
+   (where ((-- C_i ...) ...) (proj-left (-- C_1 C_2 ...)))
+   (where V_i ,(list-ref (term (V ...)) (term natural)))]
   [(proj-struct (-- C_0 C ...) X_m X_tag natural)
-   (proj-struct/a X_m X_tag natural ((join-contracts)) C_0 C ...)])
+   (proj-struct/a X_m X_tag natural ((join-contracts)) C_0 C ...)]
+  [(proj-struct V) ()])
+
 
 (define-metafunction λcρ
-  proj-struct/a : X X natural ((-- C ...) ...) C ... -> (V ...)
-  [(proj-struct/a X_m X_tag natural (AV ...)) (AV ...)]    ;; FIXME, this case is not matching
-  [(proj-struct/a X_m X_tag natural (AV ...) ((struct/c X_m X_tag CON_0 ... CON CON_1 ...) ρ) C_2 ...)
-   (proj-struct/a X_m X_tag natural (AV_R ...) C_2 ...)
-   (side-condition (= (length (term (CON_0 ...))) (term natural)))
-   (where (AV_R ...) 
-          ,(for*/list ([av (in-list (term (AV ...)))]
-                       [cnew (in-list (term (explode (CON ρ))))])
-             (term (remember-contract ,av ,cnew))))]
+  proj-struct/a : X X natural ((-- C ...) ...) C ... -> (AV ...)
+  [(proj-struct/a X_m X_tag natural (AV ...)) (AV ...)]
+  [(proj-struct/a X_m X_tag natural (AV ...) ((rec/c X CON) ρ) C ...)
+   (proj-struct/a X_m X_tag natural (AV ...) ((unroll (rec/c X CON)) ρ) C ...)]
+  [(proj-struct/a X_m X_tag natural (AV ...) ((or/c CON_1 CON_2) ρ) C ...)
+   (AV_1 ... AV_2 ...)
+   (where (AV_1 ...) (proj-struct/a X_m X_tag natural (AV ...) (CON_1 ρ) C ...))
+   (where (AV_2 ...) (proj-struct/a X_m X_tag natural (AV ...) (CON_2 ρ) C ...))]    
+  [(proj-struct/a X_m X_tag natural (AV ...) ((struct/c X_m X_tag CON ...) ρ) C_2 ...)
+   (proj-struct/a X_m X_tag natural ((remember-contract AV C) ...) C_2 ...)
+   (where C (,(list-ref (term (CON ...)) (term natural)) ρ))]  
   [(proj-struct/a X_m X_tag natural (AV ...) C_0 C_1 ...)
    (proj-struct/a X_m X_tag natural (AV ...) C_1 ...)])
 
@@ -930,8 +940,9 @@
  (test-equal (term (proj-right (-- ((∧) (env))
                                    ((cons/c (∧) (or/c (pred exact-nonnegative-integer? f)
                                                       (pred string? f))) (env)))))
-             (term ((-- ((pred exact-nonnegative-integer? f) (env)))
-                    (-- ((pred string? f) (env)))))))
+             (term ((-- ((or/c (pred exact-nonnegative-integer? f)
+                               (pred string? f))
+                         (env)))))))
 
 (define-metafunction λcρ
   list->list-value : (V ...) -> V
