@@ -18,7 +18,7 @@ E
 |#
 
 #|
-
+ 
 Pass 0: insert omitted require 
 Pass 1: expand `define-contract'
 Pass 2: expand shorthands
@@ -117,6 +117,15 @@ Pass 3: Annotate expressions/predicates
   [(ann-exp (let ((X REXP_0) ...) REXP_1) LAB MODENV (X_m ...))
    (let ((X (ann-exp REXP_0 LAB MODENV (X_m ...))) ...)
      (ann-exp REXP_1 LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))]
+  [(ann-exp (letrec ((X (λ (X_1 ...) REXP_0))) REXP_1) LAB MODENV (X_m ...))   
+   (ann-exp (let ([X (λ X (X_1 ...) REXP_0)]) REXP_1) LAB MODENV (X_m ...))]
+  [(ann-exp (let X_loop ((X REXP_0) ...) REXP_1) LAB MODENV (X_m ...))
+   (ann-exp (let ([X_loop (λ X_loop (X ...) REXP_1)]) (X_loop REXP_0 ...)) LAB MODENV (X_m ...))]
+  [(ann-exp (let* ((X REXP_0) any_rest ...) REXP_1) LAB MODENV (X_m ...))
+   (let ((X (ann-exp REXP_0 LAB MODENV (X_m ...))))     
+     (ann-exp (let* (any_rest ...) REXP_1) LAB (mod-env-minus MODENV (X)) (set-minus (X_m ...) (X))))]
+  
+  
   [(ann-exp (begin REXP_0) LAB MODENV (X_m ...))
    (ann-exp REXP_0 LAB MODENV (X_m ...))]
   [(ann-exp (begin REXP_0 REXP_1) LAB MODENV (X_m ...))
@@ -131,7 +140,7 @@ Pass 3: Annotate expressions/predicates
    (λ X_f (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ... X_f)) (set-minus (X_m ...) (X ... X_f))))]
   [(ann-exp (λ XS-DOT-X REXP) LAB MODENV (X_m ...))
    (λ* (X ...) (ann-exp REXP LAB (mod-env-minus MODENV (X ...)) (set-minus (X_m ...) (X ...))))
-   (where (X ...) ,(improper-formals->list (term XS-DOT-X)))] 
+   (where (X ...) ,(improper-formals->list (term XS-DOT-X)))]  
   [(ann-exp (REXP_0 REXP_1 ...) LAB MODENV (X_m ...))
    (@ (ann-exp REXP_0 LAB MODENV (X_m ...))
       (ann-exp REXP_1 LAB MODENV (X_m ...))
@@ -252,6 +261,8 @@ Pass 3: Annotate expressions/predicates
    (ann-con (cons/c RCON_1 (list/c RCON_2 ...)) LAB MODENV (X ...))]
   [(ann-con OP LAB MODENV (X ...))
    (pred OP LAB)]
+  [(ann-con RSV LAB MODENV (X ...))
+   (ann-con (pred RSV) LAB MODENV (X ...))]
   [(ann-con (listof RCON) LAB MODENV (X ...))
    ,(let ((x (variable-not-in (term (RCON MODENV X ...)) 'LST)))
       (term (ann-con (rec/c ,x (or/c empty? (cons/c RCON ,x))) LAB MODENV (X ...))))]
@@ -271,7 +282,7 @@ Pass 3: Annotate expressions/predicates
    (where ((any_f (X_s ...)) ...) MODENV)
    (where (any ... X any_1 ...) (X_s ... ... X_1 ...))]
   [(ann-con (pred OP) LAB MODENV (X ...))
-   (pred OP LAB)]
+   (pred OP LAB)]    
   ;; ---
   [(ann-con (cons/c RCON_0 RCON_1) LAB MODENV (X ...))
    (cons/c (ann-con RCON_0 LAB MODENV (X ...))
@@ -295,6 +306,8 @@ Pass 3: Annotate expressions/predicates
    ((ann-con RCON_0 LAB MODENV (X ...)) ... -> (ann-con RCON_1 LAB MODENV (X ...)))]
   [(ann-con (-> RCON_0 ... (λ (X_c ...) RCON_1)) LAB MODENV (X ...))
    ((ann-con RCON_0 LAB MODENV (X ...)) ... -> (λ (X_c ...) (ann-con RCON_1 LAB MODENV (X ...))))]
+  [(ann-con (->d ([X_0 RCON_0] ...) (X_1 RCON_1)) LAB MODENV (X ...))
+   (ann-con (-> RCON_0 ... (λ (X_0 ...) RCON_1)) LAB MODENV (X ...))]
   [(ann-con (->* (RCON_0 ...) #:rest RCON_1 RCON_2) LAB MODENV (X ...))
    ((ann-con RCON_0 LAB MODENV (X ...)) ... 
     (ann-con RCON_1 LAB MODENV (X ...))
