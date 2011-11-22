@@ -34,6 +34,9 @@
   [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...))
    ((-- (↓ #t (env))))
    (where #t (arity-includes? AV natural))]
+  [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...))
+   ((-- (↓ #f (env))))
+   (where #t (arity-excludes? AV natural))]
   [(abs-δ procedure-arity-includes? V_0 V_1)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]  
