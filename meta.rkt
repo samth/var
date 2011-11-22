@@ -6,7 +6,7 @@
 (test-suite test meta)
 
 (define-metafunction λcρ
-  δ : OP V ... -> (V V ...) ;; FIXME: eventually should be (V ...)
+  δ : OP V ... -> (V V ...)
   [(δ cons V_0 V_1) ; cons works same for concrete and abstract
    ((-- (cons V_0 V_1)))]  
   [(δ (s-cons X_m X_tag natural) V ...)
