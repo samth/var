@@ -32,9 +32,8 @@
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]   
   [(abs-δ procedure-arity-includes? AV (-- (clos natural ρ) C ...))
-   ((-- (↓ any_b (env))))
-   (where natural_a (arity-includes? AV natural))  ;; FIXME
-   (where any_b ,(= (term natural) (term natural_a)))]
+   ((-- (↓ #t (env))))
+   (where #t (arity-includes? AV natural))]
   [(abs-δ procedure-arity-includes? V_0 V_1)
    ((-- (↓ #t (env)))
     (-- (↓ #f (env))))]  
@@ -118,9 +117,9 @@
              (term ((-- ((pred exact-nonnegative-integer? Λ) (env))))))   
  
  (test-equal (term (δ string=? (-- (↓ "" (env))) (-- ((pred string? †) (env)))))
-             (term ((-- ((pred boolean? Λ) (env))))))
+             (term ((-- (↓ #t (env))) (-- (↓ #f (env))))))
  (test-equal (term (δ string=? (-- ((pred string? †) (env))) (-- (↓ "" (env)))))
-             (term ((-- ((pred boolean? Λ) (env))))))   
+             (term ((-- (↓ #t (env))) (-- (↓ #f (env))))))
  
  (test-equal (term (δ car (-- ((cons/c (pred string? f) (∧)) (env)))))
              (term ((-- ((pred string? f) (env))))))
@@ -767,11 +766,11 @@
 (test
  (define Ms 
    (term [(module m racket (require) (define f 1) (provide/contract [f (pred string? m)]))]))
- (test-equal (term (lookup-modref/val m h f ,Ms)) 1)
- (test-equal (term (lookup-modref/val m h g ,Ms)) "unbound module variable g from m")
- (test-equal (term (lookup-modref/con m h f ,Ms)) (term (pred string? m)))
- (test-equal (term (lookup-modref/con m h g ,Ms)) 
-             (term (pred (λ (x) "contract for unbound module variable g from m") ★))))
+ (test-equal (term (lookup-modref/val f h m ,Ms)) (term (-- (↓ 1 (env)))))
+ (test-equal (term (lookup-modref/val g h m ,Ms)) (term (-- (↓ "unbound module variable g from m in h" (env)))))
+ (test-equal (term (lookup-modref/con f h m ,Ms)) (term (pred string? m)))
+ (test-equal (term (lookup-modref/con g h m ,Ms)) 
+             (term (pred (λ (x) "contract for unbound module variable g from m in h") ★))))
  
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
