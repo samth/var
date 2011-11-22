@@ -295,7 +295,8 @@
      (CHECK CON ρ LAB LAB V LAB a))        ; (CON ρ <= LAB LAB V LAB 𝓔)
 
   ; States
-  (ς (ap D σ K)
+  (ς (A σ) ; Final states
+     (ap D σ K)
      (co K V σ))
   
   ; Potential redexes (that do real work).

@@ -20,6 +20,8 @@
 
 (define-metafunction λCESK
   ev : D σ K -> ς
+  [(ev A σ MT) (A σ)]
+  [(ev BLAME σ K) (BLAME σ)]
   [(ev V σ K) (co K V σ)]
   [(ev REDEX σ K) (ap REDEX σ K)]
   [(ev PREVAL σ K) (ev (-- PREVAL) σ K)]

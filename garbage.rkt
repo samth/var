@@ -6,6 +6,7 @@
 
 (define-metafunction λCESK
   gc-state : ς -> ς
+  [(gc-state (A σ)) (gc (A σ))]
   [(gc-state (ap D σ K))
    (ap D (clean σ ,(set-union (term (live-loc D)) (term (live-loc-cont K)))) K)]
   [(gc-state (co K V σ))
