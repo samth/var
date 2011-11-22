@@ -106,7 +106,7 @@
            (term ((live-loc-con C) ...)))]
   [(live-loc-val (-- (struct X_1 X_2 V ...) C ...))
    ,(set-union (apply set-union (set) (term ((live-loc-val V) ...)))
-               (apply set-union (set) (term ((live-loc-val C) ...))))]
+               (apply set-union (set) (term ((live-loc-con C) ...))))]
   [(live-loc-val BLESSED) (live-loc-blessed BLESSED)]
   [(live-loc-val (-- C ...))
    ,(apply set-union (set) (term ((live-loc-con C) ...)))])
