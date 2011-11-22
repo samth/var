@@ -46,7 +46,7 @@
     [(_ (~and m ((~datum module) . _)) ...)
      #`(r:#%module-begin 
         (set-box! the-module-context '(m ...)))]
-    [(_ (~optional run:run-opt #:defaults ([run.sym 'subst]))
+    [(_ (~optional run:run-opt #:defaults ([run.sym 'rho]))
         (~optional trace:trace-opt #:defaults ([trace.sym 'eval]))
         (~optional exact:exact-opt #:defaults ([exact.sym #t]))
         (~optional direct:direct-opt #:defaults ([direct.sym #t]))
