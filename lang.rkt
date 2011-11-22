@@ -135,7 +135,7 @@
         
         
   (BLESSED (BARROW ρ <= LAB LAB V LAB PROC)
-           (BARROW ρ <= LAB LAB V LAB BLESSED))
+           #;(BARROW ρ <= LAB LAB V LAB BLESSED))
   
   (BLESSEDAV (BARROW ρ <= LAB LAB V LAB AV)
              (BARROW ρ <= LAB LAB V LAB BLESSEDAV))
