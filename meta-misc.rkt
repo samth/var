@@ -102,12 +102,12 @@
    ,(apply hash (apply append (term ((X any) ...))))])
 
 
-(define-metafunction λcρ
-  sto : (any (V ...)) ... -> σ
-  [(sto (any (V ...)) ...)
+(define-metafunction λCESK
+  sto : (any (S ...)) ... -> σ
+  [(sto (any (S ...)) ...)
    ,(apply hash (apply append 
                        (map (λ (k+vs) (list (first k+vs) (apply set (second k+vs))))
-                            (term ((any (V ...)) ...)))))])
+                            (term ((any (S ...)) ...)))))])
 (define-metafunction λcρ
   alloc : σ (any ..._1) -> (a ..._1)
   [(alloc σ (any ...))

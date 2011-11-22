@@ -1,8 +1,8 @@
 #lang racket
 (require "lang.rkt" "meta.rkt" "step.rkt" "garbage.rkt" "util.rkt")
 (require redex/reduction-semantics)
-(test-suite test simple-cesk)
-(provide CESK inj CESK-trace-it CESK-run)
+(test-suite test cesk)
+(provide CESK inj CESK-trace-it CESK-run unload)
 
 (current-direct? #f)
 
@@ -111,6 +111,77 @@
         (where (S_0 ... K S_1 ...)
                (sto-lookup σ a))
         co-done-check)))
+
+(define-metafunction λCESK
+  unload : ς -> (D σ)
+  [(unload (A σ)) (A σ)]
+  [(unload (ap D σ K)) ((stick D K σ) σ)]
+  [(unload (co K V σ)) ((stick V K σ) σ)])
+
+(test
+ (test-equal (term (unload ((-- (clos 0 (env))) (sto))))
+             (term ((-- (clos 0 (env))) (sto))))
+ (test-equal (term (unload (ap (clos 0 (env)) (sto) MT)))
+             (term ((clos 0 (env)) (sto))))
+ (test-equal (term (unload (co MT (-- (clos 0 (env))) (sto))))
+             (term ((-- (clos 0 (env))) (sto)))))
+
+(define-metafunction λCESK
+  stick : D K σ -> D
+  [(stick D MT σ) D]
+  [(stick D (APP (V ...) (D_1 ...) LAB a) σ)
+   (stick (@ V ... D D_1 ... LAB) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))]
+  [(stick D (APP* (V ...) (D_1 ...) LAB a) σ)
+   (stick (@* V ... D D_1 ... LAB) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))]
+  [(stick D (IF D_1 D_2 a) σ)
+   (stick (if D D_1 D_2) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))]
+  [(stick D (LET ((X V) ...) X_1 ((X_2 D_2) ...) D_1 a) σ)
+   (stick (let ((X V) ... (X_1 D) (X_2 D_2) ...) D_1) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))]  
+  [(stick D (BEGIN D_1 a) σ)
+   (stick (begin D D_1) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))]
+  [(stick D (DEM CON a) σ)
+   (stick (dem CON D) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))]
+  [(stick D (CHECK CON ρ LAB_1 LAB_2 V LAB_3 a) σ)
+   (stick (CON ρ <= LAB_1 LAB_2 V LAB_3 D) K σ)
+   (where (S_0 ... K S_1 ...)
+          (sto-lookup σ a))])
+
+(test
+ (define D (term (clos 0 (env))))
+ (define D1 (term (clos 1 (env))))
+ (define D2 (term (clos 2 (env))))
+ (define V1 (term (-- (clos 1 (env)))))
+ (define V2 (term (-- (clos 2 (env)))))
+ 
+ (test-equal (term (stick ,D MT (sto)))
+             D) 
+ (test-equal (term (stick ,D (APP (,V1 ,V2) (,D1 ,D2) f (loc a)) (sto [(loc a) (MT)])))
+             (term (@ ,V1 ,V2 ,D ,D1 ,D2 f)))
+ (test-equal (term (stick ,D (APP* (,V1 ,V2) (,D1 ,D2) f (loc a)) (sto [(loc a) (MT)])))
+             (term (@* ,V1 ,V2 ,D ,D1 ,D2 f))) 
+ (test-equal (term (stick ,D (IF ,D1 ,D2 (loc a)) (sto [(loc a) (MT)])))
+             (term (if ,D ,D1 ,D2)))
+ (test-equal (term (stick ,D (LET ((x ,V1) (y ,V2)) z ((p ,D1)) ,D2 (loc a)) (sto [(loc a) (MT)])))
+             (term (let ((x ,V1) (y ,V2) (z ,D) (p ,D1)) ,D2)))
+ (test-equal (term (stick ,D (BEGIN ,D1 (loc a)) (sto [(loc a) (MT)])))
+             (term (begin ,D ,D1)))
+ (test-equal (term (stick ,D (DEM (∧) (loc a)) (sto [(loc a) (MT)])))
+             (term (dem (∧) ,D)))
+ (test-equal (term (stick ,D (CHECK (∧) (env) f g ,V1 h (loc a)) (sto [(loc a) (MT)])))
+             (term ((∧) (env) <= f g ,V1 h ,D))))
+
 
 (define (CESK Ms)
   (union-reduction-relations co (ap Ms)))
