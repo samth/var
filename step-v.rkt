@@ -128,7 +128,7 @@
              (apply set (term ((-- ((pred boolean? f) (env)))
                                (-- ((pred string? f) (env)))))))
  (test-equal (apply set (judgment-holds (choose (-- ((rec/c x (or/c (pred empty? f) (cons/c (∧) x))) (env))) V) V))
-             (apply set (term ((-- ((cons/c (∧) (rec/c x (or/c (pred empty? f) (cons/c (pred (∧) Λ) x)))) (env)))
+             (apply set (term ((-- ((cons/c (∧) (rec/c x (or/c (pred empty? f) (cons/c (∧) x)))) (env)))
                                (-- ((pred empty? f) (env))))))))
  
 (test
