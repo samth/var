@@ -6,7 +6,7 @@
 (test-suite test meta)
 
 (define-metafunction λcρ
-  δ : OP V ... -> (A A ...) ;; FIXME: eventually should be (V ...)
+  δ : OP V ... -> (V V ...) ;; FIXME: eventually should be (V ...)
   [(δ cons V_0 V_1) ; cons works same for concrete and abstract
    ((-- (cons V_0 V_1)))]  
   [(δ (s-cons X_m X_tag natural) V ...)
@@ -21,7 +21,7 @@
   
 
 (define-metafunction λcρ
-  abs-δ : OP V ... AV V ... -> (A ...) ;; FIXME: eventually should be (V ...)
+  abs-δ : OP V ... AV V ... -> (V ...)
   [(abs-δ OP? AV)
    ((-- (↓ #t (env))))
    (judgment-holds (proves AV OP?))]
@@ -87,18 +87,7 @@
    (judgment-holds (indy AV (s-pred X_m X_tag)))]
      
   [(abs-δ (s-ref X_m X_tag natural) AV)
-   (proj-struct AV X_m X_tag natural)
-   (where #t (has-struct/c? AV X_m X_tag))]
-  
-  [(abs-δ (s-ref X_m X_tag natural) AV)
-   ((-- ((∧) (env))))
-   (judgment-holds (proves AV (s-pred X_m X_tag)))]
-  [(abs-δ (s-ref X_m X_tag natural) AV)     ;; FIXME should expressed as a contract
-   ((blame FIXMELAB Λ AV (s-ref X_m X_tag natural) AV))
-   (judgment-holds (refutes AV (s-pred X_m X_tag)))]
-  [(abs-δ (s-ref X_m X_tag natural) AV) ;; FIXME should expressed as a contract
-   ((-- ((∧) (env)))
-    (blame FIXMELAB Λ AV (s-ref X_m X_tag natural) AV))])
+   (proj-struct AV X_m X_tag natural)])
   
 (test
  (test-equal (term (δ procedure-arity-includes? (-- ((pred procedure? †) (env))) (-- ((pred exact-nonnegative-integer? †) (env)))))
