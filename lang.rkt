@@ -257,7 +257,10 @@
         (cond [REXP REXP] ... [else REXP])
         (if REXP REXP REXP) 
         (PRIM REXP REXP ...) 
-        (let ((X REXP) ...) REXP) 
+        (let ((X REXP) ...) REXP)
+        (let* ((X REXP) ...) REXP)
+        (letrec ((X (λ (X ...) REXP))) REXP)
+        (let X ((X REXP) ...) REXP)
         (begin REXP REXP ...)
         (and REXP ...)
         (or REXP ...))
@@ -265,7 +268,8 @@
   (RCON OP 
         ATOMLIT
         any/c 
-        (pred RSV)        
+        (pred RSV)
+        RSV
         (cons/c RCON RCON) 
         (struct/c X RCON ...)
         (or/c RCON RCON) 
@@ -277,6 +281,7 @@
         (list/c RCON ...)
         (-> RCON ... RCON)
         (-> RCON ..._1 (λ (X ..._1) RCON))
+        (->d ([X RCON] ...) (X RCON))
         (->* (RCON ...) #:rest RCON RCON)
         (listof RCON)
         (non-empty-listof RCON)
