@@ -186,25 +186,25 @@
      (side-condition (CON_1 ρ <= LAB LAB V LAB 𝓔)
                      (not (redex-match λcρ ANYCON (term CON_1)))))
   
-  (REDEX (clos • ρ)
-         (clos PRIMREF ρ)
+  (REDEX ;(clos (@ any ... LAB) ρ)
+         ;(clos (@* any ... LAB) ρ)
+         ;(clos (if any ...) ρ)
+         ;(clos (begin any ...) ρ)
+         ;(clos (let ((X any) ...) EXP) ρ)
+         ;(clos MODREF ρ)
+         ;PREVAL
+         ;(ANYCON ρ <= LAB LAB any LAB any)         
+         ;(clos • ρ)
          (clos X ρ)
-         (clos (@ any ... LAB) ρ)
-         (clos (if any ...) ρ)
-         (clos (begin any ...) ρ)
-         (clos (let ((X any) ...) EXP) ρ)
-         (clos MODREF ρ)
+         (clos PRIMREF ρ)
          (@ V V ... LAB)
          (@* V V ... LAB)
          (if V D D)
          (begin V D)
-         (let ((X V) ...) D)
-         PREVAL
-         
+         (let ((X V) (X V) ...) D)   
          MODREF   
-         (CON ρ <= LAB LAB any LAB V)
-         (ANYCON ρ <= LAB LAB any LAB any)
-         BLAME)
+         (side-condition (CON_1 ρ <= LAB LAB V LAB V)
+                         (not (redex-match λcρ ANYCON (term CON_1)))))
   
   ;; Conveniences  
   (OP? zero? procedure? empty? cons? char?
@@ -297,20 +297,7 @@
   ; States
   (ς (A σ) ; Final states
      (ap D σ K)
-     (co K V σ))
-  
-  ; Potential redexes (that do real work).
-  (REDEX (clos • ρ)
-         (clos X ρ)
-         (clos PRIMREF ρ)
-         (@ V V ... LAB)
-         (@* V V ... LAB)
-         (if V D D)
-         (begin V D)
-         (let ((X V) ...) D)      
-         MODREF   
-         (CON ρ <= LAB LAB V LAB V)
-         BLAME)
+     (co K V σ))    
   
   (S K V))
 

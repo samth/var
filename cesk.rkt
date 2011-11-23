@@ -23,8 +23,9 @@
   [(ev A σ MT) (A σ)]
   [(ev BLAME σ K) (BLAME σ)]
   [(ev V σ K) (co K V σ)]
-  [(ev REDEX σ K) (ap REDEX σ K)]
+  [(ev REDEX σ K) (ap REDEX σ K)]  
   [(ev PREVAL σ K) (ev (-- PREVAL) σ K)]
+  [(ev (clos • ρ) σ K) (ev (join-contracts) σ K)]
   [(ev (clos (@ EXP ... LAB) ρ) σ K)
    (ev (@ (↓ EXP ρ) ... LAB) σ K)]
   [(ev (clos (@* EXP ... LAB) ρ) σ K)
@@ -56,7 +57,9 @@
    (where (a σ_1) (bind σ K))]
   [(ev (begin D D_1) σ K)
    (ev D σ_1 (BEGIN D_1 a))
-   (where (a σ_1) (bind σ K))])
+   (where (a σ_1) (bind σ K))]
+  [(ev (ANYCON ρ <= LAB_1 LAB_2 V LAB_3 D) σ K)
+   (ev D σ K)])
   
 (define (ap Ms)
   (define r
@@ -114,9 +117,9 @@
 
 (define-metafunction λCESK
   unload : ς -> (D σ)
-  [(unload (A σ)) (A σ)]
-  [(unload (ap D σ K)) ((stick D K σ) σ)]
-  [(unload (co K V σ)) ((stick V K σ) σ)])
+  [(unload (A σ)) (gc (A σ))]
+  [(unload (ap D σ K)) (gc ((stick D K σ) σ))]
+  [(unload (co K V σ)) (gc ((stick V K σ) σ))])
 
 (test
  (test-equal (term (unload ((-- (clos 0 (env))) (sto))))

@@ -6,27 +6,10 @@
 
 (define v
   (reduction-relation
-   λcρ #:domain (D σ)
-   (--> ((clos • ρ) σ) ((join-contracts) σ) bullet)
+   λcρ #:domain (D σ)   
    (--> ((clos (OP ^ LAB) ρ) σ)
         (((op-con OP) (env) <= Λ LAB (-- (↓ OP (env))) OP (-- (↓ OP (env)))) σ)
         op-ref)
-   (--> (PREVAL σ) ((-- PREVAL) σ) wrap)
-   ;; Environment propagation
-   (--> ((clos (@ EXP ... LAB) ρ) σ)
-        ((@ (↓ EXP ρ) ... LAB) σ)
-        ρ-@)
-   (--> ((clos (if EXP ...) ρ) σ)
-        ((if (↓ EXP ρ) ...) σ)
-        ρ-if)
-   (--> ((clos (let ((X EXP_1) ...) EXP_2) ρ) σ)
-        ((let ((X (↓ EXP_1 ρ)) ...) (↓ EXP_2 ρ)) σ)
-        ρ-let)
-   (--> ((clos (begin EXP ...) ρ) σ)
-        ((begin (↓ EXP ρ) ...) σ)
-        ρ-begin)
-   ;; Environment elimination
-   (--> ((clos MODREF ρ) σ) (MODREF σ) elim-ρ)
    ;; Variable lookup
    (--> ((clos X ρ) σ)
         (V σ)
@@ -141,41 +124,13 @@
                 ,(apply-reduction-relation v (term (D_redex σ)))))))
  
  (test/σ--> v
-            (term (↓ • (env)))
-            (term (join-contracts)))
- (test/σ--> v
             (term (clos (+ ^ f) (env)))
             (term ((op-con +) (env) <= Λ f (-- (↓ + (env))) + (-- (↓ + (env))))))
- (test/σ--> v 
-            (term (↓ (@ (λ (x) 0) 1 †) (env)))
-            (term (@ (↓ (λ (x) 0) (env)) (↓ 1 (env)) †))) 
- (test/σ--> v 
-            (term (↓ (λ (x) 0) (env)))
-            (term (-- (↓ (λ (x) 0) (env)))))
- (test/σ--> v
-            (term (↓ 1 (env)))
-            (term (-- (↓ 1 (env)))))
- (test/σ--> v
-            (term (↓ (let ((x 1) (y 2)) (@ + x y †)) (env)))
-            (term (let ((x (↓ 1 (env)))
-                        (y (↓ 2 (env))))
-                    (↓ (@ + x y †) (env)))))
- (test/σ--> v
-            (term (↓ (p? ^ f g) (env)))
-            (term (p? ^ f g)))
  (test--> v
           (term ((@ (-- (↓ (λ (x) 0) (env))) (-- (↓ 1 (env))) †) (sto)))
           (redex-let λcρ
                      ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (↓ 1 (env))))))])
                      (term ((↓ 0 ρ) σ))))
- (test/σ--> v
-            (term (↓ 0 (env)))
-            (term (-- (↓ 0 (env))))) 
- (test-->> -->_v
-           (term ((↓ (@ (λ (x) 0) 1 †) (env)) (sto)))
-           (redex-let λcρ
-                      ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (↓ 1 (env))))))])
-                      (term ((-- (↓ 0 ρ)) σ))))
  (test--> v
           (term ((@ (-- (↓ (λ f (x) (@ f x f)) (env)))
                     (-- (↓ 0 (env)))
@@ -200,26 +155,11 @@
                                               (r (list->list-value ((-- (↓ 2 (env))) (-- (↓ 3 (env))))))))])
                      (term ((↓ 0 ρ) σ))))
  
- (test/v-->> -->_v
-             (term (↓ (@ (λ fact (n)
-                           (if (@ zero? n †)
-                               1
-                               (@ * n (@ fact (@ sub1 n †) †) †)))
-                         5 †)
-                      (env)))
-             (term (-- (↓ 120 (env)))))
- 
  (redex-let λcρ
             ([(ρ σ) (term (bind-vars (env) (sto) (x (-- (↓ 2 (env))))))])
             (test--> v
                      (term ((↓ x ρ) σ))
                      (term ((-- (↓ 2 (env))) σ))))
- (test/σ--> v
-            (term (↓ (if #f 7 8) (env)))
-            (term (if (↓ #f (env)) (↓ 7 (env)) (↓ 8 (env))))) 
- (test/σ--> v
-            (term (↓ #f (env)))
-            (term (-- (↓ #f (env))))) 
  (test/σ--> v
             (term (if (-- (↓ #f (env)))
                       (↓ 7 (env))
@@ -245,9 +185,6 @@
  (test/σ--> v 
             (term (begin (-- (↓ 3 (env))) (↓ 5 (env))))
             (term (↓ 5 (env))))  
- (test-->> -->_v
-           (term ((↓ (begin 3 5) (env)) (sto)))
-           (term ((-- (↓ 5 (env))) (sto))))
  (test--> v
           (term ((let ((x (-- (↓ 1 (env))))
                        (y (-- (↓ 2 (env)))))
@@ -257,27 +194,5 @@
                      ([(ρ σ) (term (bind-vars (env) (sto) 
                                               (x (-- (↓ 1 (env))))
                                               (y (-- (↓ 2 (env))))))])
-                     (term ((↓ (@ + x y †) ρ) σ))))
- (test-->> -->_v
-           (term ((let ((x (-- (↓ 1 (env))))
-                        (y (-- (↓ 2 (env)))))
-                    (↓ (@ + x y †) (env)))
-                  (sto)))
-           (redex-let λcρ
-                      ([(ρ σ) (term (bind-vars (env) (sto) 
-                                               (x (-- (↓ 1 (env))))
-                                               (y (-- (↓ 2 (env))))))])
-                      (term ((-- (↓ 3 (env))) σ))))      
- (test-->> -->_v
-           (term ((↓ (@ procedure-arity-includes? (λ (x) x) 1 †) (env)) (sto)))
-           (term ((-- (↓ #t (env))) (sto))))
- (test-->> -->_v
-           (term ((↓ (@ procedure-arity-includes? (λ (x) x) 2 †) (env)) (sto)))
-           (term ((-- (↓ #f (env))) (sto))))
- (test-->> -->_v
-           (term ((↓ (@ (λ () 1) 2 †) (env)) (sto)))
-           (term ((blame † Λ (-- (↓ (λ () 1) (env))) λ (-- (↓ (λ () 1) (env)))) (sto))))
- (test-->> -->_v
-           (term ((↓ (@ 3 1 †) (env)) (sto)))
-           (term ((blame † Λ (-- (↓ 3 (env))) λ (-- (↓ 3 (env)))) (sto)))))
+                     (term ((↓ (@ + x y †) ρ) σ)))))
 
