@@ -278,12 +278,17 @@
 (define ap00 (term (,ap0 42)))
 (define ap01 (term (,ap0 13)))
 (define ap10 (term (,ap1 0)))
-(test-->> CPCF-red ap00 2)
-(test-->> CPCF-red ap01 (term (blame g h)))
-(test-->> CPCF-red ap10 (term (blame g h)))
+
+;; test type-checking
 (test-equal (term (type ,t-even?)) (term (Int → Bool)))
 (test-equal (term (type ,db1)) (term ((Int → Int) → (Int → Int))))
 (test-equal (term (type ,ap0)) (term (Int → Int)))
 (test-equal (term (type ,ap00)) (term Int))
 (test-equal (term (type ,ap01)) (term Int))
+
+;; test reductions
+(test-->> CPCF-red ap00 2)
+(test-->> CPCF-red ap01 (term (blame g h)))
+(test-->> CPCF-red ap10 (term (blame g h)))
+
 (test-results)
