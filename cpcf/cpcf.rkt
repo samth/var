@@ -18,7 +18,7 @@
   [T B
      (T → T)
      (con T)]
-  [B Int Bool]
+  [B Int Bool ⊥]
   ; primitive ops
   [o o1 o2]
   [o1 zero? even? odd? true? false?]
@@ -42,8 +42,13 @@
      (V E)
      (o V ... E M ...)
      (if E M M)
-     (mon h f g C E)])
-           
+     (mon h f g C E)]
+  ; for type-checking
+  [MaybeT T
+          TypeError]
+  [TEnv ((X T) ...)])
+
+
 ;; Semantics for CPCF
 (define CPCF-red
   (reduction-relation
@@ -133,7 +138,132 @@
   to-bool : any -> b
   [(to-bool #f) ff]
   [(to-bool any) tt])
-                      
+
+
+;; type checking
+
+;; returns expression's type, or TypeError if doesn't work out
+(define-metafunction CPCF
+  type : M -> MaybeT
+  [(type M) (type-check () M)])
+
+;; works out expression's type from given type-environment
+(define-metafunction CPCF
+  type-check : TEnv M -> MaybeT
+  [(type-check TEnv n) Int]
+  [(type-check TEnv b) Bool]
+  [(type-check ((X_0 T_0) ...) (λ (X T) M))
+   (maybe→ T (type-check ((X T) (X_0 T_0) ...) M))]
+  [(type-check TEnv (blame f g)) ⊥]
+  [(type-check ((X_0 T_0) ... (X T) (X_1 T_1) ...) X)
+   T
+   (side-condition (not (member (term X) (term (X_0 ...)))))]
+  [(type-check TEnv (M ...))
+   (maybe-type-app (type-check TEnv M) ...)]
+  [(type-check TEnv (μ (X T) M)) ⊥] ; TODO no idea
+  [(type-check TEnv (if M ...))
+   (maybe-type-if (type-check TEnv M) ...)]
+  [(type-check TEnv (o M ...)) (∆ o (type-check TEnv M) ...)]
+  [(type-check TEnv (mon h f g C M))
+   (maybe-type-mon (type-check-con TEnv C) (type-check TEnv M))]
+  [(type-check TEnv M) TypeError])
+
+;; work's out contract's type from given type-environment
+(define-metafunction CPCF
+  type-check-con : TEnv C -> MaybeT
+  [(type-check-con TEnv (flat M)) (maybe-flat (type-check TEnv M))]
+  [(type-check-con TEnv (C ↦ D))
+   (maybe-con→ (type-check-con TEnv C) (type-check-con TEnv D))]
+  [(type-check-con ((X_0 T_0) ...) (C ↦ (λ (X T) D)))
+   (maybe-con→ (type-check-con ((X_0 T_0) ...) C)
+               (type-check-con ((X T) (X_0 T_0) ...) D))])
+
+;; I wish redex had higher order functions =.=
+
+;; constructs function type
+(define-metafunction CPCF
+  maybe→ : MaybeT MaybeT -> MaybeT
+  [(maybe→ T_x T_y) (T_x → T_y)]
+  [(maybe→ any_1 any_2) TypeError])
+
+;; returns function application's type if it's legal
+(define-metafunction CPCF
+  maybe-type-app : MaybeT MaybeT -> MaybeT
+  [(maybe-type-app (T_x → T_y) T)
+   T_y
+   (side-condition (term (⊑ T T_x)))]
+  [(maybe-type-app any_1 any_2) TypeError])
+
+;; returns if expessions' type if it's legal
+(define-metafunction CPCF
+  maybe-type-if : MaybeT MaybeT MaybeT -> MaybeT
+  [(maybe-type-if T_test T_then T_else)
+   (⊔ T_then T_else)
+   (side-condition (term (⊑ T_test Bool)))]
+  [(maybe-type-if any_1 any_2 any_3) TypeError])
+
+;; returns monitor expression's type if it's legal
+(define-metafunction CPCF
+  maybe-type-mon : MaybeT MaybeT -> MaybeT
+  [(maybe-type-mon (con T_c) T)
+   T
+   (side-condition (term (⊑ T T_c)))]
+  [(maybe-type-mon any_1 any_2) TypeError])
+
+;; returns flat contract's type if it's legal
+(define-metafunction CPCF
+  maybe-flat : MaybeT -> MaybeT
+  [(maybe-flat (T → T_b))
+   (con T)
+   (side-condition (term (⊑ T_b Bool)))]
+  [(maybe-flat any) TypeError])
+
+;; returns function contract's type if it's legal
+(define-metafunction CPCF
+  maybe-con→ : MaybeT MaybeT -> MaybeT
+  [(maybe-con→ (con T_x) (con T_y)) (con (T_x → T_y))]
+  [(maybe-con→ any_1 any_2) TypeError])
+
+;; types for primitive ops
+(define-metafunction CPCF
+  ∆ : o MaybeT ... -> MaybeT
+  [(∆ o Int)
+   Bool
+   (side-condition (member (term o) (term (zero? even? odd?))))]
+  [(∆ o Bool)
+   Bool
+   (side-condition (member (term o) (term (true? false?))))]
+  [(∆ o Int Int)
+   Int
+   (side-condition (member (term o) (term (+ -))))]
+  [(∆ o Bool Bool)
+   Bool
+   (side-condition (member (term o) (term (∨ ∧))))]
+  [(∆ o any ...) TypeError])
+
+;; subtype test
+(define-metafunction CPCF
+  ⊑ : T T -> any ;bool
+  [(⊑ T T) #t]
+  [(⊑ ⊥ T) #t]
+  [(⊑ (T_x1 → T_y1) (T_x2 → T_y2))
+   ,(and (term (⊑ T_x2 T_x1)) (term (⊑ T_y1 T_y2)))]
+  [(⊑ (con T_1) (con T_2)) (⊑ T_1 T_2)]
+  [(⊑ any_1 any_2) #f])
+
+;; returns most specific supertype
+(define-metafunction CPCF
+  ⊔ : T T -> MaybeT
+  [(⊔ T T) T]
+  [(⊔ ⊥ T) T]
+  [(⊔ T ⊥) T]
+  ; ⊓ for function domains doesn't make practical sense in this language
+  ; for simplicity, assume same domain
+  [(⊔ (T → T_y1) (T → T_y2)) (T → (⊔ T_y1 T_y2))]
+  [(⊔ (con T_1) (con T_2)) (con (⊔ T_1 T_2))]
+  [(⊔ any_1 any_2) TypeError])
+
+
 ;; CPCF term examples + tests
 (define t-even? (term (λ (x Int) (even? x))))
 (define db1
@@ -151,4 +281,9 @@
 (test-->> CPCF-red ap00 2)
 (test-->> CPCF-red ap01 (term (blame g h)))
 (test-->> CPCF-red ap10 (term (blame g h)))
+(test-equal (term (type ,t-even?)) (term (Int → Bool)))
+(test-equal (term (type ,db1)) (term ((Int → Int) → (Int → Int))))
+(test-equal (term (type ,ap0)) (term (Int → Int)))
+(test-equal (term (type ,ap00)) (term Int))
+(test-equal (term (type ,ap01)) (term Int))
 (test-results)
