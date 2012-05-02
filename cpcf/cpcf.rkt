@@ -368,7 +368,8 @@
    
    ; primitive ops on definite values
    (v (o (U Cs) ...) (promote (δ o U ...))
-      δ)
+      δ
+      (side-condition (not (term (any-approx? (U Cs) ...)))))
    ; non-deterministic ops with range being booleans
    (v (o V ...) (promote tt)
       δ-pred-apprx-tt
