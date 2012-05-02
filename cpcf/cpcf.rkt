@@ -26,7 +26,7 @@
  
  ;; CPCF term examples
  t-even? db1 ap0 ap1 ap00 ap01 ap10 tri)
- 
+
 
 ;; PCF with Contracts
 (define-language CPCF
@@ -94,11 +94,9 @@
       (δ o V ...)
       δ)
    (v (mon h f g (C ↦ D) V)
-      (λ (X Int)
-        ; X's type does not matter because program has type-checked
-        ; at this point, and X will never be used
-        (mon h f g D
-             (V (mon h g f C X))))
+      ; X's type does not matter because program has type-checked
+      ; at this point, and X will never be used
+      (mon h f g (C ↦ (λ (X ⊥) D)) V)
       mon-fun-desugar
       (where X ,(variable-not-in (term (D V)) (term dummy))))
    (v (mon h f g (C ↦ (λ (X T) D)) V)
