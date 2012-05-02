@@ -575,7 +575,6 @@
 (test-->> SCPCF-red #:equiv v~?
           (term (,s-tri (promote 3))) (term (promote 6)))
 
-;; TODO: have a closer look at this. Didn't see any 'mon-verified' reduction
 #;(traces SCPCF-red rsa-ap)
 
 
