@@ -298,4 +298,51 @@
 (test-->> CPCF-red ap10 (term (blame g h)))
 (test-->> CPCF-red (term (,tri 3)) 6)
 
+
+
+;;;;; Symbolic CPCF
+;; add notion of 'pre-value', and value is defined as pre-value refined by
+;; a set of contracts
+(define-extended-language SCPCF CPCF
+  ; pre-values
+  [U (• T)
+     (λ (X T) M)
+     n
+     b]
+  ; values
+  [V (U Cs)]
+  [(Cs Ds) {C ...}])
+
+
+;; converts CPCF terms to SCPCF terms.
+;; All plain, concrete values are annotated with an empty set of contracts
+;; TODO: would be nicer if language accepts plain value in its syntax,
+;;       but that's for later...
+(define-metafunction SCPCF
+  promote : any -> any
+  [(promote (λ (X T) any)) ((λ (X T) (promote any)) {})]
+  [(promote U) (U {})] ; relies on all old V being new U
+  [(promote (blame f g)) (blame f g)]
+  [(promote (mon h f g C M))
+   (mon h f g (promote-con C) (promote M))]
+  [(promote (any ...)) ((promote any) ...)]
+  [(promote any) any]) ; matches X, and non-M, e.g. if, o, type
+;; converts CPCF contracts to SCPCF contracts
+(define-metafunction SCPCF
+  promote-con : any #|old C|# -> C
+  [(promote-con (flat any)) (flat (promote any))]
+  [(promote-con (C ↦ D)) ((promote-con C) ↦ (promote-con D))]
+  [(promote-con (C ↦ (λ (X T) D)))
+   ((promote-con C) ↦ (λ (X T) (promote-con D)))])
+
+;; example SCPCF terms
+(define s-even? (term (promote ,t-even?)))
+(define s-db1 (term (promote ,db1)))
+(define s-ap0 (term (promote ,ap0)))
+(define s-ap1 (term (promote ,ap1)))
+(define s-ap00 (term (promote ,ap00)))
+(define s-ap01 (term (promote ,ap01)))
+(define s-ap10 (term (promote ,ap10)))
+(define s-tri (term (promote ,tri)))
+
 (test-results)
