@@ -403,6 +403,7 @@
       mon-fun)
    (v (mon h f g (C ↦ D) V)
       (mon h f g (C ↦ (λ (X ⊥) D)) V)
+      (where X ,(variable-not-in (term (D V)) (term dummy)))
       mon-desugar)
    
    (--> (in-hole E (blame f g)) (blame f g)
@@ -436,10 +437,49 @@
 
 ;; checks whether two contracts are equivalent
 ;; may give false negatives
+;; currently implemented as α-equivalence checking
 (define-metafunction SCPCF
-  con~? : C C -> #t or #f
-  [(con~? C C) #t]
-  [(con~? C D) #f]) ; TODO improve
+  con~? : C C -> any #|bool|#
+  [(con~? C D) ,(equal? (term (normalize-con () C))
+                        (term (normalize-con () D)))])
+
+;; turns any usage of close-variable into the lexical distance
+;; to where it was declared
+(define-metafunction SCPCF
+  normalize : [X ...] M -> any
+  [(normalize [Z ...] ((λ (X T) M) {C ...}))
+   ((λ (0 0) ; kill irrelevant labels
+      (normalize [X Z ...] M))
+    {(normalize-con [Z ...] C) ...})]
+  [(normalize any (U {C ...})) (U {(normalize-con any C) ...})]
+  [(normalize any (blame f g)) (blame f g)] ; TODO: kill f and g also??
+  [(normalize [Z ...] X) (maybe-index X [Z ...])]
+  [(normalize any (M N)) ((normalize any M) (normalize any N))]
+  [(normalize [Z ...] (μ (X T) M))
+   (μ (0 0) ; kill irrelevant labels
+      (normalize [X Z ...] M))]
+  [(normalize any (if M ...)) (if (normalize any M) ...)]
+  [(normalize any (o M ...)) (o (normalize any M) ...)]
+  [(normalize any (mon h f g C M))
+   ; TODO: kill h,f,g also??
+   (mon h f g (normalize-con any C) (normalize any M))])
+(define-metafunction SCPCF
+  normalize-con : [X ...] C -> any
+  [(normalize-con any (flat M)) (flat (normalize any M))]
+  [(normalize-con [Z ...] (C ↦ D))
+   (normalize-con [dummy Z ...] (C ↦ (λ (0 0) D)))]
+  [(normalize-con [Z ...] (C ↦ (λ (X T) D)))
+   ((normalize-con [Z ...] C)
+    ↦ (λ (0 0) ; kill irrelevant labels
+        (normalize-con [X Z ...] D)))])
+
+;; returns X's index in list, or itself if not found
+(define-metafunction SCPCF
+  maybe-index : X [X ...] -> n or X
+  [(maybe-index X []) X]
+  [(maybe-index X [X Z ...]) 0]
+  [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
+   
 
 ;; checks whether any given value is an approximation
 (define-metafunction SCPCF
