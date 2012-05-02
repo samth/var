@@ -114,6 +114,13 @@
    with
    [(--> (in-hole E M) (in-hole E N)) (v M N)]))
 
+;; substitute V into X in range contract
+(define-metafunction SCPCF
+  subst-range-con : C V -> C
+  ; partial function on C, will error out on flat contracts
+  [(subst-range-con (C ↦ (λ (X T) D)) V) (subst-con/s D X V)]
+  [(subst-range-con (C ↦ D) V) D])
+
 ;; attempts to check whether value satisfies given contract
 (define-metafunction SCPCF
   verify : V C -> Verified?
@@ -278,6 +285,5 @@
           (term (,s-tri (promote 3))) (term (promote 6)))
 
 #;(traces SCPCF-red rsa-ap)
-
 
 (test-results)
