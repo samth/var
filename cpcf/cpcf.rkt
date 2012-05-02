@@ -21,7 +21,7 @@
   [B Int Bool ⊥]
   ; primitive ops
   [o o1 o2]
-  [o1 zero? even? odd? true? false?]
+  [o1 zero? even? odd? prime? true? false?]
   [o2 + - ∨ ∧]
   ; contracts
   [(C D) (flat M)
@@ -125,6 +125,7 @@
   δ : o V ... -> A
   [(δ zero? n) (to-bool ,(zero? (term n)))]
   [(δ even? n) (to-bool ,(even? (term n)))]
+  [(δ prime? n) (to-bool ,(member (term n) '(2 3 5 7 11 13 17)))] ; i know im stupid
   [(δ odd? n) (to-bool ,(odd? (term n)))]
   [(δ true? b) (to-bool ,(equal? (term b) (term tt)))]
   [(δ false? b) (to-bool ,(equal? (term b) (term ff)))]
@@ -229,7 +230,7 @@
   ∆ : o MaybeT ... -> MaybeT
   [(∆ o Int)
    Bool
-   (side-condition (member (term o) (term (zero? even? odd?))))]
+   (side-condition (member (term o) (term (zero? even? odd? prime?))))]
   [(∆ o Bool)
    Bool
    (side-condition (member (term o) (term (true? false?))))]
@@ -374,12 +375,12 @@
    (v (o V ...) (promote tt)
       δ-pred-apprx-tt
       (side-condition
-       (and (member (term o) (term (zero? even? odd? true? false? ∨ ∧)))
+       (and (member (term o) (term (zero? even? odd? prime? true? false? ∨ ∧)))
             (term (any-approx? V ...)))))
    (v (o V ...) (promote ff)
       δ-pred-apprx-ff
       (side-condition
-       (and (member (term o) (term (zero? even? odd? true? false? ∨ ∧)))
+       (and (member (term o) (term (zero? even? odd? prime? true? false? ∨ ∧)))
             (term (any-approx? V ...)))))
    ; non-deterministic ops with range being ints
    (v (o V ...) (promote (• Int))
@@ -393,7 +394,7 @@
       mon-verified
       (side-condition (equal? (term Proved) (term (verify V C)))))
    (v (mon h f g (flat M) V)
-      ; TODO: confirm: paper says (blame f g), i think they meant (blame f h)
+      ; TODO: confirm: paper says (blame f g), i think they mean (blame f h)
       (if (M V) (refine V (flat M)) (blame f h))
       mon-flat
       (side-condition (equal? (term Unsure) (term (verify V (flat M))))))
@@ -403,7 +404,7 @@
    (v (mon h f g (C ↦ D) V)
       (mon h f g (C ↦ (λ (X ⊥) D)) V)
       mon-desugar)
-      
+   
    (--> (in-hole E (blame f g)) (blame f g)
         blame-prop
         (side-condition (not (equal? (term E) (term hole)))))
@@ -429,7 +430,7 @@
 ;; returns union of contract sets. Contracts are identified up to con~?
 (define-metafunction SCPCF
   con-∪ : Cs Cs -> Cs
-  [(con-∪ Cs Ds) ,(append (filter (λ (C) (term (con-∈ ,C Cs)))
+  [(con-∪ Cs Ds) ,(append (filter (λ (C) (not (term (con-∈ ,C Cs))))
                                   (term Ds))
                           (term Cs))])
 
@@ -461,6 +462,13 @@
 (define-metafunction/extension subst-con SCPCF
   subst-con/s : C X M -> C
   [(subst-con/s (flat M) X N) (flat (subst/s M X N))])
+
+;; TODO: examine what havoc really does
+(define-metafunction SCPCF
+  havoc : T -> M
+  [(havoc B) (μ (X B) X)]
+  [(havoc (T_x → T_y)) (promote (λ (x (T_x → T_y))
+                                  ((havoc T_y) (x (• T_x)))))])
 
 
 ;;;;; type checking for Symbolic CPCF
@@ -494,6 +502,17 @@
 (define s-ap01 (term (promote ,ap01)))
 (define s-ap10 (term (promote ,ap10)))
 (define s-tri (term (promote ,tri)))
+(define prime? (term (promote (λ (x Int) (prime? x)))))
+(define prime/c (term (flat ,prime?)))
+(define const-true? (term (promote (λ (x Int) tt))))
+(define any (term (flat ,const-true?))) ; any Int, actually
+(define keygen ; opaque
+  (term (promote (mon h f g (,any ↦ ,prime/c) (• (Int → Int))))))
+(define rsa ; opaque
+  (term (promote (mon h f g (,prime/c ↦ (,any ↦ ,any))
+                      (• (Int → (Int → Int)))))))
+(define rsa-ap
+  (term ((,rsa (,keygen (promote 13))) (promote (• Int)))))
 
 ;; test type-checking SCPCF terms
 (test-equal (term (type/s ,s-even?)) (term (type ,t-even?)))
@@ -501,11 +520,23 @@
 (test-equal (term (type/s ,s-ap0)) (term (type ,ap0)))
 (test-equal (term (type/s ,s-ap00)) (term (type ,ap00)))
 (test-equal (term (type/s ,s-tri)) (term (type ,tri)))
+(test-equal (term (type/s ,keygen)) (term (Int → Int)))
+(test-equal (term (type/s ,rsa)) (term (Int → (Int → Int))))
+(test-equal (term (type/s ,rsa-ap)) (term Int))
+
+;; identify values by ignoring refining contracts
+(define (v~? v1 v2)
+  (equal? (first v1) (first v2)))
 
 ;; test SCPCF term evaluations
-(test-->> SCPCF-red s-ap00 (term (promote 2)))
+(test-->> SCPCF-red #:equiv v~?
+          s-ap00 (term (promote 2)))
 (test-->> SCPCF-red s-ap01 (term (blame g h)))
-(test-->> SCPCF-red (term (,s-tri (promote 3))) (term (promote 6)))
+(test-->> SCPCF-red #:equiv v~?
+          (term (,s-tri (promote 3))) (term (promote 6)))
+
+;; TODO: have a closer look at this. Didn't see any 'mon-verified' reduction
+#;(traces SCPCF-red rsa-ap)
 
 
 (test-results)
