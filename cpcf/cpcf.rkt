@@ -108,7 +108,6 @@
    (mon h f g (subst-con C X N) (subst M X N))]
   [(subst (any ...) X M) ((subst any X M) ...)]
   [(subst any X M) any])
-
 ;; capture-avoiding substitution for contracts
 (define-metafunction CPCF
   subst-con : C X M -> C
@@ -168,7 +167,6 @@
   [(type-check TEnv (mon h f g C M))
    (maybe-type-mon (type-check-con TEnv C) (type-check TEnv M))]
   [(type-check TEnv M) TypeError])
-
 ;; work's out contract's type from given type-environment
 (define-metafunction CPCF
   type-check-con : TEnv C -> MaybeT
@@ -244,7 +242,7 @@
 
 ;; subtype test
 (define-metafunction CPCF
-  ⊑ : T T -> any ;bool
+  ⊑ : T T -> #t or #f
   [(⊑ T T) #t]
   [(⊑ ⊥ T) #t]
   [(⊑ (T_x1 → T_y1) (T_x2 → T_y2))
@@ -311,17 +309,21 @@
      b]
   ; values
   [V (U Cs)]
-  [(Cs Ds) {C ...}])
-
+  [(Cs Ds) {C ...}]
+  ; for verifying
+  [Verified? Proved
+             Disproved
+             Unsure])
 
 ;; converts CPCF terms to SCPCF terms.
 ;; All plain, concrete values are annotated with an empty set of contracts
 ;; TODO: would be nicer if language accepts plain value in its syntax,
 ;;       but that's for later...
 (define-metafunction SCPCF
-  promote : any -> any
+  promote : any #|old M|# -> any
   [(promote (λ (X T) any)) ((λ (X T) (promote any)) {})]
   [(promote U) (U {})] ; relies on all old V being new U
+  [(promote V) V] ; need this line to avoid taking apart ((λ ...) {...})
   [(promote (blame f g)) (blame f g)]
   [(promote (mon h f g C M))
    (mon h f g (promote-con C) (promote M))]
@@ -334,6 +336,129 @@
   [(promote-con (C ↦ D)) ((promote-con C) ↦ (promote-con D))]
   [(promote-con (C ↦ (λ (X T) D)))
    ((promote-con C) ↦ (λ (X T) (promote-con D)))])
+
+
+;;;;; Reduction semantics for Symbolic CPCF
+;; TODO: it's not obvious to me how to re-use the old relation
+(define SCPCF-red
+  (reduction-relation
+   SCPCF
+   
+   (v (if ((• T) Cs) M N)
+      (if (true? ((• T) Cs)) M N)
+      if-apprx)
+   (v (if (tt Cs) M N) M
+      if)
+   (v (if (ff Cs) M N) N
+      if-not)
+   
+   (v (((λ (X T) M) Cs) V) (subst/s M X V)
+      ; TODO: see what's going on. So we lose Cs?
+      β)
+   (v (((• (T_x → T_y)) Cs) V)
+      ((• T_y) ,(map (λ (c) (term (subst-range-con ,c V))) (term Cs)))
+      β-apprx-ok)
+   (v (((• (T_x → T_y)) Cs) V)
+      ((havoc T_x) V)
+      β-apprx-blame)
+   
+   (v (μ (X T) M) (subst/s M X (μ (X T) M))
+      μ)
+   
+   ; primitive ops on definite values
+   (v (o (U Cs) ...) (promote (δ o U ...))
+      δ)
+   ; non-deterministic ops with range being booleans
+   (v (o V ...) (promote tt)
+      δ-pred-apprx-tt
+      (side-condition
+       (and (member (term o) (term (zero? even? odd? true? false? ∨ ∧)))
+            (term (any-approx? V ...)))))
+   (v (o V ...) (promote ff)
+      δ-pred-apprx-ff
+      (side-condition
+       (and (member (term o) (term (zero? even? odd? true? false? ∨ ∧)))
+            (term (any-approx? V ...)))))
+   ; non-deterministic ops with range being ints
+   (v (o V ...) (promote (• Int))
+      δ-intfun-apprx
+      (side-condition
+       (and (member (term o) (term (+ -)))
+            (term (any-approx? V ...)))))
+   
+   ; contract checking
+   (v (mon h f g C V) V
+      mon-verified
+      (side-condition (equal? (term Proved) (term (verify V C)))))
+   (v (mon h f g (flat M) V)
+      ; TODO: confirm: paper says (blame f g), i think they meant (blame f h)
+      (if (M V) (refine V (flat M)) (blame f h))
+      mon-flat
+      (side-condition (equal? (term Unsure) (term (verify V (flat M))))))
+   (v (mon h f g (C ↦ (λ (X T) D)) V)
+      (promote (λ (X T) (mon h f g D (mon h g f C X))))
+      mon-fun)
+   (v (mon h f g (C ↦ D) V)
+      (mon h f g (C ↦ (λ (X ⊥) D)) V)
+      mon-desugar)
+      
+   (--> (in-hole E (blame f g)) (blame f g)
+        blame-prop
+        (side-condition (not (equal? (term E) (term hole)))))
+   with
+   [(--> (in-hole E M) (in-hole E N)) (v M N)]))
+
+;; attempts to check whether value satisfies given contract
+(define-metafunction SCPCF
+  verify : V C -> Verified?
+  [(verify (U Cs) C)
+   ,(if (term (con-∈ C Cs)) (term Proved) (term Unsure))])
+
+;; refines given value with more contract(s)
+(define-metafunction SCPCF
+  refine : V C ... -> V
+  [(refine (U (C_0 ...)) C ...) (U (con-∪ (C_0 ...) (C ...)))])
+
+;; checks whether contract is already included in given list/set
+(define-metafunction SCPCF
+  con-∈ : C Cs -> #t or #f
+  [(con-∈ C Cs) ,(ormap (λ (D) (term (con~? C ,D))) (term Cs))])
+
+;; returns union of contract sets. Contracts are identified up to con~?
+(define-metafunction SCPCF
+  con-∪ : Cs Cs -> Cs
+  [(con-∪ Cs Ds) ,(append (filter (λ (C) (term (con-∈ ,C Cs)))
+                                  (term Ds))
+                          (term Cs))])
+
+;; checks whether two contracts are equivalent
+;; may give false negatives
+(define-metafunction SCPCF
+  con~? : C C -> #t or #f
+  [(con~? C C) #t]
+  [(con~? C D) #f]) ; TODO improve
+
+;; checks whether any given value is an approximation
+(define-metafunction SCPCF
+  any-approx? : V ... -> #t or #f
+  [(any-approx?) #f]
+  [(any-approx? ((• T) Cs) V ...) #t]
+  [(any-approx? V_0 V ...) (any-approx? V ...)])
+
+;; capture-avoiding substitution for SCPCF terms
+(define-metafunction/extension subst SCPCF
+  subst/s : any X M -> any
+  [(subst/s ((λ (X T) M) Cs) X N) ((λ (X T) M) Cs)] ; var bound, ignore
+  [(subst/s ((λ (X T) M) Cs) Y N)
+   ((λ (Z T)
+      (subst/s (subst/s M X Z) Y N)) Cs) ; TODO exponential blow-up risk
+   (where Z ,(variable-not-in (term (M Y N)) (term X)))]
+  [(subst/s (mon h f g C M) X N)
+   (mon h f g (subst-con/s C X N) (subst/s M X N))])
+;; capture-avoiding substitution for SCPCF contracts
+(define-metafunction/extension subst-con SCPCF
+  subst-con/s : C X M -> C
+  [(subst-con/s (flat M) X N) (flat (subst/s M X N))])
 
 ;; example SCPCF terms
 (define s-even? (term (promote ,t-even?)))
