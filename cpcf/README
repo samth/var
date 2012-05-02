@@ -1,4 +1,5 @@
 * TODO:
-** no idea what μ does. Is it for making recursive functions?
-** type rule for (μ (X T) E) in Appendix A1 seems weird
-** type rule for (C ↦  (λ (X T) D)) in Appendix A1 seems messed up: X and T switched, and the type environment on the right of the upper row also needs (X:T) because D is dependent on X?
+** trace for 'rsa-ap' doesn't look right. No 'mon-verified' reduction seen.
+** code cleanup
+** look up on how to split 2 languages into 2 files. I don't know how to 'provide' redex languages and metafunctions yet.
+** better implementation for 'verify', detecting more provable cases
