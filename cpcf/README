@@ -1,4 +1,3 @@
 * TODO:
 ** code cleanup
-** look up on how to split 2 languages into 2 files. I don't know how to 'provide' redex languages and metafunctions yet.
 ** better implementation for 'verify', detecting more provable cases
