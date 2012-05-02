@@ -49,7 +49,7 @@
   [TEnv ((X T) ...)])
 
 
-;; Semantics for CPCF
+;;;;; Reduction semantics for CPCF
 (define CPCF-red
   (reduction-relation
    CPCF
@@ -140,7 +140,7 @@
   [(to-bool any) tt])
 
 
-;; type checking
+;;;;; type checking
 
 ;; returns expression's type, or TypeError if doesn't work out
 (define-metafunction CPCF
@@ -160,7 +160,8 @@
    (side-condition (not (member (term X) (term (X_0 ...)))))]
   [(type-check TEnv (M ...))
    (maybe-type-app (type-check TEnv M) ...)]
-  [(type-check TEnv (μ (X T) M)) ⊥] ; TODO no idea
+  [(type-check ((X_0 T_0) ...) (μ (X T) M))
+   (type-check ((X T) (X_0 T_0) ...) M)]
   [(type-check TEnv (if M ...))
    (maybe-type-if (type-check TEnv M) ...)]
   [(type-check TEnv (o M ...)) (∆ o (type-check TEnv M) ...)]
@@ -278,6 +279,10 @@
 (define ap00 (term (,ap0 42)))
 (define ap01 (term (,ap0 13)))
 (define ap10 (term (,ap1 0)))
+(define tri (term (μ (f (Int → Int))
+                     (λ (n Int)
+                       (if (zero? n) 0
+                           (+ n (f (- n 1))))))))
 
 ;; test type-checking
 (test-equal (term (type ,t-even?)) (term (Int → Bool)))
@@ -285,10 +290,12 @@
 (test-equal (term (type ,ap0)) (term (Int → Int)))
 (test-equal (term (type ,ap00)) (term Int))
 (test-equal (term (type ,ap01)) (term Int))
+(test-equal (term (type ,tri)) (term (Int → Int)))
 
 ;; test reductions
 (test-->> CPCF-red ap00 2)
 (test-->> CPCF-red ap01 (term (blame g h)))
 (test-->> CPCF-red ap10 (term (blame g h)))
+(test-->> CPCF-red (term (,tri 3)) 6)
 
 (test-results)
