@@ -103,7 +103,8 @@
   [(subst (μ (X T) M) X N) (μ (X T) M)] ; var bound, so ignored
   [(subst (μ (X T) M) Y N)
    (μ (Z T)
-      (subst (subst M X Z) Y N))] ; TODO: exponential blow-up risk
+      (subst (subst M X Z) Y N)) ; TODO: exponential blow-up risk
+   (where Z ,(variable-not-in (term (M Y N)) (term X)))]
   [(subst (mon h f g C M) X N)
    (mon h f g (subst-con C X N) (subst M X N))]
   [(subst (any ...) X M) ((subst any X M) ...)]
@@ -396,7 +397,7 @@
       mon-flat
       (side-condition (equal? (term Unsure) (term (verify V (flat M))))))
    (v (mon h f g (C ↦ (λ (X T) D)) V)
-      (promote (λ (X T) (mon h f g D (mon h g f C X))))
+      (promote (λ (X T) (mon h f g D (V (mon h g f C X)))))
       mon-fun)
    (v (mon h f g (C ↦ D) V)
       (mon h f g (C ↦ (λ (X ⊥) D)) V)
@@ -460,6 +461,29 @@
   subst-con/s : C X M -> C
   [(subst-con/s (flat M) X N) (flat (subst/s M X N))])
 
+
+;;;;; type checking for Symbolic CPCF
+
+;; returns expression type, or TypeError
+(define-metafunction SCPCF
+  type/s : M -> MaybeT
+  [(type/s M) (type-check/s () M)])
+
+;; works out expression's type from given type environment
+(define-metafunction/extension type-check SCPCF
+  type-check/s : TEnv M -> MaybeT
+  [(type-check/s TEnv ((• T) Cs)) T]
+  [(type-check/s TEnv (n Cs)) Int]
+  [(type-check/s TEnv (b Cs)) Bool]
+  [(type-check/s ((X_0 T_0) ...) ((λ (X T) M) Cs))
+   (maybe→ T (type-check/s ((X T) (X_0 T_0) ...) M))]
+  [(type-check/s TEnv (mon h f g C M))
+   (maybe-type-mon (type-check-con/s TEnv C) (type-check/s TEnv M))])
+;; works out contract's type from given type environment
+(define-metafunction/extension type-check-con SCPCF
+  type-check-con/s : TEnv C -> MaybeT
+  [(type-check-con/s TEnv (flat M)) (maybe-flat (type-check/s TEnv M))])
+
 ;; example SCPCF terms
 (define s-even? (term (promote ,t-even?)))
 (define s-db1 (term (promote ,db1)))
@@ -469,5 +493,18 @@
 (define s-ap01 (term (promote ,ap01)))
 (define s-ap10 (term (promote ,ap10)))
 (define s-tri (term (promote ,tri)))
+
+;; test type-checking SCPCF terms
+(test-equal (term (type/s ,s-even?)) (term (type ,t-even?)))
+(test-equal (term (type/s ,s-db1)) (term (type ,db1)))
+(test-equal (term (type/s ,s-ap0)) (term (type ,ap0)))
+(test-equal (term (type/s ,s-ap00)) (term (type ,ap00)))
+(test-equal (term (type/s ,s-tri)) (term (type ,tri)))
+
+;; test SCPCF term evaluations
+(test-->> SCPCF-red s-ap00 (term (promote 2)))
+(test-->> SCPCF-red s-ap01 (term (blame g h)))
+(test-->> SCPCF-red (term (,s-tri (promote 3))) (term (promote 6)))
+
 
 (test-results)
