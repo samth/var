@@ -72,7 +72,9 @@
    ; primitive ops on definite values
    (v (o (U Cs) ...) (promote (δ o U ...))
       δ
-      (side-condition (not (term (any-approx? (U Cs) ...)))))
+      ; treat sqrt separately b/c it has some more guarantee about its output
+      (side-condition (and (not (term (any-approx? (U Cs) ...)))
+                           (not (equal? (term o) (term sqrt))))))
    ; non-deterministic ops with range being booleans
    (v (o V ...) (promote tt)
       δ-pred-apprx-tt
@@ -88,8 +90,13 @@
    (v (o V ...) (promote (• Int))
       δ-intfun-apprx
       (side-condition
-       (and (member (term o) (term (+ - sqrt)))
+       (and (member (term o) (term (+ -)))
             (term (any-approx? V ...)))))
+   ; treat sqrt separately
+   (v (sqrt (n Cs)) ((δ sqrt n) {,non-neg/c})
+      sqrt)
+   (v (sqrt ((• T) Cs)) ((• Int) {,non-neg/c})
+      sqrt-apprx)
    
    ; contract checking
    (v (mon h f g C V) V
