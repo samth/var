@@ -48,7 +48,7 @@
   [B Int Bool ⊥]
   ; primitive ops
   [o o1 o2]
-  [o1 zero? even? odd? prime? true? false?]
+  [o1 zero? non-neg? even? odd? prime? true? false? sqrt]
   [o2 + - ∨ ∧]
   ; contracts
   [(C D) (flat M)
@@ -149,11 +149,13 @@
 (define-metafunction CPCF
   δ : o V ... -> A
   [(δ zero? n) (to-bool ,(zero? (term n)))]
+  [(δ non-neg? n) (to-bool ,(>= (term n) 0))]
   [(δ even? n) (to-bool ,(even? (term n)))]
   [(δ prime? n) (to-bool ,(member (term n) '(2 3 5 7 11 13 17)))] ; i know im stupid
   [(δ odd? n) (to-bool ,(odd? (term n)))]
   [(δ true? b) (to-bool ,(equal? (term b) (term tt)))]
   [(δ false? b) (to-bool ,(equal? (term b) (term ff)))]
+  [(δ sqrt n) ,(inexact->exact (floor (sqrt (term n))))] ; whatever
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
   [(δ ∨ b ...) ,(ormap (curry equal? (term tt)) (term (b ...)))]
@@ -255,10 +257,11 @@
   ∆ : o MaybeT ... -> MaybeT
   [(∆ o Int)
    Bool
-   (side-condition (member (term o) (term (zero? even? odd? prime?))))]
+   (side-condition (member (term o) (term (zero? non-neg? even? odd? prime?))))]
   [(∆ o Bool)
    Bool
    (side-condition (member (term o) (term (true? false?))))]
+  [(∆ sqrt Int) Int]
   [(∆ o Int Int)
    Int
    (side-condition (member (term o) (term (+ -))))]

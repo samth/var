@@ -77,18 +77,18 @@
    (v (o V ...) (promote tt)
       δ-pred-apprx-tt
       (side-condition
-       (and (member (term o) (term (zero? even? odd? prime? true? false? ∨ ∧)))
+       (and (member (term o) (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
             (term (any-approx? V ...)))))
    (v (o V ...) (promote ff)
       δ-pred-apprx-ff
       (side-condition
-       (and (member (term o) (term (zero? even? odd? prime? true? false? ∨ ∧)))
+       (and (member (term o) (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
             (term (any-approx? V ...)))))
    ; non-deterministic ops with range being ints
    (v (o V ...) (promote (• Int))
       δ-intfun-apprx
       (side-condition
-       (and (member (term o) (term (+ -)))
+       (and (member (term o) (term (+ - sqrt)))
             (term (any-approx? V ...)))))
    
    ; contract checking
@@ -175,8 +175,9 @@
 (define-metafunction SCPCF
   normalize-con : [X ...] C -> any
   [(normalize-con any (flat M)) (flat (normalize any M))]
-  [(normalize-con [Z ...] (C ↦ D))
-   (normalize-con [dummy Z ...] (C ↦ (λ (0 0) D)))]
+  [(normalize-con any (C ↦ D))
+   (normalize-con any (C ↦ (λ (X ⊥) D)))
+   (where X ,(variable-not-in (term D) (term dummy)))]
   [(normalize-con [Z ...] (C ↦ (λ (X T) D)))
    ((normalize-con [Z ...] C)
     ↦ (λ (0 0) ; kill irrelevant labels
@@ -188,7 +189,7 @@
   [(maybe-index X []) X]
   [(maybe-index X [X Z ...]) 0]
   [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
-   
+
 
 ;; checks whether any given value is an approximation
 (define-metafunction SCPCF
@@ -262,6 +263,19 @@
                       (• (Int → (Int → Int)))))))
 (define rsa-ap
   (term ((,rsa (,keygen (promote 13))) (promote (• Int)))))
+(define non-neg/c
+  (term (flat (promote (λ (x Int) (non-neg? x))))))
+(define sqroot
+  (term (promote
+         (mon h f g (,non-neg/c ↦ ,non-neg/c)
+              (λ (x Int) (sqrt x))))))
+(define sqrt-user
+  (term (promote (mon h f g ((,any ↦ ,any) ↦ ,any)
+                      (λ (f (Int → Int)) (,sqroot (f 0)))))))
+(define sqrt-ap-opaque
+  (term (promote (,sqrt-user (• (Int → Int))))))
+(define sqrt-ap-better
+  (term (,sqrt-user ((• (Int → Int)) {(,any ↦ ,non-neg/c)}))))
 
 ;; test type-checking SCPCF terms
 (test-equal (term (type/s ,s-even?)) (term (type ,t-even?)))
@@ -272,6 +286,10 @@
 (test-equal (term (type/s ,keygen)) (term (Int → Int)))
 (test-equal (term (type/s ,rsa)) (term (Int → (Int → Int))))
 (test-equal (term (type/s ,rsa-ap)) (term Int))
+(test-equal (term (type/s ,sqroot)) (term (Int → Int)))
+(test-equal (term (type/s ,sqrt-user)) (term ((Int → Int) → Int)))
+(test-equal (term (type/s ,sqrt-ap-opaque)) (term Int))
+(test-equal (term (type/s ,sqrt-ap-better)) (term Int))
 
 ;; identify values by ignoring refining contracts
 (define (v~? v1 v2)
@@ -285,5 +303,7 @@
           (term (,s-tri (promote 3))) (term (promote 6)))
 
 #;(traces SCPCF-red rsa-ap)
+#;(traces SCPCF-red sqrt-ap-opaque)
+#;(traces SCPCF-red sqrt-ap-better)
 
 (test-results)
