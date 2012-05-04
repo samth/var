@@ -16,8 +16,8 @@
   [(Cs Ds) {C ...}]
   ; for verifying
   [Verified? Proved
-             Disproved
-             Unsure])
+             Refuted
+             Neither])
 
 ;; converts CPCF terms to SCPCF terms.
 ;; All plain, concrete values are annotated with an empty set of contracts
@@ -106,7 +106,7 @@
       ; TODO: confirm: paper says (blame f g), i think they mean (blame f h)
       (if (M V) (refine V (flat M)) (blame f h))
       mon-flat
-      (side-condition (equal? (term Unsure) (term (verify V (flat M))))))
+      (side-condition (equal? (term Neither) (term (verify V (flat M))))))
    (v (mon h f g (C ↦ (λ (X T) D)) V)
       (promote (λ (X T) (mon h f g D (V (mon h g f C X)))))
       mon-fun)
@@ -132,7 +132,7 @@
 (define-metafunction SCPCF
   verify : V C -> Verified?
   [(verify (U Cs) C)
-   ,(if (term (con-∈ C Cs)) (term Proved) (term Unsure))])
+   ,(if (term (con-∈ C Cs)) (term Proved) (term Neither))])
 
 ;; refines given value with more contract(s)
 (define-metafunction SCPCF
