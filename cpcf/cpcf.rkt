@@ -80,34 +80,34 @@
 (define CPCF-red
   (reduction-relation
    CPCF
-   (v (if tt M N) M
-      if)
-   (v (if ff M N) N
-      if-not)
-   (v ((λ (X T) M) V) (subst M X V)
-      β)
-   (v (μ (X T) M) (subst M X (μ (X T) M))
-      μ)
-   (v (o V ...) (δ o V ...)
-      δ)
-   (v (mon h f g (C ↦ D) V)
-      ; X's type does not matter because program has type-checked
-      ; at this point, and X will never be used
-      (mon h f g (C ↦ (λ (X ⊥) D)) V)
-      mon-fun-desugar
-      (where X ,(variable-not-in (term (D V)) (term dummy))))
-   (v (mon h f g (C ↦ (λ (X T) D)) V)
-      (λ (X T)
-        (mon h f g D (V (mon h g f C X))))
-      mon-fun)
-   (v (mon h f g (flat M) V) (if (M V) V (blame f h))
-      mon-flat)
+   (==> (if tt M N) M
+        if)
+   (==> (if ff M N) N
+        if-not)
+   (==> ((λ (X T) M) V) (subst M X V)
+        β)
+   (==> (μ (X T) M) (subst M X (μ (X T) M))
+        μ)
+   (==> (o V ...) (δ o V ...)
+        δ)
+   (==> (mon h f g (C ↦ D) V)
+        ; X's type does not matter because program has type-checked
+        ; at this point, and X will never be used
+        (mon h f g (C ↦ (λ (X ⊥) D)) V)
+        mon-fun-desugar
+        (where X ,(variable-not-in (term (D V)) (term dummy))))
+   (==> (mon h f g (C ↦ (λ (X T) D)) V)
+        (λ (X T)
+          (mon h f g D (V (mon h g f C X))))
+        mon-fun)
+   (==> (mon h f g (flat M) V) (if (M V) V (blame f h))
+        mon-flat)
    ; because my definition for A is slightly different from the paper's
    (--> (in-hole E (blame f g)) (blame f g)
         blame-prop
         (side-condition (not (equal? (term hole) (term E)))))
    with
-   [(--> (in-hole E M) (in-hole E N)) (v M N)]))
+   [(--> (in-hole E M) (in-hole E N)) (==> M N)]))
 
 ;; capture-avoiding substitution
 (define-metafunction CPCF

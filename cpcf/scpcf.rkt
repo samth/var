@@ -46,78 +46,80 @@
    SCPCF
    
    ; conditional
-   (v (if ((• T) Cs) M N)
-      (if (true? ((• T) Cs)) M N)
-      if-apprx)
-   (v (if (tt Cs) M N) M
-      if)
-   (v (if (ff Cs) M N) N
-      if-not)
+   (==> (if ((• T) Cs) M N)
+        (if (true? ((• T) Cs)) M N)
+        if-apprx)
+   (==> (if (tt Cs) M N) M
+        if)
+   (==> (if (ff Cs) M N) N
+        if-not)
    
    ; function application
-   (v (((λ (X T) M) Cs) V) (subst/s M X V)
-      ; TODO: examine what's going on. So we lose Cs?
-      β)
-   (v (((• (T_x → T_y)) Cs) V)
-      ((• T_y) ,(map (λ (c) (term (subst-range-con ,c V))) (term Cs)))
-      β-apprx-ok)
-   (v (((• (T_x → T_y)) Cs) V)
-      ((havoc T_x) V)
-      β-apprx-blame)
-   (v (μ (X T) M) (subst/s M X (μ (X T) M))
-      μ)
+   (==> (((λ (X T) M) Cs) V) (subst/s M X V)
+        ; TODO: examine what's going on. So we lose Cs?
+        β)
+   (==> (((• (T_x → T_y)) Cs) V)
+        ((• T_y) ,(map (λ (c) (term (subst-range-con ,c V))) (term Cs)))
+        β-apprx-ok)
+   (==> (((• (T_x → T_y)) Cs) V)
+        ((havoc T_x) V)
+        β-apprx-blame)
+   (==> (μ (X T) M) (subst/s M X (μ (X T) M))
+        μ)
    
    ; primitive ops on concrete values
-   (v (o (U Cs) ...) (promote (δ o U ...))
-      δ
-      ; treat sqrt separately b/c it has some more guarantee in its output
-      (side-condition (and (not (term (any-approx? (U Cs) ...)))
-                           (not (equal? (term o) (term sqrt))))))
+   (==> (o (U Cs) ...) (promote (δ o U ...))
+        δ
+        ; treat sqrt separately b/c it has some more guarantee in its output
+        (side-condition (and (not (term (any-approx? (U Cs) ...)))
+                             (not (equal? (term o) (term sqrt))))))
    ; ops that return booleans, non-deterministically
-   (v (o V ...) (promote tt)
-      δ-pred-apprx-tt
-      (side-condition
-       (and (member (term o) (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
-            (term (any-approx? V ...)))))
-   (v (o V ...) (promote ff)
-      δ-pred-apprx-ff
-      (side-condition
-       (and (member (term o) (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
-            (term (any-approx? V ...)))))
+   (==> (o V ...) (promote tt)
+        δ-pred-apprx-tt
+        (side-condition
+         (and (member (term o)
+                      (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
+              (term (any-approx? V ...)))))
+   (==> (o V ...) (promote ff)
+        δ-pred-apprx-ff
+        (side-condition
+         (and (member (term o)
+                      (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
+              (term (any-approx? V ...)))))
    ; ops that return ints, non-deterministically, no further guarantee in output
-   (v (o V ...) (promote (• Int))
-      δ-int-op-apprx
-      (side-condition
-       (and (member (term o) (term (+ -)))
-            (term (any-approx? V ...)))))
+   (==> (o V ...) (promote (• Int))
+        δ-int-op-apprx
+        (side-condition
+         (and (member (term o) (term (+ -)))
+              (term (any-approx? V ...)))))
    ; sqrt treated separately, with non-neg guarantee in its output
-   (v (sqrt (n Cs)) ((δ sqrt n) {,non-neg/c})
-      sqrt)
-   (v (sqrt ((• T) Cs)) ((• Int) {,non-neg/c})
-      sqrt-apprx)
+   (==> (sqrt (n Cs)) ((δ sqrt n) {,non-neg/c})
+        sqrt)
+   (==> (sqrt ((• T) Cs)) ((• Int) {,non-neg/c})
+        sqrt-apprx)
    
    ; contract checking
-   (v (mon h f g C V) V
-      mon-verified
-      (side-condition (equal? (term Proved) (term (verify V C)))))
-   (v (mon h f g (flat M) V)
-      ; TODO: confirm: paper says (blame f g), i think they mean (blame f h)
-      (if (M V) (refine V (flat M)) (blame f h))
-      mon-flat
-      (side-condition (equal? (term Neither) (term (verify V (flat M))))))
-   (v (mon h f g (C ↦ (λ (X T) D)) V)
-      (promote (λ (X T) (mon h f g D (V (mon h g f C X)))))
-      mon-fun)
-   (v (mon h f g (C ↦ D) V)
-      (mon h f g (C ↦ (λ (X ⊥) D)) V)
-      (where X ,(variable-not-in (term (D V)) (term dummy)))
-      mon-desugar)
+   (==> (mon h f g C V) V
+        mon-verified
+        (side-condition (equal? (term Proved) (term (verify V C)))))
+   (==> (mon h f g (flat M) V)
+        ; TODO: confirm: paper says (blame f g), i think they mean (blame f h)
+        (if (M V) (refine V (flat M)) (blame f h))
+        mon-flat
+        (side-condition (equal? (term Neither) (term (verify V (flat M))))))
+   (==> (mon h f g (C ↦ (λ (X T) D)) V)
+        (promote (λ (X T) (mon h f g D (V (mon h g f C X)))))
+        mon-fun)
+   (==> (mon h f g (C ↦ D) V)
+        (mon h f g (C ↦ (λ (X ⊥) D)) V)
+        (where X ,(variable-not-in (term (D V)) (term dummy)))
+        mon-desugar)
    
    (--> (in-hole E (blame f g)) (blame f g)
         blame-prop
         (side-condition (not (equal? (term E) (term hole)))))
    with
-   [(--> (in-hole E M) (in-hole E N)) (v M N)]))
+   [(--> (in-hole E M) (in-hole E N)) (==> M N)]))
 
 ;; substitute V into X in function contract's range
 (define-metafunction SCPCF
