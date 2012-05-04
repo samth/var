@@ -5,7 +5,7 @@
  ;; PCF with Contracts
  CPCF 
  
- ;; for type-checking CPCF
+ ;; for type-checking CPCF terms
  type ; M -> T or TypeError
  type-check ; TEnv M -> T or TypeError
  type-check-con ; TEnv C -> T or TypeError
@@ -17,7 +17,7 @@
  ;; interprets primitive ops
  δ ; o V ... -> V
  
- ;; converts racket's boolean to CPCF's boolean
+ ;; converts racket's values to CPCF's booleans
  to-bool ; any -> tt or ff
  
  ;; not intended for use directly, but functions that extend 'type-check'
@@ -84,14 +84,11 @@
       if)
    (v (if ff M N) N
       if-not)
-   (v ((λ (X T) M) V)
-      (subst M X V)
+   (v ((λ (X T) M) V) (subst M X V)
       β)
-   (v (μ (X T) M)
-      (subst M X (μ (X T) M))
+   (v (μ (X T) M) (subst M X (μ (X T) M))
       μ)
-   (v (o V ...)
-      (δ o V ...)
+   (v (o V ...) (δ o V ...)
       δ)
    (v (mon h f g (C ↦ D) V)
       ; X's type does not matter because program has type-checked
@@ -101,15 +98,12 @@
       (where X ,(variable-not-in (term (D V)) (term dummy))))
    (v (mon h f g (C ↦ (λ (X T) D)) V)
       (λ (X T)
-        (mon h f g D
-             (V (mon h g f C X))))
+        (mon h f g D (V (mon h g f C X))))
       mon-fun)
-   (v (mon h f g (flat M) V)
-      (if (M V) V (blame f h))
+   (v (mon h f g (flat M) V) (if (M V) V (blame f h))
       mon-flat)
    ; because my definition for A is slightly different from the paper's
-   (--> (in-hole E (blame f g))
-        (blame f g)
+   (--> (in-hole E (blame f g)) (blame f g)
         blame-prop
         (side-condition (not (equal? (term hole) (term E)))))
    with
@@ -147,7 +141,7 @@
 
 ;; interprets primitive ops
 (define-metafunction CPCF
-  δ : o V ... -> A
+  δ : o V ... -> V
   [(δ zero? n) (to-bool ,(zero? (term n)))]
   [(δ non-neg? n) (to-bool ,(>= (term n) 0))]
   [(δ even? n) (to-bool ,(even? (term n)))]
@@ -302,6 +296,12 @@
              (λ (f (Int → Int))
                (λ (x Int)
                  (f (f x)))))))
+(define db2 ; like db1, but wrong
+  (term (mon h f g
+             (((flat ,t-even?) ↦ (flat ,t-even?))
+              ↦ ((flat ,t-even?) ↦ (flat ,t-even?)))
+             (λ (f (Int → Int))
+               (λ (x Int) 7)))))
 (define ap0 (term (,db1 (λ (x Int) 2))))
 (define ap1 (term (,db1 (λ (x Int) 7))))
 (define ap00 (term (,ap0 42)))
@@ -324,6 +324,7 @@
 (test-->> CPCF-red ap00 2)
 (test-->> CPCF-red ap01 (term (blame g h)))
 (test-->> CPCF-red ap10 (term (blame g h)))
+(test-->> CPCF-red (term ((,db2 ,ap0) 0)) (term (blame f h)))
 (test-->> CPCF-red (term (,tri 3)) 6)
 
 (test-results)
