@@ -3,8 +3,8 @@
 (require "cpcf.rkt")
 
 ;;;;; Symbolic CPCF
-;; add notion of 'pre-value', and value is defined as pre-value refined by
-;; a set of contracts
+;; add notion of 'pre-value'
+;; value is defined as pre-value refined by a set of contracts
 (define-extended-language SCPCF CPCF
   ; pre-values
   [U (• T)
@@ -14,21 +14,19 @@
   ; values
   [V (U Cs)]
   [(Cs Ds) {C ...}]
-  ; for verifying
+  ; possible verification results
   [Verified? Proved
              Refuted
              Neither])
 
 ;; converts CPCF terms to SCPCF terms.
 ;; All plain, concrete values are annotated with an empty set of contracts
-;; TODO: would be nicer if language accepts plain value in its syntax,
-;;       but that's for later...
+;; TODO: would be nicer if language accepts plain values in its syntax...
 (define-metafunction SCPCF
   promote : any #|old M|# -> any
   [(promote (λ (X T) any)) ((λ (X T) (promote any)) {})]
-  [(promote U) (U {})] ; relies on all old V being new U
-  [(promote V) V] ; need this line to avoid taking apart ((λ ...) {...})
-  [(promote (blame f g)) (blame f g)]
+  [(promote U) (U {})] ; relies on all old V's being new U's
+  [(promote A) A]
   [(promote (mon h f g C M))
    (mon h f g (promote-con C) (promote M))]
   [(promote (any ...)) ((promote any) ...)]
@@ -43,11 +41,11 @@
 
 
 ;;;;; Reduction semantics for Symbolic CPCF
-;; TODO: it's not obvious to me how to re-use the old relation
 (define SCPCF-red
   (reduction-relation
    SCPCF
    
+   ; conditional
    (v (if ((• T) Cs) M N)
       (if (true? ((• T) Cs)) M N)
       if-apprx)
@@ -56,8 +54,9 @@
    (v (if (ff Cs) M N) N
       if-not)
    
+   ; function application
    (v (((λ (X T) M) Cs) V) (subst/s M X V)
-      ; TODO: see what's going on. So we lose Cs?
+      ; TODO: examine what's going on. So we lose Cs?
       β)
    (v (((• (T_x → T_y)) Cs) V)
       ((• T_y) ,(map (λ (c) (term (subst-range-con ,c V))) (term Cs)))
@@ -65,17 +64,16 @@
    (v (((• (T_x → T_y)) Cs) V)
       ((havoc T_x) V)
       β-apprx-blame)
-   
    (v (μ (X T) M) (subst/s M X (μ (X T) M))
       μ)
    
-   ; primitive ops on definite values
+   ; primitive ops on concrete values
    (v (o (U Cs) ...) (promote (δ o U ...))
       δ
-      ; treat sqrt separately b/c it has some more guarantee about its output
+      ; treat sqrt separately b/c it has some more guarantee in its output
       (side-condition (and (not (term (any-approx? (U Cs) ...)))
                            (not (equal? (term o) (term sqrt))))))
-   ; non-deterministic ops with range being booleans
+   ; ops that return booleans, non-deterministically
    (v (o V ...) (promote tt)
       δ-pred-apprx-tt
       (side-condition
@@ -86,13 +84,13 @@
       (side-condition
        (and (member (term o) (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
             (term (any-approx? V ...)))))
-   ; non-deterministic ops with range being ints
+   ; ops that return ints, non-deterministically, no further guarantee in output
    (v (o V ...) (promote (• Int))
-      δ-intfun-apprx
+      δ-int-op-apprx
       (side-condition
        (and (member (term o) (term (+ -)))
             (term (any-approx? V ...)))))
-   ; treat sqrt separately
+   ; sqrt treated separately, with non-neg guarantee in its output
    (v (sqrt (n Cs)) ((δ sqrt n) {,non-neg/c})
       sqrt)
    (v (sqrt ((• T) Cs)) ((• Int) {,non-neg/c})
@@ -121,14 +119,14 @@
    with
    [(--> (in-hole E M) (in-hole E N)) (v M N)]))
 
-;; substitute V into X in range contract
+;; substitute V into X in function contract's range
 (define-metafunction SCPCF
   subst-range-con : C V -> C
   ; partial function on C, will error out on flat contracts
   [(subst-range-con (C ↦ (λ (X T) D)) V) (subst-con/s D X V)]
   [(subst-range-con (C ↦ D) V) D])
 
-;; attempts to check whether value satisfies given contract
+;; checks whether value proves contract
 (define-metafunction SCPCF
   verify : V C -> Verified?
   [(verify (U Cs) C)
@@ -153,18 +151,17 @@
 
 ;; checks whether two contracts are equivalent
 ;; may give false negatives
-;; currently implemented as α-equivalence checking
+;; currently implemented by checking for α-equivalence
 (define-metafunction SCPCF
   con~? : C C -> any #|bool|#
   [(con~? C D) ,(equal? (term (normalize-con () C))
                         (term (normalize-con () D)))])
 
-;; turns any usage of close-variable into the lexical distance
-;; to where it was declared
+;; turns any close-variable's use into lexical distance to where it was declared
 (define-metafunction SCPCF
   normalize : [X ...] M -> any
   [(normalize [Z ...] ((λ (X T) M) {C ...}))
-   ((λ (0 0) ; kill irrelevant labels
+   ((λ (0 0) ; kill irrelevant names
       (normalize [X Z ...] M))
     {(normalize-con [Z ...] C) ...})]
   [(normalize any (U {C ...})) (U {(normalize-con any C) ...})]
@@ -172,7 +169,7 @@
   [(normalize [Z ...] X) (maybe-index X [Z ...])]
   [(normalize any (M N)) ((normalize any M) (normalize any N))]
   [(normalize [Z ...] (μ (X T) M))
-   (μ (0 0) ; kill irrelevant labels
+   (μ (0 0) ; kill irrelevant names
       (normalize [X Z ...] M))]
   [(normalize any (if M ...)) (if (normalize any M) ...)]
   [(normalize any (o M ...)) (o (normalize any M) ...)]
@@ -187,18 +184,17 @@
    (where X ,(variable-not-in (term D) (term dummy)))]
   [(normalize-con [Z ...] (C ↦ (λ (X T) D)))
    ((normalize-con [Z ...] C)
-    ↦ (λ (0 0) ; kill irrelevant labels
+    ↦ (λ (0 0) ; kill irrelevant names
         (normalize-con [X Z ...] D)))])
 
-;; returns X's index in list, or itself if not found
+;; returns X's position in list, or itself if not found
 (define-metafunction SCPCF
   maybe-index : X [X ...] -> n or X
   [(maybe-index X []) X]
   [(maybe-index X [X Z ...]) 0]
   [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
 
-
-;; checks whether any given value is an approximation
+;; checks if any value is an approximation
 (define-metafunction SCPCF
   any-approx? : V ... -> #t or #f
   [(any-approx?) #f]
@@ -238,17 +234,30 @@
 ;; works out expression's type from given type environment
 (define-metafunction/extension type-check SCPCF
   type-check/s : TEnv M -> MaybeT
-  [(type-check/s TEnv ((• T) Cs)) T]
-  [(type-check/s TEnv (n Cs)) Int]
-  [(type-check/s TEnv (b Cs)) Bool]
-  [(type-check/s ((X_0 T_0) ...) ((λ (X T) M) Cs))
-   (maybe→ T (type-check/s ((X T) (X_0 T_0) ...) M))]
+  [(type-check/s TEnv ((• T) {C ...}))
+   (maybe-type-val T {(type-check-con/s TEnv C) ...})]
+  [(type-check/s TEnv (n {C ...}))
+   (maybe-type-val Int {(type-check-con/s TEnv C) ...})]
+  [(type-check/s TEnv (b {C ...}))
+   (maybe-type-val Bool {(type-check-con/s TEnv C) ...})]
+  [(type-check/s ((X_0 T_0) ...) ((λ (X T) M) {C ...}))
+   (maybe-type-val 
+    (maybe→ T (type-check/s ((X T) (X_0 T_0) ...) M))
+    {(type-check-con/s ((X_0 T_0) ...) C) ...})]
   [(type-check/s TEnv (mon h f g C M))
    (maybe-type-mon (type-check-con/s TEnv C) (type-check/s TEnv M))])
 ;; works out contract's type from given type environment
 (define-metafunction/extension type-check-con SCPCF
   type-check-con/s : TEnv C -> MaybeT
   [(type-check-con/s TEnv (flat M)) (maybe-flat (type-check/s TEnv M))])
+
+;; makes sure all contract types agree with value type
+(define-metafunction SCPCF
+  maybe-type-val : MaybeT (MaybeT ...) -> MaybeT
+  [(maybe-type-val T {}) T]
+  [(maybe-type-val T {(con T) (con T_s) ...})
+   (maybe-type-val T {(cont T_s) ...})]
+  [(maybe-type-val any_1 any_2) TypeError])
 
 ;; example SCPCF terms
 (define s-even? (term (promote ,t-even?)))
@@ -262,11 +271,11 @@
 (define prime? (term (promote (λ (x Int) (prime? x)))))
 (define prime/c (term (flat ,prime?)))
 (define const-true? (term (promote (λ (x Int) tt))))
-(define any (term (flat ,const-true?))) ; any Int, actually
+(define any/c (term (flat ,const-true?))) ; any Int, actually
 (define keygen ; opaque
-  (term (promote (mon h f g (,any ↦ ,prime/c) (• (Int → Int))))))
+  (term (promote (mon h f g (,any/c ↦ ,prime/c) (• (Int → Int))))))
 (define rsa ; opaque
-  (term (promote (mon h f g (,prime/c ↦ (,any ↦ ,any))
+  (term (promote (mon h f g (,prime/c ↦ (,any/c ↦ ,any/c))
                       (• (Int → (Int → Int)))))))
 (define rsa-ap
   (term ((,rsa (,keygen (promote 13))) (promote (• Int)))))
@@ -277,12 +286,12 @@
          (mon h f g (,non-neg/c ↦ ,non-neg/c)
               (λ (x Int) (sqrt x))))))
 (define sqrt-user
-  (term (promote (mon h f g ((,any ↦ ,any) ↦ ,any)
+  (term (promote (mon h f g ((,any/c ↦ ,any/c) ↦ ,any/c)
                       (λ (f (Int → Int)) (,sqroot (f 0)))))))
 (define sqrt-ap-opaque
   (term (promote (,sqrt-user (• (Int → Int))))))
 (define sqrt-ap-better
-  (term (,sqrt-user ((• (Int → Int)) {(,any ↦ ,non-neg/c)}))))
+  (term (,sqrt-user ((• (Int → Int)) {(,any/c ↦ ,non-neg/c)}))))
 
 ;; test type-checking SCPCF terms
 (test-equal (term (type/s ,s-even?)) (term (type ,t-even?)))
