@@ -129,24 +129,15 @@
 (define-metafunction SCPCF
   verify : V C -> Verified?
   [(verify (U Cs) C)
-   ,(if (term (con-∈ C Cs)) (term Proved) (term Neither))])
+   ,(if (ormap (λ (c) (term (con~? ,c C))) (term Cs))
+        (term Proved)
+        (term Neither))])
 
 ;; refines given value with more contract(s)
+;; assume value does not currently prove contract(s)
 (define-metafunction SCPCF
   refine : V C ... -> V
-  [(refine (U (C_0 ...)) C ...) (U (con-∪ (C_0 ...) (C ...)))])
-
-;; checks whether contract is already included in given list/set
-(define-metafunction SCPCF
-  con-∈ : C Cs -> #t or #f
-  [(con-∈ C Cs) ,(ormap (λ (D) (term (con~? C ,D))) (term Cs))])
-
-;; returns union of contract sets. Contracts are identified up to con~?
-(define-metafunction SCPCF
-  con-∪ : Cs Cs -> Cs
-  [(con-∪ Cs Ds) ,(append (filter (λ (C) (not (term (con-∈ ,C Cs))))
-                                  (term Ds))
-                          (term Cs))])
+  [(refine (U {C ...}) D ...) (U {D ... C ...})])
 
 ;; checks whether two contracts are equivalent
 ;; may give false negatives
