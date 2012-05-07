@@ -14,7 +14,6 @@
            (if E E E)
            (O E ...)
            (μ X E)
-           (∨ E ...)
            (mon h f g C E) ; h,f,g: original, pos, neg
            ; syntactic sugar
            (∨ E ...)
@@ -271,3 +270,66 @@
   [(desugar-∧) tt]
   [(desugar-∧ E) E] ; redundant, but reduce junks
   [(desugar-∧ E_0 E ...) (if E_0 (desugar-∧ E ...) ff)])
+
+;; checks whether value satisfies contract
+(define-metafunction SCR
+  verify : V C -> Verified?
+  [(verify (U Cs) C)
+   Proved
+   (side-condition (ormap (λ (c) (term (con~? C ,c))) (term Cs)))]                  
+  [(verify V C) Unsure])
+
+;; refines given value with more contract(s)
+;; assume value currently does not prove given contract(s)
+(define-metafunction
+  refine : V C ... -> V
+  [(refine (U {C ...}) D ...) (U {D ... C ...})])
+
+;; checks whether two contracts are equivalent
+;; may give false negatives
+;; currently implemented by checking for α-equivalence
+(define-metafunction SCR
+  con~? : C C -> any #|bool|#
+  [(con~? C D) , (equal? (term (normalize-con () C))
+                         (term (normalize-con () D)))])
+
+;; turns any close-variable's use into lexical distance to where it was declared
+(define-metafunction SCR
+  normalize : [X ...] M -> any
+  [(normalize any (f l)) (f l)]
+  [(normalize any X) (maybe-index X any)]
+  [(normalize any (blame l_1 l_2)) (blame l_1 l_2)]
+  [(normalize [X_0 ...] ((λ X E) {C ...}))
+   ((λ _ ; kill irrelevant label
+      (normalize [X X_0 ...] E))
+    {(normalize-con any C) ...})]
+  [(normalize any ((V_1 V_2) {C ...}))
+   (((normalize any V_1) (normalize any V_2)) {(normalize-con any C) ...})]
+  [(normalize any V) V]
+  [(normalize [X_0 ...] (μ X E))
+   (μ _ ; kill irrelevant label
+      (normalize [X X_0 ...] E))]
+  [(normalize any (mon h f g C E))
+   (mon h f g (normalize-con any C) (normalize any E))]
+  [(normalize any_env (any ...)) ((normalize any_env any) ...)]
+  [(normalize any_env any) any])
+(define-metafunction SCR
+  normalize-con : [X ...] C -> any
+  [(normalize-con any X) (maybe-index X any)]
+  [(normalize-con [X_0 ...] (C ↦ (λ X D)))
+   ((normalize-con [X_0 ...] C)
+    ↦ (λ _ ; kill irrelevant label
+        (normalize-con [X X_0 ...] D)))]
+  [(normalize-con any (flat E)) (flat (normalize E))]
+  [(normalize-con [X_0 ...] (μ X C))
+   (μ _ ; kill irrelevant label
+      (normalize-con [X X_0 ...] C))]
+  [(normalize-con any (C ∨ D)) ((normalize any C) ∨ (normalize any D))]
+  [(normalize-con any (C ∧ D)) ((normalize any C) ∧ (normalize any D))])
+
+;; returns X's position in list, or X itself if not found
+(define-metafunction SCR
+  maybe-index : X [X ...] -> n or X
+  [(maybe-index X []) X]
+  [(maybe-index X [X Z ...]) 0]
+  [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
