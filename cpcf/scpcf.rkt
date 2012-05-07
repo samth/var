@@ -166,7 +166,7 @@
 (define-metafunction SCPCF
   normalize : [X ...] M -> any
   [(normalize [Z ...] ((λ (X T) M) {C ...}))
-   ((λ (0 0) ; kill irrelevant names
+   ((λ _ ; kill irrelevant names
       (normalize [X Z ...] M))
     {(normalize-con [Z ...] C) ...})]
   [(normalize any (U {C ...})) (U {(normalize-con any C) ...})]
@@ -174,7 +174,7 @@
   [(normalize [Z ...] X) (maybe-index X [Z ...])]
   [(normalize any (M N)) ((normalize any M) (normalize any N))]
   [(normalize [Z ...] (μ (X T) M))
-   (μ (0 0) ; kill irrelevant names
+   (μ _ ; kill irrelevant names
       (normalize [X Z ...] M))]
   [(normalize any (if M ...)) (if (normalize any M) ...)]
   [(normalize any (o M ...)) (o (normalize any M) ...)]
@@ -189,7 +189,7 @@
    (where X ,(variable-not-in (term D) (term dummy)))]
   [(normalize-con [Z ...] (C ↦ (λ (X T) D)))
    ((normalize-con [Z ...] C)
-    ↦ (λ (0 0) ; kill irrelevant names
+    ↦ (λ _ ; kill irrelevant names
         (normalize-con [X Z ...] D)))])
 
 ;; returns X's position in list, or itself if not found
