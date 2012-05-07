@@ -104,7 +104,9 @@
 
 ;; interprets primitive ops
 (define-metafunction SCPCF
-  δ/s : o V ... -> {V ...}
+  ; i restrict the range just to prevent myself from making this
+  ; out of sync with above rules
+  δ/s : o V ... -> {V} or {V V}
   ; sqrt treated separately due to refinement in result
   [(δ/s sqrt (n Cs)) {((δ sqrt n) {,non-neg/c})}]
   [(δ/s sqrt ((• T) Cs)) {((• Int) {,non-neg/c})}]
