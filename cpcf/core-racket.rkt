@@ -179,8 +179,6 @@
 
 ;; interprets primitive operations
 (define-metafunction SCR
-  ; restrict range to make sure i don't accidentally make this go out of sync
-  ; with above reduction rules
   δ : l O V ... -> {A ...}
   
   ; predicates
