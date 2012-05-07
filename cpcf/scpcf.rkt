@@ -66,18 +66,10 @@
    (==> (μ (X T) M) (subst/s M X (μ (X T) M))
         μ)
    
-   ; primitive ops on concrete values
-   ; TODO: highly ugly. But I don't know how to express non-determinism
-   ;       for an arbitrary number of branches
-   (==> (o V ...) V_0
-        δ0
-        (where {V_0} (δ/s o V ...)))
+   ; primitive ops (non-deterministic)
    (==> (o V ...) V_1
-        δ1
-        (where {V_1 V_2} (δ/s o V ...)))
-   (==> (o V ...) V_2
-        δ2
-        (where {V_1 V_2} (δ/s o V ...)))
+        δ
+        (where {V_0 ... V_1 V_2 ...} (δ/s o V ...)))
    
    ; contract checking
    (==> (mon h f g C V) V
@@ -106,7 +98,7 @@
 (define-metafunction SCPCF
   ; i restrict the range just to prevent myself from making this
   ; out of sync with above rules
-  δ/s : o V ... -> {V} or {V V}
+  δ/s : o V ... -> {V ...}
   ; sqrt treated separately due to refinement in result
   [(δ/s sqrt (n Cs)) {((δ sqrt n) {,non-neg/c})}]
   [(δ/s sqrt ((• T) Cs)) {((• Int) {,non-neg/c})}]

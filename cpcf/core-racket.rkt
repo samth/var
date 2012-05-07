@@ -70,17 +70,10 @@
                                 (term (δ proc? V_f))))
         β-err)
    
-   ; primitive ops
-   ; TODO: how to expression non-determinism with arbitrary number of branches?
-   (E=> ((O V ...) l) V_0
-        (where {V_0} (δ l O V ...))
-        δ0)
+   ; primitive ops (non-deterministic)
    (E=> ((O V ...) l) V_1
-        (where {V_1 V_2} (δ l O V ...))
-        δ1)
-   (E=> ((O V ...) l) V_2
-        (where {V_1 V_2} (δ l O V ...))
-        δ2)
+        (where {V_0 ... V_1 V_2 ...} (δ l O V ...))
+        δ)
    
    ; conditionals
    (E=> (if V E_t E_f) E_t
@@ -138,7 +131,7 @@
 (define-metafunction SCR
   ; restrict range to make sure i don't accidentally make this go out of sync
   ; with above reduction rules
-  δ : l O V ... -> {A} or {A A}
+  δ : l O V ... -> {A ...}
   
   ; predicates
   [(δ l proc? ((λ X E) Cs)) {(promote tt)}]
