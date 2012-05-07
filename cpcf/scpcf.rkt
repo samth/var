@@ -46,12 +46,11 @@
    SCPCF
    
    ; conditional
-   (==> (if ((• T) Cs) M N)
-        (if (true? ((• T) Cs)) M N)
-        if-apprx)
-   (==> (if (tt Cs) M N) M
+   (==> (if V M N) M
+        (side-condition (member (term (promote tt)) (term (δ/s true? V))))
         if)
-   (==> (if (ff Cs) M N) N
+   (==> (if V M N) N
+        (side-condition (member (term (promote ff)) (term (δ/s true? V))))
         if-not)
    
    ; function application
