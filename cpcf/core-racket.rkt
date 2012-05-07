@@ -10,9 +10,9 @@
   [(E F G) (f l)
            X
            A
-           ((E E) l)
+           (E E l)
            (if E E E)
-           (O E ...)
+           (O E ... l)
            (μ X E)
            (mon h f g C E) ; h,f,g: original, pos, neg
            ; syntactic sugar
@@ -46,10 +46,10 @@
   [(X Y Z f g h l) variable-not-otherwise-mentioned]
   ; eval context for expressions
   [CT hole
-      ((CT E) l)
-      ((V CT) l)
+      (CT E l)
+      (V CT l)
       (if CT E E)
-      (O V ... CT E ...)
+      (O V ... CT E ... l)
       (mon f f f C CT)]
   ; for verifying contracts
   [Verified? Proved
@@ -62,24 +62,33 @@
   (reduction-relation
    SCR
    ; function application
-   (E=> (((λ X E) V) l) (subst E X V)
+   (E=> ((λ X E) V l) (subst E X V)
         β)
-   (E=> ((V_f V_x) l) (blame l Λ)
-        (side-condition (member (term ff)
-                                (term (δ proc? V_f))))
+   (E=> (V_f V_x l) (blame l Λ)
+        (side-condition (member (term (promote ff))
+                                (term (δ † proc? V_f))))
         β-err)
+   (E=> ((• Cs) V l)
+        (• ,{map (λ (c) (term (subst-range-con ,c V))) (term Cs)})
+        (side-condition (member (term (promote tt))
+                                (term (δ † proc? (• Cs)))))
+        β-opaque)
+   (E=> ((• Cs) V l) (,havoc V)
+        (side-condition (member (term (promote tt))
+                                (term (δ † proc? (• Cs)))))
+        β-opaque-havoc)
    
    ; primitive ops (non-deterministic)
-   (E=> ((O V ...) l) V_1
+   (E=> (O V ... l) V_1
         (where {V_0 ... V_1 V_2 ...} (δ l O V ...))
         δ)
    
    ; conditionals
    (E=> (if V E_t E_f) E_t
-        (side-condition (member (term ff) (term (δ false? V))))
+        (side-condition (member (term ff) (term (δ † false? V))))
         if)
    (E=> (if V E_t E_f) E_f
-        (side-condition (member (term tt) (term (δ false? V))))
+        (side-condition (member (term tt) (term (δ † false? V))))
         if-not)
    (E=> (∨ E ...) (desugar-∨ E ...)
         desugar-∨)
@@ -99,6 +108,51 @@
         (side-condition (and (term (flat? C))
                              (equal? (term Unsure) (term (verify V C)))))
         fc-unsure)
+   
+   ; function contract reduction
+   (E=> (mon h f g (C ↦ (λ X D)) V)
+        ((λ X (mon h f g D (V (mon h g f C X)))) {})
+        (side-condition (member (term (promote tt))
+                                (term (δ † proc? V))))
+        con-fun)
+   (E=> (mon h f g (C ↦ (λ X D)) V)
+        (blame f h)
+        (side-condition (member (term (promote ff))
+                                (term (δ † proc? V))))
+        con-fun-not-proc)
+   
+   ; other higher-order contract reductions
+   (E=> (mon h f g (C D) V)
+        (((mon h f g C (car V_p)) (cons h f g D (cdr V_p))) {})
+        (where V_p (refine V ,cons/c))
+        (side-condition (and (term (higher-order? (C D)))
+                             (member (term tt) (term (δ † cons? V)))))
+        ho-con)
+   (E=> (mon h f g (C D) V) (blame f h)
+        (side-condition (and (term (higher-order? (C D)))
+                             (member (term ff) (term (δ † cons? V)))))
+        ho-con-err)
+   (E=> (mon h f g (μ X C) V)
+        (mon h f g (subst-con C X (μ X C)) V) ; rely on productivity
+        (side-condition (term (higher-order? (μ X C))))
+        ho-con-μ)
+   (E=> (mon h f g (C ∧ D) V)
+        (mon h f g D (mon h f g C V))
+        (side-condition (term (higher-order? (C ∧ D))))
+        ho-con-∧)
+   (E=> (mon h f g (C ∨ D) V)
+        (if ((F C) V) (refine V C) (mon h f g D V))
+        (side-condition (and (term (higher-order? (C ∨ D)))
+                             (equal? (term Proved) (term (verify V C)))))
+        ho-con-∨-unsure)
+   (E=> (mon h f g (C ∨ D) V) V
+        (side-condition (and (term (higher-order? (C ∨ D)))
+                             (equal? (term Proved) (term (verify V C)))))
+        ho-con-∨-proved)
+   (E=> (mon h f g (C ∨ D) V) (mon D V)
+        (side-condition (and (term (higher-order? (C ∨ D)))
+                             (equal? (term Refuted) (term (Verify V C)))))
+        ho-con-∨-refuted)
    
    ; module reference
    (--> (M_1 ... (module f C V) M_2 ... (in-hole CT (f f)))
@@ -120,11 +174,8 @@
         (side-condition (not (equal? (term CT) (term hole))))
         blame-prop)
    with
-   [(--> (M ... (in-hole CT E_1)) (N ... (in-hole CT E_2)))
+   [(--> (M ... (in-hole CT E_1)) (M ... (in-hole CT E_2)))
     (E=> E_1 E_2)]))
-
-(define nat/c (term (flat (promote (λ X (nat? X))))))
-(define bool/c (term (flat (promote (λ X (bool? X))))))
 
 ;; interprets primitive operations
 (define-metafunction SCR
@@ -193,13 +244,26 @@
   [(FC (flat E)) E]
   [(FC (C ∧ D))
    (λ X (∧ ((FC C) X) ((FC D) X)))
-   (where X ,(variable-not-in (term C D) (term x)))]
+   (where X ,(variable-not-in (term (C D)) (term x)))]
   [(FC (C ∨ D))
    (λ X (∨ ((FC C) X) ((FC D) X)))
-   (where X ,(variable-not-in (term C D) (term x)))]
+   (where X ,(variable-not-in (term (C D)) (term x)))]
   [(FC (C D))
    (λ X (∧ (cons? X) ((FC C) (car X)) ((FC D) (cdr X))))
-   (where X ,(variable-not-in (term C D) (term x)))])
+   (where X ,(variable-not-in (term (C D)) (term x)))])
+
+;; checks whether contract is flat
+(define-metafunction SCR
+  flat? : C -> #t or #f
+  [(flat? (C ↦ (λ X D))) #f]
+  [(flat? (C ∨ D)) ,(and (term (flat? C)) (term (flat? D)))]
+  [(flat? (C ∧ D)) ,(and (term (flat? C)) (term (flat? D)))]
+  [(flat? (C D)) ,(and (term (flat? C)) (term (flat? D)))]
+  [(flat? C) #t])
+;; checkks whether contract is higher-order
+(define-metafunction SCR
+  higher-order? : C -> #t or #f
+  [(higher-order? C) ,(not (term (flat? C)))])
 
 ;; capture-avoiding substitution
 (define-metafunction SCR
@@ -210,40 +274,41 @@
   [(subst ((λ X E) Cs) Y F)
    (λ Z
      (subst (subst E X Z) Y F)) ; TODO: exponential blow-up risk
-   (where Z ,(variable-not-in (term E Y F) (term X)))]
+   (where Z ,(variable-not-in (term (E Y F)) (term X)))]
   [(subst ((E F) l) X G) ((subst E X G) (subst F X F) l)]
   [(subst (μ X E) X F) (μ X E)] ; var bound, ignore
   [(subst (μ X E) Y F)
    (λ Z
      (subst (subst E X Z) Y F)) ; TODO exponential blow-up risk
-   (where Z ,(variable-not-in (term E Y F) (term X)))]
+   (where Z ,(variable-not-in (term (E Y F)) (term X)))]
   [(subst (mon h f g C E) X F)
    (mon h f g (subst-con C X F) (subst E X F))]
   [(subst (any ...) X E) ((subst any X E) ...)]
   [(subst any X E) any])
 (define-metafunction SCR
-  subst-con : any X E -> C
+  subst-con : any X any -> C
   [(subst-con X X E) (flat E)]
-  [(subst-con X Y E) X]
-  [(subst-con (C ↦ (λ X D)) X E) (C ↦ (λ X D))] ; var bound, ignore
-  [(subst-con (C ↦ (λ Y D)) X E)
-   ((subst-con C X E)
+  [(subst-con X X any) any]
+  [(subst-con X Y any) X]
+  [(subst-con (C ↦ (λ X D)) X any) (C ↦ (λ X D))] ; var bound, ignore
+  [(subst-con (C ↦ (λ Y D)) X any)
+   ((subst-con C X any)
     ↦ (λ Z
-        (subst-con (subst-con D Y Z) X E))) ; TODO: exponential blow-up risk
-   (where Z ,(variable-not-in (term C X E) (term Y)))]
-  [(subst-con (flat E) X F) (flat (subst E X F))]
-  [(subst-con (μ X C) X F) (μ X C)] ; var bound, ignore
-  [(subst-con (μ X C) Y F)
+        (subst-con (subst-con D Y Z) X any))) ; TODO: exponential blow-up risk
+   (where Z ,(variable-not-in (term (C X any)) (term Y)))]
+  [(subst-con (flat E) X any) (flat (subst E X any))]
+  [(subst-con (μ X C) X any) (μ X C)] ; var bound, ignore
+  [(subst-con (μ X C) Y any)
    (μ Z
-      (subst-con (subst-con C X Z) Y F)) ; TODO: exponential blow-up risk
-   (where Z ,(variable-not-in (term C Y F) (term X)))]
-  [(subst-con (any ...) X E) ((subst-con any X E) ...)]
-  [(subst-con any X E) any])
+      (subst-con (subst-con C X Z) Y any)) ; TODO: exponential blow-up risk
+   (where Z ,(variable-not-in (term (C Y any)) (term X)))]
+  [(subst-con (any ...) X any_1) ((subst-con any X any_1) ...)]
+  [(subst-con any X any_1) any])
 
 ;; (recursively) wraps prevalues with empty contract sets if not yet so
 ;; Allows writing SCR terms in a more readable form then wrapped with this
 (define-metafunction SCR
-  promote : any -> E
+  promote : any -> any
   [(promote (λ X any)) ((λ X (promote any)) {})]
   [(promote U) (U {})]
   [(promote A) A]
@@ -252,7 +317,7 @@
   [(promote (any ...)) ((promote any) ...)]
   [(promote any) any])
 (define-metafunction SCR
-  promote-con : any -> C
+  promote-con : any -> any
   [(promote-con (flat any)) (flat (promot any))]
   [(promote-con (C ↦ (λ X D)))
    ((promote-con C) ↦ (λ X (promote-con D)))]
@@ -281,7 +346,7 @@
 
 ;; refines given value with more contract(s)
 ;; assume value currently does not prove given contract(s)
-(define-metafunction
+(define-metafunction SCR
   refine : V C ... -> V
   [(refine (U {C ...}) D ...) (U {D ... C ...})])
 
@@ -333,3 +398,17 @@
   [(maybe-index X []) X]
   [(maybe-index X [X Z ...]) 0]
   [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
+
+;; generated term to find all possible blames
+(define-metafunction SCR
+  AMB : E E ... -> E
+  [(AMB E) E]
+  [(AMB E E_1 ...) (if (• {}) E (AMB E_1 ...))])
+(define havoc
+  (term (μ y (λ x (AMB (y (x (• {}) †) †)
+                       (y (car x †) †)
+                       (y (cdr x †) †))))))
+
+(define nat/c (term (flat (promote (λ x (nat? x †))))))
+(define bool/c (term (flat (promote (λ x (bool? x †))))))
+(define cons/c (term (flat (promote (λ x (cons? x †))))))
