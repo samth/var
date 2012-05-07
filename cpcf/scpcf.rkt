@@ -63,40 +63,22 @@
         β-apprx-ok)
    (==> (((• (T_x → T_y)) Cs) V)
         ((havoc T_x) V)
-        β-apprx-blame)
+        β-apprx-havoc)
    (==> (μ (X T) M) (subst/s M X (μ (X T) M))
         μ)
    
    ; primitive ops on concrete values
-   (==> (o (U Cs) ...) (promote (δ o U ...))
-        δ
-        ; treat sqrt separately b/c it has some more guarantee in its output
-        (side-condition (and (not (term (any-approx? (U Cs) ...)))
-                             (not (equal? (term o) (term sqrt))))))
-   ; ops that return booleans, non-deterministically
-   (==> (o V ...) (promote tt)
-        δ-pred-apprx-tt
-        (side-condition
-         (and (member (term o)
-                      (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
-              (term (any-approx? V ...)))))
-   (==> (o V ...) (promote ff)
-        δ-pred-apprx-ff
-        (side-condition
-         (and (member (term o)
-                      (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧)))
-              (term (any-approx? V ...)))))
-   ; ops that return ints, non-deterministically, no further guarantee in output
-   (==> (o V ...) (promote (• Int))
-        δ-int-op-apprx
-        (side-condition
-         (and (member (term o) (term (+ -)))
-              (term (any-approx? V ...)))))
-   ; sqrt treated separately, with non-neg guarantee in its output
-   (==> (sqrt (n Cs)) ((δ sqrt n) {,non-neg/c})
-        sqrt)
-   (==> (sqrt ((• T) Cs)) ((• Int) {,non-neg/c})
-        sqrt-apprx)
+   ; TODO: highly ugly. But I don't know how to express non-determinism
+   ;       for an arbitrary number of branches
+   (==> (o V ...) V_0
+        δ0
+        (where {V_0} (δ/s o V ...)))
+   (==> (o V ...) V_1
+        δ1
+        (where {V_1 V_2} (δ/s o V ...)))
+   (==> (o V ...) V_2
+        δ2
+        (where {V_1 V_2} (δ/s o V ...)))
    
    ; contract checking
    (==> (mon h f g C V) V
@@ -120,6 +102,28 @@
         (side-condition (not (equal? (term E) (term hole)))))
    with
    [(--> (in-hole E M) (in-hole E N)) (==> M N)]))
+
+;; interprets primitive ops
+(define-metafunction SCPCF
+  δ/s : o V ... -> {V ...}
+  ; sqrt treated separately due to refinement in result
+  [(δ/s sqrt (n Cs)) {((δ sqrt n) {,non-neg/c})}]
+  [(δ/s sqrt ((• T) Cs)) {((• Int) {,non-neg/c})}]
+  ; exact answer for concrete arguments
+  [(δ/s o (U Cs) ...)
+   {((δ o U ...) {})}
+   (side-condition (term (all-concrete? U ...)))]
+  ; full range answer for functions returning boolean
+  [(δ/s o V ...)
+   {(promote tt) (promote ff)}
+   (side-condition
+    (member (term o)
+            (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧))))]
+  ; full range answer for functions returning ints
+  [(δ/s o V ...)
+   {(promote (• Int))}
+   (side-condition (member (term o) (term (+ -))))])
+    
 
 ;; substitute V into X in function contract's range
 (define-metafunction SCPCF
@@ -196,12 +200,12 @@
   [(maybe-index X [X Z ...]) 0]
   [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
 
-;; checks if any value is an approximation
+;; checks whether all prevalues are concrete
 (define-metafunction SCPCF
-  any-approx? : V ... -> #t or #f
-  [(any-approx?) #f]
-  [(any-approx? ((• T) Cs) V ...) #t]
-  [(any-approx? V_0 V ...) (any-approx? V ...)])
+  all-concrete? : U ... -> #t or #f
+  [(all-concrete?) #t]
+  [(all-concrete? (• T) U ...) #f]
+  [(all-concrete? U_0 U ...) (all-concrete? U ...)])
 
 ;; capture-avoiding substitution for SCPCF terms
 (define-metafunction/extension subst SCPCF
