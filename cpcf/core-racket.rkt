@@ -187,58 +187,95 @@
 (define-metafunction SCR
   δ : l O V ... -> {A ...}
   
-  ; predicates
+  ;; predicates (total)
+  ; concrete values that satisfy predicates
   [(δ l proc? ((λ X E) Cs)) {(promote tt)}]
   [(δ l nat? (n Cs)) {(promote tt)}]
   [(δ l cons? (((V_l Cs) (V_r Ds)) Cs_p)) {(promote tt)}]
   [(δ l empty? (empty Cs)) {(promote tt)}]
   [(δ l bool? (b Cs)) {(promote tt)}]
   [(δ l false? ff) {(promote tt)}]
-  ; TODO: consider opaque value being able to satisfy contracts
-  [(δ l o? (• Cs) ...) {(promote tt) (promote ff)}]
-  [(δ l o? E) {(promote ff)}]
-  
-  ; =, assume this is like 'equal?', not just numbers?
-  [(δ l = (U_1 Cs) (U_2 Ds))
-   (to-bool ,(equal? (term V_1) (term V_2)))
-   (side-condition (term (not (any-approx? U_1 U_2))))]
-  [(δ l = V_1 V_2) {(promote tt) (promote ff)}]
+  ; opaque values needing verifying
+  [(δ l o? (• Cs))
+   {(promote tt)}
+   (side-condition (equal? (term Proved)
+                           (term (verify (• Cs) (mk-pred o?)))))]
+  [(δ l o? (• Cs))
+   {(promote ff)}
+   (side-condition (equal? (term Refuted)
+                           (term (verify (• Cs) (mk-pred o?)))))]
+  [(δ l o? (• Cs)) {(promote tt) (promote ff)}]
+  ; concrete values that fail predicates
+  [(δ l o? V) {(promote ff)}]
   
   ; add1 (partial)
   [(δ l add1 (n Cs)) {(promote ,(add1 (term n)))}]
   [(δ l add1 (• Cs))
    {(• {,nat/c})}
-   (side-condition (term (can-prove? (• Cs) ,nat/c)))]
+   (side-condition (equal? (term Proved) (term (verify (• Cs) ,nat/c))))]
+  [(δ l add1 (• Cs))
+   {(blame l add1)}
+   (side-condition (equal? (term Refuted) (term (verify (• Cs) ,nat/c))))]
   [(δ l add1 (• Cs)) {(• {,nat/c}) (blame l add1)}]
   [(δ l add1 V) {(blame l add1)}]
   
   ; car (partial)
   [(δ l car ((V_1 V_2) Cs)) {V_1}]
   [(δ l car (• Cs))
-   {(• {,cons/c})}
-   (side-condition (equal? (term (verify (• Cs) ,cons/c)) (term Proved)))]
+   {(promote •)}
+   (side-condition (equal? (term Proved) (term (verify (• Cs) ,cons/c))))]
   [(δ l car (• Cs))
-   {(• {,cons/c}) (blame l car)}
-   (side-condition (equal? (term (verify (• Cs) ,cons/c)) (term Unsure)))]
+   {(blame l car)}
+   (side-condition (equal? (term Refuted) (term (verify (• Cs) ,cons/c))))]
+  [(δ l car (• Cs)) {(promote •) (blame l car)}]
   [(δ l car V) {(blame l car)}]
   
   ; cdr (partial)
   [(δ l cdr ((V_1 V_2) Cs)) {V_2}]
   [(δ l cdr (• Cs))
-   {(• {,cons/c})}
-   (side-condition (equal? (term (verify (• Cs) ,cons/c)) (term Proved)))]
+   {(promote •)}
+   (side-condition (equal? (term Proved) (term (verify (• Cs) ,cons/c))))]
   [(δ l cdr (• Cs))
-   {(• {,cons/c}) (blame l cdr)}
-   (side-condition (equal? (term (verify (• Cs) ,cons/c)) (term Unsure)))]
+   {(blame l cdr)}
+   (side-condition (equal? (term Refuted) (term (verify (• Cs) ,cons/c))))]
+  [(δ l cdr (• Cs)) {(promote •) (blame l cdr)}]
   [(δ l cdr V) {(blame l cdr)}]
   
   ; cons
-  [(δ l cons V_1 V_2) {(promote (V_1 V_2))}]
+  [(δ l cons V_1 V_2) {((V_1 V_2) {,cons/c})}]
   
   ; + (partial)
   [(δ l + (m Cs) (n Ds)) {(promote ,(+ (term m) (term n)))}]
-  ; TODO: improve precision
-  [(δ l + V_1 V_2) {(• ,nat/c) (blame l +)}])
+  [(δ l + V_1 V_2)
+   {(• {,nat/c})}
+   (side-condition (equal? (term (Proved Proved))
+                           (term (verify V_1 ,nat/c) (verify V_2 ,nat/c))))]
+  [(δ l + V_1 V_2)
+   {(blame l +)}
+   (side-condition (member (term Refuted)
+                           (term (verify V_1 ,nat/c) (verify V_2 ,nat/c))))]
+  [(δ l + (• Cs) V) {(• {,nat/c}) (blame l +)}]
+  [(δ l + V (• Cs)) {(• {,nat/c}) (blame l +)}]
+  [(δ l + V_1 V_2) {(blame l +)}]
+  
+  ;; = (partial)
+  ; concrete numeric values
+  [(δ l = (m Cs) (n Ds)) {(promote (to-bool ,(= (term m) (term n))))}]
+  ; when both operands are guaranteed to be numbers
+  [(δ l = V_1 V_2)
+   {(promote tt) (promote ff)}
+   (side-condition (equal? (term (Proved Proved))
+                           (term ((verify V_1 ,nat/c) (verify V_2 ,nat/c)))))]
+  ; when either is guaranteed to be non-number
+  [(δ l = V_1 V_2)
+   {(blame l =)}
+   (side-condition (member (term Refuted)
+                           (term ((verify V_1 ,nat/c) (verify V_2 ,nat/c)))))]
+  ; when nothing is known to opaque value(s)
+  [(δ l = (• Cs) V) {(promote tt) (promote ff) (blame l Λ)}]
+  [(δ l = V (• Cs)) {(promote tt) (promote ff) (blame l Λ)}]
+  ; concrete values known to faile
+  [(δ l = V_1 V_2) {(blame l =)}])
 
 ;; converts contract to expression
 (define-metafunction SCR
@@ -418,6 +455,11 @@
                        (y (car x †) †)
                        (y (cdr x †) †))))))
 
-(define nat/c (term (flat (promote (λ x (nat? x †))))))
-(define bool/c (term (flat (promote (λ x (bool? x †))))))
-(define cons/c (term (flat (promote (λ x (cons? x †))))))
+;; wrap primitive predicates with lambdas
+(define-metafunction SCR
+  mk-pred : o? -> C
+  [(mk-pred o?) (flat (promote (λ x (o? x †))))])
+
+(define nat/c (term (mk-pred nat?)))
+(define bool/c (term (mk-pred bool?)))
+(define cons/c (term (mk-pred cons?)))
