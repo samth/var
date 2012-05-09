@@ -156,7 +156,7 @@
     {(normalize-con [Z ...] C) ...})]
   [(normalize any (U {C ...})) (U {(normalize-con any C) ...})]
   [(normalize any (blame f g)) (blame f g)] ; TODO: kill f and g also??
-  [(normalize [Z ...] X) (maybe-index X [Z ...])]
+  [(normalize [Z ...] X) (maybe-index 0 X [Z ...])]
   [(normalize any (M N)) ((normalize any M) (normalize any N))]
   [(normalize [Z ...] (μ (X T) M))
    (μ _ ; kill irrelevant names
@@ -179,10 +179,10 @@
 
 ;; returns X's position in list, or itself if not found
 (define-metafunction SCPCF
-  maybe-index : X [X ...] -> n or X
-  [(maybe-index X []) X]
-  [(maybe-index X [X Z ...]) 0]
-  [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
+  maybe-index : n X [X ...] -> n or X
+  [(maybe-index n X []) X]
+  [(maybe-index n X [X Z ...]) n]
+  [(maybe-index n X [Y Z ...]) (maybe-index ,(+ 1 (term n)) X [Z ...])])
 
 ;; checks whether all prevalues are concrete
 (define-metafunction SCPCF
