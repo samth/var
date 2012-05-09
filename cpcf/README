@@ -1,7 +1,7 @@
 * TODO:
 
 ** Symbolic Core Racket:
-*** unfinished
+*** tests
 *** Flat contract reduction, 1st rule: why do we refine V with C (again) when V has proven C?
 *** Module references, 3rd rule: is (mon C (• C)) equivalent to just (• C)?
 
