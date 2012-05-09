@@ -62,7 +62,7 @@
   (reduction-relation
    SCR
    ; function application
-   (E=> ((λ X E) V l) (subst E X V)
+   (E=> (((λ X E) Cs) V l) (subst E X V) ; TODO: so lose Cs and V?
         β)
    (E=> (V_f V_x l) (blame l Λ)
         (side-condition (member (term (promote ff))
@@ -79,6 +79,8 @@
         (side-condition (member (term (promote tt))
                                 (term (δ † proc? (• Cs)))))
         β-opaque-havoc)
+   (E=> (μ X E) (subst E X (μ X E))
+        μ)
    
    ; primitive ops (non-deterministic)
    (E=> (O V ... l) V_1
@@ -87,10 +89,10 @@
    
    ; conditionals
    (E=> (if V E_t E_f) E_t
-        (side-condition (member (term ff) (term (δ † false? V))))
+        (side-condition (member (term (promote ff)) (term (δ † false? V))))
         if)
    (E=> (if V E_t E_f) E_f
-        (side-condition (member (term tt) (term (δ † false? V))))
+        (side-condition (member (term (promote tt)) (term (δ † false? V))))
         if-not)
    (E=> (∨ E ...) (desugar-∨ E ...)
         desugar-∨)
@@ -106,14 +108,14 @@
         (side-condition (and (term (flat? C))
                              (equal? (term Refuted) (term (verify V C)))))
         fc-refuted)
-   (E=> (mon h f g C V) (if ((FC C) V) (refine V C) (blame f h))
+   (E=> (mon h f g C V) (if ((FC C) V f) (refine V C) (blame f h))
         (side-condition (and (term (flat? C))
                              (equal? (term Unsure) (term (verify V C)))))
         fc-unsure)
    
    ; function contract reduction
    (E=> (mon h f g (C ↦ (λ X D)) V)
-        ((λ X (mon h f g D (V (mon h g f C X)))) {})
+        ((λ X (mon h f g D (V (mon h g f C X) g))) {})
         (side-condition (member (term (promote tt))
                                 (term (δ † proc? V))))
         con-fun)
@@ -169,7 +171,7 @@
                              (not (equal? (term •) (term U)))))
         mod-ref)
    (--> (M_1 ... (module F C (• Cs)) M_2 ... (in-hole CT (f g)))
-        ; TODO: why have to refine (• Cs) with C with 'monitor' outside?
+        ; TODO: doesn't (mon C (refine (• Cs) C)) always reduce to (• Cs)?
         (M_1 ... (module F C (• Cs)) M_2 ...
              (in-hole CT (mon f f g C (refine (• Cs) C))))
         (side-condition (not (equal? (term f) (term g))))
@@ -284,13 +286,13 @@
   [(FC X) X]
   [(FC (flat E)) E]
   [(FC (C ∧ D))
-   (λ X (∧ ((FC C) X) ((FC D) X)))
+   ((λ X (∧ ((FC C) X †) ((FC D) X †))) {})
    (where X ,(variable-not-in (term (C D)) (term x)))]
   [(FC (C ∨ D))
-   (λ X (∨ ((FC C) X) ((FC D) X)))
+   ((λ X (∨ ((FC C) X †) ((FC D) X †))) {})
    (where X ,(variable-not-in (term (C D)) (term x)))]
   [(FC (C D))
-   (λ X (∧ (cons? X) ((FC C) (car X)) ((FC D) (cdr X))))
+   ((λ X (∧ (cons? X †) ((FC C) (car X †) †) ((FC D) (cdr X †) †))) {})
    (where X ,(variable-not-in (term (C D)) (term x)))])
 
 ;; checks whether contract is flat
@@ -308,26 +310,33 @@
 
 ;; capture-avoiding substitution
 (define-metafunction SCR
-  subst : any X E -> E
-  [(subst X X E) E]
-  [(subst Y X E) Y]
-  [(subst ((λ X E) Cs) X F) ((λ X E) Cs)] ; var bound; ignore
-  [(subst ((λ X E) Cs) Y F)
-   (λ Z
-     (subst (subst E X Z) Y F)) ; TODO: exponential blow-up risk
-   (where Z ,(variable-not-in (term (E Y F)) (term X)))]
-  [(subst ((E F) l) X G) ((subst E X G) (subst F X F) l)]
-  [(subst (μ X E) X F) (μ X E)] ; var bound, ignore
-  [(subst (μ X E) Y F)
-   (λ Z
-     (subst (subst E X Z) Y F)) ; TODO exponential blow-up risk
-   (where Z ,(variable-not-in (term (E Y F)) (term X)))]
-  [(subst (mon h f g C E) X F)
-   (mon h f g (subst-con C X F) (subst E X F))]
-  [(subst (any ...) X E) ((subst any X E) ...)]
-  [(subst any X E) any])
+  subst : E X any -> E
+  [(subst (f l) X any) (f l)]
+  [(subst X X any) any]
+  [(subst Y X any) Y]
+  ; var bound; ignore
+  [(subst ((λ X E) {C ...}) X any) ((λ X E) {(subst-con C X any) ...})]
+  [(subst ((λ X E) {C ...}) Y any)
+   ((λ Z
+      (subst (subst E X Z) Y any)) ; TODO: exponential blow-up risk
+    {(subst-con C Y any) ...})
+   (where Z ,(variable-not-in (term (E Y any)) (term X)))]
+  [(subst (U {C ...}) X any) (U {(subst-con C X any) ...})]
+  [(subst (blame f g) X any) (blame f g)]
+  [(subst (E F l) X any) ((subst E X any) (subst F X any) l)]
+  [(subst (if E ...) X any) (if (subst E X any) ...)]
+  [(subst (O E ...) X any) (O (subst E X any) ...)]
+  [(subst (μ X E) X any) (μ X E)] ; var bound, ignore
+  [(subst (μ X E) Y any)
+   (μ Z
+      (subst (subst E X Z) Y any)) ; TODO exponential blow-up risk
+   (where Z ,(variable-not-in (term (E Y any)) (term X)))]
+  [(subst (mon h f g C E) X any)
+   (mon h f g (subst-con C X any) (subst E X any))]
+  [(subst (∨ E ...) X any) (∨ (subst E X any) ...)]
+  [(subst (∧ E ...) X any) (∧ (subst E X any) ...)])
 (define-metafunction SCR
-  subst-con : any X any -> C
+  subst-con : C X any -> any
   [(subst-con X X E) (flat E)]
   [(subst-con X X any) any]
   [(subst-con X Y any) X]
@@ -336,15 +345,16 @@
    ((subst-con C X any)
     ↦ (λ Z
         (subst-con (subst-con D Y Z) X any))) ; TODO: exponential blow-up risk
-   (where Z ,(variable-not-in (term (C X any)) (term Y)))]
+   (where Z ,(variable-not-in (term (D X any)) (term Y)))]
   [(subst-con (flat E) X any) (flat (subst E X any))]
+  [(subst-con (C D) X any) ((subst-con C X any) (subst-con D X any))]
+  [(subst-con (C ∨ D) X any) ((subst-con C X any) ∨ (subst-con D X any))]
+  [(subst-con (C ∧ D) X any) ((subst-con C X any) ∧ (subst-con D X any))]
   [(subst-con (μ X C) X any) (μ X C)] ; var bound, ignore
   [(subst-con (μ X C) Y any)
    (μ Z
       (subst-con (subst-con C X Z) Y any)) ; TODO: exponential blow-up risk
-   (where Z ,(variable-not-in (term (C Y any)) (term X)))]
-  [(subst-con (any ...) X any_1) ((subst-con any X any_1) ...)]
-  [(subst-con any X any_1) any])
+   (where Z ,(variable-not-in (term (C Y any)) (term X)))])
 
 ;; (recursively) wraps prevalues with empty contract sets if not yet so
 ;; Allows writing SCR terms in a more readable form then wrapped with this
@@ -471,5 +481,5 @@
 (define len
   (term ((module len
            (,list/c ↦ (λ x ,nat/c))
-           (•{}))
-         ((len †) (promote empty) †))))
+           (• {}))
+         ((len †) (empty {,empty/c}) †))))
