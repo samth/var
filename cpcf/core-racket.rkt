@@ -7,12 +7,12 @@
   [(P Q) (M ... E)]
   ; module
   [(M N) (module f C V)]
-  [(E F G) (f l)
+  [(E F G) (f l) ; module reference
            X
            A
-           (E E l)
+           (E E l) ; function application with label
            (if E E E)
-           (O E ... l)
+           (O E ... l) ; primitive application
            (μ X E)
            (mon h f g C E) ; h,f,g: original, pos, neg
            ; syntactic sugar
@@ -51,7 +51,7 @@
       (if CT E E)
       (O V ... CT E ... l)
       (mon f f f C CT)]
-  ; for verifying contracts
+  ; result for verifying contracts
   [Verified? Proved
              Refuted
              Unsure])
@@ -69,7 +69,9 @@
                                 (term (δ † proc? V_f))))
         β-err)
    (E=> ((• Cs) V l)
-        (• ,{map (λ (c) (term (subst-range-con ,c V))) (term Cs)})
+        (• ,{map (λ (c) (term (subst-range-con ,c V)))
+                 (filter (λ (c) (term (higher-order? ,c)))
+                         (term Cs))})
         (side-condition (member (term (promote tt))
                                 (term (δ † proc? (• Cs)))))
         β-opaque)
@@ -125,12 +127,14 @@
    (E=> (mon h f g (C D) V)
         (((mon h f g C (car V_p)) (cons h f g D (cdr V_p))) {})
         (where V_p (refine V ,cons/c))
-        (side-condition (and (term (higher-order? (C D)))
-                             (member (term tt) (term (δ † cons? V)))))
+        (side-condition
+         (and (term (higher-order? (C D)))
+              (member (term (promote tt)) (term (δ † cons? V)))))
         ho-con)
    (E=> (mon h f g (C D) V) (blame f h)
-        (side-condition (and (term (higher-order? (C D)))
-                             (member (term ff) (term (δ † cons? V)))))
+        (side-condition
+         (and (term (higher-order? (C D)))
+              (member (term (promote ff)) (term (δ † cons? V)))))
         ho-con-err)
    (E=> (mon h f g (μ X C) V)
         (mon h f g (subst-con C X (μ X C)) V) ; rely on productivity
@@ -143,7 +147,7 @@
    (E=> (mon h f g (C ∨ D) V)
         (if ((F C) V) (refine V C) (mon h f g D V))
         (side-condition (and (term (higher-order? (C ∨ D)))
-                             (equal? (term Proved) (term (verify V C)))))
+                             (equal? (term Unsure) (term (verify V C)))))
         ho-con-∨-unsure)
    (E=> (mon h f g (C ∨ D) V) V
         (side-condition (and (term (higher-order? (C ∨ D)))
@@ -156,16 +160,18 @@
    
    ; module reference
    (--> (M_1 ... (module f C V) M_2 ... (in-hole CT (f f)))
-        V
+        (M_1 ... (module f C V) M_2 ... (in-hole CT V))
         mod-ref-self)
    (--> (M_1 ... (module f C (U Cs)) M_2 ... (in-hole CT (f g)))
-        (mon f f g C (U Cs))
+        (M_1 ... (module f c (U Cs)) M_2 ...
+             (in-hole CT (mon f f g C (U Cs))))
         (side-condition (and (not (equal? (term f) (term g)))
                              (not (equal? (term •) (term U)))))
         mod-ref)
    (--> (M_1 ... (module F C (• Cs)) M_2 ... (in-hole CT (f g)))
         ; TODO: why have to refine (• Cs) with C with 'monitor' outside?
-        (mon f f g C (refine (• Cs) C))
+        (M_1 ... (module F C (• Cs)) M_2 ...
+             (in-hole CT (mon f f g C (refine (• Cs) C))))
         (side-condition (not (equal? (term f) (term g))))
         mod-opaque)
    
@@ -321,18 +327,18 @@
    ((promote-con C) ↦ (λ X (promote-con D)))]
   [(promote-con (any ...)) ((promote any) ...)]
   [(promote-con any) any])
-  
+
 ;; converts and/or to if, supporting short-circuiting
 (define-metafunction SCR
   desugar-∨ : E ... -> E
-  [(desugar-∨) ff]
+  [(desugar-∨) (promote ff)]
   [(desugar-∨ E) E] ; redundant, but reduce junks
-  [(desugar-∨ E_0 E ...) (if E_0 tt (desugar-∨ E ...))])
+  [(desugar-∨ E_0 E ...) (if E_0 (promote tt) (desugar-∨ E ...))])
 (define-metafunction SCR
   desugar-∧ : E ... -> E
-  [(desugar-∧) tt]
+  [(desugar-∧) (promote tt)]
   [(desugar-∧ E) E] ; redundant, but reduce junks
-  [(desugar-∧ E_0 E ...) (if E_0 (desugar-∧ E ...) ff)])
+  [(desugar-∧ E_0 E ...) (if E_0 (desugar-∧ E ...) (promote ff))])
 
 ;; checks whether value satisfies contract
 (define-metafunction SCR
@@ -396,6 +402,11 @@
   [(maybe-index X []) X]
   [(maybe-index X [X Z ...]) 0]
   [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
+
+;; substitute V for the newly bound variable in dependent contract
+(define-metafunction SCR
+  subst-range-con : (C ↦ (λ X D)) V -> C
+  [(subst-range-con (C ↦ (λ X D)) V) (subst-con D X V)])
 
 ;; generated term to find all possible blames
 (define-metafunction SCR
