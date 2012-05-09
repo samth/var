@@ -249,11 +249,11 @@
   [(δ l + V_1 V_2)
    {(• {,nat/c})}
    (side-condition (equal? (term (Proved Proved))
-                           (term (verify V_1 ,nat/c) (verify V_2 ,nat/c))))]
+                           (term ((verify V_1 ,nat/c) (verify V_2 ,nat/c)))))]
   [(δ l + V_1 V_2)
    {(blame l +)}
    (side-condition (member (term Refuted)
-                           (term (verify V_1 ,nat/c) (verify V_2 ,nat/c))))]
+                           (term ((verify V_1 ,nat/c) (verify V_2 ,nat/c)))))]
   [(δ l + (• Cs) V) {(• {,nat/c}) (blame l +)}]
   [(δ l + V (• Cs)) {(• {,nat/c}) (blame l +)}]
   [(δ l + V_1 V_2) {(blame l +)}]
@@ -401,9 +401,9 @@
 
 ;; turns any close-variable's use into lexical distance to where it was declared
 (define-metafunction SCR
-  normalize : [X ...] M -> any
+  normalize : [X ...] any -> any
   [(normalize any (f l)) (f l)]
-  [(normalize any X) (maybe-index X any)]
+  [(normalize any X) (maybe-index 0 X any)]
   [(normalize any (blame l_1 l_2)) (blame l_1 l_2)]
   [(normalize [X_0 ...] ((λ X E) {C ...}))
    ((λ _ ; kill irrelevant label
@@ -421,12 +421,12 @@
   [(normalize any_env any) any])
 (define-metafunction SCR
   normalize-con : [X ...] C -> any
-  [(normalize-con any X) (maybe-index X any)]
+  [(normalize-con any X) (maybe-index 0 X any)]
   [(normalize-con [X_0 ...] (C ↦ (λ X D)))
    ((normalize-con [X_0 ...] C)
     ↦ (λ _ ; kill irrelevant label
         (normalize-con [X X_0 ...] D)))]
-  [(normalize-con any (flat E)) (flat (normalize E))]
+  [(normalize-con any (flat E)) (flat (normalize any E))]
   [(normalize-con [X_0 ...] (μ X C))
    (μ _ ; kill irrelevant label
       (normalize-con [X X_0 ...] C))]
@@ -435,10 +435,10 @@
 
 ;; returns X's position in list, or X itself if not found
 (define-metafunction SCR
-  maybe-index : X [X ...] -> n or X
-  [(maybe-index X []) X]
-  [(maybe-index X [X Z ...]) 0]
-  [(maybe-index X [Y Z ...]) ,(+ 1 (term (maybe-index X [Z ...])))])
+  maybe-index : n X [X ...] -> n or X
+  [(maybe-index n X []) X]
+  [(maybe-index n X [X Z ...]) n]
+  [(maybe-index n X [Y Z ...]) (maybe-index ,(+ 1 (term n)) X [Z ...])])
 
 ;; substitute V for the newly bound variable in dependent contract
 (define-metafunction SCR
@@ -460,6 +460,16 @@
   mk-pred : o? -> C
   [(mk-pred o?) (flat (promote (λ x (o? x †))))])
 
+(define any/c (term (flat (promote (λ x tt)))))
 (define nat/c (term (mk-pred nat?)))
 (define bool/c (term (mk-pred bool?)))
 (define cons/c (term (mk-pred cons?)))
+(define empty/c (term (mk-pred empty?)))
+(define list/c (term (μ l (,empty/c ∨ (,any/c l)))))
+
+;; example program
+(define len
+  (term ((module len
+           (,list/c ↦ (λ x ,nat/c))
+           (•{}))
+         ((len †) (promote empty) †))))
