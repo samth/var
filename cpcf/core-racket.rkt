@@ -54,7 +54,7 @@
   ; result for verifying contracts
   [Verified? Proved
              Refuted
-             Unsure])
+             Neither])
 
 
 ;; reduction semantics
@@ -62,7 +62,9 @@
   (reduction-relation
    SCR
    ; function application
-   (E=> (((λ X E) Cs) V l) (subst E X V) ; TODO: so lose Cs and V?
+   ; TODO: so lose Cs? is it ever useful to extract refinements for the range
+   ; and attach to result (which is not necessarily a value yet...)
+   (E=> (((λ X E) Cs) V l) (subst E X V)
         β)
    (E=> (V_f V_x l) (blame l Λ)
         (side-condition (member (term (promote ff))
@@ -83,8 +85,8 @@
         μ)
    
    ; primitive ops (non-deterministic)
-   (E=> (O V ... l) V_1
-        (where {V_0 ... V_1 V_2 ...} (δ l O V ...))
+   (E=> (O V ... l) A
+        (where {A_1 ... A A_n ...} (δ l O V ...))
         δ)
    
    ; conditionals
@@ -110,7 +112,7 @@
         fc-refuted)
    (E=> (mon h f g C V) (if ((FC C) V f) (refine V C) (blame f h))
         (side-condition (and (term (flat? C))
-                             (equal? (term Unsure) (term (verify V C)))))
+                             (equal? (term Neither) (term (verify V C)))))
         fc-unsure)
    
    ; function contract reduction
@@ -147,9 +149,10 @@
         (side-condition (term (higher-order? (C ∧ D))))
         ho-con-∧)
    (E=> (mon h f g (C ∨ D) V)
-        (if ((F C) V) (refine V C) (mon h f g D V))
+        ; rely on left disjunct being flat
+        (if ((FC C) V) (refine V C) (mon h f g D V))
         (side-condition (and (term (higher-order? (C ∨ D)))
-                             (equal? (term Unsure) (term (verify V C)))))
+                             (equal? (term Neither) (term (verify V C)))))
         ho-con-∨-unsure)
    (E=> (mon h f g (C ∨ D) V) V
         (side-condition (and (term (higher-order? (C ∨ D)))
@@ -161,18 +164,18 @@
         ho-con-∨-refuted)
    
    ; module reference
-   (--> (M_1 ... (module f C V) M_2 ... (in-hole CT (f f)))
-        (M_1 ... (module f C V) M_2 ... (in-hole CT V))
+   (--> (M_1 ... (module f C V) M_n ... (in-hole CT (f f)))
+        (M_1 ... (module f C V) M_n ... (in-hole CT V))
         mod-ref-self)
-   (--> (M_1 ... (module f C (U Cs)) M_2 ... (in-hole CT (f g)))
-        (M_1 ... (module f c (U Cs)) M_2 ...
+   (--> (M_1 ... (module f C (U Cs)) M_n ... (in-hole CT (f g)))
+        (M_1 ... (module f c (U Cs)) M_n ...
              (in-hole CT (mon f f g C (U Cs))))
         (side-condition (and (not (equal? (term f) (term g)))
                              (not (equal? (term •) (term U)))))
         mod-ref)
-   (--> (M_1 ... (module F C (• Cs)) M_2 ... (in-hole CT (f g)))
-        ; TODO: doesn't (mon C (refine (• Cs) C)) always reduce to (• Cs)?
-        (M_1 ... (module F C (• Cs)) M_2 ...
+   (--> (M_1 ... (module f C (• Cs)) M_n ... (in-hole CT (f g)))
+        ; TODO: doesn't (mon C (refine (• Cs) C)) always reduce to (• Cs ∪ {C})?
+        (M_1 ... (module f C (• Cs)) M_n ...
              (in-hole CT (mon f f g C (refine (• Cs) C))))
         (side-condition (not (equal? (term f) (term g))))
         mod-opaque)
@@ -277,9 +280,12 @@
   [(δ l = (• Cs) V) {(promote tt) (promote ff) (blame l Λ)}]
   [(δ l = V (• Cs)) {(promote tt) (promote ff) (blame l Λ)}]
   ; concrete values known to faile
-  [(δ l = V_1 V_2) {(blame l =)}])
+  [(δ l = V_1 V_2) {(blame l =)}]
+  
+  ; no case matches
+  [(δ l O V ...) {(blame l Λ)}])
 
-;; converts contract to expression
+;; converts flat contract to expression
 (define-metafunction SCR
   FC : C -> E
   [(FC (μ X C)) (μ X (FC C))]
@@ -393,7 +399,7 @@
   [(verify (U Cs) C)
    Proved
    (side-condition (ormap (λ (c) (term (con~? C ,c))) (term Cs)))]                  
-  [(verify V C) Unsure])
+  [(verify V C) Neither])
 
 ;; refines given value with more contract(s)
 ;; assume value currently does not prove given contract(s)

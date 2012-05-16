@@ -4,4 +4,5 @@
 *** tests
 *** Flat contract reduction, 1st rule: why do we refine V with C (again) when V has proven C?
 *** Module references, 3rd rule: is (mon C (• C)) equivalent to just (• C)?
-
+*** Applying abstract values, 1st rule: I guess it's [V'/X]D instead of V^ ?
+*** implement precision improvement mentioned in 4.4

@@ -67,9 +67,9 @@
         μ)
    
    ; primitive ops (non-deterministic)
-   (==> (o V ...) V_1
+   (==> (o V ...) V_i
         δ
-        (where {V_0 ... V_1 V_2 ...} (δ/s o V ...)))
+        (where {V_1 ... V_i V_n ...} (δ/s o V ...)))
    
    ; contract checking
    (==> (mon h f g C V) V
