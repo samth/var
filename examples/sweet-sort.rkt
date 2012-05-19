@@ -1,4 +1,6 @@
-#lang planet asumu/sweet var
+#lang racket
+
+#|planet asumu/sweet var
 
 define-contract list/c
   rec/c X
@@ -33,3 +35,5 @@ module insertion-sort
 module n list/c ●
   
 insertion-sort n empty
+|#
+
