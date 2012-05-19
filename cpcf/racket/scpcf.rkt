@@ -1,5 +1,6 @@
 #lang racket
 (require redex) ; variable-not-in
+(require rackunit)
 
 ;; Exp = Answer | Var | App | Rec | If | PrimApp | Mon
 
@@ -122,21 +123,22 @@
              (type-check-with tenv e))]
       [(value u refinements)
        (cond
-         [(integer? e) 'Int]
-         [(boolean? e) 'Bool])]
+         [(integer? u) 'Int]
+         [(boolean? u) 'Bool])]
       [else 
-       (if (var? e) (or (first (assoc e tenv)) 'TypeError) 'TypeError)]))
+       (if (var? e) (or (second (assoc e tenv)) 'TypeError) 'TypeError)]))
   
   ;; type-check-con-with : [Listof (list Var Type)] Contract -> TypeResult
   (define (type-check-con-with tenv c)
     (match c
       [(flat/c e) (match (type-check-with tenv e)
-                    [(func-type t 'Bool) (con-type t)]
+                    [(func-type t 'Bool) (lift con-type t)]
                     [else 'TypeError])]
       [(func/c dom x t rng)
        (match `(,(type-check-con-with tenv dom)
                 ,(type-check-con-with (cons `(,x ,t) tenv) rng))
-         [(list (con-type t1) (con-type t2)) (con-type (func-type t1 t2))]
+         [`(,(con-type t1) ,(con-type t2))
+          (lift con-type (func-type t1 t2))]
          [else 'TypeError])]))
   
   ;; lift : (Type* -> TypeResult) TypeResult* -> TypeResult
@@ -148,30 +150,38 @@
   ;; type-app : Type Type -> TypeResult
   (define (type-app f arg)
     (match f
-      [(func-type dom rng) (if (equal? arg dom) rng 'TypeError)]
+      [(func-type dom rng) (if (type=? arg dom) rng 'TypeError)]
       [else 'TypeError]))
   
   ;; type-if : Type Type Type -> TypeResult
   (define (type-if t1 t2 t3)
     (match t1
-      ['Bool (⊔ t1 t2)]
+      ['Bool (⊔ t2 t3)]
       [else 'TypeError]))
+  
+  ;; type=? : Type Type -> Boolean
+  (define (type=? t1 t2)
+    (match `(,t1 ,t2)
+      [`(,(func-type x1 y1) ,(func-type x2 y2))
+       (and (type=? x1 x2) (type=? x2 y2))]
+      [`(,(con-type x1) ,(con-type x2)) (type=? x1 x2)]
+      [else (equal? t1 t2)]))
   
   ;; type-mon : Type Type -> TypeResult
   (define (type-mon c e)
     (match `(,c ,e)
-      [(list (con-type t) t) t]
+      [`(,(con-type t1) ,t2) (if (type=? t1 t2) t1 'TypeError)]
       [else 'TypeError]))
   
   ;; Type Type -> TypeResult
   ;; returns most specific supertype
   (define (⊔ t1 t2)
     (match `(,t1 ,t2)
-      [(list t t) t]
-      [(list '⊥ t) t]
-      [(list t '⊥) t]
-      [(list (func-type x y1) (func-type x y2)) (func-type x (⊔ y1 y2))]
-      [(list (con-type t1) (con-type t2)) (con-type (⊔ t1 t2))]
+      [`(,t ,t) t]
+      [`(⊥ ,t) t]
+      [`(,t ⊥) t]
+      [`(,(func-type x y1) ,(func-type x y2)) (func-type x (⊔ y1 y2))]
+      [`(,(con-type t1) ,(con-type t2)) (con-type (⊔ t1 t2))]
       [else 'TypeError]))
   
   ;; ∆ : Op -> ((Type -> TypeResult) or (Type Type -> TypeResult))
@@ -219,7 +229,6 @@
          [(boolean? x) (value x empty)]
          [(var? x) x]
          [else (error "invalid expression form: " x)]))))
-    
 
 ;; read-type : S-exp -> Type
 (define (read-type s)
@@ -251,7 +260,7 @@
      `(λ (,var ,(show-type type)) ,(show-exp body))]
     [(blame l1 l2) `(blame ,l1 ,l2)]
     [(app f x) (map show-exp `(,f ,x))]
-    [(rec var type body) `(μ (,var ,type) ,(show-exp body))]
+    [(rec var type body) `(μ (,var ,(show-type type)) ,(show-exp body))]
     [(if/ e1 e2 e3) `(if ,@(map show-exp `(e1 e2 e3)))]
     [(prim-app o args) `(,o ,@(map show-exp args))]
     [(mon h f g con e) `(mon ,h ,f ,g ,(show-con con) ,(show-exp e))]
@@ -270,7 +279,7 @@
   (match c
     [(flat/c e) `(flat ,(show-exp e))]
     [(func/c dom var type rng)
-     `(,(show-con dom) (λ (,var ,(show-type type)) ,(show-con rng)))]))
+     `(,(show-con dom) ↦ (λ (,var ,(show-type type)) ,(show-con rng)))]))
 
 ;; example terms
 (define ev? '(λ (x Int) (even? x)))
@@ -299,3 +308,22 @@
                   (if (zero? n) 0
                       (+ n (f (- n 1)))))))
 (define ap00-db2 `((,db2 ,ap0) 0))
+
+;;;;; testing
+(define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
+
+;; test read/show
+(define show-back (compose show-exp read-exp))
+(for-each (λ (e)
+            (check-equal?
+             ; just 'e' doesn't work due to syntax desugaring
+             (show-back e)
+             ((compose show-back show-back) e)))
+          exps)
+;; test type-checking
+(define tc (compose show-type type-check read-exp))
+(check-equal? (tc ev?) '(Int → Bool))
+(check-equal? (tc db1) '((Int → Int) → (Int → Int)))
+(check-equal? (tc ap0) '(Int → Int))
+(check-equal? (tc ap00) 'Int)
+(check-equal? (tc tri) '(Int → Int))
