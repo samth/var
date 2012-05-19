@@ -102,8 +102,8 @@
   ;; type-check-with : [Listof (list Var Type)] Exp -> TypeResult
   (define (type-check-with tenv e)
     (match e
-      [(opaque t) t]
-      [(lam var type body)
+      [(value (opaque t) refinements) t]
+      [(value (lam var type body) refinements)
        (lift func-type type (type-check-with (cons `(,var ,type) tenv) body))]
       [(blame l1 l2) '⊥]
       [(app f x) (lift type-app
@@ -120,10 +120,12 @@
        (lift type-mon
              (type-check-con-with tenv con)
              (type-check-with tenv e))]
-      [else (cond
-              [(integer? e) 'Int]
-              [(boolean? e) 'Bool]
-              [(var? e) (or (first (assoc e tenv)) 'TypeError)])]))
+      [(value u refinements)
+       (cond
+         [(integer? e) 'Int]
+         [(boolean? e) 'Bool])]
+      [else 
+       (if (var? e) (or (first (assoc e tenv)) 'TypeError) 'TypeError)]))
   
   ;; type-check-con-with : [Listof (list Var Type)] Contract -> TypeResult
   (define (type-check-con-with tenv c)
@@ -206,7 +208,7 @@
          (error "mon: expect symbols, given: " h f g))]
     [`(,e0 ,e1)
      (if (o1? e0)
-         (prim-app e0 (read-exp e1))
+         (prim-app e0 (list (read-exp e1)))
          (app (read-exp e0) (read-exp e1)))]
     (`(,o2 ,e1 ,e2)
      (if (o2? o2)
@@ -240,6 +242,35 @@
      (let ([x (variable-not-in d 'dummy)])
        (func/c (read-con c) x 'Int (read-con d)))]
     [else (error "invalid contract form: " s)]))
+
+;; show-exp : Exp -> S-exp
+(define (show-exp e)
+  (match e
+    [(value (opaque t) _) `(• ,t)]
+    [(value (lam var type body) _)
+     `(λ (,var ,(show-type type)) ,(show-exp body))]
+    [(blame l1 l2) `(blame ,l1 ,l2)]
+    [(app f x) (map show-exp `(,f ,x))]
+    [(rec var type body) `(μ (,var ,type) ,(show-exp body))]
+    [(if/ e1 e2 e3) `(if ,@(map show-exp `(e1 e2 e3)))]
+    [(prim-app o args) `(,o ,@(map show-exp args))]
+    [(mon h f g con e) `(mon ,h ,f ,g ,(show-con con) ,(show-exp e))]
+    [(value u refinements) u]
+    [x x]))
+
+;; show-type : Type -> S-exp
+(define (show-type t)
+  (match t
+    [(func-type dom rng) `(,(show-type dom) → ,(show-type rng))]
+    [(con-type t) `(con ,(show-type t))]
+    [t t]))
+
+;; show-con : Contract -> S-exp
+(define (show-con c)
+  (match c
+    [(flat/c e) `(flat ,(show-exp e))]
+    [(func/c dom var type rng)
+     `(,(show-con dom) (λ (,var ,(show-type type)) ,(show-con rng)))]))
 
 ;; example terms
 (define ev? '(λ (x Int) (even? x)))
