@@ -2,67 +2,202 @@
 (require redex) ; variable-not-in
 (require rackunit)
 
-;; Exp = Answer | Var | App | Rec | If | PrimApp | Mon
+(provide
+ ;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
+ ;; Answer := Value | Blame
+ ;; PreValue := Opaque | Integer | Boolean | Lambda
+ 
+ ;; Value := (value PreValue [Listof Contract])
+ value value? value-pre value-refinements
+ 
+ ;; Opaque := (opaque Type)
+ opaque opaque? opaque-type
+ 
+ ;; Lambda := (lam Var Type Exp)
+ lam lam? lam-var lam-type lam-body
+ 
+ ;; Var := Symbol
+ var?
+ 
+ ;; App := (app Exp Exp)
+ app app? app-func app-arg
+ 
+ ;; Rec := (rec Var Type Exp)
+ rec rec? rec-name rec-type rec-body
+ 
+ ;; If := (if/ Exp Exp Exp)
+ if/ if/? if/-test if/-then if/-else
+ 
+ ;; Mon := (mon Label Label Label Contract Exp)
+ mon mon? mon-origin mon-pos mon-neg mon-con mon-exp
+ 
+ ;; PrimApp := (prim-app Op [Listof Exp])
+ prim-app prim-app? prim-app-op prim-app-args
+ 
+ ;; Blame := (blame Label Label)
+ blame blame? blame-violator blame-violatee
+ 
+ ;; Label := Symbol
+ label?
+ 
+ ;; Op := O1 | O2
+ op?
+ 
+ ;; O1 := zero? | non-neg? | even? | odd? | prime? | true? | false? | sqrt
+ o1?
+ 
+ ;; O2 := + | -
+ o2?
+ 
+ ;; Contract := FlatContract | FuncContract
+ 
+ ;; FlatContract := (flat/c Exp)
+ flat/c flat/c? flat/c-exp
+ ;; FuncContract := (func/c Contract Var Type Contract)
+ func/c func/c? func/c-dom func/c-var func/c-type func/c-rng
+ 
+ ;; Type := BaseType | FuncType | ConType
+ ;; BaseType = 'Int | 'Bool | '⊥
+ ;; FuncType := (func-type Type Type)
+ func-type func-type? func-type-from func-type-to
+ ;; ConType := (conc-type Type)
+ con-type con-type? con-type-of
+ 
+ ;; TypeResult := Type | 'TypeError
+ 
+ ;; δ : Op [Listof Value] -> Answer
+ δ
+ 
+ ;; type-check : Exp -> TypeResult
+ type-check
+ 
+ ;; read-exp : S-exp -> Exp
+ read-exp
+ 
+ show-exp ; Exp -> S-exp
+ show-type ; Type -> S-exp
+ show-con ; Contract -> S-exp
+ 
+ exp=? ; Exp Exp -> Boolean
+ con=? ; Contract Contract -> Boolean
+ )
 
-;; Answer = Value | Blame
 
+;; Value := (value PreValue [Listof Contract])
 (struct value (pre refinements))
-;; Value = (value PreValue (Listof Contract))
 
-;; PreValue = Opaque | Integer | Boolean | Lambda
-
+;; Opaque := (opaque Type)
 (struct opaque (type))
-;; Opaque = (opaque Type)
 
+;; Lambda := (lambda Var Type Exp)
 (struct lam (var type body))
-;; Lambda = (lam Var Type Exp)
 
-;; Var = Symbol
+;; Var := Symbol
 (define var? symbol?)
 
+;; App := (app Exp Exp)
 (struct app (func arg))
-;; App = (app Exp Exp)
 
+;; Rec := (rec Var Type Exp)
 (struct rec (name type body))
-;; Rec = (rec Var Type Exp)
 
+;; If := (if/ Exp Exp Exp)
 (struct if/ (test then else))
-;; If = (if/ Exp Exp Exp)
 
+;; PrimApp := (prim-app Op [Listof Exp])
 (struct prim-app (op args))
-;; PrimApp = (prim-app Op (Listof Exp))
 
-;; Op = O1 | O2
+;; Op := O1 | O2
 (define (op? o)
   (or (o1? o) (o2? o)))
-
-;; O1 = zero? | non-neg? | even? | odd? | prime? | true? | false? | sqrt
 (define (o1? o)
   (member o '(zero? non-neg? even? odd? prime? true? false? sqrt)))
-
-;; O2 = + | -
 (define (o2? o)
   (member o '(+ -)))
 
+;; Mon := (mon Label Label label Contract Exp)
 (struct mon (origin pos neg con exp))
-;; Mon = (mon Label Label Label Contract Exp)
 
-;; Label = Symbol
+;; Label := Symbol
 (define label? symbol?)
 
+;; Blame := (blame Label Label)
 (struct blame (violator violatee))
-;; Blame = (blame Label Label)
 
 ;; Contract = (flat/c Exp) | (func/c Contract Var Type Contract)
 (struct flat/c (exp))
 (struct func/c (dom var type rng))
 
 ;; Type = BaseType | (func-type Type Type) | (con-type Type)
+;; BaseType = 'Int | 'Bool | '⊥
 (struct func-type (from to))
 (struct con-type (of))
-;; BaseType = 'Int | 'Bool | '⊥
 
 ;; TypeResult = Type | TypeError
+
+;; exp=? : Exp Exp -> Boolean
+(define (exp=? x y)
+  (e=? (normalize x) (normalize y)))
+
+;; con=? : Contract Contract -> Boolean
+(define (con=? c1 c2)
+  (c=? (normalize-con c1) (normalize-con c2)))
+
+;; Exp', Contract' are informally defined as 'normalized' versions of
+;; Exp and Contract
+
+;; c=? : Contract' Contract' -> Boolean
+(define (c=? c1 c2)
+  (equal? (show-con (normalize-con c1)) (show-con (normalize-con c2))))
+
+;; e=? : Exp' Exp' -> Boolean
+;; compare normalized expressions
+(define (e=? e1 e2)
+  (equal? (show-exp (normalize e1)) (show-exp (normalize e2))))
+
+;; normalize : Exp -> Exp'
+(define (normalize e)
+  (normalize-with empty e))
+
+;; normalize-with : [Listof Var] Exp -> Exp'
+(define (normalize-with xs e)
+    (match e
+      [(value u cs)
+       (value (match u
+                [(lam x t e) (lam 0 0 (normalize-with (cons x xs) e))]
+                [else u])
+              (map (curry normalize-con-with xs) cs))]
+      [(blame l1 l2) (blame l1 l2)] ; TODO: can we equate all blames?
+      [(app e1 e2) (app (normalize-with xs e1) (normalize-with xs e2))]
+      [(rec f t e) (rec 0 0 (normalize-with (cons f xs) e))]
+      [(if/ e1 e2 e3) (if/ (normalize-with xs e1)
+                           (normalize-with xs e2)
+                           (normalize-with xs e3))]
+      [(prim-app o args) (prim-app o (map (curry normalize-with xs) args))]
+      [(mon h f g c e) (mon h f g
+                            (normalize-con-with xs c)
+                            (normalize-with xs e))]
+      [else (maybe-var-distance e xs)]))
+
+;; maybe-var-distance : Var [Listof Var] -> Nat or Var
+(define (maybe-var-distance x xs)
+  ;; go : Nat [Listof Var] -> Nat or Var
+  (define (go k xs)
+    (match xs
+      [(cons z zs) (if (equal? x z) k (go (+ 1 k) zs))]
+      [empty x]))
+  (go 0 xs))
+                                                  
+;; normalize-con : Contract -> Contract'
+(define (normalize-con c)
+  (normalize-con-with empty c))
+
+;; normalize-con : [Listof Var] Contract -> Contract'
+(define (normalize-con-with xs c)
+  (match c
+    [(flat/c e) (flat/c (normalize-with xs e))]
+    [(func/c c x t d) (func/c (normalize-con-with xs c) 0 0
+                              (normalize-con-with (cons x xs) d))]))
 
 ;; δ : Op (Listof Value) -> (Listof Answer)
 ;; applies primitive op
@@ -200,6 +335,29 @@
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
+  
+  ;; read-type : S-exp -> Type
+  (define (read-type s)
+    (match s
+      ['Int 'Int]
+      ['Bool 'Bool]
+      [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
+      [`(con ,t) (con-type (read-type t))]
+      [else (error "invalid type form: " s)]))
+  
+  ;; read-con : S-exp -> Contract
+  (define (read-con s)
+    (match s
+      [`(flat ,e) (flat/c (read-exp e))]
+      [`(,c ↦ (λ (,x ,t) ,d))
+       (if (symbol? x)
+           (func/c (read-con c) x (read-type t) (read-con d))
+           (error "function contract: expect symbol, given: " x))]
+      [`(,c ↦ ,d)
+       (let ([x (variable-not-in d 'dummy)])
+         (func/c (read-con c) x 'Int (read-con d)))]
+      [else (error "invalid contract form: " s)]))
+  
   (match s
     [`(• ,t) (value (opaque (read-type t)) empty)]
     [`(λ (,x ,t) ,e) (if (symbol? x)
@@ -229,28 +387,6 @@
          [(boolean? x) (value x empty)]
          [(var? x) x]
          [else (error "invalid expression form: " x)]))))
-
-;; read-type : S-exp -> Type
-(define (read-type s)
-  (match s
-    ['Int 'Int]
-    ['Bool 'Bool]
-    [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
-    [`(con ,t) (con-type (read-type t))]
-    [else (error "invalid type form: " s)]))
-
-;; read-con : S-exp -> Contract
-(define (read-con s)
-  (match s
-    [`(flat ,e) (flat/c (read-exp e))]
-    [`(,c ↦ (λ (,x ,t) ,d))
-     (if (symbol? x)
-         (func/c (read-con c) x (read-type t) (read-con d))
-         (error "function contract: expect symbol, given: " x))]
-    [`(,c ↦ ,d)
-     (let ([x (variable-not-in d 'dummy)])
-       (func/c (read-con c) x 'Int (read-con d)))]
-    [else (error "invalid contract form: " s)]))
 
 ;; show-exp : Exp -> S-exp
 (define (show-exp e)
