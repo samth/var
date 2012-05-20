@@ -30,6 +30,7 @@
   (fix (non-det eval1) (singleton e) exp-set=?))
 
 ;; eval1 : Exp -> ExpSet
+;; actually, eval1's reflexive closure
 (define (eval1 e)
   (match e
     [(value u cs) {singleton e}]
