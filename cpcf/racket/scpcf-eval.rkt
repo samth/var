@@ -46,11 +46,13 @@
     [(if/ e1 e2 e3)
      (match e1
        [(value u cs)
-        {(non-det (λ (b) (match b
-                           [(value #t _) (singleton e2)]
-                           [(value #f _) (singleton e3)])))
+        {(non-det (λ (b) {singleton
+                          (match b
+                            [(value #t _) e2]
+                            [(value #f _) e3])}))
          (δ 'true? `(,e1))}]
-       [else {(non-det (λ (test) (if/ test e2 e3))) (eval1 e1)}])]
+       [else {(non-det (λ (test) {singleton (if/ test e2 e3)}))
+              (eval1 e1)}])]
     [(prim-app o args)
      (if (andmap value? args) {δ o args}
          (let ([z (split-at (compose not value?) args)])
@@ -143,3 +145,5 @@
 ;; focus : [Zipper x] -> x
 (define (focus z)
   (first (second z)))
+
+
