@@ -83,6 +83,9 @@
  
  exp=? ; Exp Exp -> Boolean
  con=? ; Contract Contract -> Boolean
+ 
+ ;; example terms
+ ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
  )
 
 
@@ -202,14 +205,14 @@
     [(func/c c x t d) (func/c (normalize-con-with xs c) 0 0
                               (normalize-con-with (cons x xs) d))]))
 
-;; δ : Op (Listof Value) -> (Listof Answer)
+;; δ : Op [Listof Value] -> [Listof Answer]
 ;; applies primitive op
 (define (δ o xs)
   (if (andmap concrete? xs)
-      (list (value (apply (op-impl o) (map value-pre xs)) empty))
+      (list (value (apply (op-impl o) (map value-pre xs)) '{}))
       (match (op-range o)
-        ['Int (list (opaque 'Int))]
-        ['Bool `((#t ()) (#f ()))])))
+        ['Int `{,(value (opaque 'Int) '{})}]
+        ['Bool `{,(value #t '{}) ,(value #f '{})}])))
 
 ;; concrete? : Value -> Boolean
 ;; checks whether value is concrete
@@ -223,7 +226,7 @@
     ['non-neg? (compose not negative?)]
     ['even? even?]
     ['odd? odd?]
-    ['prime? (λ (n) (member n '(2 3 5 7 11 13)))]
+    ['prime? (λ (n) (if (member n '(2 3 5 7 11 13)) #t #f))] ; force #t
     ['true? (compose not false?)]
     ['false? false?]
     ['sqrt (compose inexact->exact floor sqrt)]
@@ -438,13 +441,13 @@
 ;; show-exp : Exp -> S-exp
 (define (show-exp e)
   (match e
-    [(value (opaque t) _) `(• ,t)]
+    [(value (opaque t) _) `(• ,(show-type t))]
     [(value (lam var type body) _)
      `(λ (,var ,(show-type type)) ,(show-exp body))]
     [(blame l1 l2) `(blame ,l1 ,l2)]
     [(app f x) (map show-exp `(,f ,x))]
     [(rec var type body) `(μ (,var ,(show-type type)) ,(show-exp body))]
-    [(if/ e1 e2 e3) `(if ,@(map show-exp `(e1 e2 e3)))]
+    [(if/ e1 e2 e3) `(if ,@(map show-exp `(,e1 ,e2 ,e3)))]
     [(prim-app o args) `(,o ,@(map show-exp args))]
     [(mon h f g con e) `(mon ,h ,f ,g ,(show-con con) ,(show-exp e))]
     [(value u refinements) u]
