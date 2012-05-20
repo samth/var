@@ -68,6 +68,9 @@
  ;; δ : Op [Listof Value] -> Answer
  δ
  
+ ;; subst : Var Exp Exp -> Exp
+ subst
+ 
  ;; type-check : Exp -> TypeResult
  type-check
  
@@ -332,6 +335,50 @@
        (λ (t1 t2) (match `(,t1 ,t2) ['(Int Int) 'Int] [else 'TypeError]))]))
   
   (type-check-with empty e))
+
+;; subst : Var Exp Exp -> Exp
+(define (subst x v e)
+  
+  ;; all-vars : Exp -> [Listof Symbol]
+  (define all-vars (compose flatten show-exp))
+  
+  ;; all-vars-con : Contract -> [Listof Symbol]
+  (define all-vars-con (compose flatten show-con))
+  
+  ;; go : Exp -> Exp
+  (define go (curry subst x v))
+  
+  ;; go-con : Contract -> Contract
+  (define (go-con c)
+    (match c
+      [(flat/c e) (flat/c (go e))]
+      [(func/c c z t d)
+       (if (equal? z x)
+           (func/c (go-con c) z t d)
+           (let ([y (variable-not-in (append (all-vars v) (all-vars-con d)) z)])
+             (func/c (go-con c) y t
+                     ;; TODO: exponential risk
+                     (go-con (subst z y d)))))]))
+  
+  (match e
+    [(value u cs)
+     (match u
+       [(lam z t b)
+        (if (equal? x z) e
+            (let ([y (variable-not-in (append (all-vars b) (all-vars v)) z)])
+              ;; TODO: exponential risk
+              (lam y t (go (subst z y b)))))]
+       [else e])]
+    [(blame l1 l2) (blame l1 l2)]
+    [(app e1 e2) (app (go e1) (go e2))]
+    [(rec f t b) (if (equal? f x) e
+                     (let ([g (variable-not-in (all-vars b v) f)])
+                       ;; TODO: exponential risk
+                       (rec g t (go (subst f g b)))))]
+    [(if/ e1 e2 e3) (if/ (go e1) (go e2) (go e3))]
+    [(prim-app o args) (prim-app o (map go args))]
+    [(mon h f g c e) (mon h f g (go-con c) (go e))]
+    [z (if (equal? z x) v z)]))
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
