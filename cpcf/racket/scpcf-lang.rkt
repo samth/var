@@ -267,7 +267,11 @@
          [(integer? u) 'Int]
          [(boolean? u) 'Bool])]
       [else 
-       (if (var? e) (or (second (assoc e tenv)) 'TypeError) 'TypeError)]))
+       (if (var? e)
+           (match (assoc e tenv)
+             [(list x t) t]
+             [else 'TypeError])
+           'TypeError)]))
   
   ;; type-check-con-with : [Listof (list Var Type)] Contract -> TypeResult
   (define (type-check-con-with tenv c)
@@ -348,20 +352,22 @@
   ;; all-vars-con : Contract -> [Listof Symbol]
   (define all-vars-con (compose flatten show-con))
   
-  ;; go : Exp -> Exp
-  (define go (curry subst x v))
-  
-  ;; go-con : Contract -> Contract
-  (define (go-con c)
+  ;; subst-con : Var Exp Contract -> Contract
+  (define (subst-con x v c)
+    ;; go : Contract -> Contract
+    (define go (curry subst-con x v))
     (match c
-      [(flat/c e) (flat/c (go e))]
+      [(flat/c e) (flat/c (subst x v e))]
       [(func/c c z t d)
        (if (equal? z x)
-           (func/c (go-con c) z t d)
+           (func/c (go c) z t d)
            (let ([y (variable-not-in (append (all-vars v) (all-vars-con d)) z)])
-             (func/c (go-con c) y t
+             (func/c (go c) y t
                      ;; TODO: exponential risk
-                     (go-con (subst z y d)))))]))
+                     (go (subst-con z y d)))))]))
+  
+  ;; go : Exp -> Exp
+  (define go (curry subst x v))
   
   (match e
     [(value u cs)
@@ -370,17 +376,18 @@
         (if (equal? x z) e
             (let ([y (variable-not-in (append (all-vars b) (all-vars v)) z)])
               ;; TODO: exponential risk
-              (lam y t (go (subst z y b)))))]
+              (value (lam y t (go (subst z y b))) '{})))]
        [else e])]
     [(blame l1 l2) (blame l1 l2)]
     [(app e1 e2) (app (go e1) (go e2))]
     [(rec f t b) (if (equal? f x) e
-                     (let ([g (variable-not-in (all-vars b v) f)])
+                     (let ([g (variable-not-in (append (all-vars b)
+                                                       (all-vars v)) f)])
                        ;; TODO: exponential risk
                        (rec g t (go (subst f g b)))))]
     [(if/ e1 e2 e3) (if/ (go e1) (go e2) (go e3))]
     [(prim-app o args) (prim-app o (map go args))]
-    [(mon h f g c e) (mon h f g (go-con c) (go e))]
+    [(mon h f g c e) (mon h f g (subst-con x v c) (go e))]
     [z (if (equal? z x) v z)]))
 
 ;; read-exp : S-exp -> Exp
@@ -404,7 +411,7 @@
            (func/c (read-con c) x (read-type t) (read-con d))
            (error "function contract: expect symbol, given: " x))]
       [`(,c ↦ ,d)
-       (let ([x (variable-not-in d 'dummy)])
+       (let ([x (variable-not-in d 'z)])
          (func/c (read-con c) x 'Int (read-con d)))]
       [else (error "invalid contract form: " s)]))
   

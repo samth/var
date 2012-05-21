@@ -1,5 +1,6 @@
 #lang racket
 
+(require rackunit)
 (require "scpcf-lang.rkt")
 
 (provide
@@ -27,67 +28,72 @@
 
 ;; eval* : Exp -> (ExpSet, with all members being answers)
 (define (eval* e)
-  (fix (non-det eval1) (singleton e) exp-set=?))
+  (fix (non-det eval1) (single e) exp-set=?))
 
 ;; eval1 : Exp -> ExpSet
 ;; actually, eval1's reflexive closure
 (define (eval1 e)
   (match e
-    [(value u cs) {singleton e}]
-    [(blame l1 l2) {singleton e}]
+    [(value u cs) {single e}]
+    [(blame l1 l2) {single e}]
     [(app e1 e2) ; TODO apply •
      (match `(,e1 ,e2)
        [`(,(value (lam x t body) cs1) ,(value u cs2))
-        {singleton (subst x e2 body)}]
-       [`(,(value (lam x t body) cs1) _)
-        {(non-det (curry app e1)) (eval1 e2)}]
-       [else {(non-det (λ (func) (app func e2))) (eval1 e1)}])]
-    [(rec f t e) (subst f (rec f t e) e)]
+        {single (subst x e2 body)}]
+       [`(,(value (lam x t body) cs1) ,arg)
+        {exp-set-map (λ (arg) (app e1 arg)) (eval1 arg)}]
+       [else {exp-set-map (λ (func) (app func e2)) (eval1 e1)}])]
+    [(rec f t e) {single (subst f (rec f t e) e)}]
     [(if/ e1 e2 e3)
      (match e1
        [(value u cs)
-        {(non-det (λ (b) {singleton
-                          (match b
-                            [(value #t _) e2]
-                            [(value #f _) e3])}))
-         (δ 'true? `(,e1))}]
-       [else {(non-det (λ (test) {singleton (if/ test e2 e3)}))
-              (eval1 e1)}])]
+        {exp-set-map (λ (b)
+                       (match b
+                         [(value #t _) e2]
+                         [(value #f _) e3]))
+                     (δ 'true? `(,e1))}]
+       [else {exp-set-map (λ (test) (if/ test e2 e3))
+                          (eval1 e1)}])]
     [(prim-app o args)
      (if (andmap value? args) {δ o args}
          (let ([z (split-at (compose not value?) args)])
-           {(non-det
-             (λ (v)
-               {singleton (prim-app o (combine (replace v z)))}))
-            (eval1 (focus z))}))]
+           {exp-set-map (λ (v)
+                          (prim-app o (combine (replace v z))))
+                        (eval1 (focus z))}))]
     [(mon h f g c e)
      (match e
        [(value u cs)
-        {singleton
+        {single
          (match c
            [(flat/c p)
-            (match (verify c (value u cs))
+            (match (verify (value u cs) c)
               ['Proved (value u cs)]
               ['Refuted (blame f h)]
               ['Neither (if/ (app p e) (refine e c) (blame f h))])]
            [(func/c C x t D)
-            (lam x t (mon h f g D (app e (mon h g f C x))))])}]
-       [else {(non-det (λ (v) (mon h f g c v))) (eval1 e)}])]
+            (value (lam x t (mon h f g D (app e (mon h g f C x)))) '{})])}]
+       [else {exp-set-map (λ (v) (mon h f g c v)) (eval1 e)}])]
     ; type-checked programs can't reach here
     [else (error "eval1: unexpected: " e)]))
+
+;; ExpSet = ListOf Exp (for now)
 
 ;; non-det : (Exp -> ExpSet) -> (ExpSet -> ExpSet)
 ;; like >>=, but remove duplicates, specialized for exps
 (define (non-det f)
   (λ (exps) (foldr ∪ empty (map f exps))))
 
-;; ExpSet = ListOf Exp (for now)
+;; exp-set-map : (Exp -> Exp) ExpSet -> ExpSet
+;; like map, but remove duplicates, no guarantee to preserve shape
+(define (exp-set-map f es)
+  (foldr (λ (e es1) (cons-exp (f e) es1)) empty es))
+
+;; cons-exp : Exp ExpSet -> ExpSet
+(define (cons-exp e es)
+  (if (ormap (curry exp=? e) es) es (cons e es)))
 
 ;; ∪ : ExpSet ExpSet -> ExpSet
 (define (∪ s1 s2)
-  ;; cons-exp : Exp ExpSet -> ExpSet
-  (define (cons-exp e es)
-    (if (ormap (curry exp=? e) es) es (cons e es)))
   (foldr cons-exp s2 s1))
 
 ;; exp-set=? : ExpSet ExpSet -> ExpSet
@@ -97,15 +103,18 @@
 
 ;; ⊂ : ExpSet ExpSet -> Boolean
 (define (⊂ s1 s2)
-  (andmap (λ (x) (member x s2)) s1))
+  ;; ∈ : Exp ExpSet -> Boolea
+  (define (∈ exp exps)
+    (ormap (curry exp=? exp) exps))
+  (andmap (λ (x) (∈ x s2)) s1))
 
-;; singleton : Exp -> ExpSet
-(define (singleton x) (list x))
+;; single : Exp -> ExpSet
+(define (single x) (list x))
 
 ;; verify : Value Contract -> Verified
 (define (verify v c)
   (if (ormap (curry con=? c) (value-refinements v))
-      'Verified
+      'Proved
       'Neither))
 
 ;; fix : (x -> x) x (x x -> Boolean) -> x
@@ -146,4 +155,23 @@
 (define (focus z)
   (first (second z)))
 
+;; pow : [x -> x] Nat -> [x -> x]
+(define (pow f n)
+  (λ (x)
+    (if (zero? n) x ((pow f (sub1 n)) (f x)))))
 
+;(define e ((pow (non-det eval1) 2) (list (read-exp ap00))))
+;(define func (app-func (first e))) 
+
+;;;;; tests
+
+;; test evaluation
+(for-each
+ (λ (case)
+   (match case
+     [`(,e ,a ,l) (test-true
+                   l
+                   (exp-set=? (eval* (read-exp e)) (map read-exp a)))]))
+ `([,ev? {,ev?} "ev?"]
+   [,ap00 {2} "ap00"]
+   [(,tri 3) {6} "tri"]))
