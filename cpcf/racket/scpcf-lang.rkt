@@ -364,15 +364,15 @@
      (match u
        [(lam z t b)
         (if (equal? x z) e
-            (let ([y (variable-not-in (append (all-vars b) (all-vars v)) z)])
+            (let ([y (variable-not-in (append (free-vars b) (free-vars v)) z)])
               ;; TODO: exponential risk
               (value (lam y t (go (subst z y b))) '{})))]
        [else e])]
     [(blame l1 l2) (blame l1 l2)]
     [(app e1 e2) (app (go e1) (go e2))]
     [(rec f t b) (if (equal? f x) e
-                     (let ([g (variable-not-in (append (all-vars b)
-                                                       (all-vars v)) f)])
+                     (let ([g (variable-not-in (append (free-vars b)
+                                                       (free-vars v)) f)])
                        ;; TODO: exponential risk
                        (rec g t (go (subst f g b)))))]
     [(if/ e1 e2 e3) (if/ (go e1) (go e2) (go e3))]
@@ -389,16 +389,31 @@
     [(func/c c z t d)
      (if (equal? z x)
          (func/c (go c) z t d)
-         (let ([y (variable-not-in (append (all-vars v) (all-vars-con d)) z)])
+         (let ([y (variable-not-in (append (free-vars v) (con-free-vars d)) z)])
            (func/c (go c) y t
                    ;; TODO: exponential risk
                    (go (subst-con z y d)))))]))
 
-;; all-vars : Exp -> [Listof Symbol]
-(define (all-vars e) (flatten (show-exp e)))
+;; free-vars : Exp -> [Listof Var]
+(define (free-vars e)
+  (match e
+    [(value (lam x t b) cs)
+     (filter (compose not (curry equal? x))
+             (apply append (cons (free-vars b) (map con-free-vars cs))))]
+    [(app e1 e2) (append (free-vars e1) (free-vars e2))]
+    [(rec x t b) (filter (compose not (curry equal? x)) (free-vars b))]
+    [(if/ e1 e2 e3) (append (free-vars e1) (free-vars e2) (free-vars e3))]
+    [(prim-app o args) (apply append (map free-vars args))]
+    [(mon h f g c e) (append (con-free-vars c) (free-vars e))]
+    [x (if (var? x) (list x) empty)]))
 
-;; all-vars-con : Contract -> [Listof Symbol]
-(define (all-vars-con c) (flatten (show-con c)))
+;; con-free-vars : Contract -> [Listof Var]
+(define (con-free-vars c)
+  (match c
+    [(flat/c e) (free-vars e)]
+    [(func/c c x t d)
+     (append (con-free-vars c)
+             (filter (compose not (curry equal? x)) (con-free-vars d)))]))
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
