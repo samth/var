@@ -256,20 +256,20 @@
     (match e
       [(value (opaque t) refinements) t]
       [(value (lam var type body) refinements)
-       (lift func-type type (type-check-with (cons `(,var ,type) tenv) body))]
+       (extend func-type type (type-check-with (cons `(,var ,type) tenv) body))]
       [(blame l1 l2) '⊥]
-      [(app f x) (lift type-app
+      [(app f x) (extend type-app
                        (type-check-with tenv f)
                        (type-check-with tenv x))]
       [(rec var type body) (type-check-with 
                             (cons `(,var ,type) tenv) body)]
-      [(if/ e1 e2 e3) (lift type-if
+      [(if/ e1 e2 e3) (extend type-if
                             (type-check-with tenv e1)
                             (type-check-with tenv e2)
                             (type-check-with tenv e3))]
-      [(prim-app o args) (apply (curry lift (∆ o)) (map (curry type-check-with tenv) args))]
+      [(prim-app o args) (apply (curry extend (∆ o)) (map (curry type-check-with tenv) args))]
       [(mon h f g c e)
-       (lift type-mon
+       (extend type-mon
              (type-check-con-with tenv c)
              (type-check-with tenv e))]
       [(value u refinements)
@@ -287,17 +287,19 @@
   (define (type-check-con-with tenv c)
     (match c
       [(flat/c e) (match (type-check-with tenv e)
-                    [(func-type t 'Bool) (lift con-type t)]
+                    [(func-type t 'Bool) (extend con-type t)]
                     [else 'TypeError])]
       [(func/c dom x t rng)
        (match `(,(type-check-con-with tenv dom)
                 ,(type-check-con-with (cons `(,x ,t) tenv) rng))
          [`(,(con-type t1) ,(con-type t2))
-          (lift con-type (func-type t1 t2))]
+          (extend con-type (func-type t1 t2))]
          [else 'TypeError])]))
   
-  ;; lift : (Type* -> TypeResult) TypeResult* -> TypeResult
-  (define (lift f . maybeTypes)
+  ;; extend : (Type* -> TypeResult) TypeResult* -> TypeResult
+  ;; extends function's range from Type* to TypeResult*
+  ;; returns 'TypeError if any argument is
+  (define (extend f . maybeTypes)
     (if (ormap (curry equal? 'TypeError) maybeTypes)
         'TypeError
         (apply f maybeTypes)))
