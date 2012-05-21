@@ -155,13 +155,8 @@
 (define (focus z)
   (first (second z)))
 
-;; pow : [x -> x] Nat -> [x -> x]
-(define (pow f n)
-  (λ (x)
-    (if (zero? n) x ((pow f (sub1 n)) (f x)))))
-
 ;(define e ((pow (non-det eval1) 2) (list (read-exp ap00))))
-;(define func (app-func (first e))) 
+;(define func (app-func (first e)))
 
 ;;;;; tests
 

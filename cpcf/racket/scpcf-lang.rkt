@@ -167,23 +167,23 @@
 
 ;; normalize-with : [Listof Var] Exp -> Exp'
 (define (normalize-with xs e)
-    (match e
-      [(value u cs)
-       (value (match u
-                [(lam x t e) (lam 0 0 (normalize-with (cons x xs) e))]
-                [else u])
-              (map (curry normalize-con-with xs) cs))]
-      [(blame l1 l2) (blame l1 l2)] ; TODO: can we equate all blames?
-      [(app e1 e2) (app (normalize-with xs e1) (normalize-with xs e2))]
-      [(rec f t e) (rec 0 0 (normalize-with (cons f xs) e))]
-      [(if/ e1 e2 e3) (if/ (normalize-with xs e1)
-                           (normalize-with xs e2)
-                           (normalize-with xs e3))]
-      [(prim-app o args) (prim-app o (map (curry normalize-with xs) args))]
-      [(mon h f g c e) (mon h f g
-                            (normalize-con-with xs c)
-                            (normalize-with xs e))]
-      [else (maybe-var-distance e xs)]))
+  (match e
+    [(value u cs)
+     (value (match u
+              [(lam x t e) (lam 0 0 (normalize-with (cons x xs) e))]
+              [else u])
+            (map (curry normalize-con-with xs) cs))]
+    [(blame l1 l2) (blame l1 l2)] ; TODO: can we equate all blames?
+    [(app e1 e2) (app (normalize-with xs e1) (normalize-with xs e2))]
+    [(rec f t e) (rec 0 0 (normalize-with (cons f xs) e))]
+    [(if/ e1 e2 e3) (if/ (normalize-with xs e1)
+                         (normalize-with xs e2)
+                         (normalize-with xs e3))]
+    [(prim-app o args) (prim-app o (map (curry normalize-with xs) args))]
+    [(mon h f g c e) (mon h f g
+                          (normalize-con-with xs c)
+                          (normalize-with xs e))]
+    [else (maybe-var-distance e xs)]))
 
 ;; maybe-var-distance : Var [Listof Var] -> Nat or Var
 (define (maybe-var-distance x xs)
@@ -193,7 +193,7 @@
       [(cons z zs) (if (equal? x z) k (go (+ 1 k) zs))]
       [empty x]))
   (go 0 xs))
-                                                  
+
 ;; normalize-con : Contract -> Contract'
 (define (normalize-con c)
   (normalize-con-with empty c))
@@ -258,9 +258,9 @@
                             (type-check-with tenv e2)
                             (type-check-with tenv e3))]
       [(prim-app o args) (apply (curry lift (∆ o)) (map (curry type-check-with tenv) args))]
-      [(mon h f g con e)
+      [(mon h f g c e)
        (lift type-mon
-             (type-check-con-with tenv con)
+             (type-check-con-with tenv c)
              (type-check-with tenv e))]
       [(value u refinements)
        (cond
@@ -308,7 +308,7 @@
   (define (type=? t1 t2)
     (match `(,t1 ,t2)
       [`(,(func-type x1 y1) ,(func-type x2 y2))
-       (and (type=? x1 x2) (type=? x2 y2))]
+       (and (type=? x1 x2) (type=? y1 y2))]
       [`(,(con-type x1) ,(con-type x2)) (type=? x1 x2)]
       [else (equal? t1 t2)]))
   
@@ -475,6 +475,13 @@
      `(,(show-con dom) ↦ (λ (,var ,(show-type type)) ,(show-con rng)))]))
 
 ;; example terms
+
+; contracts
+(define any/c `(flat (λ (x Int) #t)))
+(define prime/c `(flat (λ (x Int) (prime? x))))
+(define non-neg/c `(flat (λ (x Int) (non-neg? x))))
+
+; expressions
 (define ev? '(λ (x Int) (even? x)))
 (define db1
   `(mon h f g
@@ -501,6 +508,20 @@
                   (if (zero? n) 0
                       (+ n (f (- n 1)))))))
 (define ap00-db2 `((,db2 ,ap0) 0))
+(define keygen ; opaque
+  `(mon h f g (,any/c ↦ ,prime/c) (• (Int → Int))))
+(define rsa ; opaque
+  `(mon h f g (,prime/c ↦ (,any/c ↦ ,any/c)) (• (Int → (Int → Int)))))
+(define rsa-ap
+  `((,rsa (,keygen 13)) (• Int)))
+(define sqroot
+  `(mon h f g (,non-neg/c ↦ ,non-neg/c)
+        (λ (x Int) (sqrt x))))
+(define sqrt-user
+  `(mon h f g ((,any/c ↦ ,any/c) ↦ ,any/c)
+        (λ (f (Int → Int)) (,sqroot (f 0)))))
+(define sqrt-ap
+  `(,sqrt-user (• (Int → Int))))
 
 ;;;;; testing
 (define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
@@ -520,3 +541,9 @@
 (check-equal? (tc ap0) '(Int → Int))
 (check-equal? (tc ap00) 'Int)
 (check-equal? (tc tri) '(Int → Int))
+(check-equal? (tc keygen) '(Int → Int))
+(check-equal? (tc rsa) '(Int → (Int → Int)))
+(check-equal? (tc rsa-ap) 'Int)
+(check-equal? (tc sqroot) '(Int → Int))
+(check-equal? (tc sqrt-user) '((Int → Int) → Int))
+(check-equal? (tc sqrt-ap) 'Int)
