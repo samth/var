@@ -33,14 +33,31 @@
 ;; eval1 : Exp -> ExpSet
 ;; actually, eval1's reflexive closure
 (define (eval1 e)
+  
+  ;; with-range-subst : Value FunContract -> Contract
+  ;; given function contract, return its range with value substituted
+  (define (with-range-subst v c)
+    (match c
+      [(func/c c x t d) (subst-con x v d)]))
+  
+  ;; havoc : (FuncType | BaseType) -> Exp
+  (define (havoc t)
+    (match t
+      [(func-type tx ty)
+       (lam 'x t (app (havoc ty) (app 'x (value (opaque tx)))))]
+      [else (rec 'x 'Int 'x)]))
+  
   (match e
     [(value u cs) {single e}]
     [(blame l1 l2) {single e}]
-    [(app e1 e2) ; TODO apply •
+    [(app e1 e2)
      (match `(,e1 ,e2)
        [`(,(value (lam x t body) cs1) ,(value u cs2))
         {single (subst x e2 body)}]
-       [`(,(value (lam x t body) cs1) ,arg)
+       [`(,(value (opaque (func-type t1 t2)) cs1) ,(value u cs2))
+        `{,(value (opaque t2) (map (curry with-range-subst e2) cs1))
+          ,(app (havoc t1) e2)}]
+       [`(,(value u cs1) ,arg)
         {exp-set-map (λ (arg) (app e1 arg)) (eval1 arg)}]
        [else {exp-set-map (λ (func) (app func e2)) (eval1 e1)}])]
     [(rec f t e) {single (subst f (rec f t e) e)}]

@@ -71,6 +71,9 @@
  ;; subst : Var Exp Exp -> Exp
  subst
  
+ ;; subst-con : Var Exp Contract -> Contract
+ subst-con
+ 
  ;; type-check : Exp -> TypeResult
  type-check
  
@@ -86,6 +89,10 @@
  
  ;; example terms
  ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
+ keygen rsa rsa-ap sqroot sqrt-user sqrt-ap
+ 
+ ;; example contracts
+ any/c prime/c non-neg/c
  )
 
 
@@ -211,7 +218,10 @@
   (if (andmap concrete? xs)
       (list (value (apply (op-impl o) (map value-pre xs)) '{}))
       (match (op-range o)
-        ['Int `{,(value (opaque 'Int) '{})}]
+        ['Int 
+         (match o
+           ['sqrt `{,(value (opaque 'Int) `{,(read-con non-neg/c)})}]
+           [else `{,(value (opaque 'Int) '{})}])]
         ['Bool `{,(value #t '{}) ,(value #f '{})}])))
 
 ;; concrete? : Value -> Boolean
@@ -345,30 +355,8 @@
 
 ;; subst : Var Exp Exp -> Exp
 (define (subst x v e)
-  
-  ;; all-vars : Exp -> [Listof Symbol]
-  (define all-vars (compose flatten show-exp))
-  
-  ;; all-vars-con : Contract -> [Listof Symbol]
-  (define all-vars-con (compose flatten show-con))
-  
-  ;; subst-con : Var Exp Contract -> Contract
-  (define (subst-con x v c)
-    ;; go : Contract -> Contract
-    (define go (curry subst-con x v))
-    (match c
-      [(flat/c e) (flat/c (subst x v e))]
-      [(func/c c z t d)
-       (if (equal? z x)
-           (func/c (go c) z t d)
-           (let ([y (variable-not-in (append (all-vars v) (all-vars-con d)) z)])
-             (func/c (go c) y t
-                     ;; TODO: exponential risk
-                     (go (subst-con z y d)))))]))
-  
   ;; go : Exp -> Exp
   (define go (curry subst x v))
-  
   (match e
     [(value u cs)
      (match u
@@ -390,30 +378,28 @@
     [(mon h f g c e) (mon h f g (subst-con x v c) (go e))]
     [z (if (equal? z x) v z)]))
 
+;; subst-con : Var Exp Contract -> Contract
+(define (subst-con x v c)
+  ;; go : Contract -> Contract
+  (define go (curry subst-con x v))
+  (match c
+    [(flat/c e) (flat/c (subst x v e))]
+    [(func/c c z t d)
+     (if (equal? z x)
+         (func/c (go c) z t d)
+         (let ([y (variable-not-in (append (all-vars v) (all-vars-con d)) z)])
+           (func/c (go c) y t
+                   ;; TODO: exponential risk
+                   (go (subst-con z y d)))))]))
+
+;; all-vars : Exp -> [Listof Symbol]
+(define (all-vars e) (flatten (show-exp e)))
+
+;; all-vars-con : Contract -> [Listof Symbol]
+(define (all-vars-con c) (flatten (show-con c)))
+
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
-  
-  ;; read-type : S-exp -> Type
-  (define (read-type s)
-    (match s
-      ['Int 'Int]
-      ['Bool 'Bool]
-      [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
-      [`(con ,t) (con-type (read-type t))]
-      [else (error "invalid type form: " s)]))
-  
-  ;; read-con : S-exp -> Contract
-  (define (read-con s)
-    (match s
-      [`(flat ,e) (flat/c (read-exp e))]
-      [`(,c ↦ (λ (,x ,t) ,d))
-       (if (symbol? x)
-           (func/c (read-con c) x (read-type t) (read-con d))
-           (error "function contract: expect symbol, given: " x))]
-      [`(,c ↦ ,d)
-       (let ([x (variable-not-in d 'z)])
-         (func/c (read-con c) x 'Int (read-con d)))]
-      [else (error "invalid contract form: " s)]))
   
   (match s
     [`(• ,t) (value (opaque (read-type t)) empty)]
@@ -444,6 +430,28 @@
          [(boolean? x) (value x empty)]
          [(var? x) x]
          [else (error "invalid expression form: " x)]))))
+
+;; read-type : S-exp -> Type
+(define (read-type s)
+  (match s
+    ['Int 'Int]
+    ['Bool 'Bool]
+    [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
+    [`(con ,t) (con-type (read-type t))]
+    [else (error "invalid type form: " s)]))
+
+;; read-con : S-exp -> Contract
+(define (read-con s)
+  (match s
+    [`(flat ,e) (flat/c (read-exp e))]
+    [`(,c ↦ (λ (,x ,t) ,d))
+     (if (symbol? x)
+         (func/c (read-con c) x (read-type t) (read-con d))
+         (error "function contract: expect symbol, given: " x))]
+    [`(,c ↦ ,d)
+     (let ([x (variable-not-in d 'z)])
+       (func/c (read-con c) x 'Int (read-con d)))]
+    [else (error "invalid contract form: " s)]))
 
 ;; show-exp : Exp -> S-exp
 (define (show-exp e)
