@@ -2,6 +2,7 @@
 
 (require rackunit)
 (require "scpcf-lang.rkt")
+(require racket/contract)
 
 (provide
  ;; ExpSet = [ListOf Exp] -- (for now)
@@ -94,17 +95,17 @@
        {single
         (match (verify e c)
           ['Proved e]
-          ['Refuted (blame f h)]
+          ['Refuted (blame/ f h)]
           ['Neither
            (match c
-             [(flat/c p) (if/ (app p e) (refine e c) (blame f h))]
+             [(flat/c p) (if/ (app p e) (refine e c) (blame/ f h))]
              [(func/c C x t D)
               (value (lam x t (mon h f g D (app e (mon h g f C x)))) '{})])])}]
       [else {exp-set-map (λ (v) (mon h f g c v)) (eval1 e)}]))
   
   (match e
     [(value u cs) {single e}]
-    [(blame l1 l2) {single e}]
+    [(blame/ l1 l2) {single e}]
     [(app e1 e2) (eval1-app e1 e2)]
     [(rec f t e) {single (subst f (rec f t e) e)}]
     [(if/ e1 e2 e3) (eval1-if e1 e2 e3)]
@@ -158,7 +159,7 @@
 ;; Zipper x = (list [Listof x] x [Listof x])
 ;; e.g.: [1,2,3,4,5] focused at 3 -> (list [2,1] [3,4,5])
 
-;; split : [x -> Boolean] [Listof x] -> [Zipper x]
+;; split-at : [x -> Boolean] [Listof x] -> [Zipper x]
 (define (split-at p xs)
   ;; go : [Listof x] [Listof x] -> [Zipper x]
   (define (go l r)

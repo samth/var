@@ -1,103 +1,88 @@
 #lang racket
 (require redex) ; variable-not-in
 (require rackunit)
+(require racket/contract)
 
 (provide
- ;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
- ;; Answer := Value | Blame
- ;; PreValue := Opaque | Integer | Boolean | Lambda
  
- ;; Value := (value PreValue [Listof Contract])
- value value? value-pre value-refinements
- 
- ;; Opaque := (opaque Type)
- opaque opaque? opaque-type
- 
- ;; Lambda := (lam Var Type Exp)
- lam lam? lam-var lam-type lam-body
- 
- ;; Var := Symbol
- var?
- 
- ;; App := (app Exp Exp)
- app app? app-func app-arg
- 
- ;; Rec := (rec Var Type Exp)
- rec rec? rec-name rec-type rec-body
- 
- ;; If := (if/ Exp Exp Exp)
- if/ if/? if/-test if/-then if/-else
- 
- ;; Mon := (mon Label Label Label Contract Exp)
- mon mon? mon-origin mon-pos mon-neg mon-con mon-exp
- 
- ;; PrimApp := (prim-app Op [Listof Exp])
- prim-app prim-app? prim-app-op prim-app-args
- 
- ;; Blame := (blame Label Label)
- blame blame? blame-violator blame-violatee
- 
- ;; Label := Symbol
- label?
- 
- ;; Op := O1 | O2
- op?
- 
- ;; O1 := zero? | non-neg? | even? | odd? | prime? | true? | false? | sqrt
- o1?
- 
- ;; O2 := + | -
- o2?
- 
- ;; Contract := FlatContract | FuncContract
- 
- ;; FlatContract := (flat/c Exp)
- flat/c flat/c? flat/c-exp
- ;; FuncContract := (func/c Contract Var Type Contract)
- func/c func/c? func/c-dom func/c-var func/c-type func/c-rng
- 
- ;; Type := BaseType | FuncType | ConType
- ;; BaseType = 'Int | 'Bool | '⊥
- ;; FuncType := (func-type Type Type)
- func-type func-type? func-type-from func-type-to
- ;; ConType := (conc-type Type)
- con-type con-type? con-type-of
- 
- ;; TypeResult := Type | 'TypeError
- 
- ;; δ : Op [Listof Value] -> Answer
- δ
- 
- ;; subst : Var Exp Exp -> Exp
- subst
- 
- ;; subst-con : Var Exp Contract -> Contract
- subst-con
- 
- ;; type-check : Exp -> TypeResult
- type-check
- 
- ;; read-exp : S-exp -> Exp
- read-exp
- 
- show-exp ; Exp -> S-exp
- show-type ; Type -> S-exp
- show-con ; Contract -> S-exp
- 
- exp=? ; Exp Exp -> Boolean
- con=? ; Contract Contract -> Boolean
+ (contract-out
+  ;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
+  ;; Answer := Value | Blame
+  
+  ;; PreValue := Opaque | Integer | Boolean | Lambda
+  [struct value ([pre pre-value?] [refinements (listof contract/?)])]
+  [struct opaque ([type type?])]
+  
+  [struct lam ([var var?] [type type?] [body exp?])]
+  [struct app ([func exp?] [arg exp?])]
+  [struct rec ([name var?] [type type?] [body exp?])]
+  [struct if/ ([test exp?] [then exp?] [else exp?])]
+  [struct mon ([orig label?] [pos label?] [neg label?]
+                             [con contract/?] [exp exp?])]
+  [struct prim-app ([op op?] [args (listof exp?)])]
+  [struct blame/ ([violator label?] [violatee label?])]
+  
+  [struct flat/c ([exp exp?])]
+  [struct func/c ([dom contract/?] [var var?] [type type?] [rng contract/?])]
+  
+  
+  ;; Type := BaseType | FuncType | ConType
+  ;; BaseType = 'Int | 'Bool | '⊥
+  [struct func-type ([from type?] [to type?])]
+  [struct con-type ([of type?])]
+  
+  [δ (op? (listof value?) . -> . (listof answer?))]
+  
+  [subst (var? exp? exp? . -> . exp?)]
+  [subst-con (var? exp? contract/? . -> . contract/?)]
+  
+  [type-check (exp? . -> . type-result?)]
+  
+  [read-exp (s-exp? . -> . exp?)]
+  [show-exp (exp . -> . s-exp?)]
+  [show-type (exp . -> . s-exp?)]
+  [show-con (exp . -> . s-exp?)]
+  
+  [exp=? (exp? exp? . -> . boolean?)]
+  [con=? (contract/? contract/? . -> . boolean?)]
+  
+  ;; 'type' predicates
+  [exp? (any/c . -> . boolean?)]
+  [answer? (any/c . -> . boolean?)]
+  ;[value? (any/c . -> . boolean?)]
+  [pre-value? (any/c . -> . boolean?)]
+  [var? (any/c . -> . boolean?)]
+  [label? (any/c . -> . boolean?)]
+  [op? (any/c . -> . boolean?)]
+  [o1? (any/c . -> . boolean?)]
+  [o2? (any/c . -> . boolean?)]
+  [contract/? (any/c . -> . boolean?)]
+  [type? (any/c . -> . boolean?)]
+  [base-type? (any/c . -> . boolean?)]
+  [type-result? (any/c . -> . boolean?)]
+  [s-exp? (any/c . -> . boolean?)])
  
  ;; example terms
  ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
  keygen rsa rsa-ap sqroot sqrt-user sqrt-ap
  
  ;; example contracts
- any/c prime/c non-neg/c
+ c/any c/prime c/non-neg
  )
 
+;; s-exp? : Any -> Boolean
+(define s-exp? any/c) ; TODO
+
+;; answer : Any -> Boolean
+(define (answer? x)
+  (or (value? x) (blame/? x)))
 
 ;; Value := (value PreValue [Listof Contract])
 (struct value (pre refinements))
+
+;; pre-value? : Any -> Boolean
+(define (pre-value? x)
+  (or (integer? x) (boolean? x) (opaque? x) (lam? x)))
 
 ;; Opaque := (opaque Type)
 (struct opaque (type))
@@ -129,24 +114,39 @@
   (member o '(+ -)))
 
 ;; Mon := (mon Label Label label Contract Exp)
-(struct mon (origin pos neg con exp))
+(struct mon (orig pos neg con exp))
 
 ;; Label := Symbol
 (define label? symbol?)
 
-;; Blame := (blame Label Label)
-(struct blame (violator violatee))
+;; blame/ := (blame/ Label Label)
+(struct blame/ (violator violatee))
+
+;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
+(define exp?
+  ;; TODO: is it safe to exploit the fact that a predicate is a contract?
+  (or/c answer? var? app? rec? if/? prim-app? mon?))
 
 ;; Contract = (flat/c Exp) | (func/c Contract Var Type Contract)
 (struct flat/c (exp))
 (struct func/c (dom var type rng))
+(define (contract/? x)
+  (or (flat/c? x) (func/c? x)))
 
 ;; Type = BaseType | (func-type Type Type) | (con-type Type)
 ;; BaseType = 'Int | 'Bool | '⊥
 (struct func-type (from to))
 (struct con-type (of))
+;; base-type? : Any -> Boolean
+(define (base-type? x)
+  (member x '(Int Bool ⊥)))
+;; type? : Any -> Boolean
+(define (type? x)
+  (or (base-type? x) (func-type? x) (con-type? x)))
 
 ;; TypeResult = Type | TypeError
+(define (type-result? x)
+  (or (type? x) (equal? x 'TypeError)))
 
 ;; exp=? : Exp Exp -> Boolean
 (define (exp=? x y)
@@ -180,7 +180,7 @@
               [(lam x t e) (lam 0 0 (normalize-with (cons x xs) e))]
               [else u])
             (map (curry normalize-con-with xs) cs))]
-    [(blame l1 l2) (blame l1 l2)] ; TODO: can we equate all blames?
+    [(blame/ l1 l2) (blame/ l1 l2)] ; TODO: can we equate all blame/s?
     [(app e1 e2) (app (normalize-with xs e1) (normalize-with xs e2))]
     [(rec f t e) (rec 0 0 (normalize-with (cons f xs) e))]
     [(if/ e1 e2 e3) (if/ (normalize-with xs e1)
@@ -220,7 +220,7 @@
       (match (op-range o)
         ['Int 
          (match o
-           ['sqrt `{,(value (opaque 'Int) `{,(read-con non-neg/c)})}]
+           ['sqrt `{,(value (opaque 'Int) `{,(read-con c/non-neg)})}]
            [else `{,(value (opaque 'Int) '{})}])]
         ['Bool `{,(value #t '{}) ,(value #f '{})}])))
 
@@ -257,21 +257,21 @@
       [(value (opaque t) refinements) t]
       [(value (lam var type body) refinements)
        (extend func-type type (type-check-with (cons `(,var ,type) tenv) body))]
-      [(blame l1 l2) '⊥]
+      [(blame/ l1 l2) '⊥]
       [(app f x) (extend type-app
-                       (type-check-with tenv f)
-                       (type-check-with tenv x))]
+                         (type-check-with tenv f)
+                         (type-check-with tenv x))]
       [(rec var type body) (type-check-with 
                             (cons `(,var ,type) tenv) body)]
       [(if/ e1 e2 e3) (extend type-if
-                            (type-check-with tenv e1)
-                            (type-check-with tenv e2)
-                            (type-check-with tenv e3))]
+                              (type-check-with tenv e1)
+                              (type-check-with tenv e2)
+                              (type-check-with tenv e3))]
       [(prim-app o args) (apply (curry extend (∆ o)) (map (curry type-check-with tenv) args))]
       [(mon h f g c e)
        (extend type-mon
-             (type-check-con-with tenv c)
-             (type-check-with tenv e))]
+               (type-check-con-with tenv c)
+               (type-check-with tenv e))]
       [(value u refinements)
        (cond
          [(integer? u) 'Int]
@@ -368,7 +368,7 @@
               ;; TODO: exponential risk
               (value (lam y t (go (subst z y b))) '{})))]
        [else e])]
-    [(blame l1 l2) (blame l1 l2)]
+    [(blame/ l1 l2) (blame/ l1 l2)]
     [(app e1 e2) (app (go e1) (go e2))]
     [(rec f t b) (if (equal? f x) e
                      (let ([g (variable-not-in (append (free-vars b)
@@ -423,9 +423,9 @@
     [`(λ (,x ,t) ,e) (if (symbol? x)
                          (value (lam x (read-type t) (read-exp e)) empty)
                          (error "λ: expect symbol, given: " x))]
-    [`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
-                        (blame f g)
-                        (error "blame: expect symbols, given: " f g))]
+    [`(blame/ ,f ,g) (if (and (symbol? f) (symbol? g))
+                         (blame/ f g)
+                         (error "blame/: expect symbols, given: " f g))]
     [`(μ (,f ,t) ,e) (if (symbol? f)
                          (rec f (read-type t) (read-exp e))
                          (error "μ: expect symbol, given: " f))]
@@ -476,7 +476,7 @@
     [(value (opaque t) _) `(• ,(show-type t))]
     [(value (lam var type body) _)
      `(λ (,var ,(show-type type)) ,(show-exp body))]
-    [(blame l1 l2) `(blame ,l1 ,l2)]
+    [(blame/ l1 l2) `(blame/ ,l1 ,l2)]
     [(app f x) (map show-exp `(,f ,x))]
     [(rec var type body) `(μ (,var ,(show-type type)) ,(show-exp body))]
     [(if/ e1 e2 e3) `(if ,@(map show-exp `(,e1 ,e2 ,e3)))]
@@ -502,9 +502,9 @@
 ;; example terms
 
 ; contracts
-(define any/c `(flat (λ (x Int) #t)))
-(define prime/c `(flat (λ (x Int) (prime? x))))
-(define non-neg/c `(flat (λ (x Int) (non-neg? x))))
+(define c/any `(flat (λ (x Int) #t)))
+(define c/prime `(flat (λ (x Int) (prime? x))))
+(define c/non-neg `(flat (λ (x Int) (non-neg? x))))
 
 ; expressions
 (define ev? '(λ (x Int) (even? x)))
@@ -534,16 +534,16 @@
                       (+ n (f (- n 1)))))))
 (define ap00-db2 `((,db2 ,ap0) 0))
 (define keygen ; opaque
-  `(mon h f g (,any/c ↦ ,prime/c) (• (Int → Int))))
+  `(mon h f g (,c/any ↦ ,c/prime) (• (Int → Int))))
 (define rsa ; opaque
-  `(mon h f g (,prime/c ↦ (,any/c ↦ ,any/c)) (• (Int → (Int → Int)))))
+  `(mon h f g (,c/prime ↦ (,c/any ↦ ,c/any)) (• (Int → (Int → Int)))))
 (define rsa-ap
   `((,rsa (,keygen 13)) (• Int)))
 (define sqroot
-  `(mon h f g (,non-neg/c ↦ ,non-neg/c)
+  `(mon h f g (,c/non-neg ↦ ,c/non-neg)
         (λ (x Int) (sqrt x))))
 (define sqrt-user
-  `(mon h f g ((,any/c ↦ ,any/c) ↦ ,any/c)
+  `(mon h f g ((,c/any ↦ ,c/any) ↦ ,c/any)
         (λ (f (Int → Int)) (,sqroot (f 0)))))
 (define sqrt-ap
   `(,sqrt-user (• (Int → Int))))
