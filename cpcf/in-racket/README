@@ -1,2 +1,6 @@
 * TODO
 ** use real Racket contracts instead of comments
+** use real sets
+** use environment instead of substitution
+** use nameless representation for lambdas
+** make sure result is consistent with redex model
