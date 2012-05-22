@@ -35,9 +35,9 @@
   [type-check (exp? . -> . type-result?)]
   
   [read-exp (s-exp? . -> . exp?)]
-  [show-exp (exp . -> . s-exp?)]
-  [show-type (exp . -> . s-exp?)]
-  [show-con (exp . -> . s-exp?)]
+  [show-exp (exp? . -> . s-exp?)]
+  [show-type (type? . -> . s-exp?)]
+  [show-con (contract/? . -> . s-exp?)]
   
   [exp=? (exp? exp? . -> . boolean?)]
   [con=? (contract/? contract/? . -> . boolean?)]

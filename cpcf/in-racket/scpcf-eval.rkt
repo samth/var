@@ -5,16 +5,17 @@
 (require racket/contract)
 
 (provide
- ;; ExpSet = [ListOf Exp] -- (for now)
- 
- ;; Verified := 'Proved | 'Refuted | 'Neither
- 
- ;; eval1, eval* : Exp -> ExpSet
- eval1 eval*
- 
- ;; interact1, interact* : -> [Listof S-exp]
- ;; reads in expression in SCPCF, returns possible results in S-exp
- interact1 interact*)
+ (contract-out
+  [exp-set? (any/c . -> . boolean?)]
+  [eval1 (exp? . -> . exp-set?)]
+  [eval* (exp? . -> . exp-set?)]
+  
+  ;; reads in s-exp, evals, prints out result
+  [interact1 (-> (listof s-exp?))]
+  [interact* (-> (listof s-exp?))]))
+
+;; TODO use real set
+(define exp-set? (listof exp?))
 
 ;; interact1, interact* : -> [Listof S-exp]
 (define (interact1) (interact-with eval1))
@@ -138,6 +139,7 @@
 (define (single x) (list x))
 
 ;; verify : Value Contract -> Verified
+;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify v c)
   (if (ormap (curry con=? c) (value-refinements v))
       'Proved
