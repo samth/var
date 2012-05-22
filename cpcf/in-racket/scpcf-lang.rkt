@@ -6,10 +6,6 @@
 (provide
  
  (contract-out
-  ;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
-  ;; Answer := Value | Blame
-  
-  ;; PreValue := Opaque | Integer | Boolean | Lambda
   [struct value ([pre pre-value?] [refinements (listof contract/?)])]
   [struct opaque ([type type?])]
   
@@ -46,10 +42,11 @@
   [exp=? (exp? exp? . -> . boolean?)]
   [con=? (contract/? contract/? . -> . boolean?)]
   
-  ;; 'type' predicates
+  ;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
   [exp? (any/c . -> . boolean?)]
+  ;; Answer := Value | Blame
   [answer? (any/c . -> . boolean?)]
-  ;[value? (any/c . -> . boolean?)]
+  ;; PreValue := Opaque | Integer | Boolean | Lambda
   [pre-value? (any/c . -> . boolean?)]
   [var? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
@@ -90,7 +87,7 @@
 ;; Lambda := (lambda Var Type Exp)
 (struct lam (var type body))
 
-;; Var := Symbol
+;; var? : Any -> Boolean
 (define var? symbol?)
 
 ;; App := (app Exp Exp)
@@ -116,33 +113,34 @@
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon (orig pos neg con exp))
 
-;; Label := Symbol
+;; label? : Any -> Boolean
 (define label? symbol?)
 
 ;; blame/ := (blame/ Label Label)
 (struct blame/ (violator violatee))
 
-;; Exp := Answer | Var | App | Rec | If | PrimApp | Mon
-(define exp?
-  ;; TODO: is it safe to exploit the fact that a predicate is a contract?
-  (or/c answer? var? app? rec? if/? prim-app? mon?))
+;; exp : Any -> Boolean?
+(define (exp? x)
+  (ormap (λ (f) (f x)) (list answer? var? app? rec? if/? prim-app? mon?)))
 
-;; Contract = (flat/c Exp) | (func/c Contract Var Type Contract)
-(struct flat/c (exp))
-(struct func/c (dom var type rng))
+;; contract/? : Any -> Boolean
 (define (contract/? x)
   (or (flat/c? x) (func/c? x)))
+(struct flat/c (exp))
+(struct func/c (dom var type rng))
 
-;; Type = BaseType | (func-type Type Type) | (con-type Type)
-;; BaseType = 'Int | 'Bool | '⊥
-(struct func-type (from to))
-(struct con-type (of))
-;; base-type? : Any -> Boolean
-(define (base-type? x)
-  (member x '(Int Bool ⊥)))
 ;; type? : Any -> Boolean
+;; Type = BaseType | (func-type Type Type) | (con-type Type)
 (define (type? x)
   (or (base-type? x) (func-type? x) (con-type? x)))
+
+(struct func-type (from to))
+(struct con-type (of))
+
+;; base-type? : Any -> Boolean
+;; BaseType = 'Int | 'Bool | '⊥
+(define (base-type? x)
+  (member x '(Int Bool ⊥)))
 
 ;; TypeResult = Type | TypeError
 (define (type-result? x)
