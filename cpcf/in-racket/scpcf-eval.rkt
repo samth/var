@@ -6,19 +6,15 @@
 
 (provide
  (contract-out
-  [exp-set? (any/c . -> . boolean?)]
-  [eval1 (exp? . -> . exp-set?)]
-  [eval* (exp? . -> . exp-set?)]
+  ;[eval1 (exp? . -> . exp-set?)]
+  [eval (exp? . -> . (set/c answer?))]
   
   ;; reads in s-exp, evals, prints out result
-  [interact1 (-> (listof s-exp?))]
+  ;[interact1 (-> (listof s-exp?))]
   [interact* (-> (listof s-exp?))]))
 
-;; TODO use real set
-(define exp-set? (listof exp?))
-
 ;; interact1, interact* : -> [Listof S-exp]
-(define (interact1) (interact-with eval1))
+#;(define (interact1) (interact-with eval1))
 (define (interact*) (interact-with eval*))
 
 ;; interact-with : (Exp -> ExpSet) -> [Listof S-exp]
@@ -26,7 +22,12 @@
   (let ([e (read-exp (read))])
     (match (type-check e)
       ['TypeError (error "Does not type check")]
-      [else (map show-exp (func e))])))
+      [else (map show-exp (set->list (func e)))])))
+
+(struct cek (exp env kont))
+
+;; load : Exp -> CEK
+;; returns initial machine state for closed expression
 
 ;; eval* : Exp -> (ExpSet, with all members being answers)
 (define (eval* e)
@@ -115,29 +116,6 @@
     ; good programs can't reach here
     [else (error "eval1: unexpected: " e)]))
 
-;; cons-exp : Exp ExpSet -> ExpSet
-(define (cons-exp e es)
-  (if (∈ e es) es (cons e es)))
-
-;; ∪ : ExpSet ExpSet -> ExpSet
-(define (∪ s1 s2)
-  (foldr cons-exp s2 s1))
-
-;; exp-set=? : ExpSet ExpSet -> ExpSet
-(define (exp-set=? s1 s2)
-  (and (= (length s1) (length s2)) (⊂ s1 s2)))
-
-;; ⊂ : ExpSet ExpSet -> Boolean
-(define (⊂ s1 s2)
-  (andmap (λ (x) (∈ x s2)) s1))
-
-;; ∈ : Exp ExpSet -> Boolean
-(define (∈ exp exps)
-  (ormap (curry exp=? exp) exps))
-
-;; single : Exp -> ExpSet
-(define (single x) (list x))
-
 ;; verify : Value Contract -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify v c)
@@ -152,37 +130,7 @@
     (if (=? x y) x (go y (f y))))
   (go x (f x)))
 
-;; refine : Value Contract -> Value
-;; assumes value does not already prove contract at this point
-(define (refine v c)
-  (value (value-pre v) (cons c (value-refinements v))))
 
-;; helpers for dealing with (eval (o V ... [] E ...))
-;; Zipper x = (list [Listof x] x [Listof x])
-;; e.g.: [1,2,3,4,5] focused at 3 -> (list [2,1] [3,4,5])
-
-;; split-at : [x -> Boolean] [Listof x] -> [Zipper x]
-(define (split-at p xs)
-  ;; go : [Listof x] [Listof x] -> [Zipper x]
-  (define (go l r)
-    (match r
-      [(cons x xs) (if (p x) (list l r) (go (cons x l) xs))]
-      [empty (list l r)]))
-  (go empty xs))
-
-;; replace : [x -> x] [Zipper x] -> [Zipper x]
-(define (replace x1 z)
-  (match z
-    [(list l (cons r rs)) (list l (cons x1 rs))]
-    [else z]))
-
-;; combine : [Zipper x] -> [Listof x]
-(define (combine z)
-  (foldl cons (second z) (first z)))
-
-;; focus : [Zipper x] -> x
-(define (focus z)
-  (first (second z)))
 
 ;;;;; tests
 

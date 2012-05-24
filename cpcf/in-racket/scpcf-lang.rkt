@@ -5,64 +5,65 @@
 
 (require "env.rkt")
 
-#;(provide
-   
-   (contract-out
-    [struct value ([pre pre-value?] [refinements (listof contract/?)])]
-    [struct opaque ([type type?])]
-    
-    [struct lam ([type type?] [body exp?])]
-    [struct app ([func exp?] [arg exp?])]
-    [struct rec ([type type?] [body exp?])]
-    [struct if/ ([test exp?] [then exp?] [else exp?])]
-    [struct mon ([orig label?] [pos label?] [neg label?]
-                               [con contract/?] [exp exp?])]
-    [struct prim-app ([op op?] [args (listof exp?)])]
-    [struct blame/ ([violator label?] [violatee label?])]
-    
-    [struct flat/c ([exp exp?])]
-    [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
-    
-    
-    ;; Type := BaseType | FuncType | ConType
-    ;; BaseType = 'Int | 'Bool | '⊥
-    [struct func-type ([from type?] [to type?])]
-    [struct con-type ([of type?])]
-    
-    [δ (op? (listof value?) . -> . (listof answer?))]
-    
-    [type-check (exp? . -> . type-result?)]
-    
-    [read-exp (s-exp? . -> . exp?)]
-    [show-exp (exp? . -> . s-exp?)]
-    [show-type (type? . -> . s-exp?)]
-    [show-con (contract/? . -> . s-exp?)]
-    
-    ;; PreValue := Opaque | Integer | Boolean | Lambda
-    [pre-value? (any/c . -> . boolean?)]
-    [var? (any/c . -> . boolean?)]
-    [label? (any/c . -> . boolean?)]
-    [op? (any/c . -> . boolean?)]
-    [o1? (any/c . -> . boolean?)]
-    [o2? (any/c . -> . boolean?)]
-    [type? (any/c . -> . boolean?)]
-    [base-type? (any/c . -> . boolean?)]
-    [type-result? (any/c . -> . boolean?)]
-    [s-exp? (any/c . -> . boolean?)])
-   
-   ;; example terms
-   ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
-   keygen rsa rsa-ap sqroot sqrt-user sqrt-ap
-   
-   ;; example contracts
-   c/any c/prime c/non-neg
-   )
+(provide
+ 
+ (contract-out
+  [struct value ([pre pre-value?] [refinements (set/c contract/?)])]
+  [struct opaque ([type type?])]
+  
+  [struct lam ([type type?] [body exp?])]
+  [struct app ([func exp?] [arg exp?])]
+  [struct rec ([type type?] [body exp?])]
+  [struct if/ ([test exp?] [then exp?] [else exp?])]
+  [struct mon ([orig label?] [pos label?] [neg label?]
+                             [con contract/?] [exp exp?])]
+  [struct prim-app ([op op?] [args (listof exp?)])]
+  [struct blame/ ([violator label?] [violatee label?])]
+  
+  [struct flat/c ([exp exp?])]
+  [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
+  
+  
+  ;; Type := BaseType | FuncType | ConType
+  ;; BaseType = 'Int | 'Bool | '⊥
+  [struct func-type ([from type?] [to type?])]
+  [struct con-type ([of type?])]
+  
+  [δ (op? (listof value?) . -> . (set/c answer?))]
+  
+  [type-check (exp? . -> . type-result?)]
+  
+  [read-exp (s-exp? . -> . exp?)]
+  [show-exp (exp? . -> . s-exp?)]
+  [show-type (type? . -> . s-exp?)]
+  
+  [exp? (any/c . -> . boolean?)]
+  [answer? (any/c . -> . boolean?)]
+  ;; PreValue := Opaque | Integer | Boolean | Lambda
+  [pre-value? (any/c . -> . boolean?)]
+  [var? (any/c . -> . boolean?)]
+  [label? (any/c . -> . boolean?)]
+  [op? (any/c . -> . boolean?)]
+  [o1? (any/c . -> . boolean?)]
+  [o2? (any/c . -> . boolean?)]
+  [type? (any/c . -> . boolean?)]
+  [base-type? (any/c . -> . boolean?)]
+  [type-result? (any/c . -> . boolean?)]
+  [s-exp? (any/c . -> . boolean?)])
+ 
+ ;; example terms
+ ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
+ keygen rsa rsa-ap sqroot sqrt-user sqrt-ap
+ 
+ ;; example contracts
+ c/any c/prime c/non-neg
+ )
 
 ;; s-exp? : Any -> Boolean
 (define s-exp? any/c) ; TODO
 
 (struct exp () #:transparent)
-(struct answer () #:transparent)
+(struct answer exp () #:transparent)
 ;; App := (app Exp Exp)
 (struct app exp (func arg) #:transparent)
 ;; Rec := (rec Type Exp)
@@ -124,17 +125,21 @@
 (define (type-result? x)
   (or (type? x) (equal? x 'TypeError)))
 
-;; δ : Op [Listof Value] -> [Listof Answer]
+;; ∅ : Set
+(define ∅ (set))
+
+;; δ : Op [Listof Value] -> [Setof Answer]
 ;; applies primitive op
-#;(define (δ o xs)
-    (if (andmap concrete? xs)
-        (list (value (apply (op-impl o) (map value-pre xs)) '{}))
-        (match (op-range o)
-          ['Int 
-           (match o
-             ['sqrt `{,(value (opaque 'Int) `{,(read-con c/non-neg)})}]
-             [else `{,(value (opaque 'Int) '{})}])]
-          ['Bool `{,(value #t '{}) ,(value #f '{})}])))
+(define (δ o xs)
+  (if (andmap concrete? xs)
+      {set (value (apply (op-impl o) (map value-pre xs)) ∅)}
+      (match (op-range o)
+        ['Int 
+         (match o
+           ['sqrt {set (value (opaque 'Int)
+                              {set (read-con c/non-neg)})}]
+           [else {set (value (opaque 'Int) ∅)}])]
+        ['Bool {set (value #t ∅) (value #f ∅)}])))
 
 ;; concrete? : Value -> Boolean
 ;; checks whether value is concrete
@@ -256,56 +261,38 @@
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
-  
-  ;; read-con-with : [Listof Symbol] S-exp -> Contract
-  (define (read-con-with names s)
-    (match s
-      [`(flat ,e) (flat/c (read-exp-with names e))]
-      [`(,c ↦ (λ (,x ,t) ,d))
-       (if (symbol? x)
-           (func/c (read-con-with names c)
-                   (read-type t)
-                   (read-con-with (cons x names) d))
-           (error "function contract: expect symbol, given: " x))]
-      [`(,c ↦ ,d)
-       (let ([x (variable-not-in d 'z)]) ; desugar independent contract
-         (read-con-with names `(,c ↦ (λ (,x Int) ,d))))]
-      [else (error "invalid contract form: " s)]))
-  
-  ;; read-exp-with : [Listof Symbol] S-exp -> Exp
-  (define (read-exp-with names s)
-    (match s
-      [`(• ,t) (value (opaque (read-type t)) empty)]
-      [`(λ (,x ,t) ,s) (if (symbol? x)
-                           (value (lam (read-type t)
-                                       (read-exp-with (cons x names) s))
-                                  empty)
-                           (error "λ: expect symbol, given: " x))]
-      [`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
-                          (blame/ f g)
-                          (error "blame: expect symbols, given: " f g))]
-      [`(μ (,f ,t) ,s) (if (symbol? f)
-                           (rec (read-type t) (read-exp-with (cons f names) s))
-                           (error "μ: expect symbol, given: " f))]
-      [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names s1)
-                              (read-exp-with names s2)
-                              (read-exp-with names s3))]
-      [`(mon ,h ,f ,g ,c ,e)
-       (if (andmap symbol? `(,h ,f ,g))
-           (mon h f g (read-con-with names c) (read-exp-with names e))
-           (error "mon: expect symbols, given: " h f g))]
-      [`(,s0 ,s1)
-       (if (o1? s0)
-           (prim-app s0 (list (read-exp-with names s1)))
-           {app (read-exp-with names s0) (read-exp-with names s1)})]
-      [`(,s0 ,s1 ,s2)
-       (if (o2? s0)
-           (prim-app s0 (list (read-exp-with names s1) (read-exp-with names s2)))
-           (error "expect binary op, given: " s0))]
-      [x (cond
-           [(or (boolean? x) (integer? x)) (value x empty)]
-           [(symbol? x) (name-distance x names)]
-           [else (error "invalid expression form: " x)])]))
+  (read-exp-with empty s))
+
+;; read-con : S-exp -> Contract
+(define (read-con s)
+  (read-con-with empty s))
+
+;; read-type : S-exp -> Type
+(define (read-type s)
+  (match s
+    ['Int 'Int]
+    ['Bool 'Bool]
+    [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
+    [`(con ,t) (con-type (read-type t))]
+    [else (error "invalid type form: " s)]))
+
+;; read-con-with : [Listof Symbol] S-exp -> Contract
+(define (read-con-with names s)
+  (match s
+    [`(flat ,e) (flat/c (read-exp-with names e))]
+    [`(,c ↦ (λ (,x ,t) ,d))
+     (if (symbol? x)
+         (func/c (read-con-with names c)
+                 (read-type t)
+                 (read-con-with (cons x names) d))
+         (error "function contract: expect symbol, given: " x))]
+    [`(,c ↦ ,d)
+     (let ([x (variable-not-in d 'z)]) ; desugar independent contract
+       (read-con-with names `(,c ↦ (λ (,x Int) ,d))))]
+    [else (error "invalid contract form: " s)]))
+
+;; read-exp-with : [Listof Symbol] S-exp -> Exp
+(define (read-exp-with names s)
   
   ;; name-distance : Symbol [Listof Symbol] -> Natural
   (define (name-distance x xs)
@@ -316,16 +303,38 @@
         [empty (error "expression not closed, unbound variable: " x )]))
     (go 0 xs))
   
-  (read-exp-with empty s))
-
-;; read-type : S-exp -> Type
-(define (read-type s)
   (match s
-    ['Int 'Int]
-    ['Bool 'Bool]
-    [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
-    [`(con ,t) (con-type (read-type t))]
-    [else (error "invalid type form: " s)]))
+    [`(• ,t) (value (opaque (read-type t)) ∅)]
+    [`(λ (,x ,t) ,s) (if (symbol? x)
+                         (value (lam (read-type t)
+                                     (read-exp-with (cons x names) s))
+                                ∅)
+                         (error "λ: expect symbol, given: " x))]
+    [`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
+                        (blame/ f g)
+                        (error "blame: expect symbols, given: " f g))]
+    [`(μ (,f ,t) ,s) (if (symbol? f)
+                         (rec (read-type t) (read-exp-with (cons f names) s))
+                         (error "μ: expect symbol, given: " f))]
+    [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names s1)
+                            (read-exp-with names s2)
+                            (read-exp-with names s3))]
+    [`(mon ,h ,f ,g ,c ,e)
+     (if (andmap symbol? `(,h ,f ,g))
+         (mon h f g (read-con-with names c) (read-exp-with names e))
+         (error "mon: expect symbols, given: " h f g))]
+    [`(,s0 ,s1)
+     (if (o1? s0)
+         (prim-app s0 (list (read-exp-with names s1)))
+         {app (read-exp-with names s0) (read-exp-with names s1)})]
+    [`(,s0 ,s1 ,s2)
+     (if (o2? s0)
+         (prim-app s0 (list (read-exp-with names s1) (read-exp-with names s2)))
+         (error "expect binary op, given: " s0))]
+    [x (cond
+         [(or (boolean? x) (integer? x)) (value x ∅)]
+         [(symbol? x) (name-distance x names)]
+         [else (error "invalid expression form: " x)])]))
 
 ;; show-exp : Exp -> S-exp
 (define (show-exp e)
