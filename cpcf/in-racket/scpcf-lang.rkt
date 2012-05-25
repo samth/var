@@ -19,6 +19,7 @@
                              [con contract/?] [exp exp?])]
   [struct prim-app ([op op?] [args (listof exp?)])]
   [struct blame/ ([violator label?] [violatee label?])]
+  [struct ref ([distance natural?])]
   
   [struct flat/c ([exp exp?])]
   [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
@@ -43,7 +44,6 @@
   [answer? (any/c . -> . boolean?)]
   ;; PreValue := Opaque | Integer | Boolean | Lambda
   [pre-value? (any/c . -> . boolean?)]
-  [var? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
   [op? (any/c . -> . boolean?)]
   [o1? (any/c . -> . boolean?)]
@@ -93,9 +93,8 @@
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
 
-;; var? : Any -> Boolean
-(define (var? x)
-  (and (integer? x) (>= x 0)))
+;; Ref := (ref Natural)
+(struct ref exp (distance) #:transparent)
 
 ;; Op := O1 | O2
 (define (op? o)
@@ -178,6 +177,7 @@
   ;; type-check-with : [Env TypeResult] Exp -> TypeResult
   (define (type-check-with tenv e)
     (match e
+      [(ref d) (env-get-default d 'TypeError tenv)]
       [(value (opaque t) refinements) t]
       [(value (lam type body) refinements)
        (extend func-type type (type-check-with (env-extend type tenv) body))]
@@ -199,8 +199,7 @@
       [(value u refinements)
        (cond
          [(integer? u) 'Int]
-         [(boolean? u) 'Bool])]
-      [var (env-get-default var 'TypeError tenv)]))
+         [(boolean? u) 'Bool])]))
   
   ;; type-check-con-with : [Env TypeResult] Contract -> TypeResult
   (define (type-check-con-with tenv c)
@@ -340,7 +339,7 @@
          (error "expect binary op, given: " s0))]
     [x (cond
          [(or (boolean? x) (integer? x)) (value x ∅)]
-         [(symbol? x) (name-distance x names)]
+         [(symbol? x) (ref (name-distance x names))]
          [else (error "invalid expression form: " x)])]))
 
 ;; show-exp : Exp -> S-exp
@@ -377,7 +376,7 @@
                              ,(show-exp-with names e))]
       [(value u refinements) u]
       ;; closed expressions can't cause error
-      [distance (list-ref names distance)]))
+      [(ref d) (list-ref names d)]))
   
   ;; show-con-with : [Listof Symbol] Contract -> S-exp
   (define (show-con-with names c)
