@@ -1,125 +1,126 @@
 #lang racket
 
 (require rackunit)
-(require "scpcf-lang.rkt")
 (require racket/contract)
+(require "scpcf-lang.rkt")
+(require "env.rkt")
 
 (provide
  (contract-out
-  ;[eval1 (exp? . -> . exp-set?)]
-  [eval (exp? . -> . (set/c answer?))]
-  
-  ;; reads in s-exp, evals, prints out result
-  ;[interact1 (-> (listof s-exp?))]
-  [interact* (-> (listof s-exp?))]))
+  [load (exp? . -> . cek?)]
+  [step (cek? . -> . (set/c cek?))]))
 
-;; interact1, interact* : -> [Listof S-exp]
-#;(define (interact1) (interact-with eval1))
-(define (interact*) (interact-with eval*))
+;; Closure = (clo Exp Env)
+(struct clo (exp env) #:transparent)
 
-;; interact-with : (Exp -> ExpSet) -> [Listof S-exp]
-(define (interact-with func)
-  (let ([e (read-exp (read))])
-    (match (type-check e)
-      ['TypeError (error "Does not type check")]
-      [else (map show-exp (set->list (func e)))])))
+;; CEK = (cek Exp [Env Value] Kont)
+(struct cek (exp env kont) #:transparent)
 
-(struct cek (exp env kont))
+;; Kont = Mt
+;;      | Ar Exp Env Kont
+;;      | Fn Value Env Kont
+;;      | If Exp Exp Env Kont
+;;      | O Op [Listof Value] [Listof Exp] Env Kont
+;;      | Mon Label Label Label Contract Env Kont
+(struct kont () #:transparent)
+(struct mt kont () #:transparent)
+(struct ar kont (e env k) #:transparent)
+(struct fn kont (f env k) #:transparent)
+(struct if/k kont (then else env k) #:transparent)
+(struct op/k kont (o vals exps env k) #:transparent)
+(struct mon/k kont (h f g con env k) #:transparent)
 
 ;; load : Exp -> CEK
-;; returns initial machine state for closed expression
+(define (load e)
+  (cek e env-empty (mt)))
 
-;; eval* : Exp -> (ExpSet, with all members being answers)
-(define (eval* e)
+;; step : CEK -> [Setof CEK]
+(define (step conf)
   
-  ;; non-det : (Exp -> ExpSet) -> (ExpSet -> ExpSet)
-  ;; like >>= flipped, but remove duplicates, specialized for exps
-  (define (non-det f)
-    (λ (exps) (foldr ∪ empty (map f exps))))
+  ;; s-map : [x -> y] [Setof x] -> [Setof y]
+  (define (s-map f xs)
+    (list->set (set-map xs f)))
   
-  (fix (non-det eval1) (single e) exp-set=?))
-
-;; eval1 : Exp -> ExpSet
-;; actually, eval1's reflexive closure
-(define (eval1 e)
-  
-  ;; with-range-subst : Value FunContract -> Contract
-  ;; given function contract, return its range with value substituted
-  (define (with-range-subst v c)
-    (match c
-      [(func/c c x t d) (subst-con x v d)]))
+  ;; refine : Value ContractClosure -> Value
+  (define (refine v c)
+    (value (value-pre v) (set-add (value-refinements v) c)))
   
   ;; havoc : (FuncType | BaseType) -> Exp
   (define (havoc t)
     (match t
       [(func-type tx ty)
-       (lam 'x t (app (havoc ty) (app 'x (value (opaque tx)))))]
-      [else (rec 'x 'Int 'x)]))
+       (lam t (app (havoc ty) (app 0 (value (opaque tx) {set}))))]
+      [else (rec 'Int 0)]))
   
-  ;; exp-set-map : (Exp -> Exp) ExpSet -> ExpSet
-  ;; like map, but remove duplicates, not guaranteed to preserve 'shape'
-  (define (exp-set-map f es)
-    (foldr (λ (e es1) (cons-exp (f e) es1)) empty es))
-  
-  ;; eval1-app : Exp Exp -> ExpSet
-  (define (eval1-app e1 e2)
-    (match `(,e1 ,e2)
-      [`(,(value (lam x t body) cs1) ,(value u cs2)) ;; ((λ ..) V)
-       {single (subst x e2 body)}]
-      [`(,(value (opaque (func-type t1 t2)) cs1) ,(value u cs2)) ;; (• V)
-       `{,(value (opaque t2) (map (curry with-range-subst e2) cs1))
-         ,(app (havoc t1) e2)}]
-      [`(,(value u cs1) ,arg) ;; (V E)
-       {exp-set-map (λ (arg) (app e1 arg)) (eval1 arg)}]
-      [else {exp-set-map (λ (func) (app func e2)) (eval1 e1)}])) ;; (E E)
-  
-  ;; eval1-if : Exp Exp Exp -> ExpSet
-  (define (eval1-if e1 e2 e3)
-    (match e1
-      [(value u cs)
-       {exp-set-map (λ (b) (if (value-pre b) e2 e3))
-                    (δ 'true? `(,e1))}]
-      [else {exp-set-map (λ (test) (if/ test e2 e3))
-                         (eval1 e1)}]))
-  
-  ;; eval1-prim : Op [Listof Exp] -> ExpSet
-  (define (eval1-prim o args)
-    (if (andmap value? args) {δ o args}
-        (let ([z (split-at (compose not value?) args)])
-          {exp-set-map (λ (v)
-                         (prim-app o (combine (replace v z))))
-                       (eval1 (focus z))})))
-  
-  ;; eval1-mon : Label Label Label Contract Exp -> ExpSet
-  (define (eval1-mon h f g c e)
-    (match e
-      [(value u cs)
-       {single
-        (match (verify e c)
-          ['Proved e]
-          ['Refuted (blame/ f h)]
-          ['Neither
-           (match c
-             [(flat/c p) (if/ (app p e) (refine e c) (blame/ f h))]
-             [(func/c C x t D)
-              (value (lam x t (mon h f g D (app e (mon h g f C x)))) '{})])])}]
-      [else {exp-set-map (λ (v) (mon h f g c v)) (eval1 e)}]))
-  
-  (match e
-    [(value u cs) {single e}]
-    [(blame/ l1 l2) {single e}]
-    [(app e1 e2) (eval1-app e1 e2)]
-    [(rec f t e) {single (subst f (rec f t e) e)}]
-    [(if/ e1 e2 e3) (eval1-if e1 e2 e3)]
-    [(prim-app o args) (eval1-prim o args)]
-    [(mon h f g c e) (eval1-mon h f g c e)]
-    ; good programs can't reach here
-    [else (error "eval1: unexpected: " e)]))
+  (match conf
+    
+    ;; application
+    [(cek [app e1 e2] ρ κ) {set (cek e1 ρ [ar e2 ρ κ])}]
+    [(cek [value u cs] ρ1 [ar e ρ2 κ]) {set (cek e ρ2 [fn (value u cs) ρ1 κ])}]
+    [(cek [value u cs] ρ2 [fn (value (lam t e) _) ρ1 κ])
+     {set (cek e [env-extend (clo (value u cs) ρ2) ρ1] κ)}]
+    [(cek [value u cs2] ρv [fn (value (opaque (func-type t1 t2)) cs1) ρ κ])
+     {set (cek [value
+                (opaque t2)
+                {s-map (λ (c)
+                         (let ([d (func/c-rng c)])
+                           (contract-clo
+                            d
+                            (env-extend (clo (value u cs2) ρv) ρ))))
+                       cs1}]
+               env-empty κ)
+          (cek [app (havoc t1) [value u cs2]] env-empty κ)}]
+    
+    ;; μ
+    [(cek [rec t e] ρ κ) {set (cek e [env-extend (clo (rec t e) ρ) ρ] κ)}]
+    
+    ;; if
+    [(cek [if/ e1 e2 e3] ρ κ) {set (cek e1 ρ [if/k e2 e3 ρ κ])}]
+    [(cek [value u cs] ρ1 [if/k e2 e3 ρ κ])
+     {s-map (λ (v)
+              (cek [if (value-pre v) e2 e3] ρ κ))
+            (δ 'true? (list (value u cs)))}]
+    
+    ;; primitive ops
+    [(cek [prim-app o (cons x xs)] ρ κ) {set (cek x ρ [op/k o '() xs ρ κ])}]
+    [(cek [value u cs] ρv [op/k o vs (cons x xs) ρ κ])
+     {set (cek x ρ [op/k o (cons (value u cs) vs) xs ρ κ])}]
+    [(cek [value u cs] ρv [op/k o vs '() ρ κ])
+     {s-map (λ (v) (cek v env-empty κ))
+            (δ o (reverse (cons (value u cs) vs)))}]
+    
+    ;; monitored expression
+    [(cek [mon h f g c e] ρ κ) {set (cek e ρ [mon/k h f g c ρ κ])}]
+    [(cek [value u cs] ρv [mon/k h f g c ρ κ])
+     {set (match (verify (value u cs) (contract-clo c ρ))
+            ['Proved (cek [value u cs] ρv κ)]
+            ['Refuted (cek [blame/ f h] env-empty κ)]
+            ['Neither
+             (match c
+               [(flat/c e)
+                (cek e ρ [ar (value u cs) ρv
+                             [if/k (refine (value u cs) (contract-clo c ρ))
+                                   (blame/ f h)
+                                   ρv
+                                   κ]])]
+               [(func/c dom t rng)
+                (error "TODO: support higher order contract")])])}]
+    
+    ;; is it ok to do this?
+    [(cek [blame/ f h] ρ κ) {set (cek [blame/ f h] env-empty (mt))}]
+    
+    ;; retain value
+    [(cek [value u cs] ρ (mt)) {set conf}]
+    
+    ;; variable encoded as lexical distance
+    [(cek (ref d) ρ κ) (let ([clo (env-get d ρ)])
+                         {set (cek [clo-exp clo] [clo-env clo] κ)})]))
 
-;; verify : Value Contract -> Verified
+
+;; verify : Value ContractClosure -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify v c)
-  (if (ormap (curry con=? c) (value-refinements v))
+  (if (ormap (curry equal? c) (value-refinements v))
       'Proved
       'Neither))
 
@@ -130,17 +131,13 @@
     (if (=? x y) x (go y (f y))))
   (go x (f x)))
 
-
+;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
+(define (non-det f xs)
+  (apply set-union (set-map xs f)))
 
 ;;;;; tests
 
-;; test evaluation
-(for-each
- (λ (case)
-   (match case
-     [`(,e ,a ,l) (test-true
-                   l
-                   (exp-set=? (eval* (read-exp e)) (map read-exp a)))]))
- `([,ev? {,ev?} "ev?"]
-   [,ap00 {2} "ap00"]
-   [(,tri 3) {6} "tri"]))
+;; TODO test evaluation
+#;`([,ev? {,ev?} "ev?"]
+    [,ap00 {2} "ap00"]
+    [(,tri 3) {6} "tri"])
