@@ -4,12 +4,14 @@
 
 (provide
  (contract-out
-  [env-empty (any/c . -> . env?)]
+  [env-empty env?]
   [env-extend (any/c env? . -> . env?)] ; TODO more precise
   [env-get (natural? env? . -> . any/c)] ; TODO more precise
+  [env-get-default (natural? any/c env? . -> . any/c)] ; TODO more precise
   [env-has? (natural? env? . -> . boolean?)]
   [env-size (env? . -> . natural?)]
   
+  [env? (any/c . -> . boolean?)]
   [natural? (any/c . -> . boolean?)]
   ))
 
@@ -18,41 +20,43 @@
 ;; indices are stored in reverse internally, meaning hash[0] = env[farthest],
 ;; hash[size - 1] = env[nearest]
 
-;; Env x = (env (Hash Natural x) x)
-(struct env (map default))
+;; env? : Any -> Boolean
+(define env? hash?)
 
 ;; natural? : Any -> Boolean
 (define (natural? x)
   (and (integer? x) (>= x 0)))
 
-;; env-empty : x -> [Env x]
-(define (env-empty default)
-  (env (hash) default))
+;; env-empty : [Env x]
+(define env-empty (hash))
 
 ;; env-extend : x [Env x] -> [Env x]
-(define (env-extend x en)
-  (let ([map (env-map en)]
-        [new-pos (env-size en)])
-    (env (hash-set map new-pos x) (env-default en))))
+(define (env-extend x env)
+  (hash-set env (env-size env) x))
 
 ;; env-size : [Env x] -> Natural
-(define env-size (compose hash-count env-map))
+(define env-size hash-count)
 
 ;; env-get : Natural [Env x] -> x
-;; returns element at given distance, or default value on invalid distance
-(define (env-get distance en)
-  (if (env-has? distance en)
-      (hash-ref (env-map en) (- (env-size en) 1 distance))
-      (env-default en)))
+;; returns element at given distance; raises error if there's nothing
+(define (env-get distance env)
+  (if (env-has? distance env)
+      (hash-ref env (- (env-size env) 1 distance))
+      (error "Nothing at distance " distance)))
 
 ;; env-has? : Natural [Env x] -> Boolean
 (define (env-has? distance en)
   (< distance (env-size en)))
 
+;; env-get-default : Natural x [Env x] -> x
+;; returns element at given distance, or default value if there's nothing
+(define (env-get-default distance def env)
+  (if (env-has? distance env) (env-get distance env) def))
+
 
 ;; tests
 (define closures `(3 2 1 0))
-(define e (foldl env-extend (env-empty 'not-found) closures))
+(define e (foldl env-extend env-empty closures))
 (for-each (λ (distance)
             (check-equal? distance (env-get distance e)))
           closures)

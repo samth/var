@@ -8,7 +8,7 @@
 (provide
  
  (contract-out
-  [struct value ([pre pre-value?] [refinements (set/c contract/?)])]
+  [struct value ([pre pre-value?] [refinements (set/c contract-clo?)])]
   [struct opaque ([type type?])]
   
   [struct lam ([type type?] [body exp?])]
@@ -22,6 +22,8 @@
   
   [struct flat/c ([exp exp?])]
   [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
+  
+  [struct contract-clo ([con contract/?] [env env?])]
   
   
   ;; Type := BaseType | FuncType | ConType
@@ -51,6 +53,8 @@
   [type-result? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)])
  
+ ∅ ;; empty set
+ 
  ;; example terms
  ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
  keygen rsa rsa-ap sqroot sqrt-user sqrt-ap
@@ -75,7 +79,7 @@
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon exp (orig pos neg con exp) #:transparent)
 
-;; Value := (value PreValue [Listof Contract])
+;; Value := (value PreValue [Listof ContractClosure])
 (struct value answer (pre refinements) #:transparent)
 
 ;; Opaque := (opaque Type)
@@ -86,7 +90,7 @@
 (define (pre-value? x)
   (or (integer? x) (boolean? x) (opaque? x) (lam? x)))
 
-;; blame/ := (blame/ Label Label)
+;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
 
 ;; var? : Any -> Boolean
@@ -107,6 +111,9 @@
 (struct contract/ () #:transparent)
 (struct flat/c contract/ (exp) #:transparent)
 (struct func/c contract/ (dom type rng) #:transparent)
+
+;; ContractClosure = (contract-clo Contract [Env Value])
+(struct contract-clo (con env) #:transparent)
 
 ;; type? : Any -> Boolean
 ;; Type = BaseType | (func-type Type Type) | (con-type Type)
@@ -137,7 +144,7 @@
         ['Int 
          (match o
            ['sqrt {set (value (opaque 'Int)
-                              {set (read-con c/non-neg)})}]
+                              {set (contract-clo (read-con c/non-neg) env-empty)})}]
            [else {set (value (opaque 'Int) ∅)}])]
         ['Bool {set (value #t ∅) (value #f ∅)}])))
 
@@ -193,7 +200,7 @@
        (cond
          [(integer? u) 'Int]
          [(boolean? u) 'Bool])]
-      [var (env-get var tenv)]))
+      [var (env-get-default var 'TypeError tenv)]))
   
   ;; type-check-con-with : [Env TypeResult] Contract -> TypeResult
   (define (type-check-con-with tenv c)
@@ -257,7 +264,7 @@
       [(member o '(+ -))
        (λ (t1 t2) (match `(,t1 ,t2) ['(Int Int) 'Int] [else 'TypeError]))]))
   
-  (type-check-with (env-empty 'TypeError) e))
+  (type-check-with env-empty e))
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
