@@ -18,17 +18,25 @@
 
 ;; Kont = Mt
 ;;      | Ar Exp Env Kont
-;;      | Fn Value Env Kont
+;;      | Fn Env Env Kont
 ;;      | If Exp Exp Env Kont
 ;;      | O Op [Listof Value] [Listof Exp] Env Kont
 ;;      | Mon Label Label Label Contract Env Kont
+;;      | MonFn Label Label Label Contract Contract Env Value Env Kont
 (struct kont () #:transparent)
 (struct mt kont () #:transparent)
 (struct ar kont (e env k) #:transparent)
-(struct fn kont (f env k) #:transparent)
+(struct fn kont (body env k) #:transparent)
 (struct if/k kont (then else env k) #:transparent)
 (struct op/k kont (o vals exps env k) #:transparent)
 (struct mon/k kont (h f g con env k) #:transparent)
+
+(struct mon-fn kont (h f g c1 c2 con-env body env k))
+;; c1: contract for domain
+;; c2: contract for range, originally under λ
+;; con-env: environment that closes c1 and (λ.c2)
+;; body: the pending function's body
+;; env: environment that closes (λ.body)
 
 ;; load : Exp -> CEK
 (define (load e)
@@ -55,10 +63,21 @@
   (match conf
     
     ;; application
-    [(cek [app e1 e2] ρ κ) {set (cek e1 ρ [ar e2 ρ κ])}]
-    [(cek [value u cs] ρ1 [ar e ρ2 κ]) {set (cek e ρ2 [fn (value u cs) ρ1 κ])}]
-    [(cek [value u cs] ρ2 [fn (value (lam t e) _) ρ1 κ])
-     {set (cek e [env-extend (clo (value u cs) ρ2) ρ1] κ)}]
+    [(cek [app e1 e2] ρ κ) {set (cek e1 ρ [ar e2 ρ κ])}] ; (e e) -> ([] e)
+    [(cek [value u cs] ρ1 [ar e ρ2 κ]) ; (v e) -> (v [])
+     {set (cek e ρ2 [match u
+                      [(lam t b) (fn b ρ1 κ)]
+                      [(mon-lam h f g (func/c c1 t c2) ρc b)
+                       (mon-fn h f g c1 c2 ρc b ρ1 κ)]])}]
+    [(cek [value u cs] ρ2 [fn body ρ1 κ]) ; (fn v)
+     {set (cek body [env-extend (clo (value u cs) ρ2) ρ1] κ)}]
+    [(cek [value u cs] ρv [mon-fn h f g c1 c2 ρc b ρb κ])
+     {set (cek [value u cs] ρv ;; manually add 3 frames:
+               [mon/k h g f c1 ρc ;; (1) monitor the argument
+                      [fn b ρb ;; (2) apply the function
+                          ;; (3) monitor the result
+                          [mon/k h f g c2 (env-extend (clo (value u cs) ρv) ρc)
+                                 κ]]])}]
     [(cek [value u cs2] ρv [fn (value (opaque (func-type t1 t2)) cs1) ρ κ])
      {set (cek [value
                 (opaque t2)
@@ -91,20 +110,22 @@
     
     ;; monitored expression
     [(cek [mon h f g c e] ρ κ) {set (cek e ρ [mon/k h f g c ρ κ])}]
-    [(cek [value u cs] ρv [mon/k h f g c ρ κ])
-     {set (match (verify (value u cs) (contract-clo c ρ))
+    [(cek [value u cs] ρv [mon/k h f g c ρc κ])
+     {set (match (verify (value u cs) (contract-clo c ρc))
             ['Proved (cek [value u cs] ρv κ)]
             ['Refuted (cek [blame/ f h] env-empty κ)]
             ['Neither
              (match c
                [(flat/c e)
-                (cek e ρ [ar (value u cs) ρv
-                             [if/k (refine (value u cs) (contract-clo c ρ))
-                                   (blame/ f h)
-                                   ρv
-                                   κ]])]
+                ;; add 2 kont frames manually
+                (cek e ρc [ar (value u cs) ρv
+                              [if/k (refine (value u cs) (contract-clo c ρc))
+                                    (blame/ f h)
+                                    ρv
+                                    κ]])]
                [(func/c dom t rng)
-                (error "TODO: support higher order contract")])])}]
+                ;; convert monitored function to special closure used internally
+                (cek [value (mon-lam h f g c ρc (lam-body u)) cs] ρv κ)])])}]
     
     ;; is it ok to do this?
     [(cek [blame/ f h] ρ κ) {set (cek [blame/ f h] env-empty (mt))}]
@@ -120,9 +141,7 @@
 ;; verify : Value ContractClosure -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify v c)
-  (if (ormap (curry equal? c) (value-refinements v))
-      'Proved
-      'Neither))
+  (if (set-member? (value-refinements v) c) 'Proved 'Neither))
 
 ;; fix : (x -> x) x (x x -> Boolean) -> x
 (define (fix f x =?)
@@ -141,3 +160,13 @@
 #;`([,ev? {,ev?} "ev?"]
     [,ap00 {2} "ap00"]
     [(,tri 3) {6} "tri"])
+
+(define (run sexp steps)
+  (let ([exp (read-exp sexp)])
+    (match (type-check exp)
+      ['TypeError (error "Does not type check")]
+      [else (let ([m (load exp)])
+              ((pow steps (curry non-det step)) {set m}))])))
+
+(define (pow k f)
+  (apply compose (make-list k f)))

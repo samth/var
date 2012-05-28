@@ -20,6 +20,8 @@
   [struct prim-app ([op op?] [args (listof exp?)])]
   [struct blame/ ([violator label?] [violatee label?])]
   [struct ref ([distance natural?])]
+  [struct mon-lam ([orig label?] [pos label?] [neg label?]
+                                 [con func/c?] [con-env env?] [body exp?])]
   
   [struct flat/c ([exp exp?])]
   [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
@@ -88,7 +90,13 @@
 (struct lam (type body) #:transparent)
 ;; pre-value? : Any -> Boolean
 (define (pre-value? x)
-  (or (integer? x) (boolean? x) (opaque? x) (lam? x)))
+  (or (integer? x) (boolean? x) (opaque? x) (lam? x) (mon-lam? x)))
+
+;; MonitoredLambda := (mon-lam Label Label Label FuncContract [Env Value] Exp)
+;; monitored lambda, for internal use only
+;; con-env is the environment that closes the monitoring contract, which is
+;; of the form (C1 ↦ λ.C2)
+(struct mon-lam (orig pos neg con con-env body) #:transparent)
 
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
@@ -107,6 +115,7 @@
 ;; label? : Any -> Boolean
 (define label? symbol?)
 
+;; Contract := FlatContract | FuncContract
 (struct contract/ () #:transparent)
 (struct flat/c contract/ (exp) #:transparent)
 (struct func/c contract/ (dom type rng) #:transparent)
