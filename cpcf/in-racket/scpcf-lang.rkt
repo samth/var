@@ -21,12 +21,14 @@
   [struct blame/ ([violator label?] [violatee label?])]
   [struct ref ([distance natural?])]
   [struct mon-lam ([orig label?] [pos label?] [neg label?]
-                                 [con func/c?] [con-env env?] [body exp?])]
+                                 [con func/c?] [con-env env?]
+                                 [lam pre-value? #|can be opaque|#])]
   
   [struct flat/c ([exp exp?])]
   [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
   
   [struct contract-clo ([con contract/?] [env env?])]
+  [struct clo ([exp exp?] [env env?])]
   
   
   ;; Type := BaseType | FuncType | ConType
@@ -96,7 +98,7 @@
 ;; monitored lambda, for internal use only
 ;; con-env is the environment that closes the monitoring contract, which is
 ;; of the form (C1 ↦ λ.C2)
-(struct mon-lam (orig pos neg con con-env body) #:transparent)
+(struct mon-lam (orig pos neg con con-env lam) #:transparent)
 
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
@@ -119,6 +121,9 @@
 (struct contract/ () #:transparent)
 (struct flat/c contract/ (exp) #:transparent)
 (struct func/c contract/ (dom type rng) #:transparent)
+
+;; Closure := (clo Exp [Env Value])
+(struct clo (exp env) #:transparent)
 
 ;; ContractClosure = (contract-clo Contract [Env Value])
 (struct contract-clo (con env) #:transparent)

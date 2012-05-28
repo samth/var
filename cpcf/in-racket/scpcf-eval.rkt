@@ -10,15 +10,12 @@
   [load (exp? . -> . cek?)]
   [step (cek? . -> . (set/c cek?))]))
 
-;; Closure = (clo Exp Env)
-(struct clo (exp env) #:transparent)
-
 ;; CEK = (cek Exp [Env Value] Kont)
 (struct cek (exp env kont) #:transparent)
 
 ;; Kont = Mt
 ;;      | Ar Exp Env Kont
-;;      | Fn Env Env Kont
+;;      | Fn Value Env Kont
 ;;      | If Exp Exp Env Kont
 ;;      | O Op [Listof Value] [Listof Exp] Env Kont
 ;;      | Mon Label Label Label Contract Env Kont
@@ -57,8 +54,8 @@
   (define (havoc t)
     (match t
       [(func-type tx ty)
-       (lam t (app (havoc ty) (app 0 (value (opaque tx) {set}))))]
-      [else (rec 'Int 0)]))
+       (lam t (app (havoc ty) (app (ref 0) (value (opaque tx) {set}))))]
+      [else (rec 'Int (ref 0))]))
   
   (match conf
     
@@ -66,15 +63,15 @@
     [(cek [app e1 e2] ρ κ) {set (cek e1 ρ [ar e2 ρ κ])}] ; (e e) -> ([] e)
     [(cek [value u cs] ρ1 [ar e ρ2 κ]) ; (v e) -> (v [])
      {set (cek e ρ2 [match u
-                      [(lam t b) (fn b ρ1 κ)]
-                      [(mon-lam h f g (func/c c1 t c2) ρc b)
-                       (mon-fn h f g c1 c2 ρc b ρ1 κ)]])}]
-    [(cek [value u cs] ρ2 [fn body ρ1 κ]) ; (fn v)
-     {set (cek body [env-extend (clo (value u cs) ρ2) ρ1] κ)}]
-    [(cek [value u cs] ρv [mon-fn h f g c1 c2 ρc b ρb κ])
+                      [(mon-lam h f g (func/c c1 t c2) ρc u1)
+                       (mon-fn h f g c1 c2 ρc (value u1 cs) ρ1 κ)]
+                      [else (fn (value u cs) ρ1 κ)]])}]
+    [(cek [value u cs] ρ2 [fn (value (lam t e) _) ρ1 κ]) ; (fn v)
+     {set (cek e [env-extend (clo (value u cs) ρ2) ρ1] κ)}]
+    [(cek [value u cs] ρv [mon-fn h f g c1 c2 ρc fun ρb κ])
      {set (cek [value u cs] ρv ;; manually add 3 frames:
                [mon/k h g f c1 ρc ;; (1) monitor the argument
-                      [fn b ρb ;; (2) apply the function
+                      [fn fun ρb ;; (2) apply the function
                           ;; (3) monitor the result
                           [mon/k h f g c2 (env-extend (clo (value u cs) ρv) ρc)
                                  κ]]])}]
@@ -125,7 +122,7 @@
                                     κ]])]
                [(func/c dom t rng)
                 ;; convert monitored function to special closure used internally
-                (cek [value (mon-lam h f g c ρc (lam-body u)) cs] ρv κ)])])}]
+                (cek [value (mon-lam h f g c ρc u) cs] ρv κ)])])}]
     
     ;; is it ok to do this?
     [(cek [blame/ f h] ρ κ) {set (cek [blame/ f h] env-empty (mt))}]
