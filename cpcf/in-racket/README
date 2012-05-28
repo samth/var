@@ -1,6 +1,7 @@
 * TODO
 ** [done] use real Racket contracts instead of comments
 ** [done] use real sets
-** [partially done, with quirks] use environment instead of substitution
+** [done] use environment instead of substitution
 ** [done] use nameless representation for lambdas
+** proper equality checking
 ** make sure result is consistent with redex model
