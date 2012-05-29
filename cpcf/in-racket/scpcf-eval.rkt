@@ -8,7 +8,8 @@
 (provide
  (contract-out
   [load (exp? . -> . cek?)]
-  [step (cek? . -> . (set/c cek?))]))
+  [step (cek? . -> . (set/c cek?))]
+  [eval-cek (s-exp? . -> . (set/c eval-answer?))]))
 
 ;; CEK = (cek Exp [Env Value] Kont)
 (struct cek (exp env kont) #:transparent)
@@ -41,10 +42,6 @@
 
 ;; step : CEK -> [Setof CEK]
 (define (step conf)
-  
-  ;; s-map : [x -> y] [Setof x] -> [Setof y]
-  (define (s-map f xs)
-    (list->set (set-map xs f)))
   
   ;; refine : Value ContractClosure -> Value
   (define (refine v c)
@@ -134,22 +131,77 @@
     [(cek (ref d) ρ κ) (let ([clo (env-get d ρ)])
                          {set (cek [clo-exp clo] [clo-env clo] κ)})]))
 
+;; EvalAnswer := Natural | Boolean | '• | '(blame Label Label)
+;;            | 'function
+;; eval-answer? : Any -> Boolean
+(define (eval-answer? x)
+  (match x
+    [`(blame ,l1 ,l2) (and (symbol? l1) (symbol? l2))]
+    [else (or (natural? x) (boolean? x) (member x `(function •)))]))
+
+;; eval-cek : S-Exp -> [Setof EvalAnswer]
+(define (eval-cek e)
+  
+  ;; final? : CEK -> Boolean
+  (define (final? conf)
+    (match conf
+      [(cek (value u cs) ρ (mt)) #t]
+      [else #f]))
+  
+  ;; run : CEK -> [Setof CEK]
+  (define (run conf)
+    ;; go : [Setof CEK] [Setof CEK] -> [Setof CEK]
+    (define (go known unknown)
+      (let ([next (non-det step unknown)]
+            [known1 (set-union known unknown)])
+        (if (subset? next known1) next (go known1 (set-subtract next known1)))))
+    (go ∅ {set conf}))
+  
+  ;; get-answer : (final) CEK -> EvalAnswer
+  (define (get-answer conf)
+    (match conf
+      [(cek (value (lam t e) cs) ρ (mt)) 'function]
+      [(cek (value (mon-lam h f g c ρc e) cs) ρ (mt)) 'function]
+      [(cek (value (opaque t) cs) ρ (mt)) '•]
+      [(cek (value u cs) ρ (mt)) u]
+      [(cek (blame/ l1 l2) ρ (mt)) `(blame ,l1 ,l2)]))
+  
+  (let ([expr (read-exp e)])
+    (match (type-check expr)
+      ['TypeError (error "Does not type check")]
+      [else
+       (s-map get-answer (s-filter final? (run (load expr))))])))
 
 ;; verify : Value ContractClosure -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify v c)
   (if (set-member? (value-refinements v) c) 'Proved 'Neither))
 
-;; fix : (x -> x) x (x x -> Boolean) -> x
-(define (fix f x =?)
-  ;; go : x x -> x
-  (define (go x y)
-    (if (=? x y) x (go y (f y))))
-  (go x (f x)))
-
 ;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
 (define (non-det f xs)
   (apply set-union (set-map xs f)))
+
+
+;;;; helper set functions
+
+;; s-filter : [x -> Boolean] [Setof x] -> [Setof x]
+(define (s-filter p? xs)
+  (list->set (filter p? (set->list xs))))
+
+;; s-map : [x -> y] [Setof x] -> [Setof y]
+(define (s-map f xs)
+  (list->set (set-map xs f)))
+
+#;(define (run sexp steps)
+    (let ([exp (read-exp sexp)])
+      (match (type-check exp)
+        ['TypeError (error "Does not type check")]
+        [else (let ([m (load exp)])
+                ((pow steps (curry non-det step)) {set m}))])))
+
+#;(define (pow k f)
+    (apply compose (make-list k f)))
+
 
 ;;;;; tests
 
@@ -157,13 +209,3 @@
 #;`([,ev? {,ev?} "ev?"]
     [,ap00 {2} "ap00"]
     [(,tri 3) {6} "tri"])
-
-(define (run sexp steps)
-  (let ([exp (read-exp sexp)])
-    (match (type-check exp)
-      ['TypeError (error "Does not type check")]
-      [else (let ([m (load exp)])
-              ((pow steps (curry non-det step)) {set m}))])))
-
-(define (pow k f)
-  (apply compose (make-list k f)))

@@ -135,7 +135,7 @@
      (hash-clo hash-recur #t 0 a))
    (λ (a hash2-recur)
      (hash-clo hash2-recur #f 0 a))))
-     
+
 
 ;; ContractClosure = (contract-clo Contract [Env Value])
 (struct contract-clo (con env) #:transparent
@@ -227,20 +227,22 @@
         [b (if mul? 7 1)])
     (match (clo-exp c)
       [(ref d) (if (< d depth) (hash-recur d)
-                   (hash-recur (env-get (- d depth) ρ)))]
+                   (begin
+                     (print depth)
+                     (hash-recur (env-get (- d depth) ρ))))]
       [(value u cs)
        (match u
          [(opaque t) (hash-recur cs)]
-         [(lam t e) (hash-clo hash-recur a (+ 1 depth) (clo e ρ))]
+         [(lam t e) (hash-clo hash-recur mul? (+ 1 depth) (clo e ρ))]
          [(mon-lam h f g c ρc u1)
-          (+ (hash-con-clo hash-recur a 0 (contract-clo c ρc))
+          (+ (hash-con-clo hash-recur mul? 0 (contract-clo c ρc))
              (* a (hash-clo hash-recur a depth (clo (value u1 ∅) ρ))))]
          [x (hash-recur x)])]
       [(blame/ l1 l2) (+ (hash-recur l1) (* a (hash-recur l2)))]
-      [(rec t e) (hash-clo hash-recur a (+ 1 depth) (clo e ρ))]
-      [(if/ e1 e2 e3) (+ (hash-recur (clo e1 ρ))
-                         (* a (hash-recur (clo e2 ρ)))
-                         (* b (hash-recur (clo e3 ρ))))]
+      [(rec t e) (hash-clo hash-recur mul? (+ 1 depth) (clo e ρ))]
+      [(if/ e1 e2 e3) (+ (hash-clo hash-recur mul? depth (clo e1 ρ))
+                         (* a (hash-clo hash-recur mul? depth (clo e2 ρ)))
+                         (* b (hash-clo hash-recur mul? depth (clo e3 ρ))))]
       [(prim-app o args)
        (apply + (map (λ (x) (hash-clo hash-recur mul? depth (clo x ρ))) args))]
       [(mon h f g c e)
@@ -592,3 +594,20 @@
 (check-equal? (tc sqroot) '(Int → Int))
 (check-equal? (tc sqrt-user) '((Int → Int) → Int))
 (check-equal? (tc sqrt-ap) 'Int)
+
+
+(define c (clo (rec
+                   (func-type 'Int 'Int)
+                 (value
+                  (lam
+                   'Int
+                   (if/
+                    (prim-app 'zero? (list (ref 0)))
+                    (value 0 (set))
+                    (prim-app
+                     '+
+                     (list
+                      (ref 0)
+                      (app (ref 1) (prim-app '- (list (ref 0) (value 1 (set)))))))))
+                  (set)))
+               env-empty))
