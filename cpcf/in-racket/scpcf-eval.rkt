@@ -146,6 +146,7 @@
   (define (final? conf)
     (match conf
       [(cek (value u cs) ρ (mt)) #t]
+      [(cek (blame/ l1 l2) ρ (mt)) #t]
       [else #f]))
   
   ;; run : CEK -> [Setof CEK]
@@ -162,7 +163,8 @@
     (match conf
       [(cek (value (lam t e) cs) ρ (mt)) 'function]
       [(cek (value (mon-lam h f g c ρc e) cs) ρ (mt)) 'function]
-      [(cek (value (opaque t) cs) ρ (mt)) '•]
+      [(cek (value (opaque t) cs) ρ (mt))
+       (if (func-type? t) 'function '•)]
       [(cek (value u cs) ρ (mt)) u]
       [(cek (blame/ l1 l2) ρ (mt)) `(blame ,l1 ,l2)]))
   

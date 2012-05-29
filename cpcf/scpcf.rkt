@@ -1,6 +1,7 @@
 #lang racket
 (require redex)
 (require "cpcf.rkt")
+(require "in-racket/scpcf-eval.rkt")
 
 ;;;;; Symbolic CPCF
 ;; add notion of 'pre-value'
@@ -17,7 +18,12 @@
   ; possible verification results
   [Verified? Proved
              Refuted
-             Neither])
+             Neither]
+  [EvalAnswer n
+              b
+              •
+              function
+              (blame f g)])
 
 ;; converts CPCF terms to SCPCF terms.
 ;; All plain, concrete values are annotated with an empty set of contracts
@@ -313,3 +319,27 @@
 #;(traces SCPCF-red sqrt-ap-better)
 
 (test-results)
+
+
+(define-metafunction SCPCF
+  eval : M -> [EvalAnswer ...]
+  [(eval M) (get-answers ,(apply-reduction-relation* SCPCF-red (term M)))])
+
+(define-metafunction SCPCF
+  get-answers : [M ...] -> [EvalAnswer ...]
+  [(get-answers [(n any) M ...]) 
+   ,[cons (term n) (term (get-answers [M ...]))]]
+  [(get-answers [(tt any) M ...])
+   ,[cons #t (term (get-answers [M ...]))]]
+  [(get-answers [(ff any) M ...])
+   ,[cons #f (term (get-answers [M ...]))]]
+  [(get-answers [((• (T_1 → T_2)) any) M ...])
+   ,[cons (term function) (term (get-answers [M ...]))]]
+  [(get-answers [((• T) any) M ...])
+   ,[cons '• (term (get-answers [M ...]))]]
+  [(get-answers [(blame f g) M ...])
+   ,[cons (term (blame f g)) (term (get-answers [M ...]))]]
+  [(get-answers [((λ (x T) e) any) M ...])
+   ,[cons (term function) (term (get-answers [M ...]))]]
+  [(get-answers [any M ...]) (get-answers [M ...])]
+  [(get-answers []) []])
