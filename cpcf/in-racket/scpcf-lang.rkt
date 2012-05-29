@@ -123,10 +123,33 @@
 (struct func/c contract/ (dom type rng) #:transparent)
 
 ;; Closure := (clo Exp [Env Value])
-(struct clo (exp env) #:transparent)
+(struct clo (exp env) #:transparent
+  #:property
+  prop:equal+hash
+  (list
+   (λ (a b equal?-recur)
+     ;; TODO: I don't know what I'm doing. I might mess up data cycles
+     ;; by manually recurring b/c I have to update the accumulator (depth)
+     (clo=? 0 equal?-recur a b))
+   (λ (a hash-recur)
+     (hash-clo hash-recur #t 0 a))
+   (λ (a hash2-recur)
+     (hash-clo hash2-recur #f 0 a))))
+     
 
 ;; ContractClosure = (contract-clo Contract [Env Value])
-(struct contract-clo (con env) #:transparent)
+(struct contract-clo (con env) #:transparent
+  #:property
+  prop:equal+hash
+  (list
+   (λ (a b equal?-recur)
+     ;; TODO: I don't know what I'm doing. I might mess up data cycles
+     ;; by manually recurring b/c I have to update the accumulator (depth)
+     (con-clo=? 0 equal?-recur a b))
+   (λ (a hash-recur)
+     (hash-con-clo hash-recur #t 0 a))
+   (λ (a hash-recur)
+     (hash-con-clo hash-recur #f 0 a))))
 
 ;; type? : Any -> Boolean
 ;; Type = BaseType | (func-type Type Type) | (con-type Type)
@@ -147,6 +170,93 @@
 
 ;; ∅ : Set
 (define ∅ (set))
+
+;; clo=? : Natural (Any Any -> Boolean) Closure Closure -> Boolean
+;; -- bound variables are compared simply by integer comparison
+;; -- free variables are compared by corresponding closures from environments
+;; INVARIANT: d is the number of variable bindings so far
+(define (clo=? d =? a b)
+  (let ([ρ1 (clo-env a)]
+        [ρ2 (clo-env b)])
+    (match `(,(clo-exp a) ,(clo-exp b))
+      [`(,(ref d1) ,(ref d2))
+       (if (< d1 d) (= d1 d2) ;; reference to bound variable
+           (and (>= d2 d) (=? (env-get (- d1 d) ρ1) (env-get (- d2 d) ρ2))))]
+      [`(,(value u1 cs1) ,(value u2 cs2))
+       (match `(,u1 u2)
+         [`(,(opaque t) ,(opaque t)) (set=? cs1 cs2)]
+         [`(,(lam t1 e1) ,(lam t2 e2))
+          (clo=? (+ 1 d) =? (clo e1 ρ1) (clo e2 ρ2))]
+         [`(,(mon-lam h f g c1 ρc1 u11) ,(mon-lam h f g c2 ρc2 u22))
+          (and (=? (contract-clo c1 ρc1) (contract-clo c2 ρc2))
+               (clo=? d =? (clo (value u11 ∅) ρ1) (clo (value u22 ∅) ρ2)))]
+         [else (=? u1 u2)])]
+      [`(,(blame/ l1 l2) ,(blame/ l3 l4)) (and (=? l1 l2) (=? l3 l4))]
+      [`(,(app f1 e1) ,(app f2 e2))
+       (and (clo=? d =? (clo f1 ρ1) (clo f2 ρ2))
+            (clo=? d =? (clo e1 ρ1) (clo e2 ρ2)))]
+      [`(,(rec t e1) ,(rec t e2)) (clo=? (+ 1 d) =? (clo e1 ρ1) (clo e2 ρ2))]
+      [`(,(if/ e1 e2 e3) ,(if/ e4 e5 e6))
+       (and (clo=? d =? (clo e1 ρ1) (clo e4 ρ2))
+            (clo=? d =? (clo e2 ρ1) (clo e5 ρ2))
+            (clo=? d =? (clo e3 ρ1) (clo e6 ρ2)))]
+      [`(,(prim-app o args1) ,(prim-app o args2))
+       (andmap (λ (x1 x2) (clo=? d =? (clo x1 ρ1) (clo x2 ρ2))) args1 args2)]
+      [`(,(mon h f g c1 e1) ,(mon h f g c2 e2))
+       (and (con-clo=? d =? (contract-clo c1 ρ1) (contract-clo c2 ρ2))
+            (clo=? d =? (clo e1 ρ1) (clo e2 ρ2)))]
+      [else #f])))
+
+;; con-clo=? : Natural (Any Any -> Boolean) ContractClosure ContractClosure
+;;             -> Boolean
+;; INVARIANT: d is the number of variable bindings so far
+(define (con-clo=? d =? a b)
+  (let ([ρ1 (contract-clo-env a)]
+        [ρ2 (contract-clo-env b)])
+    (match `(,a ,b)
+      [`(,(flat/c e1) ,(flat/c e2)) (clo=? d =? (clo e1 ρ1) (clo e2 ρ2))]
+      [`(,(func/c c1 t d1) ,(func/c c2 t d2))
+       (and (con-clo=? d =? (contract-clo c1 ρ1) (contract-clo c2 ρ2))
+            (con-clo=? (+ 1 d) =? (contract-clo d1 ρ1) (contract-clo d2 ρ2)))]
+      [else #f])))
+
+;; hash-clo : (Any -> Integer) Boolean Natural Closure -> Integer
+(define (hash-clo hash-recur mul? depth c)
+  (let ([ρ (clo-env c)]
+        [a (if mul? 3 1)]
+        [b (if mul? 7 1)])
+    (match (clo-exp c)
+      [(ref d) (if (< d depth) (hash-recur d)
+                   (hash-recur (env-get (- d depth) ρ)))]
+      [(value u cs)
+       (match u
+         [(opaque t) (hash-recur cs)]
+         [(lam t e) (hash-clo hash-recur a (+ 1 depth) (clo e ρ))]
+         [(mon-lam h f g c ρc u1)
+          (+ (hash-con-clo hash-recur a 0 (contract-clo c ρc))
+             (* a (hash-clo hash-recur a depth (clo (value u1 ∅) ρ))))]
+         [x (hash-recur x)])]
+      [(blame/ l1 l2) (+ (hash-recur l1) (* a (hash-recur l2)))]
+      [(rec t e) (hash-clo hash-recur a (+ 1 depth) (clo e ρ))]
+      [(if/ e1 e2 e3) (+ (hash-recur (clo e1 ρ))
+                         (* a (hash-recur (clo e2 ρ)))
+                         (* b (hash-recur (clo e3 ρ))))]
+      [(prim-app o args)
+       (apply + (map (λ (x) (hash-clo hash-recur mul? depth (clo x ρ))) args))]
+      [(mon h f g c e)
+       (+ (hash-con-clo hash-recur mul? depth (contract-clo c ρ))
+          (* a (hash-clo hash-recur mul? depth (clo e ρ))))]
+      [x (hash-recur x)])))
+
+;; hash-con-clo : (Any -> Integer) Boolean Natural ContractClosure
+;;                -> Integer
+(define (hash-con-clo hash-recur mul? depth c)
+  (let ([ρ (contract-clo-env c)])
+    (match (contract-clo-con c)
+      [(flat/c e) (hash-clo hash-recur mul? depth (clo e ρ))]
+      [(func/c c t d)
+       (+ (hash-clo hash-recur mul? depth (clo c ρ))
+          (* (if mul? 3 1) (hash-clo hash-recur mul? (+ 1 depth) (clo d ρ))))])))
 
 ;; δ : Op [Listof Value] -> [Setof Answer]
 ;; applies primitive op

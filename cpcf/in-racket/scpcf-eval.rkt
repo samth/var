@@ -28,7 +28,7 @@
 (struct op/k kont (o vals exps env k) #:transparent)
 (struct mon/k kont (h f g con env k) #:transparent)
 
-(struct mon-fn kont (h f g c1 c2 con-env body env k))
+(struct mon-fn kont (h f g c1 c2 con-env body env k) #:transparent)
 ;; c1: contract for domain
 ;; c2: contract for range, originally under λ
 ;; con-env: environment that closes c1 and (λ.c2)
