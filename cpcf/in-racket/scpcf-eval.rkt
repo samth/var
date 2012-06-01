@@ -9,7 +9,9 @@
  (contract-out
   [load (exp? . -> . cek?)]
   [step (cek? . -> . (set/c cek?))]
-  [eval-cek (s-exp? . -> . (set/c eval-answer?))]))
+  [eval-cek (s-exp? . -> . (set/c eval-answer?))]
+  
+  [eval-answer? (any/c . -> . boolean?)]))
 
 ;; CEK = (cek Exp [Env Value] Kont)
 (struct cek (exp env kont) #:transparent)
@@ -144,29 +146,34 @@
   
   ;; final? : CEK -> Boolean
   (define (final? conf)
-    (match conf
-      [(cek (value u cs) ρ (mt)) #t]
-      [(cek (blame/ l1 l2) ρ (mt)) #t]
-      [else #f]))
+    (and (mt? (cek-kont conf))
+         (answer? (cek-exp conf))))
   
   ;; run : CEK -> [Setof CEK]
   (define (run conf)
-    ;; go : [Setof CEK] [Setof CEK] -> [Setof CEK]
-    (define (go known unknown)
-      (let ([next (non-det step unknown)]
-            [known1 (set-union known unknown)])
-        (if (subset? next known1) next (go known1 (set-subtract next known1)))))
-    (go ∅ {set conf}))
+    ;; go : [Setof CEK] [Setof CEK] [Setof CEK] -> [Setof CEK]
+    ;; INVARIANT:
+    ;; -- known: states whose next states are explored
+    ;; -- unknown: non-final states whose next states are unexplored
+    ;; -- final: final states (~ answers)
+    (define (go known unknown final)
+      (if (set-empty? unknown) final
+          (let*-values ([(next) (non-det step unknown)]
+                        [(known1) (set-union known unknown)]
+                        [(final1 non-final1) (set-partition final? next)])
+            (go known1
+                (set-subtract non-final1 known1)
+                (set-union final final1)))))
+    (go ∅ {set conf} ∅))
   
-  ;; get-answer : (final) CEK -> EvalAnswer
+  ;; get-answer : CEK (final) -> EvalAnswer
   (define (get-answer conf)
-    (match conf
-      [(cek (value (lam t e) cs) ρ (mt)) 'function]
-      [(cek (value (mon-lam h f g c ρc e) cs) ρ (mt)) 'function]
-      [(cek (value (opaque t) cs) ρ (mt))
-       (if (func-type? t) 'function '•)]
-      [(cek (value u cs) ρ (mt)) u]
-      [(cek (blame/ l1 l2) ρ (mt)) `(blame ,l1 ,l2)]))
+    (match (cek-exp conf)
+      [(value (lam t e) cs) 'function]
+      [(value (mon-lam h f g c ρc e) cs) 'function]
+      [(value (opaque t) cs) (if (func-type? t) 'function '•)]
+      [(value u cs) u]
+      [(blame/ l1 l2) `(blame ,l1 ,l2)]))
   
   (let ([expr (read-exp e)])
     (match (type-check expr)
@@ -184,7 +191,7 @@
   (apply set-union (set-map xs f)))
 
 
-;;;; helper set functions
+;;;; set helper functions
 
 ;; s-filter : [x -> Boolean] [Setof x] -> [Setof x]
 (define (s-filter p? xs)
@@ -192,22 +199,20 @@
 
 ;; s-map : [x -> y] [Setof x] -> [Setof y]
 (define (s-map f xs)
-  (list->set (set-map xs f)))
+  (for/set ([x xs]) (f x)))
 
-#;(define (run sexp steps)
-    (let ([exp (read-exp sexp)])
-      (match (type-check exp)
-        ['TypeError (error "Does not type check")]
-        [else (let ([m (load exp)])
-                ((pow steps (curry non-det step)) {set m}))])))
-
-#;(define (pow k f)
-    (apply compose (make-list k f)))
+;; set-partition : (x -> Boolean) [Setof x] -> (Setof x) (Setof x)
+(define (set-partition p? xs)
+  (let-values ([(p-true p-false) (partition p? (set->list xs))])
+    (values (list->set p-true) (list->set p-false))))
 
 
 ;;;;; tests
 
 ;; TODO test evaluation
-#;`([,ev? {,ev?} "ev?"]
-    [,ap00 {2} "ap00"]
-    [(,tri 3) {6} "tri"])
+(check-equal? (eval-cek ev?) {set 'function})
+(check-equal? (eval-cek ap00) {set 2})
+(check-equal? (eval-cek ap01) {set `(blame g h)})
+(check-equal? (eval-cek `(,tri 3)) {set 6})
+(check-equal? (eval-cek rsa-ap) {set `• `(blame g h) `(blame f h)})
+(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h) '(blame f h)})
