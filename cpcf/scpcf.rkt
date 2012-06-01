@@ -122,7 +122,7 @@
   [(δ/s o V ...)
    {(promote (• Int))}
    (side-condition (member (term o) (term (+ -))))])
-    
+
 
 ;; substitute V into X in function contract's range
 (define-metafunction SCPCF
@@ -255,6 +255,33 @@
    (maybe-type-val T {(cont T_s) ...})]
   [(maybe-type-val any_1 any_2) TypeError])
 
+;; eval-red : S-exp -> [Setof EvalAnswer]
+;; evaluates s-exp representing well-typed term from source language
+(define (eval-red s)
+  (list->set (term (eval (promote ,s)))))
+
+;; eval function in terms of reduction relation
+(define-metafunction SCPCF
+  eval : M -> [EvalAnswer ...]
+  [(eval M)
+   ,(map (λ (t) (term (get-answer ,t)))
+         (filter answer? (apply-reduction-relation* SCPCF-red (term M))))])
+
+;; checks whether given s-exp is an Answer Expression in SCPCF
+(define (answer? x)
+  (redex-match SCPCF A x))
+
+;; converts answer-expression to eval-answer
+(define-metafunction SCPCF
+  get-answer : A -> EvalAnswer
+  [(get-answer (n Cs)) n]
+  [(get-answer (tt Cs)) #t]
+  [(get-answer (ff Cs)) #f]
+  [(get-answer ((• (T_1 → T_2)) Cs)) function]
+  [(get-answer ((• T) Cs)) •]
+  [(get-answer (blame f g)) (blame f g)]
+  [(get-answer ((λ (x T) e) Cs)) function])
+
 ;; example SCPCF terms
 (define s-even? (term (promote ,t-even?)))
 (define s-db1 (term (promote ,db1)))
@@ -288,6 +315,17 @@
   (term (promote (,sqrt-user (• (Int → Int))))))
 (define sqrt-ap-better
   (term (,sqrt-user ((• (Int → Int)) {(,any/c ↦ ,non-neg/c)}))))
+(define tri-ap-abs ; does not terminate currently
+  (term (,s-tri (promote (• Int)))))
+(define tri-acc ; computes sum[1..n] using accumulator
+  (term (promote
+         (μ (f (Int → (Int → Int)))
+           (λ (n Int)
+             (λ (acc Int)
+               (if (zero? n) acc
+                   ((f (- n 1)) (+ acc n)))))))))
+(define tri-acc-ap
+  (term (promote ((,tri-acc (• Int)) (• Int)))))
 
 ;; test type-checking SCPCF terms
 (test-equal (term (type/s ,s-even?)) (term (type ,t-even?)))
@@ -302,44 +340,25 @@
 (test-equal (term (type/s ,sqrt-user)) (term ((Int → Int) → Int)))
 (test-equal (term (type/s ,sqrt-ap-opaque)) (term Int))
 (test-equal (term (type/s ,sqrt-ap-better)) (term Int))
+(test-equal (term (type/s ,tri-acc)) (term (Int → (Int → Int))))
 
 ;; identify values by ignoring refining contracts
 (define (v~? v1 v2)
   (equal? (first v1) (first v2)))
 
 ;; test SCPCF term evaluations
-(test-->> SCPCF-red #:equiv v~?
-          s-ap00 (term (promote 2)))
-(test-->> SCPCF-red s-ap01 (term (blame g h)))
-(test-->> SCPCF-red #:equiv v~?
-          (term (,s-tri (promote 3))) (term (promote 6)))
+(test-equal (eval-red s-ap00) {set (term 2)})
+(test-equal (eval-red s-ap01) {set (term (blame g h))})
+(test-equal (eval-red (term (promote (,s-tri 3)))) {set (term 6)})
+(test-equal (eval-red tri-acc-ap) {set (term •)})
+(test-equal (eval-red rsa-ap) {set (term •) (term (blame f h))})
+(test-equal (eval-red sqrt-ap-opaque) {set (term •) (term (blame g h))})
+(test-equal (eval-red sqrt-ap-better) {set (term •)})
 
 #;(traces SCPCF-red rsa-ap)
 #;(traces SCPCF-red sqrt-ap-opaque)
 #;(traces SCPCF-red sqrt-ap-better)
+#;(traces SCPCF-red (term (promote (,s-tri (• Int))))) ; unbound # states
+#;(traces SCPCF-red tri-acc-ap) ; finite # states
 
 (test-results)
-
-
-(define-metafunction SCPCF
-  eval : M -> [EvalAnswer ...]
-  [(eval M) (get-answers ,(apply-reduction-relation* SCPCF-red (term M)))])
-
-(define-metafunction SCPCF
-  get-answers : [M ...] -> [EvalAnswer ...]
-  [(get-answers [(n any) M ...]) 
-   ,[cons (term n) (term (get-answers [M ...]))]]
-  [(get-answers [(tt any) M ...])
-   ,[cons #t (term (get-answers [M ...]))]]
-  [(get-answers [(ff any) M ...])
-   ,[cons #f (term (get-answers [M ...]))]]
-  [(get-answers [((• (T_1 → T_2)) any) M ...])
-   ,[cons (term function) (term (get-answers [M ...]))]]
-  [(get-answers [((• T) any) M ...])
-   ,[cons '• (term (get-answers [M ...]))]]
-  [(get-answers [(blame f g) M ...])
-   ,[cons (term (blame f g)) (term (get-answers [M ...]))]]
-  [(get-answers [((λ (x T) e) any) M ...])
-   ,[cons (term function) (term (get-answers [M ...]))]]
-  [(get-answers [any M ...]) (get-answers [M ...])]
-  [(get-answers []) []])
