@@ -3,10 +3,21 @@
 (require "cpcf.rkt")
 (require "in-racket/scpcf-eval.rkt")
 
-;;;;; Symbolic CPCF
-;; add notion of 'pre-value'
-;; value is defined as pre-value refined by a set of contracts
-(define-extended-language SCPCF CPCF
+;;;; Symbolic CPCF
+(define-extended-language SCPCF-src CPCF
+  ;; allow symbolic value
+  [V ....
+     (• T)]
+  ;; evaluation answer
+  [EvalAnswer n
+              b
+              •
+              function
+              (blame f g)])
+
+;;;;; Symbolic CPCF, internal representation
+;; value now has a set of refining contracts
+(define-extended-language SCPCF SCPCF-src
   ; pre-values
   [U (• T)
      (λ (X T) M)
@@ -18,32 +29,31 @@
   ; possible verification results
   [Verified? Proved
              Refuted
-             Neither]
-  [EvalAnswer n
-              b
-              •
-              function
-              (blame f g)])
+             Neither])
 
-;; converts CPCF terms to SCPCF terms.
-;; All plain, concrete values are annotated with an empty set of contracts
+;; converts SCPCF-src terms to their internal representations by
+;; (recursively) annotating values with an empty set of refining contracts
 ;; TODO: would be nicer if language accepts plain values in its syntax...
 (define-metafunction SCPCF
-  promote : any #|old M|# -> any
-  [(promote (λ (X T) any)) ((λ (X T) (promote any)) {})]
-  [(promote U) (U {})] ; relies on all old V's being new U's
-  [(promote A) A]
-  [(promote (mon h f g C M))
-   (mon h f g (promote-con C) (promote M))]
-  [(promote (any ...)) ((promote any) ...)]
-  [(promote any) any]) ; matches X, and non-M, e.g. if, o, type
+  convert : any #|SCPCF-src term|# -> M
+  [(convert M) M] ; just to make it more flexible
+  [(convert (λ (X T) any)) ((λ (X T) (convert any)) {})]
+  [(convert U) (U {})] ; relies on all old V's being new U's
+  [(convert (μ (X T) any)) (μ (X T) (convert any))]
+  [(convert (if any ...)) (if (convert any) ...)]
+  [(convert (o any ...)) (o (convert any) ...)]
+  [(convert (mon h f g any_C any_M))
+   (mon h f g (convert-con any_C) (convert any_M))]
+  [(convert (any_M1 any_M2)) ((convert any_M1) (convert any_M2))]
+  ;; matches A and X:
+  [(convert any_M) any_M])
 ;; converts CPCF contracts to SCPCF contracts
 (define-metafunction SCPCF
-  promote-con : any #|old C|# -> C
-  [(promote-con (flat any)) (flat (promote any))]
-  [(promote-con (C ↦ D)) ((promote-con C) ↦ (promote-con D))]
-  [(promote-con (C ↦ (λ (X T) D)))
-   ((promote-con C) ↦ (λ (X T) (promote-con D)))])
+  convert-con : any #|SCPCF-src contract|# -> C
+  [(convert-con (flat any)) (flat (convert any))]
+  [(convert-con (any_C ↦ any_D)) ((convert-con any_C) ↦ (convert-con any_D))]
+  [(convert-con (any_C ↦ (λ (X T) any_D)))
+   ((convert-con any_C) ↦ (λ (X T) (convert-con any_D)))])
 
 
 ;;;;; Reduction semantics for Symbolic CPCF
@@ -53,10 +63,10 @@
    
    ; conditional
    (==> (if V M N) M
-        (side-condition (member (term (promote tt)) (term (δ/s true? V))))
+        (side-condition (member (term (convert tt)) (term (δ/s true? V))))
         if)
    (==> (if V M N) N
-        (side-condition (member (term (promote ff)) (term (δ/s true? V))))
+        (side-condition (member (term (convert ff)) (term (δ/s true? V))))
         if-not)
    
    ; function application
@@ -87,7 +97,7 @@
         mon-flat
         (side-condition (equal? (term Neither) (term (verify V (flat M))))))
    (==> (mon h f g (C ↦ (λ (X T) D)) V)
-        (promote (λ (X T) (mon h f g D (V (mon h g f C X)))))
+        (convert (λ (X T) (mon h f g D (V (mon h g f C X)))))
         mon-fun)
    (==> (mon h f g (C ↦ D) V)
         (mon h f g (C ↦ (λ (X ⊥) D)) V)
@@ -106,21 +116,21 @@
   ; out of sync with above rules
   δ/s : o V ... -> {V ...}
   ; sqrt treated separately due to refinement in result
-  [(δ/s sqrt (n Cs)) {((δ sqrt n) {,non-neg/c})}]
-  [(δ/s sqrt ((• T) Cs)) {((• Int) {,non-neg/c})}]
+  [(δ/s sqrt (n Cs)) {((δ sqrt n) {(convert-con ,non-neg/c)})}]
+  [(δ/s sqrt ((• T) Cs)) {((• Int) {(convert-con ,non-neg/c)})}]
   ; exact answer for concrete arguments
   [(δ/s o (U Cs) ...)
    {((δ o U ...) {})}
    (side-condition (term (all-concrete? U ...)))]
   ; full range answer for functions returning boolean
   [(δ/s o V ...)
-   {(promote tt) (promote ff)}
+   {(convert tt) (convert ff)}
    (side-condition
     (member (term o)
             (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧))))]
   ; full range answer for functions returning ints
   [(δ/s o V ...)
-   {(promote (• Int))}
+   {(convert (• Int))}
    (side-condition (member (term o) (term (+ -))))])
 
 
@@ -149,7 +159,7 @@
 ;; may give false negatives
 ;; currently implemented by checking for α-equivalence
 (define-metafunction SCPCF
-  con~? : C C -> any #|bool|#
+  con~? : C C -> #t or #f
   [(con~? C D) ,(equal? (term (normalize-con () C))
                         (term (normalize-con () D)))])
 
@@ -216,49 +226,32 @@
 (define-metafunction SCPCF
   havoc : T -> M
   [(havoc B) (μ (X B) X)]
-  [(havoc (T_x → T_y)) (promote (λ (x (T_x → T_y))
+  [(havoc (T_x → T_y)) (convert (λ (x (T_x → T_y))
                                   ((havoc T_y) (x (• T_x)))))])
 
 
 ;;;;; type checking for Symbolic CPCF
 
 ;; returns expression type, or TypeError
-(define-metafunction SCPCF
+(define-metafunction SCPCF-src
   type/s : M -> MaybeT
   [(type/s M) (type-check/s () M)])
 
 ;; works out expression's type from given type environment
-(define-metafunction/extension type-check SCPCF
+(define-metafunction/extension type-check SCPCF-src
   type-check/s : TEnv M -> MaybeT
-  [(type-check/s TEnv ((• T) {C ...}))
-   (maybe-type-val T {(type-check-con/s TEnv C) ...})]
-  [(type-check/s TEnv (n {C ...}))
-   (maybe-type-val Int {(type-check-con/s TEnv C) ...})]
-  [(type-check/s TEnv (b {C ...}))
-   (maybe-type-val Bool {(type-check-con/s TEnv C) ...})]
-  [(type-check/s ((X_0 T_0) ...) ((λ (X T) M) {C ...}))
-   (maybe-type-val 
-    (maybe→ T (type-check/s ((X T) (X_0 T_0) ...) M))
-    {(type-check-con/s ((X_0 T_0) ...) C) ...})]
+  [(type-check/s TEnv (• T)) T]
   [(type-check/s TEnv (mon h f g C M))
    (maybe-type-mon (type-check-con/s TEnv C) (type-check/s TEnv M))])
 ;; works out contract's type from given type environment
-(define-metafunction/extension type-check-con SCPCF
+(define-metafunction/extension type-check-con SCPCF-src
   type-check-con/s : TEnv C -> MaybeT
   [(type-check-con/s TEnv (flat M)) (maybe-flat (type-check/s TEnv M))])
-
-;; makes sure all contract types agree with value type
-(define-metafunction SCPCF
-  maybe-type-val : MaybeT (MaybeT ...) -> MaybeT
-  [(maybe-type-val T {}) T]
-  [(maybe-type-val T {(con T) (con T_s) ...})
-   (maybe-type-val T {(cont T_s) ...})]
-  [(maybe-type-val any_1 any_2) TypeError])
 
 ;; eval-red : S-exp -> [Setof EvalAnswer]
 ;; evaluates s-exp representing well-typed term from source language
 (define (eval-red s)
-  (list->set (term (eval (promote ,s)))))
+  (list->set (term (eval (convert ,s)))))
 
 ;; eval function in terms of reduction relation
 (define-metafunction SCPCF
@@ -283,63 +276,54 @@
   [(get-answer ((λ (x T) e) Cs)) function])
 
 ;; example SCPCF terms
-(define s-even? (term (promote ,t-even?)))
-(define s-db1 (term (promote ,db1)))
-(define s-ap0 (term (promote ,ap0)))
-(define s-ap1 (term (promote ,ap1)))
-(define s-ap00 (term (promote ,ap00)))
-(define s-ap01 (term (promote ,ap01)))
-(define s-ap10 (term (promote ,ap10)))
-(define s-tri (term (promote ,tri)))
-(define prime? (term (promote (λ (x Int) (prime? x)))))
+(define prime? (term (λ (x Int) (prime? x))))
 (define prime/c (term (flat ,prime?)))
-(define const-true? (term (promote (λ (x Int) tt))))
+(define const-true? (term (λ (x Int) tt)))
 (define any/c (term (flat ,const-true?))) ; any Int, actually
 (define keygen ; opaque
-  (term (promote (mon h f g (,any/c ↦ ,prime/c) (• (Int → Int))))))
+  (term (mon h f g (,any/c ↦ ,prime/c) (• (Int → Int)))))
 (define rsa ; opaque
-  (term (promote (mon h f g (,prime/c ↦ (,any/c ↦ ,any/c))
-                      (• (Int → (Int → Int)))))))
+  (term (mon h f g (,prime/c ↦ (,any/c ↦ ,any/c))
+             (• (Int → (Int → Int))))))
 (define rsa-ap
-  (term ((,rsa (,keygen (promote 13))) (promote (• Int)))))
+  (term ((,rsa (,keygen 13)) (• Int))))
 (define non-neg/c
-  (term (flat (promote (λ (x Int) (non-neg? x))))))
+  (term (flat (λ (x Int) (non-neg? x)))))
 (define sqroot
-  (term (promote
-         (mon h f g (,non-neg/c ↦ ,non-neg/c)
-              (λ (x Int) (sqrt x))))))
+  (term (mon h f g (,non-neg/c ↦ ,non-neg/c)
+             (λ (x Int) (sqrt x)))))
 (define sqrt-user
-  (term (promote (mon h f g ((,any/c ↦ ,any/c) ↦ ,any/c)
-                      (λ (f (Int → Int)) (,sqroot (f 0)))))))
+  (term (mon h f g ((,any/c ↦ ,any/c) ↦ ,any/c)
+             (λ (f (Int → Int)) (,sqroot (f 0))))))
 (define sqrt-ap-opaque
-  (term (promote (,sqrt-user (• (Int → Int))))))
-(define sqrt-ap-better
-  (term (,sqrt-user ((• (Int → Int)) {(,any/c ↦ ,non-neg/c)}))))
-(define tri-ap-abs ; does not terminate currently
-  (term (,s-tri (promote (• Int)))))
+  (term (,sqrt-user (• (Int → Int)))))
+(define sqrt-ap-better ; SCPCF term, not SCPCF-src
+  (term ((convert ,sqrt-user)
+         ((• (Int → Int)) {(convert-con (,any/c ↦ ,non-neg/c))}))))
+(define tri-ap-abs ; currently does not terminate
+  (term (,tri (• Int))))
 (define tri-acc ; computes sum[1..n] using accumulator
-  (term (promote
-         (μ (f (Int → (Int → Int)))
+  (term (μ (f (Int → (Int → Int)))
            (λ (n Int)
              (λ (acc Int)
                (if (zero? n) acc
-                   ((f (- n 1)) (+ acc n)))))))))
+                   ((f (- n 1)) (+ acc n))))))))
 (define tri-acc-ap
-  (term (promote ((,tri-acc (• Int)) (• Int)))))
+  (term ((,tri-acc (• Int)) (• Int))))
 
 ;; test type-checking SCPCF terms
-(test-equal (term (type/s ,s-even?)) (term (type ,t-even?)))
-(test-equal (term (type/s ,s-db1)) (term (type ,db1)))
-(test-equal (term (type/s ,s-ap0)) (term (type ,ap0)))
-(test-equal (term (type/s ,s-ap00)) (term (type ,ap00)))
-(test-equal (term (type/s ,s-tri)) (term (type ,tri)))
+(test-equal (term (type/s ,t-even?)) (term (type ,t-even?)))
+(test-equal (term (type/s ,db1)) (term (type ,db1)))
+(test-equal (term (type/s ,ap0)) (term (type ,ap0)))
+(test-equal (term (type/s ,ap00)) (term (type ,ap00)))
+(test-equal (term (type/s ,tri)) (term (type ,tri)))
 (test-equal (term (type/s ,keygen)) (term (Int → Int)))
 (test-equal (term (type/s ,rsa)) (term (Int → (Int → Int))))
 (test-equal (term (type/s ,rsa-ap)) (term Int))
 (test-equal (term (type/s ,sqroot)) (term (Int → Int)))
 (test-equal (term (type/s ,sqrt-user)) (term ((Int → Int) → Int)))
 (test-equal (term (type/s ,sqrt-ap-opaque)) (term Int))
-(test-equal (term (type/s ,sqrt-ap-better)) (term Int))
+#;(test-equal (term (type/s ,sqrt-ap-better)) (term Int))
 (test-equal (term (type/s ,tri-acc)) (term (Int → (Int → Int))))
 
 ;; identify values by ignoring refining contracts
@@ -347,18 +331,18 @@
   (equal? (first v1) (first v2)))
 
 ;; test SCPCF term evaluations
-(test-equal (eval-red s-ap00) {set (term 2)})
-(test-equal (eval-red s-ap01) {set (term (blame g h))})
-(test-equal (eval-red (term (promote (,s-tri 3)))) {set (term 6)})
+(test-equal (eval-red ap00) {set (term 2)})
+(test-equal (eval-red ap01) {set (term (blame g h))})
+(test-equal (eval-red (term (,tri 3))) {set (term 6)})
 (test-equal (eval-red tri-acc-ap) {set (term •)})
 (test-equal (eval-red rsa-ap) {set (term •) (term (blame f h))})
 (test-equal (eval-red sqrt-ap-opaque) {set (term •) (term (blame g h))})
 (test-equal (eval-red sqrt-ap-better) {set (term •)})
 
-#;(traces SCPCF-red rsa-ap)
-#;(traces SCPCF-red sqrt-ap-opaque)
+#;(traces SCPCF-red (term (convert ,rsa-ap)))
+#;(traces SCPCF-red (term (convert ,sqrt-ap-opaque)))
 #;(traces SCPCF-red sqrt-ap-better)
-#;(traces SCPCF-red (term (promote (,s-tri (• Int))))) ; unbound # states
-#;(traces SCPCF-red tri-acc-ap) ; finite # states
+#;(traces SCPCF-red (term (convert (,tri (• Int))))) ; unbound # states
+#;(traces SCPCF-red (term (convert ,tri-acc-ap))) ; finite # states
 
 (test-results)
