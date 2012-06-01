@@ -214,5 +214,5 @@
 (check-equal? (eval-cek ap00) {set 2})
 (check-equal? (eval-cek ap01) {set `(blame g h)})
 (check-equal? (eval-cek `(,tri 3)) {set 6})
-(check-equal? (eval-cek rsa-ap) {set `• `(blame g h) `(blame f h)})
-(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h) '(blame f h)})
+(check-equal? (eval-cek rsa-ap) {set `• `(blame f h)})
+(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h)})

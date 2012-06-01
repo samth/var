@@ -213,7 +213,7 @@
 (define (con-clo=? d =? a b)
   (let ([ρ1 (contract-clo-env a)]
         [ρ2 (contract-clo-env b)])
-    (match `(,a ,b)
+    (match (map contract-clo-con `(,a ,b))
       [`(,(flat/c e1) ,(flat/c e2)) (clo=? d =? (clo e1 ρ1) (clo e2 ρ2))]
       [`(,(func/c c1 t d1) ,(func/c c2 t d2))
        (and (con-clo=? d =? (contract-clo c1 ρ1) (contract-clo c2 ρ2))
