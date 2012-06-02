@@ -18,7 +18,7 @@
  δ ; o V ... -> V
  
  ;; converts racket's values to CPCF's booleans
- to-bool ; any -> tt or ff
+ to-bool ; any -> #t or #f
  
  ;; not intended for use directly, but functions that extend 'type-check'
  ;; won't work if these aren't exported
@@ -62,7 +62,7 @@
      n
      b]
   [(m n) integer]
-  [b tt ff]
+  [b #t #f]
   ; evaluation contexts
   [E hole
      (E M)
@@ -80,9 +80,9 @@
 (define CPCF-red
   (reduction-relation
    CPCF
-   (==> (if tt M N) M
+   (==> (if #t M N) M
         if)
-   (==> (if ff M N) N
+   (==> (if #f M N) N
         if-not)
    (==> ((λ (X T) M) V) (subst M X V)
         β)
@@ -126,6 +126,7 @@
    (where Z ,(variable-not-in (term (M Y N)) (term X)))]
   [(subst (mon h f g C M) X N)
    (mon h f g (subst-con C X N) (subst M X N))]
+  [(subst (blame f g) X M) (blame f g)]
   [(subst (any ...) X M) ((subst any X M) ...)]
   [(subst any X M) any])
 ;; capture-avoiding substitution for contracts
@@ -147,19 +148,19 @@
   [(δ even? n) (to-bool ,(even? (term n)))]
   [(δ prime? n) (to-bool ,(member (term n) '(2 3 5 7 11 13 17)))] ; i know im stupid
   [(δ odd? n) (to-bool ,(odd? (term n)))]
-  [(δ true? b) (to-bool ,(equal? (term b) (term tt)))]
-  [(δ false? b) (to-bool ,(equal? (term b) (term ff)))]
+  [(δ true? b) (to-bool ,(equal? (term b) (term #t)))]
+  [(δ false? b) (to-bool ,(equal? (term b) (term #f)))]
   [(δ sqrt n) ,(inexact->exact (floor (sqrt (term n))))] ; whatever
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
-  [(δ ∨ b ...) ,(ormap (curry equal? (term tt)) (term (b ...)))]
-  [(δ ∧ b ...) ,(andmap (curry equal? (term tt)) (term (b ...)))])
+  [(δ ∨ b ...) ,(ormap (curry equal? (term #t)) (term (b ...)))]
+  [(δ ∧ b ...) ,(andmap (curry equal? (term #t)) (term (b ...)))])
 
-;; converts racket's boolean to CPCF's boolean
+;; converts racket's value to CPCF's boolean
 (define-metafunction CPCF
   to-bool : any -> b
-  [(to-bool #f) ff]
-  [(to-bool any) tt])
+  [(to-bool #f) #f]
+  [(to-bool any) #t])
 
 
 ;;;;; type checking

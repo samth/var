@@ -1,10 +1,11 @@
 #lang racket
 (require redex)
 (require "cpcf.rkt")
-(require "in-racket/scpcf-eval.rkt")
 
 ;;;; Symbolic CPCF
 (define-extended-language SCPCF-src CPCF
+  ;; closed expression
+  [M-closed (side-condition (name m M) (term (closed? m)))]
   ;; allow symbolic value
   [V ....
      (• T)]
@@ -63,10 +64,10 @@
    
    ; conditional
    (==> (if V M N) M
-        (side-condition (member (term (convert tt)) (term (δ/s true? V))))
+        (side-condition (member (term (convert #t)) (term (δ/s true? V))))
         if)
    (==> (if V M N) N
-        (side-condition (member (term (convert ff)) (term (δ/s true? V))))
+        (side-condition (member (term (convert #f)) (term (δ/s true? V))))
         if-not)
    
    ; function application
@@ -124,7 +125,7 @@
    (side-condition (term (all-concrete? U ...)))]
   ; full range answer for functions returning boolean
   [(δ/s o V ...)
-   {(convert tt) (convert ff)}
+   {(convert #t) (convert #f)}
    (side-condition
     (member (term o)
             (term (zero? non-neg? even? odd? prime? true? false? ∨ ∧))))]
@@ -162,6 +163,35 @@
   con~? : C C -> #t or #f
   [(con~? C D) ,(equal? (term (normalize-con () C))
                         (term (normalize-con () D)))])
+
+;; checks whether expression is closed
+(define-metafunction SCPCF-src
+  closed? : M -> #t or #f
+  [(closed? M) (closed-by? [] M)])
+(define-metafunction SCPCF-src
+  closed-by? : [X ...] M -> #t or #f
+  [(closed-by? [X ...] (λ (Z T) M)) (closed-by? [Z X ...] M)]
+  [(closed-by? any A) #t]
+  [(closed-by? [X_1 ... X X_n ...] X) #t]
+  [(closed-by? any X) #f]
+  [(closed-by? any (M_1 M_2)) ,(and (term (closed-by? any M_1))
+                                    (term (closed-by? any M_2)))]
+  [(closed-by? [X ...] (μ (Z T) M)) (closed-by? [Z X ...] M)]
+  [(closed-by? any (if M_1 M_2 M_3)) ,(and (term (closed-by? any M_1))
+                                           (term (closed-by? any M_2))
+                                           (term (closed-by? any M_3)))]
+  [(closed-by? any (o M ...)) ,(andmap (compose not false?)
+                                       (term ((closed-by? any M) ...)))]
+  [(closed-by? any (mon h f g C M))
+   ,(and (term (con-closed-by? any C)) (term (closed-by? any M)))])
+(define-metafunction SCPCF-src
+  con-closed-by? : [X ...] C -> #t or #f
+  [(con-closed-by? any (flat M)) (closed-by? any M)]
+  [(con-closed-by? any (C ↦ D)) ,(and (term (con-closed-by? any C))
+                                      (term (con-closed-by? any D)))]
+  [(con-closed-by? [X ...] (C ↦ (λ (Z T) D)))
+   ,(and (term (con-closed-by? [X ...] C))
+         (term (con-closed-by? [Z X ...] D)))])
 
 ;; turns any close-variable's use into lexical distance to where it was declared
 (define-metafunction SCPCF
@@ -249,7 +279,7 @@
   [(type-check-con/s TEnv (flat M)) (maybe-flat (type-check/s TEnv M))])
 
 ;; eval-red : S-exp -> [Setof EvalAnswer]
-;; evaluates s-exp representing well-typed term from source language
+;; evaluates well-typed, closed expression from SCPCF-src
 (define (eval-red s)
   (list->set (term (eval (convert ,s)))))
 
@@ -267,18 +297,16 @@
 ;; converts answer-expression to eval-answer
 (define-metafunction SCPCF
   get-answer : A -> EvalAnswer
-  [(get-answer (n Cs)) n]
-  [(get-answer (tt Cs)) #t]
-  [(get-answer (ff Cs)) #f]
   [(get-answer ((• (T_1 → T_2)) Cs)) function]
   [(get-answer ((• T) Cs)) •]
   [(get-answer (blame f g)) (blame f g)]
-  [(get-answer ((λ (x T) e) Cs)) function])
+  [(get-answer ((λ (X T) M) Cs)) function]
+  [(get-answer (U Cs)) U])
 
 ;; example SCPCF terms
 (define prime? (term (λ (x Int) (prime? x))))
 (define prime/c (term (flat ,prime?)))
-(define const-true? (term (λ (x Int) tt)))
+(define const-true? (term (λ (x Int) #t)))
 (define any/c (term (flat ,const-true?))) ; any Int, actually
 (define keygen ; opaque
   (term (mon h f g (,any/c ↦ ,prime/c) (• (Int → Int)))))
@@ -346,3 +374,18 @@
 #;(traces SCPCF-red (term (convert ,tri-acc-ap))) ; finite # states
 
 (test-results)
+
+;; verify consistency with racket model
+(require "in-racket/scpcf-eval.rkt")
+(require (only-in "in-racket/scpcf-lang.rkt"
+                  read-exp [type-check tc] show-type))
+(redex-check
+ SCPCF-src
+ M-closed
+ (let* ([readM (read-exp (term M-closed))]
+        [tc1 (term (type/s M-closed))]
+        [tc2 (show-type (tc readM))])
+   (and (equal? tc1 tc2)
+        (or (equal? tc1 'TypeError)
+            (equal? (eval-red (term M-closed))
+                    (eval-cek (term M-closed)))))))
