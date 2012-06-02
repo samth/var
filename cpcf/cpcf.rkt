@@ -150,7 +150,7 @@
   [(δ odd? n) (to-bool ,(odd? (term n)))]
   [(δ true? b) (to-bool ,(equal? (term b) (term #t)))]
   [(δ false? b) (to-bool ,(equal? (term b) (term #f)))]
-  [(δ sqrt n) ,(inexact->exact (floor (sqrt (term n))))] ; whatever
+  [(δ sqrt n) ,(inexact->exact (floor (sqrt (abs (term n)))))] ; whatever
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
   [(δ ∨ b ...) ,(ormap (curry equal? (term #t)) (term (b ...)))]

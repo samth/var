@@ -379,6 +379,8 @@
 (require "in-racket/scpcf-eval.rkt")
 (require (only-in "in-racket/scpcf-lang.rkt"
                   read-exp [type-check tc] show-type))
+(define count 0)
+
 (redex-check
  SCPCF-src
  M-closed
@@ -387,5 +389,10 @@
         [tc2 (show-type (tc readM))])
    (and (equal? tc1 tc2)
         (or (equal? tc1 'TypeError)
-            (equal? (eval-red (term M-closed))
-                    (eval-cek (term M-closed)))))))
+            (begin
+              (set! count (add1 count))
+              (equal? (eval-red (term M-closed))
+                      (eval-cek (term M-closed)))))))
+ #:attempts 5000)
+
+`(,count programs were well-typed)

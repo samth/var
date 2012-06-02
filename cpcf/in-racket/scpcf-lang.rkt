@@ -288,7 +288,8 @@
     ['prime? (λ (n) (if (member n '(2 3 5 7 11 13)) #t #f))] ; force #t
     ['true? (compose not false?)]
     ['false? false?]
-    ['sqrt (compose inexact->exact floor sqrt)]
+    ; 'abs' here to suppress cases like (sqrt -1)
+    ['sqrt (compose inexact->exact floor sqrt abs)]
     ['+ +]
     ['- -]
     ['∨ (λ (x y) (or x y))]
