@@ -425,3 +425,8 @@
 #;'(4121 programs were well-typed)
 #;'(eval-red total: (cpu: 1060) (real: 1217) (gc: 124))
 #;'(eval-cek total: (cpu: 324) (real: 290) (gc: 20))
+
+;; Results on samth's machine:
+;; '(4126 programs were well-typed)
+;; '(eval-red total: (cpu: 980) (real: 948) (gc: 28))
+;; '(eval-cek total: (cpu: 216) (real: 181) (gc: 8))
