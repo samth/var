@@ -42,7 +42,7 @@
   
   [read-exp (s-exp? . -> . exp?)]
   [show-exp (exp? . -> . s-exp?)]
-  [show-type (type? . -> . s-exp?)]
+  [show-type (type-result? . -> . s-exp?)]
   
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
@@ -112,7 +112,7 @@
 (define (o1? o)
   (member o '(zero? non-neg? even? odd? prime? true? false? sqrt)))
 (define (o2? o)
-  (member o '(+ -)))
+  (member o '(+ - ∨ ∧)))
 
 ;; label? : Any -> Boolean
 (define label? symbol?)
@@ -290,7 +290,9 @@
     ['false? false?]
     ['sqrt (compose inexact->exact floor sqrt)]
     ['+ +]
-    ['- -]))
+    ['- -]
+    ['∨ (λ (x y) (or x y))]
+    ['∧ (λ (x y) (and x y))]))
 
 ;; op-range : Op -> ('Int or 'Bool)
 ;; returns op's return type
@@ -387,7 +389,9 @@
       [(equal? o 'sqrt)
        (λ (t) (match t ['Int 'Int] [else 'TypeError]))]
       [(member o '(+ -))
-       (λ (t1 t2) (match `(,t1 ,t2) ['(Int Int) 'Int] [else 'TypeError]))]))
+       (λ (t1 t2) (match `(,t1 ,t2) ['(Int Int) 'Int] [else 'TypeError]))]
+      [(member o '(∨ ∧))
+       (λ (t1 t2) (match `(,t1 ,t2) ['(Bool Bool) 'Bool] [else 'TypeError]))]))
   
   (type-check-with env-empty e))
 
@@ -404,6 +408,7 @@
   (match s
     ['Int 'Int]
     ['Bool 'Bool]
+    ['⊥ '⊥] ; just for debugging
     [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
     [`(con ,t) (con-type (read-type t))]
     [else (error "invalid type form: " s)]))
@@ -516,7 +521,7 @@
   
   (show-exp-with empty e))
 
-;; show-type : Type -> S-exp
+;; show-type : TypeResult -> S-exp
 (define (show-type t)
   (match t
     [(func-type dom rng) `(,(show-type dom) → ,(show-type rng))]
