@@ -6,7 +6,6 @@
 ** [done] use nameless representation for lambdas
 ** [done] proper equality checking
 *** I might mess up data cycles by manually recurring through data b/c I need to maintain an accumulator (depth).
-** make sure result is consistent with redex model
-*** (tri (• Int)) currently does not terminate in both models
+** [most] make sure result is consistent with redex model
 ** measure
 ** simplify closures
