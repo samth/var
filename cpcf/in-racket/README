@@ -4,8 +4,8 @@
 ** [done] use real sets
 ** [done] use environment instead of substitution
 ** [done] use nameless representation for lambdas
+** simplify closures
 ** [done] proper equality checking
 *** I might mess up data cycles by manually recurring through data b/c I need to maintain an accumulator (depth).
-** [most] make sure result is consistent with redex model
-** measure
-** simplify closures
+** [done] make sure result is consistent with redex model
+** [done] measure
