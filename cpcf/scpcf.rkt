@@ -379,20 +379,49 @@
 (require "in-racket/scpcf-eval.rkt")
 (require (only-in "in-racket/scpcf-lang.rkt"
                   read-exp [type-check tc] show-type))
+
+;; mutable refs for accumulating results
 (define count 0)
+(define cpu1 0)
+(define real1 0)
+(define gc1 0)
+(define cpu2 0)
+(define real2 0)
+(define gc2 0)
 
 (redex-check
  SCPCF-src
  M-closed
- (let* ([readM (read-exp (term M-closed))]
-        [tc1 (term (type/s M-closed))]
-        [tc2 (show-type (tc readM))])
-   (and (equal? tc1 tc2)
-        (or (equal? tc1 'TypeError)
-            (begin
+ (let* ([t1 (term (type/s M-closed))]
+        [t2 ((compose show-type tc read-exp) (term M-closed))])
+   (and (equal? t1 t2)
+        (or (equal? t1 'TypeError)
+            (let-values
+                ([(a1 cpu1′ real1′ gc1′)
+                  (time-apply eval-red (list (term M-closed)))]
+                 [(a2 cpu2′ real2′ gc2′)
+                  (time-apply eval-cek (list (term M-closed)))])
+              ;; update statistics
               (set! count (add1 count))
-              (equal? (eval-red (term M-closed))
-                      (eval-cek (term M-closed)))))))
+              (set! cpu1 (+ cpu1 cpu1′))
+              (set! real1 (+ real1 real1′))
+              (set! gc1 (+ gc1 gc1′))
+              (set! cpu2 (+ cpu2 cpu2′))
+              (set! real2 (+ real2 real2′))
+              (set! gc2 (+ gc2 gc2′))
+              ;; assert equivalence
+              (equal? a1 a2)))))
  #:attempts 5000)
 
 `(,count programs were well-typed)
+`(eval-red total: (cpu: ,cpu1) (real: ,real1) (gc: ,gc1))
+`(eval-cek total: (cpu: ,cpu2) (real: ,real2) (gc: ,gc2))
+
+;; The time taken to run this test increased significantly when I inserted
+;; those set! statements. It didn't finish after 20 minutes. How can ~35k
+;; additions make such a big difference, even if the numbers are boxed?
+;; I tried changing memory limit from 1024M to 2048M and it finished quickly.
+;; Result on Ubuntu 12.04, T8100:
+#;'(4121 programs were well-typed)
+#;'(eval-red total: (cpu: 1060) (real: 1217) (gc: 124))
+#;'(eval-cek total: (cpu: 324) (real: 290) (gc: 20))
