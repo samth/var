@@ -212,33 +212,25 @@
 ;; returns function application's type if it's legal
 (define-metafunction CPCF
   maybe-type-app : MaybeT MaybeT -> MaybeT
-  [(maybe-type-app (T_x → T_y) T)
-   T_y
-   (side-condition (term (⊑ T T_x)))]
+  [(maybe-type-app (T → T_y) T) T_y]
   [(maybe-type-app any_1 any_2) TypeError])
 
 ;; returns if expessions' type if it's legal
 (define-metafunction CPCF
   maybe-type-if : MaybeT MaybeT MaybeT -> MaybeT
-  [(maybe-type-if T_test T_then T_else)
-   (⊔ T_then T_else)
-   (side-condition (term (⊑ T_test Bool)))]
+  [(maybe-type-if Bool T_then T_else) (⊔ T_then T_else)]
   [(maybe-type-if any_1 any_2 any_3) TypeError])
 
 ;; returns monitor expression's type if it's legal
 (define-metafunction CPCF
   maybe-type-mon : MaybeT MaybeT -> MaybeT
-  [(maybe-type-mon (con T_c) T)
-   T
-   (side-condition (term (⊑ T T_c)))]
+  [(maybe-type-mon (con T) T) T]
   [(maybe-type-mon any_1 any_2) TypeError])
 
 ;; returns flat contract's type if it's legal
 (define-metafunction CPCF
   maybe-flat : MaybeT -> MaybeT
-  [(maybe-flat (T → T_b))
-   (con T)
-   (side-condition (term (⊑ T_b Bool)))]
+  [(maybe-flat (T → Bool)) (con T)]
   [(maybe-flat any) TypeError])
 
 ;; returns function contract's type if it's legal
@@ -264,16 +256,6 @@
    Bool
    (side-condition (member (term o) (term (∨ ∧))))]
   [(∆ o any ...) TypeError])
-
-;; subtype test
-(define-metafunction CPCF
-  ⊑ : T T -> #t or #f
-  [(⊑ T T) #t]
-  [(⊑ ⊥ T) #t]
-  [(⊑ (T_x1 → T_y1) (T_x2 → T_y2))
-   ,(and (term (⊑ T_x2 T_x1)) (term (⊑ T_y1 T_y2)))]
-  [(⊑ (con T_1) (con T_2)) (⊑ T_1 T_2)]
-  [(⊑ any_1 any_2) #f])
 
 ;; returns most specific supertype
 (define-metafunction CPCF
