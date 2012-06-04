@@ -4,7 +4,7 @@
 ** [done] use real sets
 ** [done] use environment instead of substitution
 ** [done] use nameless representation for lambdas
-** simplify closures
+** simplify closures (currently having difficulties due to inflexibility from nameless representation)
 ** [done] proper equality checking
 *** I might mess up data cycles by manually recurring through data b/c I need to maintain an accumulator (depth).
 ** [done] make sure result is consistent with redex model
