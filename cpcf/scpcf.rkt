@@ -34,7 +34,6 @@
 
 ;; converts SCPCF-src terms to their internal representations by
 ;; (recursively) annotating values with an empty set of refining contracts
-;; TODO: would be nicer if language accepts plain values in its syntax...
 (define-metafunction SCPCF
   convert : any #|SCPCF-src term|# -> M
   [(convert M) M] ; just to make it more flexible
@@ -201,7 +200,7 @@
       (normalize [X Z ...] M))
     {(normalize-con [Z ...] C) ...})]
   [(normalize any (U {C ...})) (U {(normalize-con any C) ...})]
-  [(normalize any (blame f g)) (blame f g)] ; TODO: kill f and g also??
+  [(normalize any (blame f g)) (blame f g)]
   [(normalize [Z ...] X) (maybe-index 0 X [Z ...])]
   [(normalize any (M N)) ((normalize any M) (normalize any N))]
   [(normalize [Z ...] (μ (X T) M))
@@ -210,7 +209,6 @@
   [(normalize any (if M ...)) (if (normalize any M) ...)]
   [(normalize any (o M ...)) (o (normalize any M) ...)]
   [(normalize any (mon h f g C M))
-   ; TODO: kill h,f,g also??
    (mon h f g (normalize-con any C) (normalize any M))])
 (define-metafunction SCPCF
   normalize-con : [X ...] C -> any
@@ -252,7 +250,7 @@
   subst-con/s : C X M -> C
   [(subst-con/s (flat M) X N) (flat (subst/s M X N))])
 
-;; TODO: examine what havoc really does
+;; generate terms that finds all possible blame from function value
 (define-metafunction SCPCF
   havoc : T -> M
   [(havoc B) (μ (X B) X)]
@@ -421,7 +419,7 @@
 ;; those set! statements. It didn't finish after 20 minutes. How can ~35k
 ;; additions make such a big difference, even if the numbers are boxed?
 ;; I tried changing memory limit from 1024M to 2048M and it finished quickly.
-;; Result on Ubuntu 12.04, T8100:
+;; Result on Ubuntu 12.04, Core 2 Duo T8100 @ 2.1GHz:
 #;'(4121 programs were well-typed)
 #;'(eval-red total: (cpu: 1060) (real: 1217) (gc: 124))
 #;'(eval-cek total: (cpu: 324) (real: 290) (gc: 20))
