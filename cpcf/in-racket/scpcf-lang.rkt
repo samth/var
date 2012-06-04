@@ -603,20 +603,3 @@
 (check-equal? (tc sqroot) '(Int → Int))
 (check-equal? (tc sqrt-user) '((Int → Int) → Int))
 (check-equal? (tc sqrt-ap) 'Int)
-
-
-(define c (clo (rec
-                   (func-type 'Int 'Int)
-                 (value
-                  (lam
-                   'Int
-                   (if/
-                    (prim-app 'zero? (list (ref 0)))
-                    (value 0 (set))
-                    (prim-app
-                     '+
-                     (list
-                      (ref 0)
-                      (app (ref 1) (prim-app '- (list (ref 0) (value 1 (set)))))))))
-                  (set)))
-               env-empty))
