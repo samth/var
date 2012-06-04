@@ -142,6 +142,7 @@
     [else (or (integer? x) (boolean? x) (member x `(function •)))]))
 
 ;; eval-cek : S-Exp -> [Setof EvalAnswer]
+;; evaluates closed, well-typed SCPCF term
 (define (eval-cek e)
   
   ;; final? : CEK -> Boolean
@@ -175,11 +176,7 @@
       [(value u cs) u]
       [(blame/ l1 l2) `(blame ,l1 ,l2)]))
   
-  (let ([expr (read-exp e)])
-    (match (type-check expr)
-      ['TypeError (error "Does not type check")]
-      [else
-       (s-map get-answer (s-filter final? (run (load expr))))])))
+  (s-map get-answer (run (load (read-exp e)))))
 
 ;; verify : Value ContractClosure -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither
@@ -192,10 +189,6 @@
 
 
 ;;;; set helper functions
-
-;; s-filter : [x -> Boolean] [Setof x] -> [Setof x]
-(define (s-filter p? xs)
-  (list->set (filter p? (set->list xs))))
 
 ;; s-map : [x -> y] [Setof x] -> [Setof y]
 (define (s-map f xs)
