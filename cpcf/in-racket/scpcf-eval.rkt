@@ -31,12 +31,12 @@
 (struct op/k kont (o vals exps env k) #:transparent)
 (struct mon/k kont (h f g con env k) #:transparent)
 
-(struct mon-fn kont (h f g c1 c2 con-env body env k) #:transparent)
+(struct mon-fn kont (h f g c1 c2 con-env func env k) #:transparent)
 ;; c1: contract for domain
 ;; c2: contract for range, originally under λ
 ;; con-env: environment that closes c1 and (λ.c2)
-;; body: the pending function's body
-;; env: environment that closes (λ.body)
+;; func: the monitored function
+;; env: environment that closes func
 
 ;; load : Exp -> CEK
 (define (load e)
@@ -123,13 +123,13 @@
                 ;; convert monitored function to special closure used internally
                 (cek [value (mon-lam h f g c ρc u) cs] ρv κ)])])}]
     
-    ;; is it ok to do this?
+    ;; blame
     [(cek [blame/ f h] ρ κ) {set (cek [blame/ f h] env-empty (mt))}]
     
     ;; retain value
     [(cek [value u cs] ρ (mt)) {set conf}]
     
-    ;; variable encoded as lexical distance
+    ;; variable reference
     [(cek (ref d) ρ κ) (let ([clo (env-get d ρ)])
                          {set (cek [clo-exp clo] [clo-env clo] κ)})]))
 
@@ -207,8 +207,6 @@
 
 
 ;;;;; tests
-
-;; TODO test evaluation
 (check-equal? (eval-cek ev?) {set 'function})
 (check-equal? (eval-cek ap00) {set 2})
 (check-equal? (eval-cek ap01) {set `(blame g h)})
