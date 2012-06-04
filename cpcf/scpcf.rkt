@@ -412,17 +412,17 @@
  #:attempts 5000)
 
 `(,count programs were well-typed)
-`(eval-red total: (cpu: ,cpu1) (real: ,real1) (gc: ,gc1))
-`(eval-cek total: (cpu: ,cpu2) (real: ,real2) (gc: ,gc2))
+`(eval-red: (cpu: ,cpu1) (real: ,real1) (gc: ,gc1))
+`(eval-cek: (cpu: ,cpu2) (real: ,real2) (gc: ,gc2))
 
 ;; The time taken to run this test increased significantly when I inserted
 ;; those set! statements. It didn't finish after 20 minutes. How can ~35k
 ;; additions make such a big difference, even if the numbers are boxed?
 ;; I tried changing memory limit from 1024M to 2048M and it finished quickly.
 ;; Result on Ubuntu 12.04, Core 2 Duo T8100 @ 2.1GHz:
-#;'(4121 programs were well-typed)
-#;'(eval-red total: (cpu: 1060) (real: 1217) (gc: 124))
-#;'(eval-cek total: (cpu: 324) (real: 290) (gc: 20))
+#;'(4139 programs were well-typed)
+#;'(eval-red: (cpu: 1052) (real: 1096) (gc: 48))
+#;'(eval-cek: (cpu: 212) (real: 226) (gc: 16))
 
 ;; Results on samth's machine:
 ;; '(4126 programs were well-typed)
