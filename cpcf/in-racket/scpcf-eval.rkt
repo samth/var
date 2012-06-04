@@ -196,8 +196,10 @@
 
 ;; set-partition : (x -> Boolean) [Setof x] -> (Setof x) (Setof x)
 (define (set-partition p? xs)
-  (let-values ([(p-true p-false) (partition p? (set->list xs))])
-    (values (list->set p-true) (list->set p-false))))
+  (for/fold ([p-true ∅] [p-false ∅]) ([x (in-set xs)])
+    (if (p? x)
+        (values (set-add p-true x) p-false)
+        (values p-true (set-add p-false x)))))
 
 
 ;;;;; tests
