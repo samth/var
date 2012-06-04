@@ -83,9 +83,9 @@
         μ)
    
    ; primitive ops (non-deterministic)
-   (==> (o V ...) V_i
+   (==> (o V ...) A_i
         δ
-        (where {V_1 ... V_i V_n ...} (δ/s o V ...)))
+        (where {A_1 ... A_i A_n ...} (δ/s o V ...)))
    
    ; contract checking
    (==> (mon h f g C V) V
@@ -114,7 +114,7 @@
 (define-metafunction SCPCF
   ; i restrict the range just to prevent myself from making this
   ; out of sync with above rules
-  δ/s : o V ... -> {V ...}
+  δ/s : o V ... -> {A ...}
   ; sqrt treated separately due to refinement in result
   [(δ/s sqrt (n Cs)) {((δ sqrt n) {(convert-con ,non-neg/c)})}]
   [(δ/s sqrt ((• T) Cs)) {((• Int) {(convert-con ,non-neg/c)})}]

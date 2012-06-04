@@ -289,7 +289,10 @@
     ['true? (compose not false?)]
     ['false? false?]
     ; 'abs' here to suppress cases like (sqrt -1)
-    ['sqrt (compose inexact->exact floor sqrt abs)]
+    ['sqrt (λ (n)
+             (if (>= n 0)
+                 ((compose inexact->exact floor sqrt) n)
+                 (blame/ '† 'sqrt)))] ; caller not available here to blame
     ['+ +]
     ['- -]
     ['∨ (λ (x y) (or x y))]

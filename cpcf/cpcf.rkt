@@ -15,7 +15,7 @@
  subst-con ; C X M -> C
  
  ;; interprets primitive ops
- δ ; o V ... -> V
+ δ ; o V ... -> A
  
  ;; converts racket's values to CPCF's booleans
  to-bool ; any -> #t or #f
@@ -142,7 +142,7 @@
 
 ;; interprets primitive ops
 (define-metafunction CPCF
-  δ : o V ... -> V
+  δ : o V ... -> A
   [(δ zero? n) (to-bool ,(zero? (term n)))]
   [(δ non-neg? n) (to-bool ,(>= (term n) 0))]
   [(δ even? n) (to-bool ,(even? (term n)))]
@@ -150,7 +150,10 @@
   [(δ odd? n) (to-bool ,(odd? (term n)))]
   [(δ true? b) (to-bool ,(equal? (term b) (term #t)))]
   [(δ false? b) (to-bool ,(equal? (term b) (term #f)))]
-  [(δ sqrt n) ,(inexact->exact (floor (sqrt (abs (term n)))))] ; whatever
+  [(δ sqrt n) 
+   ,(if (>= (term n) 0)
+        (inexact->exact (floor (sqrt (term n)))) ; whatever
+        (term (blame † sqrt)))] ; should blame caller, but not available here
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
   [(δ ∨ b ...) ,(ormap (curry equal? (term #t)) (term (b ...)))]
