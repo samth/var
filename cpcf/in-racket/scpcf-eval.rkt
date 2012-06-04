@@ -158,13 +158,15 @@
     ;; -- unknown: non-final states whose next states are unexplored
     ;; -- final: final states (~ answers)
     (define (go known unknown final)
-      (if (set-empty? unknown) final
-          (let*-values ([(next) (non-det step unknown)]
-                        [(known1) (set-union known unknown)]
-                        [(final1 non-final1) (set-partition final? next)])
-            (go known1
-                (set-subtract non-final1 known1)
-                (set-union final final1)))))
+      (cond
+        [(set-empty? unknown) final]
+        [else
+         (define next (non-det step unknown))
+         (define known1 (set-union known unknown))
+         (define-values (final1 non-final1) (set-partition final? next))
+         (go known1
+             (set-subtract non-final1 known1)
+             (set-union final final1))]))
     (go ∅ {set conf} ∅))
   
   ;; get-answer : CEK (final) -> EvalAnswer
