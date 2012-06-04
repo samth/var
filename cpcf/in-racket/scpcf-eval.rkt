@@ -192,7 +192,9 @@
 
 ;; s-map : [x -> y] [Setof x] -> [Setof y]
 (define (s-map f xs)
-  (for/set ([x xs]) (f x)))
+  #;(for/set ([x xs]) (f x))
+  ; TODO: is this how I use in-set?
+  (for/fold ([ys ∅]) ([x (in-set xs)]) (set-add ys (f x))))
 
 ;; set-partition : (x -> Boolean) [Setof x] -> (Setof x) (Setof x)
 (define (set-partition p? xs)
