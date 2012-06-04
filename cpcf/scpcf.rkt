@@ -2,7 +2,7 @@
 (require redex)
 (require "cpcf.rkt")
 
-;;;; Symbolic CPCF
+;;;; Symbolic CPCF, what programmer writes
 (define-extended-language SCPCF-src CPCF
   ;; closed expression
   [M-closed (side-condition (name m M) (term (closed? m)))]
@@ -36,7 +36,7 @@
 ;; (recursively) annotating values with an empty set of refining contracts
 (define-metafunction SCPCF
   convert : any #|SCPCF-src term|# -> M
-  [(convert M) M] ; just to make it more flexible
+  [(convert M) M] ; just to make it more flexible on already-converted terms
   [(convert (λ (X T) any)) ((λ (X T) (convert any)) {})]
   [(convert U) (U {})] ; relies on all old V's being new U's
   [(convert (μ (X T) any)) (μ (X T) (convert any))]
@@ -112,8 +112,6 @@
 
 ;; interprets primitive ops
 (define-metafunction SCPCF
-  ; i restrict the range just to prevent myself from making this
-  ; out of sync with above rules
   δ/s : o V ... -> {A ...}
   ; sqrt treated separately due to refinement in result
   [(δ/s sqrt (n Cs)) {((δ sqrt n) {(convert-con ,non-neg/c)})}]
@@ -167,6 +165,8 @@
 (define-metafunction SCPCF-src
   closed? : M -> #t or #f
   [(closed? M) (closed-by? [] M)])
+
+;; checks whether expression is closed by given list of var names as context
 (define-metafunction SCPCF-src
   closed-by? : [X ...] M -> #t or #f
   [(closed-by? [X ...] (λ (Z T) M)) (closed-by? [Z X ...] M)]
@@ -183,6 +183,7 @@
                                        (term ((closed-by? any M) ...)))]
   [(closed-by? any (mon h f g C M))
    ,(and (term (con-closed-by? any C)) (term (closed-by? any M)))])
+;; check whether contract is closed by given context
 (define-metafunction SCPCF-src
   con-closed-by? : [X ...] C -> #t or #f
   [(con-closed-by? any (flat M)) (closed-by? any M)]
