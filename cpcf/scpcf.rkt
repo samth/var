@@ -114,7 +114,10 @@
 (define-metafunction SCPCF
   δ/s : o V ... -> {A ...}
   ; sqrt treated separately due to refinement in result
-  [(δ/s sqrt (n Cs)) {((δ sqrt n) {(convert-con ,non-neg/c)})}]
+  [(δ/s sqrt (n Cs))
+   ,(if (>= (term n) 0)
+        (term {((δ sqrt n) {(convert-con ,non-neg/c)})})
+        (term {(blame † _sqrt)}))]
   [(δ/s sqrt ((• T) Cs)) {((• Int) {(convert-con ,non-neg/c)})}]
   ; exact answer for concrete arguments
   [(δ/s o (U Cs) ...)

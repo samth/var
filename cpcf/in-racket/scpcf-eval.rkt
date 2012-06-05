@@ -66,28 +66,28 @@
                        (mon-fn h f g c1 c2 ρc (value u1 cs) ρ1 κ)]
                       [else (fn (value u cs) ρ1 κ)]])}]
     [(cek [value u cs] ρ2 [fn (value (lam t e) _) ρ1 κ]) ; (fn v)
-     {set (cek e [env-extend (clo (value u cs) ρ2) ρ1] κ)}]
+     {set (cek e [env-extend (close (value u cs) ρ2) ρ1] κ)}]
     [(cek [value u cs] ρv [mon-fn h f g c1 c2 ρc fun ρb κ])
      {set (cek [value u cs] ρv ;; manually add 3 frames:
                [mon/k h g f c1 ρc ;; (1) monitor the argument
                       [fn fun ρb ;; (2) apply the function
                           ;; (3) monitor the result
-                          [mon/k h f g c2 (env-extend (clo (value u cs) ρv) ρc)
+                          [mon/k h f g c2 (env-extend (close (value u cs) ρv) ρc)
                                  κ]]])}]
     [(cek [value u cs2] ρv [fn (value (opaque (func-type t1 t2)) cs1) ρ κ])
      {set (cek [value
                 (opaque t2)
                 {s-map (λ (c)
                          (let ([d (func/c-rng c)])
-                           (contract-clo
+                           (close-contract
                             d
-                            (env-extend (clo (value u cs2) ρv) ρ))))
+                            (env-extend (close (value u cs2) ρv) ρ))))
                        cs1}]
                env-empty κ)
           (cek [app (havoc t1) [value u cs2]] env-empty κ)}]
     
     ;; μ
-    [(cek [rec t e] ρ κ) {set (cek e [env-extend (clo (rec t e) ρ) ρ] κ)}]
+    [(cek [rec t e] ρ κ) {set (cek e [env-extend (close (rec t e) ρ) ρ] κ)}]
     
     ;; if
     [(cek [if/ e1 e2 e3] ρ κ) {set (cek e1 ρ [if/k e2 e3 ρ κ])}]
@@ -107,7 +107,7 @@
     ;; monitored expression
     [(cek [mon h f g c e] ρ κ) {set (cek e ρ [mon/k h f g c ρ κ])}]
     [(cek [value u cs] ρv [mon/k h f g c ρc κ])
-     {set (match (verify (value u cs) (contract-clo c ρc))
+     {set (match (verify (value u cs) (close-contract c ρc))
             ['Proved (cek [value u cs] ρv κ)]
             ['Refuted (cek [blame/ f h] env-empty κ)]
             ['Neither
@@ -115,7 +115,7 @@
                [(flat/c e)
                 ;; add 2 kont frames manually
                 (cek e ρc [ar (value u cs) ρv
-                              [if/k (refine (value u cs) (contract-clo c ρc))
+                              [if/k (refine (value u cs) (close-contract c ρc))
                                     (blame/ f h)
                                     ρv
                                     κ]])]

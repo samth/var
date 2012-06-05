@@ -153,7 +153,7 @@
   [(δ sqrt n) 
    ,(if (>= (term n) 0)
         (inexact->exact (floor (sqrt (term n)))) ; whatever
-        (term (blame † sqrt)))] ; should blame caller, but not available here
+        (term (blame † _sqrt)))] ; should blame caller, but not available here
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
   [(δ ∨ b ...) ,(ormap (curry equal? (term #t)) (term (b ...)))]
