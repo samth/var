@@ -36,7 +36,7 @@
   [close-contract (contract/? env? . -> . contract-clo?)]
   
   ;; Type := BaseType | FuncType | ConType
-  ;; BaseType = 'Int | 'Bool | '⊥
+  ;; BaseType = 'Num | 'Bool | '⊥
   [struct func-type ([from type?] [to type?])]
   [struct con-type ([of type?])]
   
@@ -50,7 +50,7 @@
   
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
-  ;; PreValue := Opaque | Integer | Boolean | Lambda
+  ;; PreValue := Opaque | Number | Boolean | Lambda
   [pre-value? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
   [op? (any/c . -> . boolean?)]
@@ -65,7 +65,7 @@
  
  ;; example terms
  ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
- keygen rsa rsa-ap sqroot sqrt-user sqrt-ap
+ keygen rsa rsa-ap ;sqroot sqrt-user sqrt-ap
  
  ;; example contracts
  c/any c/prime c/non-neg
@@ -96,7 +96,7 @@
 (struct lam (type body) #:transparent)
 ;; pre-value? : Any -> Boolean
 (define (pre-value? x)
-  (or (integer? x) (boolean? x) (opaque? x) (lam? x) (mon-lam? x)))
+  (or (number? x) (boolean? x) (opaque? x) (lam? x) (mon-lam? x)))
 
 ;; MonitoredLambda := (mon-lam Label Label Label FuncContract [Env Value] Exp)
 ;; monitored lambda, for internal use only
@@ -149,9 +149,9 @@
 (struct con-type (of) #:transparent)
 
 ;; base-type? : Any -> Boolean
-;; BaseType = 'Int | 'Bool | '⊥
+;; BaseType = 'Num | 'Bool | '⊥
 (define (base-type? x)
-  (member x '(Int Bool ⊥)))
+  (member x '(Num Bool ⊥)))
 
 ;; TypeResult = Type | TypeError
 (define (type-result? x)
@@ -166,11 +166,7 @@
   (if (andmap concrete? xs)
       {set (value (apply (op-impl o) (map value-pre xs)) ∅)}
       (match (op-range o)
-        ['Int 
-         (match o
-           ['sqrt {set (value (opaque 'Int)
-                              {set (contract-clo (read-con c/non-neg) env-empty)})}]
-           [else {set (value (opaque 'Int) ∅)}])]
+        ['Num {set (value (opaque 'Num) ∅)}]
         ['Bool {set (value #t ∅) (value #f ∅)}])))
 
 ;; concrete? : Value -> Boolean
@@ -182,25 +178,22 @@
 (define (op-impl o)
   (match o
     ['zero? zero?]
-    ['non-neg? (compose not negative?)]
-    ['even? even?]
-    ['odd? odd?]
+    ['non-neg? (and/c real? (compose not negative?))]
+    ['even? (and/c integer? even?)]
+    ['odd? (and/c integer? odd?)]
     ['prime? (λ (n) (if (member n '(2 3 5 7 11 13)) #t #f))] ; force #t
     ['true? (compose not false?)]
     ['false? false?]
-    ['sqrt (λ (n)
-             (if (>= n 0)
-                 ((compose inexact->exact floor sqrt) n)
-                 (blame/ '† '_sqrt)))] ; caller not available here to blame
+    ['sqrt sqrt]
     ['+ +]
     ['- -]
     ['∨ (λ (x y) (or x y))]
     ['∧ (λ (x y) (and x y))]))
 
-;; op-range : Op -> ('Int or 'Bool)
+;; op-range : Op -> ('Num or 'Bool)
 ;; returns op's return type
 (define (op-range o)
-  (if (member o '(sqrt + -)) 'Int 'Bool))
+  (if (member o '(sqrt + -)) 'Num 'Bool))
 
 ;; type-check : Exp -> TypeResult
 (define (type-check e)
@@ -229,7 +222,7 @@
                (type-check-with tenv e))]
       [(value u refinements)
        (cond
-         [(integer? u) 'Int]
+         [(number? u) 'Num]
          [(boolean? u) 'Bool])]))
   
   ;; type-check-con-with : [Env TypeResult] Contract -> TypeResult
@@ -286,13 +279,13 @@
   (define (∆ o)
     (cond
       [(member o '(zero? non-neg? even? odd? prime?))
-       (λ (t) (match t ['Int 'Bool] [else 'TypeError]))]
+       (λ (t) (match t ['Num 'Bool] [else 'TypeError]))]
       [(member o '(true? false?))
        (λ (t) (match t ['Bool 'Bool] [else 'TypeError]))]
       [(equal? o 'sqrt)
-       (λ (t) (match t ['Int 'Int] [else 'TypeError]))]
+       (λ (t) (match t ['Num 'Num] [else 'TypeError]))]
       [(member o '(+ -))
-       (λ (t1 t2) (match `(,t1 ,t2) ['(Int Int) 'Int] [else 'TypeError]))]
+       (λ (t1 t2) (match `(,t1 ,t2) ['(Num Num) 'Num] [else 'TypeError]))]
       [(member o '(∨ ∧))
        (λ (t1 t2) (match `(,t1 ,t2) ['(Bool Bool) 'Bool] [else 'TypeError]))]))
   
@@ -335,7 +328,7 @@
 ;; read-type : S-exp -> Type
 (define (read-type s)
   (match s
-    ['Int 'Int]
+    ['Num 'Num]
     ['Bool 'Bool]
     ['⊥ '⊥] ; just for debugging
     [`(,t1 → ,t2) (func-type (read-type t1) (read-type t2))]
@@ -354,7 +347,7 @@
          (error "function contract: expect symbol, given: " x))]
     [`(,c ↦ ,d)
      (let ([x (variable-not-in d 'z)]) ; desugar independent contract
-       (read-con-with names `(,c ↦ (λ (,x Int) ,d))))]
+       (read-con-with names `(,c ↦ (λ (,x Num) ,d))))]
     [else (error "invalid contract form: " s)]))
 
 ;; read-exp-with : [Listof Symbol] S-exp -> Exp
@@ -398,7 +391,7 @@
          (prim-app s0 (list (read-exp-with names s1) (read-exp-with names s2)))
          (error "expect binary op, given: " s0))]
     [x (cond
-         [(or (boolean? x) (integer? x)) (value x ∅)]
+         [(or (boolean? x) (number? x)) (value x ∅)]
          [(symbol? x) (ref (name-distance x names))]
          [else (error "invalid expression form: " x)])]))
 
@@ -460,51 +453,51 @@
 ;; example terms
 
 ; contracts
-(define c/any `(flat (λ (x Int) #t)))
-(define c/prime `(flat (λ (x Int) (prime? x))))
-(define c/non-neg `(flat (λ (x Int) (non-neg? x))))
+(define c/any `(flat (λ (x Num) #t)))
+(define c/prime `(flat (λ (x Num) (prime? x))))
+(define c/non-neg `(flat (λ (x Num) (non-neg? x))))
 
 ; expressions
-(define ev? '(λ (x Int) (even? x)))
+(define ev? '(λ (x Num) (even? x)))
 (define db1
   `(mon h f g
         (((flat ,ev?) ↦ (flat ,ev?))
          ↦ ((flat ,ev?) ↦ (flat ,ev?)))
-        (λ (f (Int → Int))
-          (λ (x Int)
+        (λ (f (Num → Num))
+          (λ (x Num)
             (f (f x))))))
 (define db2 ; like db1, but wrong
   `(mon h f g
         (((flat ,ev?) ↦ (flat ,ev?))
          ↦ ((flat ,ev?) ↦ (flat ,ev?)))
-        (λ (f (Int → Int))
-          (λ (x Int) 7))))
+        (λ (f (Num → Num))
+          (λ (x Num) 7))))
 (define ap0
-  `(,db1 (λ (x Int) 2)))
+  `(,db1 (λ (x Num) 2)))
 (define ap1
-  `(,db1 (λ (x Int) 7)))
+  `(,db1 (λ (x Num) 7)))
 (define ap00 `(,ap0 42))
 (define ap01 `(,ap0 13))
 (define ap10 `(,ap1 0))
-(define tri `(μ (f (Int → Int))
-                (λ (n Int)
+(define tri `(μ (f (Num → Num))
+                (λ (n Num)
                   (if (zero? n) 0
                       (+ n (f (- n 1)))))))
 (define ap00-db2 `((,db2 ,ap0) 0))
 (define keygen ; opaque
-  `(mon h f g (,c/any ↦ ,c/prime) (• (Int → Int))))
+  `(mon h f g (,c/any ↦ ,c/prime) (• (Num → Num))))
 (define rsa ; opaque
-  `(mon h f g (,c/prime ↦ (,c/any ↦ ,c/any)) (• (Int → (Int → Int)))))
+  `(mon h f g (,c/prime ↦ (,c/any ↦ ,c/any)) (• (Num → (Num → Num)))))
 (define rsa-ap
-  `((,rsa (,keygen 13)) (• Int)))
-(define sqroot
+  `((,rsa (,keygen 13)) (• Num)))
+#;(define sqroot
   `(mon h f g (,c/non-neg ↦ ,c/non-neg)
-        (λ (x Int) (sqrt x))))
-(define sqrt-user
+        (λ (x Num) (sqrt x))))
+#;(define sqrt-user
   `(mon h f g ((,c/any ↦ ,c/any) ↦ ,c/any)
-        (λ (f (Int → Int)) (,sqroot (f 0)))))
-(define sqrt-ap
-  `(,sqrt-user (• (Int → Int))))
+        (λ (f (Num → Num)) (,sqroot (f 0)))))
+#;(define sqrt-ap
+  `(,sqrt-user (• (Num → Num))))
 
 ;;;;; testing
 (define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
@@ -517,14 +510,14 @@
           exps)
 ;; test type-checking
 (define tc (compose show-type type-check read-exp))
-(check-equal? (tc ev?) '(Int → Bool))
-(check-equal? (tc db1) '((Int → Int) → (Int → Int)))
-(check-equal? (tc ap0) '(Int → Int))
-(check-equal? (tc ap00) 'Int)
-(check-equal? (tc tri) '(Int → Int))
-(check-equal? (tc keygen) '(Int → Int))
-(check-equal? (tc rsa) '(Int → (Int → Int)))
-(check-equal? (tc rsa-ap) 'Int)
-(check-equal? (tc sqroot) '(Int → Int))
-(check-equal? (tc sqrt-user) '((Int → Int) → Int))
-(check-equal? (tc sqrt-ap) 'Int)
+(check-equal? (tc ev?) '(Num → Bool))
+(check-equal? (tc db1) '((Num → Num) → (Num → Num)))
+(check-equal? (tc ap0) '(Num → Num))
+(check-equal? (tc ap00) 'Num)
+(check-equal? (tc tri) '(Num → Num))
+(check-equal? (tc keygen) '(Num → Num))
+(check-equal? (tc rsa) '(Num → (Num → Num)))
+(check-equal? (tc rsa-ap) 'Num)
+#;(check-equal? (tc sqroot) '(Num → Num))
+#;(check-equal? (tc sqrt-user) '((Num → Num) → Num))
+#;(check-equal? (tc sqrt-ap) 'Num)

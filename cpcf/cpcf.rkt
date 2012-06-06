@@ -45,7 +45,7 @@
   [T B
      (T → T)
      (con T)]
-  [B Int Bool ⊥]
+  [B Num Bool ⊥]
   ; primitive ops
   [o o1 o2]
   [o1 zero? non-neg? even? odd? prime? true? false? sqrt]
@@ -61,7 +61,7 @@
   [V (λ (X T) M)
      n
      b]
-  [(m n) integer]
+  [(m n) number]
   [b #t #f]
   ; evaluation contexts
   [E hole
@@ -144,16 +144,13 @@
 (define-metafunction CPCF
   δ : o V ... -> A
   [(δ zero? n) (to-bool ,(zero? (term n)))]
-  [(δ non-neg? n) (to-bool ,(>= (term n) 0))]
-  [(δ even? n) (to-bool ,(even? (term n)))]
+  [(δ non-neg? n) (to-bool ,(and (real? (term n)) (>= (term n) 0)))]
+  [(δ even? n) (to-bool ,(and (integer? (term n)) (even? (term n))))]
   [(δ prime? n) (to-bool ,(member (term n) '(2 3 5 7 11 13 17)))] ; i know im stupid
-  [(δ odd? n) (to-bool ,(odd? (term n)))]
+  [(δ odd? n) (to-bool ,(and (integer? (term n)) (odd? (term n))))]
   [(δ true? b) (to-bool ,(equal? (term b) (term #t)))]
   [(δ false? b) (to-bool ,(equal? (term b) (term #f)))]
-  [(δ sqrt n) 
-   ,(if (>= (term n) 0)
-        (inexact->exact (floor (sqrt (term n)))) ; whatever
-        (term (blame † _sqrt)))] ; should blame caller, but not available here
+  [(δ sqrt n) ,(sqrt (term n))] ; should blame caller, but not available here
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
   [(δ ∨ b ...) ,(ormap (curry equal? (term #t)) (term (b ...)))]
@@ -176,7 +173,7 @@
 ;; works out expression's type from given type-environment
 (define-metafunction CPCF
   type-check : TEnv M -> MaybeT
-  [(type-check TEnv n) Int]
+  [(type-check TEnv n) Num]
   [(type-check TEnv b) Bool]
   [(type-check ((X_0 T_0) ...) (λ (X T) M))
    (maybe→ T (type-check ((X T) (X_0 T_0) ...) M))]
@@ -245,15 +242,15 @@
 ;; types for primitive ops
 (define-metafunction CPCF
   ∆ : o MaybeT ... -> MaybeT
-  [(∆ o Int)
+  [(∆ o Num)
    Bool
    (side-condition (member (term o) (term (zero? non-neg? even? odd? prime?))))]
   [(∆ o Bool)
    Bool
    (side-condition (member (term o) (term (true? false?))))]
-  [(∆ sqrt Int) Int]
-  [(∆ o Int Int)
-   Int
+  [(∆ sqrt Num) Num]
+  [(∆ o Num Num)
+   Num
    (side-condition (member (term o) (term (+ -))))]
   [(∆ o Bool Bool)
    Bool
@@ -274,37 +271,37 @@
 
 
 ;; CPCF term examples + tests
-(define t-even? (term (λ (x Int) (even? x))))
+(define t-even? (term (λ (x Num) (even? x))))
 (define db1
   (term (mon h f g
              (((flat ,t-even?) ↦ (flat ,t-even?))
               ↦ ((flat ,t-even?) ↦ (flat ,t-even?)))
-             (λ (f (Int → Int))
-               (λ (x Int)
+             (λ (f (Num → Num))
+               (λ (x Num)
                  (f (f x)))))))
 (define db2 ; like db1, but wrong
   (term (mon h f g
              (((flat ,t-even?) ↦ (flat ,t-even?))
               ↦ ((flat ,t-even?) ↦ (flat ,t-even?)))
-             (λ (f (Int → Int))
-               (λ (x Int) 7)))))
-(define ap0 (term (,db1 (λ (x Int) 2))))
-(define ap1 (term (,db1 (λ (x Int) 7))))
+             (λ (f (Num → Num))
+               (λ (x Num) 7)))))
+(define ap0 (term (,db1 (λ (x Num) 2))))
+(define ap1 (term (,db1 (λ (x Num) 7))))
 (define ap00 (term (,ap0 42)))
 (define ap01 (term (,ap0 13)))
 (define ap10 (term (,ap1 0)))
-(define tri (term (μ (f (Int → Int))
-                     (λ (n Int)
+(define tri (term (μ (f (Num → Num))
+                     (λ (n Num)
                        (if (zero? n) 0
                            (+ n (f (- n 1))))))))
 
 ;; test type-checking
-(test-equal (term (type ,t-even?)) (term (Int → Bool)))
-(test-equal (term (type ,db1)) (term ((Int → Int) → (Int → Int))))
-(test-equal (term (type ,ap0)) (term (Int → Int)))
-(test-equal (term (type ,ap00)) (term Int))
-(test-equal (term (type ,ap01)) (term Int))
-(test-equal (term (type ,tri)) (term (Int → Int)))
+(test-equal (term (type ,t-even?)) (term (Num → Bool)))
+(test-equal (term (type ,db1)) (term ((Num → Num) → (Num → Num))))
+(test-equal (term (type ,ap0)) (term (Num → Num)))
+(test-equal (term (type ,ap00)) (term Num))
+(test-equal (term (type ,ap01)) (term Num))
+(test-equal (term (type ,tri)) (term (Num → Num)))
 
 ;; test reductions
 (test-->> CPCF-red ap00 2)
