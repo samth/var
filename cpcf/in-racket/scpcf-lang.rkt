@@ -60,8 +60,6 @@
   [pre-value? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
   [op? (any/c . -> . boolean?)]
-  [o1? (any/c . -> . boolean?)]
-  [o2? (any/c . -> . boolean?)]
   [type? (any/c . -> . boolean?)]
   [base-type? (any/c . -> . boolean?)]
   [type-result? (any/c . -> . boolean?)]
@@ -138,13 +136,9 @@
 (define (close exp en)
   (clo exp (env-restrict (free-vars exp) en)))
 
-;; Op := O1 | O2
+;; checks whether symbol names a primitive op
 (define (op? o)
-  (or (o1? o) (o2? o)))
-(define (o1? o)
-  (member o '(zero? non-neg? even? odd? prime? true? false? sqrt)))
-(define (o2? o)
-  (member o '(+ - ∨ ∧)))
+  (hash-has-key? ops o))
 
 ;; label? : Any -> Boolean
 (define label? symbol?)
@@ -191,27 +185,43 @@
 ;; checks whether value is concrete
 (define concrete? (compose not opaque? value-pre))
 
-;; op-impl : Op -> PrimitiveOp
-;; given op-name in object language, return its implementation
-(define (op-impl o)
-  (match o
-    ['zero? zero?]
-    ['non-neg? (and/c real? (compose not negative?))]
-    ['even? (and/c integer? even?)]
-    ['odd? (and/c integer? odd?)]
-    ['prime? (λ (n) (if (member n '(2 3 5 7 11 13)) #t #f))] ; force #t
-    ['true? (compose not false?)]
-    ['false? false?]
-    ['sqrt sqrt]
-    ['+ +]
-    ['- -]
-    ['∨ (λ (x y) (or x y))]
-    ['∧ (λ (x y) (and x y))]))
+;; ops : Symbol → (List (Listof Type) Type Function)
+;; primitive ops' types and implementations
+(define ops
+  (hash
+   'zero? `((Num) Num ,zero?)
+   'non-neg? `((Num) Bool ,(and/c real? (compose not negative?)))
+   'even? `((Num) Bool ,(and/c integer? even?))
+   'odd? `((Num) Bool ,(and/c integer? odd?))
+   'prime? `((Num) Num ,(λ (n) (if (member n '(2 3 5 7 11 13) #t #f) #t #f)))
+   'true? `((Bool) Bool ,(compose not false?))
+   'false? `((Bool) Bool ,false?)
+   'sqrt `((Num) Num ,sqrt)
+   '+ `((Num Num) Num ,+)
+   '- `((Num Num) Num ,-)
+   '* `((Num Num) Num ,*)
+   ;; TODO: syntactically transform to if to support short-circuiting
+   '∨ `((Bool Bool) Bool (λ (x y) (or x y)))
+   '∧ `((Bool Bool) Bool (λ (x y) (and x y)))))
+
+;; op-impl : Symbol -> Function
+(define (op-impl name)
+  (third (hash-ref ops name)))
 
 ;; op-range : Op -> ('Num or 'Bool)
 ;; returns op's return type
 (define (op-range o)
-  (if (member o '(sqrt + -)) 'Num 'Bool))
+  (second (hash-ref ops o)))
+
+;; o1 : Symbol -> Boolean
+(define (o1? name)
+  (and (hash-has-key? ops name)
+       (= 1 (length (first (hash-ref ops name))))))
+
+;; o2 : Symbol -> Boolean
+(define (o2? name)
+  (and (hash-has-key? ops name)
+       (= 2 (length (first (hash-ref ops name))))))
 
 ;; type-check : Exp -> TypeResult
 (define (type-check e)
