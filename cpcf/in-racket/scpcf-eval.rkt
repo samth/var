@@ -178,12 +178,14 @@
                    [else (cek (close (blame/ '† 'cdr) ρ0) κ)])}]))]))
 
 ;; EvalAnswer := Number | Boolean | '• | '(blame Label Label)
-;;            | 'function
+;;            | 'function | (cons EvalAnswser EvalAnswer)
 ;; eval-answer? : Any -> Boolean
 (define (eval-answer? x)
   (match x
     [`(blame ,l1 ,l2) (and (symbol? l1) (symbol? l2))]
-    [else (or (number? x) (boolean? x) (member x `(function •)))]))
+    [`(cons ,x ,xs) (and (eval-answer? x) (eval-answer? xs))]
+    [else (or (number? x) (boolean? x) (eq? 'nil x)
+              (member x `(function •)))]))
 
 ;; eval-cek : S-Exp -> [Setof EvalAnswer]
 ;; evaluates closed, well-typed SCPCF term

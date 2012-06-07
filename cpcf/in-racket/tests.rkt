@@ -99,3 +99,4 @@
 (check-equal? (eval-cek `(,tri 3)) {set 6})
 (check-equal? (eval-cek rsa-ap) {set `• `(blame f h)})
 #;(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h)})
+(check-equal? (eval-cek `(,sum ((,range 0) 10))) {set 55})
