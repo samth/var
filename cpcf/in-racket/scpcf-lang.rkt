@@ -352,7 +352,7 @@
       [(member o '(∨ ∧))
        (λ (t1 t2) (match `(,t1 ,t2) ['(Bool Bool) 'Bool] [else 'TypeError]))]))
   
-  (type-check-with env-empty e))
+  (type-check-with ρ0 e))
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)

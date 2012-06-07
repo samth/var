@@ -4,7 +4,7 @@
 
 (provide
  (contract-out
-  [env-empty env?]
+  [ρ0 env?] ; empty environment
   [env-extend (any/c env? . -> . env?)] ; TODO more precise
   [env-get (natural? env? . -> . any/c)] ; TODO more precise
   [env-get-default (natural? any/c env? . -> . any/c)] ; TODO more precise
@@ -40,8 +40,8 @@
 (define (natural? x)
   (and (integer? x) (>= x 0)))
 
-;; env-empty : [Env x]
-(define env-empty (env (hash) 0))
+;; ρ0 : [Env x]
+(define ρ0 (env (hash) 0))
 
 ;; env-extend : x [Env x] -> [Env x]
 (define (env-extend x en)
@@ -78,7 +78,7 @@
 
 ;; tests
 (define closures `(3 2 1 0))
-(define e (foldl env-extend env-empty closures))
+(define e (foldl env-extend ρ0 closures))
 (for-each (λ (distance)
             (check-equal? distance (env-get distance e)))
           closures)

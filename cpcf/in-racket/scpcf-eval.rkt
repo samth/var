@@ -44,7 +44,7 @@
 
 ;; load : Exp -> CEK
 (define (load e)
-  (cek (close e env-empty) (mt)))
+  (cek (close e ρ0) (mt)))
 
 ;; step : CEK -> [Setof CEK]
 (define (step conf)
@@ -88,7 +88,7 @@
            {set
             (match e
               [(ref x) (cek (env-get x ρ) κ)]
-              [(blame/ f h) (cek (close e env-empty) (mt))]
+              [(blame/ f h) (cek (close e ρ0) (mt))]
               [(app e1 e2) (cek (close e1 ρ) (ar (close e2 ρ) κ))]
               [(rec t b) (cek (close b (env-extend clo ρ)) κ)]
               [(if/ e1 e2 e3)
@@ -119,9 +119,9 @@
                                                  [(contract-clo (func/c c1 t c2) ρc)
                                                   (close-contract c2 (env-extend clo ρc))]))
                                              cs))
-                               env-empty)
+                               ρ0)
                         κ)
-                   (cek (close (havoc tx) env-empty) (ar clo κ))}])]
+                   (cek (close (havoc tx) ρ0) (ar clo κ))}])]
               [(mon-fn-clo h f g (contract-clo (func/c c1 t c2) ρc) clo1)
                ;; break into 3 simpler frames
                {set
@@ -143,39 +143,39 @@
                          (op/k o (cons (exp-clo-exp clo) vs) es1 ρ κ))}]
               [empty
                (s-map (λ (a)
-                        (cek (close a env-empty) κ))
+                        (cek (close a ρ0) κ))
                       (δ o (reverse (cons (exp-clo-exp clo) vs))))])]
            [(mon/k h f g conclo κ)
             {set
              (match (verify clo conclo)
                ['Proved (cek clo κ)]
-               ['Refuted (cek (close (blame/ f h) env-empty) (mt))]
+               ['Refuted (cek (close (blame/ f h) ρ0) (mt))]
                ['Neither
                 (match (contract-clo-con conclo)
                   [(flat/c p)
                    (cek (close p (contract-clo-env conclo))
                         (ar clo
                             (if/k (refine clo conclo)
-                                  (close (blame/ f h) env-empty) κ)))]
+                                  (close (blame/ f h) ρ0) κ)))]
                   [(func/c c1 t c2) (cek (mon-fn-clo h f g conclo clo) κ)])])}]
            [(cons-car clo1 κ) {set (cek (cons-clo clo1 clo) κ)}]
            [(cons-cdr clo1 κ) {set (cek clo1 (cons-car clo κ))}]
            [(nil?/k κ) (s-map (λ (b)
-                                (cek (close (value b ∅) env-empty) κ))
+                                (cek (close (value b ∅) ρ0) κ))
                               (nil-clo? clo))]
            [(cons?/k κ) (s-map (λ (b)
-                                 (cek (close (value b ∅) env-empty) κ))
+                                 (cek (close (value b ∅) ρ0) κ))
                                (cons-clo?/ clo))]
            [(car/k κ)
             {set (match clo
                    [(cons-clo clo1 _) (cek clo1 κ)]
                    #|TODO opaque|#
-                   [else (cek (close (blame/ '† 'car) env-empty) κ)])}]
+                   [else (cek (close (blame/ '† 'car) ρ0) κ)])}]
            [(cdr/k κ)
             {set (match clo
                    [(cons-clo _ clo2) (cek clo2 κ)]
                    #|TODO opaque|#
-                   [else (cek (close (blame/ '† 'cdr) env-empty) κ)])}]))]))
+                   [else (cek (close (blame/ '† 'cdr) ρ0) κ)])}]))]))
 
 ;; EvalAnswer := Number | Boolean | '• | '(blame Label Label)
 ;;            | 'function
