@@ -264,8 +264,8 @@
       [(cons/ e1 e2) (extend type-list
                              (type-check-with tenv e1)
                              (type-check-with tenv e2))]
-      [(nil?/ e) (extend (const 'Bool) (type-check-with tenv e))]
-      [(cons?/ e) (extend (const 'Bool) (type-check-with tenv e))]
+      [(nil?/ e) (extend type-list→bool (type-check-with tenv e))]
+      [(cons?/ e) (extend type-list→bool (type-check-with tenv e))]
       [(car/ e) (extend type-car (type-check-with tenv e))]
       [(cdr/ e) (extend type-cdr (type-check-with tenv e))]))
   
@@ -317,6 +317,10 @@
     (match `(,te ,tl)
       [`(,t ,(list-type t1)) (if (⊑ t1 t) (list-type t) 'TypeError)]
       [else 'TypeError]))
+  
+  ;; type-list→bool : Type -> TypeResult
+  (define (type-list→bool t)
+    (if (list-type? t) 'Bool 'TypeError))
   
   ;; type-mon : Type Type -> TypeResult
   (define (type-mon c e)
