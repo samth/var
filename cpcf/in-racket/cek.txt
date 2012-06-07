@@ -1,0 +1,92 @@
+expression:
+E = A
+    X
+    E E
+    μ. E
+    if E E E
+    o E ...
+    mon h f g C E
+    cons E E
+    nil? E E
+    cons? E E
+    car E
+    cdr E
+A = V
+    blame f h
+V = U Cs
+U = λ. E
+    numbers
+    #t #f
+    nil
+    (• T)
+    
+closure:
+Cl = ExpClo <E Env>
+     MonFnClo <L L L ConCl Cl>
+     ConsClo <Cl Cl>
+     
+kontinuation:
+κ = Mt
+    Ar Cl κ
+    Fn Cl κ ; where Cl = <V, ρ>
+    If E1 E2 ρ κ
+    O o [V ...] [E ...] ρ κ
+    Mon h f g ConCl κ
+    Cons-car Cl κ
+    Cons-cdr Cl κ
+    Nil? κ
+    Car κ
+    Cdr κ
+
+step cek:
+let (Cl, κ) ≡ cek:
+if Cl ≡ (E, ρ) where E ≠ V:
+    case E of:
+        X ↦ (Cl', κ), where Cl' = ρ[X]
+        blame f h ↦ ((blame f h, ∅), Mt)
+        E1 E2 ↦ ((E1, ρ), Ar (E2, ρ), κ)
+        μ. E ↦ ((E, ρ:(μ. E, ρ)), κ)
+        if E1 E2 E3 ↦ ((E1, ρ), If E2 E3 ρ κ)
+        o E1 E2... ↦ ((E1, ρ), O o [] [E2...] ρ κ)
+        mon h f g C E ↦ ((E, ρ), Mon h f g (C, ρ) κ)
+        cons E1 E2 ↦ ((E1, ρ), Cons-cdr <E2, ρ> κ)
+        nil? E ↦ ((E, ρ), Nil? κ)
+        cons? E ↦ ((E, ρ), Cons? κ)
+        car E ↦ ((E, ρ), Car κ)
+        cdr E ↦ ((E, ρ), Cdr κ)
+else: ;; E ≡ V, or Cl ≡ MonFnClo, or Cl ≡ ConsClo
+    case κ of:
+        Mt ↦ cek
+        Ar Cl' κ ↦ (Cl', Fn Cl κ)
+        Fn Cl' κ ↦ case Cl' of:
+                      (λ. E, ρλ) ↦ ((E, pλ:Cl), κ)
+                      ((• (Tx → Ty)) Cs, ρλ)
+                            ↦ .... (restricted by Cs)
+                            ↦ .... (havoc)
+                      MonFnClo h f g (C1 ↦ λ.C2, ρc) Cl'
+                            ;; break MonFn frame into 3 simpler frames
+                            ↦ (Cl, Mon h g f C1 ρc ; monitor argument
+                                   (Fn Cl' ; apply function
+                                   (Mon h f g C2 ρ:Cl κ))) ; monitor result
+        If E1 E2 ρ κ ↦ ((E1, ρ), κ) , if #t ∈ δ(true?, Cl-val)
+                     ↦ ((E2, ρ), κ) , if #f ∈ δ(true?, Cl-val)
+        O o [Vn...V1] [] ρ κ ↦ ((δ o [V1...Vn], ∅), κ)
+        O o [Vm-1...V1] [Em+1...En] ρ κ
+                ↦ ((Em+1, ρ), O o [Cl-val, Vm-1...V1] [Em+2...En] ρ κ)
+        Mon h f g (C, ρc) κ
+            ↦ case (verify Cl (C, ρc)) of:
+                 Proved ↦ (Cl, κ)
+                 Refuted ↦ ((blame f h, ∅), Mt)
+                 Neither ↦ case C of:
+                       flat p ↦ ((p, ρc), Ar Cl
+                                          (If (V · (C, ρc)) (blame f h) ρ κ))
+                       (C1 ↦ λ.C2) ↦ (MonFnClo h f g ConCl Cl, κ)
+        Con-car Cl' κ ↦ (ConsCl Cl' Cl, κ)
+        Con-cdr Cl' κ ↦ (Cl', Con-car Cl κ)
+        Nil? κ ↦ ((#t, ∅), κ) , if Cl-val ∈ {nil, (• (List T))}
+               ↦ ((#f, ∅), κ) , if Cl-val ≠ nil
+        Car κ ↦ (Cl', κ) , if Cl ≡ (Cons Cl' _)
+              ↦ ((blame † car, ∅), Mt) , otherwise
+        Cdr κ ↦ (Cl', κ) , if Cl ≡ (Cons _ Cl')
+              ↦ ((blame † cdr, ∅), Mt) , otherwise
+        
