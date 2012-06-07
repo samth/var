@@ -66,15 +66,7 @@
   [type-result? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)])
  
- ∅ ;; empty set
- 
- ;; example terms
- ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri
- keygen rsa rsa-ap ;sqroot sqrt-user sqrt-ap
- 
- ;; example contracts
- c/any c/prime c/non-neg
- )
+ ∅)
 
 ;; ∅ : Setof x
 ;; (eq? (set) (set)) = #f, and we have a lot of empty sets around,
@@ -177,7 +169,9 @@
 ;; applies primitive op
 (define (δ o xs)
   (if (andmap concrete? xs)
-      {set (value (apply (op-impl o) (map value-pre xs)) ∅)}
+      {set (match (apply (op-impl o) (map value-pre xs))
+             [(blame/ l1 l2) (blame/ l1 l2)]
+             [u (value u ∅)])}
       (match (op-range o)
         ['Num {set (value (opaque 'Num) ∅)}]
         ['Bool {set (value #t ∅) (value #f ∅)}])))
@@ -186,20 +180,33 @@
 ;; checks whether value is concrete
 (define concrete? (compose not opaque? value-pre))
 
+;; check-real : (Real Real -> Bool) Symbol -> (Num Num -> Bool or Blame)
+(define (check-real op name)
+  (λ (x y)
+    (if (and (real? x) (real? y))
+        (op x y)
+        (blame/ '† name))))
+
 ;; ops : Symbol → (List (Listof Type) Type Function)
 ;; primitive ops' types and implementations
 (define ops
   (hash
-   'zero? `((Num) Num ,zero?)
+   'zero? `((Num) Bool ,zero?)
    'non-neg? `((Num) Bool ,(and/c real? (compose not negative?)))
    'even? `((Num) Bool ,(and/c integer? even?))
    'odd? `((Num) Bool ,(and/c integer? odd?))
-   'prime? `((Num) Num ,(λ (n) (if (member n '(2 3 5 7 11 13) #t #f) #t #f)))
+   'prime? `((Num) Bool ,(λ (n) (if (member n '(2 3 5 7 11 13) #t #f) #t #f)))
    'true? `((Bool) Bool ,(compose not false?))
    'false? `((Bool) Bool ,false?)
    'sqrt `((Num) Num ,sqrt)
    '+ `((Num Num) Num ,+)
    '- `((Num Num) Num ,-)
+   '= `((Num Num) Bool ,=)
+   '≠ `((Num Num) Bool ,(compose not =))
+   '< `((Num Num) Bool ,(check-real < '<))
+   '≤ `((Num Num) Bool ,(check-real <= '≤))
+   '> `((Num Num) Bool ,(check-real > '>))
+   '≥ `((Num Num) Bool ,(check-real >= '≥))
    '* `((Num Num) Num ,*)
    ;; TODO: syntactically transform to if to support short-circuiting
    '∨ `((Bool Bool) Bool (λ (x y) (or x y)))
@@ -249,7 +256,8 @@
                               (type-check-with tenv e1)
                               (type-check-with tenv e2)
                               (type-check-with tenv e3))]
-      [(prim-app o xs) (apply (curry extend (∆ o)) (map (curry type-check-with tenv) xs))]
+      [(prim-app o xs) (apply (curry extend (curry ∆ o))
+                              (map (curry type-check-with tenv) xs))]
       [(mon h f g c e) (extend type-mon
                                (type-check-con-with tenv c)
                                (type-check-with tenv e))]
@@ -324,6 +332,7 @@
       [`(⊥ ,t) t]
       [`(,t ⊥) t]
       [`(,(func-type x y1) ,(func-type x y2)) (func-type x (⊔ y1 y2))]
+      [`(,(list-type t1) ,(list-type t2)) (list-type (⊔ t1 t2))]
       [`(,(con-type t1) ,(con-type t2)) (con-type (⊔ t1 t2))]
       [else 'TypeError]))
   
@@ -338,19 +347,11 @@
       [`(,(con-type t3) ,(con-type t4)) (⊑ t3 t4)]
       [_ #f]))
   
-  ;; ∆ : Op -> ((Type -> TypeResult) or (Type Type -> TypeResult))
-  (define (∆ o)
-    (cond
-      [(member o '(zero? non-neg? even? odd? prime?))
-       (λ (t) (match t ['Num 'Bool] [else 'TypeError]))]
-      [(member o '(true? false?))
-       (λ (t) (match t ['Bool 'Bool] [else 'TypeError]))]
-      [(equal? o 'sqrt)
-       (λ (t) (match t ['Num 'Num] [else 'TypeError]))]
-      [(member o '(+ -))
-       (λ (t1 t2) (match `(,t1 ,t2) ['(Num Num) 'Num] [else 'TypeError]))]
-      [(member o '(∨ ∧))
-       (λ (t1 t2) (match `(,t1 ,t2) ['(Bool Bool) 'Bool] [else 'TypeError]))]))
+  ;; ∆ : Op Type* -> TypeResult
+  (define (∆ o . arg-types)
+    (let* ([entry (hash-ref ops o)]
+           [param-types (first entry)])
+      (if (andmap ⊑ arg-types param-types) (second entry) 'TypeError)))
   
   (type-check-with ρ0 e))
 
@@ -531,80 +532,3 @@
     [(list-type t) `(List ,(show-type t))]
     [(con-type t) `(con ,(show-type t))]
     [t t]))
-
-;; example terms
-
-; contracts
-(define c/any `(flat (λ (x Num) #t)))
-(define c/prime `(flat (λ (x Num) (prime? x))))
-(define c/non-neg `(flat (λ (x Num) (non-neg? x))))
-
-; expressions
-(define ev? '(λ (x Num) (even? x)))
-(define db1
-  `(mon h f g
-        (((flat ,ev?) ↦ (flat ,ev?))
-         ↦ ((flat ,ev?) ↦ (flat ,ev?)))
-        (λ (f (Num → Num))
-          (λ (x Num)
-            (f (f x))))))
-(define db2 ; like db1, but wrong
-  `(mon h f g
-        (((flat ,ev?) ↦ (flat ,ev?))
-         ↦ ((flat ,ev?) ↦ (flat ,ev?)))
-        (λ (f (Num → Num))
-          (λ (x Num) 7))))
-(define ap0
-  `(,db1 (λ (x Num) 2)))
-(define ap1
-  `(,db1 (λ (x Num) 7)))
-(define ap00 `(,ap0 42))
-(define ap01 `(,ap0 13))
-(define ap10 `(,ap1 0))
-(define tri `(μ (f (Num → Num))
-                (λ (n Num)
-                  (if (zero? n) 0
-                      (+ n (f (- n 1)))))))
-(define ap00-db2 `((,db2 ,ap0) 0))
-(define keygen ; opaque
-  `(mon h f g (,c/any ↦ ,c/prime) (• (Num → Num))))
-(define rsa ; opaque
-  `(mon h f g (,c/prime ↦ (,c/any ↦ ,c/any)) (• (Num → (Num → Num)))))
-(define rsa-ap
-  `((,rsa (,keygen 13)) (• Num)))
-#;(define sqroot
-    `(mon h f g (,c/non-neg ↦ ,c/non-neg)
-          (λ (x Num) (sqrt x))))
-#;(define sqrt-user
-    `(mon h f g ((,c/any ↦ ,c/any) ↦ ,c/any)
-          (λ (f (Num → Num)) (,sqroot (f 0)))))
-#;(define sqrt-ap
-    `(,sqrt-user (• (Num → Num))))
-(define sum
-  `(μ (f ((List Num) → Num))
-      (λ (xs (List Num))
-        (if (nil? xs) 0 (+ (car xs) (f (cdr xs)))))))
-
-;;;;; testing
-(define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
-
-;; test read/show
-(for-each (λ (e)
-            (check-equal?
-             (read-exp e)
-             ((compose read-exp show-exp read-exp) e)))
-          exps)
-;; test type-checking
-(define tc (compose show-type type-check read-exp))
-(check-equal? (tc ev?) '(Num → Bool))
-(check-equal? (tc db1) '((Num → Num) → (Num → Num)))
-(check-equal? (tc ap0) '(Num → Num))
-(check-equal? (tc ap00) 'Num)
-(check-equal? (tc tri) '(Num → Num))
-(check-equal? (tc keygen) '(Num → Num))
-(check-equal? (tc rsa) '(Num → (Num → Num)))
-(check-equal? (tc rsa-ap) 'Num)
-#;(check-equal? (tc sqroot) '(Num → Num))
-#;(check-equal? (tc sqrt-user) '((Num → Num) → Num))
-#;(check-equal? (tc sqrt-ap) 'Num)
-(check-equal? (tc sum) '((List Num) → Num))

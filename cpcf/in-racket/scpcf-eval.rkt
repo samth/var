@@ -257,16 +257,3 @@
     (if (p? x)
         (values (set-add p-true x) p-false)
         (values p-true (set-add p-false x)))))
-
-;; for debugging
-(define step1 (curry non-det step))
-(define (pow f n) (apply compose (make-list n f)))
-(define (step* k e) ((pow step1 k) (set (load (read-exp e)))))
-
-;;;;; tests
-(check-equal? (eval-cek ev?) {set 'function})
-(check-equal? (eval-cek ap00) {set 2})
-(check-equal? (eval-cek ap01) {set `(blame g h)})
-(check-equal? (eval-cek `(,tri 3)) {set 6})
-(check-equal? (eval-cek rsa-ap) {set `• `(blame f h)})
-#;(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h)})
