@@ -35,16 +35,17 @@
   [struct exp-clo ([exp exp?] [env env?])]
   [struct mon-fn-clo ([orig label?] [pos label?] [neg label?]
                                     [con (struct/c contract-clo func/c? env?)]
-                                    [exp exp-clo?])]
+                                    [exp clo?])]
   [struct cons-clo ([car clo?] [cdr clo?])]
   [struct contract-clo ([con contract/?] [env env?])]
   [clo? (any/c . -> . boolean?)]
   [close (exp? env? . -> . clo?)]
   [close-contract (contract/? env? . -> . contract-clo?)]
   
-  ;; Type := BaseType | FuncType | ConType
+  ;; Type := BaseType | FuncType | ListType | ConType
   ;; BaseType = 'Num | 'Bool | '⊥
   [struct func-type ([from type?] [to type?])]
+  [struct list-type ([of type?])]
   [struct con-type ([of type?])]
   
   [δ (op? (listof value?) . -> . (set/c answer?))]
@@ -134,7 +135,7 @@
 
 ;; close : Exp Env -> Closure
 (define (close exp en)
-  (clo exp (env-restrict (free-vars exp) en)))
+  (exp-clo exp (env-restrict (free-vars exp) en)))
 
 ;; checks whether symbol names a primitive op
 (define (op? o)
@@ -359,7 +360,7 @@
 ;; vars≥ : Exp -> [Setof Natural]
 (define (vars≥ d e)
   (match e
-    [(ref k) (if (>= k d) {set k} ∅)]
+    [(ref k) (if (>= k d) {set (- k d)} ∅)]
     [(value u cs) (match u
                     [(lam t b) (vars≥ (+ 1 d) b)]
                     [else ∅])]

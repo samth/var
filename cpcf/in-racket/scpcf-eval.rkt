@@ -13,41 +13,47 @@
   
   [eval-answer? (any/c . -> . boolean?)]))
 
-;; CEK = (cek Exp [Env Value] Kont)
-(struct cek (exp env kont) #:transparent)
+;; CEK = (cek Closure Kont)
+(struct cek (clo kont) #:transparent)
 
 ;; Kont = Mt
-;;      | Ar Exp Env Kont
-;;      | Fn Value Env Kont
-;;      | If Exp Exp Env Kont
+;;      | Ar Closure Kont
+;;      | Fn Closure Kont
+;;      | If Closure Closure Kont
 ;;      | O Op [Listof Value] [Listof Exp] Env Kont
-;;      | Mon Label Label Label Contract Env Kont
-;;      | MonFn Label Label Label Contract Contract Env Value Env Kont
+;;      | Mon Label Label Label ContractClosure Kont
+;;      | Cons-car Closure Kont
+;;      | Cons-cdr Closure Kont
+;;      | Nil? Kont
+;;      | Cons? Kont
+;;      | Car Kont
+;;      | Cdr Kont
 (struct kont () #:transparent)
 (struct mt kont () #:transparent)
-(struct ar kont (e env k) #:transparent)
-(struct fn kont (body env k) #:transparent)
-(struct if/k kont (then else env k) #:transparent)
+(struct ar kont (clo k) #:transparent)
+(struct fn kont (clo k) #:transparent)
+(struct if/k kont (then else k) #:transparent)
 (struct op/k kont (o vals exps env k) #:transparent)
-(struct mon/k kont (h f g con env k) #:transparent)
-
-(struct mon-fn kont (h f g c1 c2 con-env func env k) #:transparent)
-;; c1: contract for domain
-;; c2: contract for range, originally under λ
-;; con-env: environment that closes c1 and (λ.c2)
-;; func: the monitored function
-;; env: environment that closes func
+(struct mon/k kont (h f g con-clo k) #:transparent)
+(struct cons-car kont (clo k) #:transparent)
+(struct cons-cdr kont (clo k) #:transparent)
+(struct nil?/k kont (k) #:transparent)
+(struct cons?/k kont (k) #:transparent)
+(struct car/k kont (k) #:transparent)
+(struct cdr/k kont (k) #:transparent)
 
 ;; load : Exp -> CEK
 (define (load e)
-  (cek e env-empty (mt)))
+  (cek (close e env-empty) (mt)))
 
 ;; step : CEK -> [Setof CEK]
 (define (step conf)
   
-  ;; refine : Value ContractClosure -> Value
-  (define (refine v c)
-    (value (value-pre v) (set-add (value-refinements v) c)))
+  ;; refine : Closure ContractClosure -> Value
+  (define (refine clo conclo)
+    (match clo
+      [(exp-clo (value u cs) ρ) (exp-clo (value u (set-add cs conclo)) ρ)]
+      [else clo #|TODO|#]))
   
   ;; havoc : (FuncType | BaseType) -> Exp
   (define (havoc t)
@@ -56,82 +62,120 @@
        (lam t (app (havoc ty) (app (ref 0) (value (opaque tx) {set}))))]
       [else (rec 'Num (ref 0))]))
   
+  ;; nil-clo? : Closure -> [Setof Boolean]
+  ;; (non-deterministically) checks whether closure represents nil
+  (define (nil-clo? c)
+    (match c
+      [(exp-clo (value u cs) ρ) (match u
+                                  ['nil {set #t}]
+                                  [(opaque (list-type t)) {set #t #f}]
+                                  [_ {set #f}])]
+      [_ {set #f}]))
+  
+  ;; cons-clo?/ : Closure -> [Setof Boolean]
+  ;; (non-deterministically) checks whther closure represents nil
+  (define (cons-clo?/ c)
+    (match c
+      [(exp-clo (value (opaque (list-type t)) cs) ρ) {set #t #f}]
+      [(cons-clo cl1 cl2) {set #t}]
+      [_ {set #f}]))
+  
   (match conf
-    
-    ;; application
-    [(cek [app e1 e2] ρ κ) {set (cek e1 ρ [ar e2 ρ κ])}] ; (e e) -> ([] e)
-    [(cek [value u cs] ρ1 [ar e ρ2 κ]) ; (v e) -> (v [])
-     {set (cek e ρ2 [match u
-                      [(mon-lam h f g (func/c c1 t c2) ρc u1)
-                       (mon-fn h f g c1 c2 ρc (value u1 cs) ρ1 κ)]
-                      [else (fn (value u cs) ρ1 κ)]])}]
-    [(cek [value u cs] ρ2 [fn (value (lam t e) _) ρ1 κ]) ; (fn v)
-     {set (cek e [env-extend (close (value u cs) ρ2) ρ1] κ)}]
-    [(cek [value u cs] ρv [mon-fn h f g c1 c2 ρc fun ρb κ])
-     {set (cek [value u cs] ρv ;; manually add 3 frames:
-               [mon/k h g f c1 ρc ;; (1) monitor the argument
-                      [fn fun ρb ;; (2) apply the function
-                          ;; (3) monitor the result
-                          [mon/k h f g c2 (env-extend (close (value u cs) ρv) ρc)
-                                 κ]]])}]
-    [(cek [value u cs2] ρv [fn (value (opaque (func-type t1 t2)) cs1) ρ κ])
-     {set (cek [value
-                (opaque t2)
-                {s-map (λ (c)
-                         (let ([d (func/c-rng c)])
-                           (close-contract
-                            d
-                            (env-extend (close (value u cs2) ρv) ρ))))
-                       cs1}]
-               env-empty κ)
-          (cek [app (havoc t1) [value u cs2]] env-empty κ)}]
-    
-    ;; μ
-    [(cek [rec t e] ρ κ) {set (cek e [env-extend (close (rec t e) ρ) ρ] κ)}]
-    
-    ;; if
-    [(cek [if/ e1 e2 e3] ρ κ) {set (cek e1 ρ [if/k e2 e3 ρ κ])}]
-    [(cek [value u cs] ρ1 [if/k e2 e3 ρ κ])
-     {s-map (λ (v)
-              (cek [if (value-pre v) e2 e3] ρ κ))
-            (δ 'true? (list (value u cs)))}]
-    
-    ;; primitive ops
-    [(cek [prim-app o (cons x xs)] ρ κ) {set (cek x ρ [op/k o '() xs ρ κ])}]
-    [(cek [value u cs] ρv [op/k o vs (cons x xs) ρ κ])
-     {set (cek x ρ [op/k o (cons (value u cs) vs) xs ρ κ])}]
-    [(cek [value u cs] ρv [op/k o vs '() ρ κ])
-     {s-map (λ (v) (cek v env-empty κ))
-            (δ o (reverse (cons (value u cs) vs)))}]
-    
-    ;; monitored expression
-    [(cek [mon h f g c e] ρ κ) {set (cek e ρ [mon/k h f g c ρ κ])}]
-    [(cek [value u cs] ρv [mon/k h f g c ρc κ])
-     {set (match (verify (value u cs) (close-contract c ρc))
-            ['Proved (cek [value u cs] ρv κ)]
-            ['Refuted (cek [blame/ f h] env-empty κ)]
-            ['Neither
-             (match c
-               [(flat/c e)
-                ;; add 2 kont frames manually
-                (cek e ρc [ar (value u cs) ρv
-                              [if/k (refine (value u cs) (close-contract c ρc))
-                                    (blame/ f h)
-                                    ρv
-                                    κ]])]
-               [(func/c dom t rng)
-                ;; convert monitored function to special closure used internally
-                (cek [value (mon-lam h f g c ρc u) cs] ρv κ)])])}]
-    
-    ;; blame
-    [(cek [blame/ f h] ρ κ) {set (cek [blame/ f h] env-empty (mt))}]
-    
-    ;; retain value
-    [(cek [value u cs] ρ (mt)) {set conf}]
-    
-    ;; variable reference
-    [(cek (ref d) ρ κ) (let ([clo (env-get d ρ)])
-                         {set (cek [clo-exp clo] [clo-env clo] κ)})]))
+    [(cek clo κ)
+     (if (and (exp-clo? clo) (not (value? (exp-clo-exp clo))))
+         (let ([e (exp-clo-exp clo)]
+               [ρ (exp-clo-env clo)])
+           {set
+            (match e
+              [(ref x) (cek (env-get x ρ) κ)]
+              [(blame/ f h) (cek (close e env-empty) (mt))]
+              [(app e1 e2) (cek (close e1 ρ) (ar (close e2 ρ) κ))]
+              [(rec t b) (cek (close b (env-extend clo ρ)) κ)]
+              [(if/ e1 e2 e3)
+               (cek (close e1 ρ) (if/k (close e2 ρ) (close e3 ρ) κ))]
+              [(prim-app o (cons x xs)) (cek (close x ρ) (op/k o '[] xs ρ κ))]
+              [(mon h f g c e1)
+               (cek (close e1 ρ) (mon/k h f g (close-contract c ρ) κ))]
+              [(cons/ e1 e2) (cek (close e1 ρ) (cons-cdr (close e2 ρ) κ))]
+              [(nil?/ e1) (cek (close e1 ρ) (nil?/k κ))]
+              [(cons?/ e1) (cek (close e1 ρ) (cons?/k κ))]
+              [(car/ e1) (cek (close e1 ρ) (car/k κ))]
+              [(cdr/ e1) (cek (close e1 ρ) (cdr/k κ))])})
+         ;; Cl = <V, ρ> | MonFnClo | ConsClo, all are 'values' in some sense
+         ;; dispatch on kontinuation
+         (match κ
+           [(mt) {set conf}]
+           [(ar clo1 κ) {set (cek clo1 (fn clo κ))}]
+           [(fn clo1 κ)
+            (match clo1
+              [(exp-clo (value u cs) ρv)
+               (match u
+                 [(lam t b) {set (cek (close b (env-extend clo ρv)) κ)}]
+                 [(opaque (func-type tx ty))
+                  {set
+                   (cek (close (value (opaque ty)
+                                      (s-map (λ (c)
+                                               (match c
+                                                 [(contract-clo (func/c c1 t c2) ρc)
+                                                  (close-contract c2 (env-extend clo ρc))]))
+                                             cs))
+                               env-empty)
+                        κ)
+                   (cek (close (havoc tx) env-empty) (ar clo κ))}])]
+              [(mon-fn-clo h f g (contract-clo (func/c c1 t c2) ρc) clo1)
+               ;; break into 3 simpler frames
+               {set
+                (cek clo
+                     (mon/k ; monitor argument
+                      h g f (close-contract c1 ρc)
+                      (fn ; apply function
+                       clo1
+                       (mon/k ; monitor result
+                        h f g (close-contract c2 (env-extend clo ρc)) κ))))}])]
+           [(if/k clo1 clo2 κ)
+            (s-map (λ (v)
+                     (cek (if (value-pre v) clo1 clo2) κ))
+                   (δ 'true? (list (exp-clo-exp clo))))]
+           [(op/k o vs es ρ κ)
+            (match es
+              [(cons e1 es1)
+               {set (cek (close e1 ρ)
+                         (op/k o (cons (exp-clo-exp clo) vs) es1 ρ κ))}]
+              [empty
+               (s-map (λ (a)
+                        (cek (close a env-empty) κ))
+                      (δ o (reverse (cons (exp-clo-exp clo) vs))))])]
+           [(mon/k h f g conclo κ)
+            {set
+             (match (verify clo conclo)
+               ['Proved (cek clo κ)]
+               ['Refuted (cek (close (blame/ f h) env-empty) (mt))]
+               ['Neither
+                (match (contract-clo-con conclo)
+                  [(flat/c p)
+                   (cek (close p (contract-clo-env conclo))
+                        (ar clo
+                            (if/k (refine clo conclo)
+                                  (close (blame/ f h) env-empty) κ)))]
+                  [(func/c c1 t c2) (cek (mon-fn-clo h f g conclo clo) κ)])])}]
+           [(cons-car clo1 κ) {set (cek (cons-clo clo1 clo) κ)}]
+           [(cons-cdr clo1 κ) {set (cek clo1 (cons-car clo κ))}]
+           [(nil?/k κ) (s-map (λ (b)
+                                (cek (close (value b ∅) env-empty) κ))
+                              (nil-clo? clo))]
+           [(cons?/k κ) (s-map (λ (b)
+                                 (cek (close (value b ∅) env-empty) κ))
+                               (cons-clo?/ clo))]
+           [(car/k κ)
+            {set (match clo
+                   [(cons-clo clo1 _) (cek clo1 κ)]
+                   #|TODO opaque|#
+                   [else (cek (close (blame/ '† 'car) env-empty) κ)])}]
+           [(cdr/k κ)
+            {set (match clo
+                   [(cons-clo _ clo2) (cek clo2 κ)]
+                   #|TODO opaque|#
+                   [else (cek (close (blame/ '† 'cdr) env-empty) κ)])}]))]))
 
 ;; EvalAnswer := Number | Boolean | '• | '(blame Label Label)
 ;;            | 'function
@@ -148,7 +192,9 @@
   ;; final? : CEK -> Boolean
   (define (final? conf)
     (and (mt? (cek-kont conf))
-         (answer? (cek-exp conf))))
+         (or (cons-clo? (cek-clo conf))
+             (mon-fn-clo? (cek-clo conf))
+             (answer? (exp-clo-exp (cek-clo conf))))))
   
   ;; run : CEK -> [Setof CEK]
   (define (run conf)
@@ -169,21 +215,28 @@
              (set-union final final1))]))
     (go ∅ {set conf} ∅))
   
-  ;; get-answer : CEK (final) -> EvalAnswer
-  (define (get-answer conf)
-    (match (cek-exp conf)
-      [(value (lam t e) cs) 'function]
-      [(value (mon-lam h f g c ρc e) cs) 'function]
-      [(value (opaque t) cs) (if (func-type? t) 'function '•)]
-      [(value u cs) u]
-      [(blame/ l1 l2) `(blame ,l1 ,l2)]))
+  ;; get-answer : Closure -> EvalAnswer
+  (define (get-answer clo)
+    (match clo
+      [(exp-clo e ρ)
+       (match e
+         [(value u cs) (match u
+                         [(lam t b) 'function]
+                         [(opaque (func-type tx ty)) 'function]
+                         [(opaque t) '•]
+                         [u u])]
+         [(blame/ l1 l2) `(blame ,l1 ,l2)])]
+      [(mon-fn-clo h f g conclo clo) 'function]
+      [(cons-clo cl1 cl2) `(cons ,(get-answer cl1) ,(get-answer cl2))]))
   
-  (s-map get-answer (run (load (read-exp e)))))
+  (s-map (compose get-answer cek-clo) (run (load (read-exp e)))))
 
-;; verify : Value ContractClosure -> Verified
+;; verify : Closure ContractClosure -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither
-(define (verify v c)
-  (if (set-member? (value-refinements v) c) 'Proved 'Neither))
+(define (verify clo conclo)
+  (match clo
+    [(exp-clo (value u cs) ρ) (if (set-member? cs conclo) 'Proved 'Neither)]
+    [else 'Neither #|TODO|#]))
 
 ;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
 (define (non-det f xs)
@@ -205,6 +258,10 @@
         (values (set-add p-true x) p-false)
         (values p-true (set-add p-false x)))))
 
+;; for debugging
+(define step1 (curry non-det step))
+(define (pow f n) (apply compose (make-list n f)))
+(define (step* k e) ((pow step1 k) (set (load (read-exp e)))))
 
 ;;;;; tests
 (check-equal? (eval-cek ev?) {set 'function})
