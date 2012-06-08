@@ -167,15 +167,21 @@
                                  (cek (close (value b ∅) ρ0) κ))
                                (cons-clo?/ clo))]
            [(car/k κ)
-            {set (match clo
-                   [(cons-clo clo1 _) (cek clo1 κ)]
-                   #|TODO opaque|#
-                   [else (cek (close (blame/ '† 'car) ρ0) κ)])}]
+            (match clo
+              [(cons-clo clo1 _) {set (cek clo1 κ)}]
+              [(exp-clo (value (opaque (list-type t)) cs) _)
+               ;; TODO: consider cs for more precision?
+               {set (cek (close (value (opaque t) ∅) ρ0) κ)
+                    (cek (close (blame/ '† 'car) ρ0) κ)}]
+              [else (cek (close (blame/ '† 'car) ρ0) κ)])]
            [(cdr/k κ)
-            {set (match clo
-                   [(cons-clo _ clo2) (cek clo2 κ)]
-                   #|TODO opaque|#
-                   [else (cek (close (blame/ '† 'cdr) ρ0) κ)])}]))]))
+            (match clo
+              [(cons-clo _ clo2) {set (cek clo2 κ)}]
+              [(exp-clo (value (opaque (list-type t)) cs) _)
+               ;; TODO: consider cs for more precision?
+               {set (cek (close (value (opaque (list-type t)) ∅) ρ0) κ)
+                    (cek (close (blame/ '† 'cdr) ρ0) κ)}]
+              [else {set (cek (close (blame/ '† 'cdr) ρ0) κ)}])]))]))
 
 ;; EvalAnswer := Number | Boolean | '• | '(blame Label Label)
 ;;            | 'function | (cons EvalAnswser EvalAnswer)

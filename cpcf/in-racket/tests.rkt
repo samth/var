@@ -116,9 +116,11 @@
 (check-equal? (tc slowsort) '((List Num) → (List Num)))
 
 ;; for debugging
-#;(define step1 (curry non-det step))
-#;(define (pow f n) (apply compose (make-list n f)))
-#;(define (step* k e) ((pow step1 k) (set (load (read-exp e)))))
+(define (non-det f xs)
+  (apply set-union (set-map xs f)))
+(define step1 (curry non-det step))
+(define (pow f n) (apply compose (make-list n f)))
+(define (step* k e) ((pow step1 k) (set (load (read-exp e)))))
 
 ;;;;; tests
 (check-equal? (eval-cek ev?) {set 'function})
@@ -129,7 +131,13 @@
 #;(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h)})
 (check-equal? (eval-cek `((,range 1) 3)) {set '(cons 1 (cons 2 (cons 3 nil)))})
 (check-equal? (eval-cek `(,sum ((,range 0) 10))) {set 55})
+(check-equal? (eval-cek `((,filter (• (Num → Bool))) (cons 1 (cons 2 nil))))
+              ;; every possible subsequence
+              {set 'nil '(cons 1 nil) '(cons 2 nil) '(cons 1 (cons 2 nil))})
 (check-equal? (eval-cek `((,append ((,range 1) 3)) ((,range 4) 6)))
               (eval-cek `((,range 1) 6)))
 (check-equal? (eval-cek `(,slowsort (cons 3 (cons 2 (cons 4 (cons 1 nil))))))
               {set '(cons 1 (cons 2 (cons 3 (cons 4 nil))))})
+#;(check-equal? (eval-cek `(,slowsort (• (List Num))))
+                ;; won't terminate, kont keeps growing
+                {set '(• (List Num))})
