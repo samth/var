@@ -288,7 +288,18 @@
                 ,(type-check-con-with (env-extend t tenv) rng))
          [`(,(con-type t1) ,(con-type t2))
           (extend con-type (func-type t1 t2))]
-         [else 'TypeError])]))
+         [else 'TypeError])]
+      [(consc c1 c2) (match `(,(type-check-con-with tenv c1)
+                               ,(type-check-con-with tenv c2))
+                        [`(,(con-type t1) ,(con-type (list-type t2)))
+                         (if (⊑ t2 t1) (con-type (list-type t1)) 'TypeError)]
+                        [_ 'TypeError])]
+      [(orc c1 c2) (extend ⊔ (type-check-con-with tenv c1)
+                           (type-check-con-with tenv c2))]
+      [(andc c1 c2) (extend ⊔ (type-check-con-with tenv c1)
+                            (type-check-con-with tenv c2))]
+      [(rec/c t c) (type-check-con-with (env-extend t tenv) c)]
+      [(con-ref x) (env-get x tenv)]))
   
   ;; extend : (Type* -> TypeResult) TypeResult* -> TypeResult
   ;; extends function's range from Type* to TypeResult*
@@ -395,7 +406,12 @@
 (define (con-vars≥ d c)
   (match c
     [(flat/c e) (vars≥ d e)]
-    [(func/c c1 t c2) (set-union (con-vars≥ d c1) (con-vars≥ (+ 1 d) c2))]))
+    [(func/c c1 t c2) (set-union (con-vars≥ d c1) (con-vars≥ (+ 1 d) c2))]
+    [(consc c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
+    [(orc c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
+    [(andc c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
+    [(rec/c t c) (con-vars≥ (+ 1 d) c)]
+    [(con-ref x) (if (>= x d) {set (- x d)} ∅)]))
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)

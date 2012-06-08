@@ -82,14 +82,22 @@ else: ;; E ≡ V, or Cl ≡ MonFnClo, or Cl ≡ ConsClo
         O o [Vn...V1] [] ρ κ ↦ ((δ o [V1...Vn], ∅), κ)
         O o [Vm-1...V1] [Em+1...En] ρ κ
                 ↦ ((Em+1, ρ), O o [Cl-val, Vm-1...V1] [Em+2...En] ρ κ)
-        Mon h f g (C, ρc) κ
-            ↦ case (verify Cl (C, ρc)) of:
-                 Proved ↦ (Cl, κ)
-                 Refuted ↦ ((blame f h, ∅), Mt)
-                 Neither ↦ case C of:
-                       flat p ↦ ((p, ρc), Ar Cl
-                                          (If (Cl · (C, ρc)) (blame f h, ∅) κ))
+        Mon h f g (C, ρc) κ ↦
+            case (maybe-flatten C) of:
+               Just p ↦
+                   case (verify Cl (C, ρc)) of:
+                       Proved ↦ (Cl, κ)
+                       Refuted ↦ ((blame f h, ∅), Mt)
+                       Neither ↦ ((p, ρc), Ar Cl
+                                           (If (Cl · (C, ρc)) (blame f h, ∅) κ))
+               Nothing ↦
+                   case C of:
                        (C1 ↦ λ.C2) ↦ (MonFnClo h f g ConCl Cl, κ)
+                       cons/c C1 C1 ↦ .... TODO
+                       C1 ∨ C2 ↦ .... TODO
+                       C1 ∧ C2 ↦ (MonFnClo h f g (C1, ρc)
+                                     (MonFnClo h f g (C2, ρc) Cl), κ)
+                       μ. C' ↦ (MonFnClo h f g (C', ρc:C) Cl, κ)
         Con-car Cl' κ ↦ (ConsCl Cl' Cl, κ)
         Con-cdr Cl' κ ↦ (Cl', Con-car Cl κ)
         Nil? κ ↦ ((#t, ∅), κ) , if Cl-val ∈ {nil, (• (List T))}
