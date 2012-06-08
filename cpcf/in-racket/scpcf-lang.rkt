@@ -28,6 +28,11 @@
   
   [struct flat/c ([exp exp?])]
   [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
+  [struct consc ([car contract/?] [cdr contract/?])]
+  [struct orc ([left contract/?] [right contract/?])]
+  [struct andc ([left contract/?] [right contract/?])]
+  [struct rec/c ([type type?] [body contract/?])]
+  [struct con-ref ([distance natural?])]
   
   ;; hiding closure constructors would make it tedious due to lack of
   ;; pattern matching. But client is expected to use close instead of
@@ -136,10 +141,16 @@
 ;; label? : Any -> Boolean
 (define label? symbol?)
 
-;; Contract := FlatContract | FuncContract
+;; Contract := FlatContract | FuncContract | ConsContract
+;;           | OrContract | AndContract | RecContract
 (struct contract/ () #:transparent)
 (struct flat/c contract/ (exp) #:transparent)
 (struct func/c contract/ (dom type rng) #:transparent)
+(struct consc contract/ (car cdr) #:transparent)
+(struct orc contract/ (left right) #:transparent)
+(struct andc contract/ (left right) #:transparent)
+(struct rec/c contract/ (type body) #:transparent)
+(struct con-ref contract/ (distance) #:transparent)
 
 ;; ContractClosure = (contract-clo Contract [Env Value])
 (struct contract-clo (con env) #:transparent)
@@ -201,13 +212,13 @@
    'sqrt `((Num) Num ,sqrt)
    '+ `((Num Num) Num ,+)
    '- `((Num Num) Num ,-)
+   '* `((Num Num) Num ,*)
    '= `((Num Num) Bool ,=)
    '≠ `((Num Num) Bool ,(compose not =))
    '< `((Num Num) Bool ,(check-real < '<))
    '≤ `((Num Num) Bool ,(check-real <= '≤))
    '> `((Num Num) Bool ,(check-real > '>))
-   '≥ `((Num Num) Bool ,(check-real >= '≥))
-   '* `((Num Num) Num ,*)))
+   '≥ `((Num Num) Bool ,(check-real >= '≥))))
 
 ;; op-impl : Symbol -> Function
 (define (op-impl name)
@@ -418,19 +429,16 @@
     [`(,c ↦ ,d)
      (let ([x (variable-not-in d 'z)]) ; desugar independent contract
        (read-con-with names `(,c ↦ (λ (,x Num) ,d))))]
-    [else (error "invalid contract form: " s)]))
+    [`(cons/c ,c ,d) (consc (read-con-with names c) (read-con-with names d))]
+    [`(,c ∨ ,d) (orc (read-con-with names c) (read-con-with names d))]
+    [`(,c ∧ ,d) (andc (read-con-with names c) (read-con-with names d))]
+    [`(μ (,x ,t) ,c) (rec/c (read-type t) (read-con-with (cons x names) c))]
+    [x (if (symbol? x)
+           (con-ref (name-distance x names))
+           (error "invalid contract form: " x))]))
 
 ;; read-exp-with : [Listof Symbol] S-exp -> Exp
 (define (read-exp-with names s)
-  
-  ;; name-distance : Symbol [Listof Symbol] -> Natural
-  (define (name-distance x xs)
-    ;; go : Natural [Listof Symbol] -> Natural
-    (define (go pos xs)
-      (match xs
-        [(cons z zs) (if (equal? z x) pos (go (+ 1 pos) zs))]
-        [empty (error "expression not closed, unbound variable: " x )]))
-    (go 0 xs))
   
   ;; read-and : [Listof S-exp] -> Exp
   (define (read-and terms)
@@ -542,7 +550,13 @@
        `(,(show-con-with names c)
          ↦
          ,(let ([x (new-var-name names)])
-            `(λ (,x ,(show-type t)) ,(show-con-with (cons x names) d))))]))
+            `(λ (,x ,(show-type t)) ,(show-con-with (cons x names) d))))]
+      [(consc c d) `(consc ,(show-con-with names c) ,(show-con-with names d))]
+      [(orc c d) `(,(show-con-with names c) ∨ ,(show-con-with names d))]
+      [(andc c d) `(,(show-con-with names c) ∧ ,(show-con-with names d))]
+      [(rec/c t c) (let ([x (new-var-name names)])
+                     `(μ (,x ,(show-type t)) ,(show-con-with (cons x names) c)))]
+      [(con-ref d) (list-ref names d)]))
   
   (show-exp-with empty e))
 
@@ -553,3 +567,12 @@
     [(list-type t) `(List ,(show-type t))]
     [(con-type t) `(con ,(show-type t))]
     [t t]))
+
+;; name-distance : Symbol [Listof Symbol] -> Natural
+(define (name-distance x xs)
+  ;; go : Natural [Listof Symbol] -> Natural
+  (define (go pos xs)
+    (match xs
+      [(cons z zs) (if (equal? z x) pos (go (+ 1 pos) zs))]
+      [empty (error "expression not closed, unbound variable: " x )]))
+  (go 0 xs))

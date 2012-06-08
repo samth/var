@@ -20,6 +20,15 @@ U = λ. E
     nil
     (• T)
     
+contract:
+C = flat E
+    C ↦ λ.C
+    cons/c C C
+    C ∨ C
+    C ∧ C
+    μ. C
+    X
+    
 closure:
 Cl = ExpClo <E Env>
      MonFnClo <L L L ConCl Cl>
