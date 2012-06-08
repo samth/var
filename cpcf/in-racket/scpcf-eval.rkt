@@ -265,3 +265,61 @@
     (if (p? x)
         (values (set-add p-true x) p-false)
         (values p-true (set-add p-false x)))))
+
+;; maybe-flatten : Natural Contract -> [List Exp] or Empty
+;; converts flat contract to predicate
+;; whether result expression is closed or open depends on original contract
+;; -- d: number of extra levels introduced by new λ's
+(define (maybe-flatten d c)
+  
+  ;; generates conjunction
+  (define (and/ . exps)
+    (match exps
+      [`(,e1 ,e2 ,es ...) (if/ e1 (apply and/ (rest exps)) (value #f ∅))]
+      [`(,e1) e1]
+      [_ (value #t ∅)]))
+  
+  ;; generates disjunction
+  (define (or/ . exps)
+    (match exps
+      [`(,e1 ,e2 ,es ...) (if/ e1 (value #t ∅) (apply or/ (rest exps)))]
+      [`(,e1) e1]
+      [_ (value #f ∅)]))
+  
+  ;; lift : [X1 ... Xn -> Y] [Listof X1] ... [Listof Xn] -> [Listof Y]
+  ;; like map, but allow lists of different lengths
+  (define (lift f . xss)
+    (cond
+      [(andmap cons? xss) (cons (apply f (map car xss))
+                                (apply (curry lift f) (map cdr xss)))]
+      [else empty]))
+  
+  (match c
+    [(flat/c p) (list p)]
+    [(func/c c t d) empty]
+    [(consc c1 c2) (lift (λ (p1 p2)
+                            (value (lam '⊥ ; program already type-checked
+                                        (and/ (cons?/ (ref 0))
+                                              (app p1 (car/ (ref 0)))
+                                              (app p2 (cdr/ (ref 0)))))
+                                   ∅))
+                          (maybe-flatten (+ 1 d) c1)
+                          (maybe-flatten (+ 1 d) c2))]
+    [(orc c1 c2) (lift (λ (p1 p2)
+                         (value (lam '⊥ ; program already type-checked
+                                     (or/ (app p1 (ref 0))
+                                          (app p2 (ref 0))))
+                                ∅))
+                       (maybe-flatten (+ 1 d) c1)
+                       (maybe-flatten (+ 1 d) c2))]
+    [(andc c1 c2) (lift (λ (p1 p2)
+                          (value (lam '⊥ ; program already type-checked
+                                      (and/ (app p1 (ref 0))
+                                            (app p2 (ref 0))))
+                                 ∅))
+                        (maybe-flatten (+ 1 d) c1)
+                        (maybe-flatten (+ 1 d) c2))]
+    [(rec/c (con-type t) c1) (lift (λ (e) (rec t e))
+                                   (maybe-flatten d c1))]
+    [(con-ref x) (list (ref (+ d x))) #|TODO: WRONG DEPTH!|#]))
+                          
