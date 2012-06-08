@@ -62,6 +62,31 @@
               (cons lo ((range (+ 1 lo)) hi))
               nil)))))
 
+(define append
+  `(μ (append ((List Num) → ((List Num) → (List Num))))
+      (λ (xs (List Num))
+        (λ (ys (List Num))
+          (if (nil? xs) ys
+              (cons (car xs)
+                    ((append (cdr xs)) ys)))))))
+
+(define filter
+  `(μ (filter ((Num → Bool) → ((List Num) → (List Num))))
+      (λ (p (Num → Bool))
+        (λ (xs (List Num))
+          (if (nil? xs) nil
+              (if (p (car xs))
+                  (cons (car xs) ((filter p) (cdr xs)))
+                  ((filter p) (cdr xs))))))))
+
+(define slowsort
+  `(μ (sort ((List Num) → (List Num)))
+      (λ (xs (List Num))
+        (if (nil? xs) nil
+            ((,append
+              (sort ((,filter (λ (y Num) (≤ y (car xs)))) (cdr xs))))
+             (cons (car xs) (sort ((,filter (λ (y Num) (≥ y (car xs)))) (cdr xs)))))))))
+
 ;;;;; testing
 (define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
 
@@ -86,6 +111,9 @@
 #;(check-equal? (tc sqrt-ap) 'Num)
 (check-equal? (tc sum) '((List Num) → Num))
 (check-equal? (tc range) '(Num → (Num → (List Num))))
+(check-equal? (tc append) '((List Num) → ((List Num) → (List Num))))
+(check-equal? (tc filter) '((Num → Bool) → ((List Num) → (List Num))))
+(check-equal? (tc slowsort) '((List Num) → (List Num)))
 
 ;; for debugging
 #;(define step1 (curry non-det step))
@@ -101,3 +129,7 @@
 #;(check-equal? (eval-cek sqrt-ap) {set '• '(blame g h)})
 (check-equal? (eval-cek `((,range 1) 3)) {set '(cons 1 (cons 2 (cons 3 nil)))})
 (check-equal? (eval-cek `(,sum ((,range 0) 10))) {set 55})
+(check-equal? (eval-cek `((,append ((,range 1) 3)) ((,range 4) 6)))
+              (eval-cek `((,range 1) 6)))
+(check-equal? (eval-cek `(,slowsort (cons 3 (cons 2 (cons 4 (cons 1 nil))))))
+              {set '(cons 1 (cons 2 (cons 3 (cons 4 nil))))})
