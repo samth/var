@@ -207,10 +207,7 @@
    '≤ `((Num Num) Bool ,(check-real <= '≤))
    '> `((Num Num) Bool ,(check-real > '>))
    '≥ `((Num Num) Bool ,(check-real >= '≥))
-   '* `((Num Num) Num ,*)
-   ;; TODO: syntactically transform to if to support short-circuiting
-   '∨ `((Bool Bool) Bool (λ (x y) (or x y)))
-   '∧ `((Bool Bool) Bool (λ (x y) (and x y)))))
+   '* `((Num Num) Num ,*)))
 
 ;; op-impl : Symbol -> Function
 (define (op-impl name)
@@ -435,6 +432,24 @@
         [empty (error "expression not closed, unbound variable: " x )]))
     (go 0 xs))
   
+  ;; read-and : [Listof S-exp] -> Exp
+  (define (read-and terms)
+    (match terms
+      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names t1)
+                               (read-and (rest terms))
+                               (value #f ∅))]
+      [`(,t) (read-exp-with names t)]
+      [`() (value #t ∅)]))
+  
+  ;; read-or : [Listof S-exp] -> Exp
+  (define (read-or terms)
+    (match terms
+      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names t1)
+                               (value #t ∅)
+                               (read-or (rest terms)))]
+      [`(,t) (read-exp-with names t)]
+      [`() (value #f ∅)]))
+  
   (match s
     [`(• ,t) (value (opaque (read-type t)) ∅)]
     [`(λ (,x ,t) ,s) (if (symbol? x)
@@ -461,6 +476,8 @@
     [`(cons? ,s) (cons?/ (read-exp-with names s))]
     [`(car ,s) (car/ (read-exp-with names s))]
     [`(cdr ,s) (cdr/ (read-exp-with names s))]
+    [`(and ,terms ...) (read-and terms)]
+    [`(or ,terms ...) (read-or terms)]
     [`(,s0 ,s1)
      (if (o1? s0)
          (prim-app s0 (list (read-exp-with names s1)))
