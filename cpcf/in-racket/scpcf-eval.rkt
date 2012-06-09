@@ -269,7 +269,8 @@
 ;; maybe-flatten : [Listof Natural] Contract -> [List Exp] or Empty
 ;; converts flat contract to predicate
 ;; whether result expression is closed or open depends on original contract
-;; -- d: number of extra levels introduced by new λ's
+;; -- ds: (list-ref ds k) is number of extra levels of λ introduced
+;;        after the k-th (μ.C)
 (define (maybe-flatten ds c)
   
   ;; generates conjunction
