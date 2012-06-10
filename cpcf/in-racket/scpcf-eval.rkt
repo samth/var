@@ -304,7 +304,7 @@
       [_ xs]))
   
   (match c
-    [(flat/c p) (list p)]
+    [(flat/c p) (list (shift (apply + ds) p))]
     [(func/c c t d) empty]
     [(consc c1 c2) (lift (λ (p1 p2)
                             (value (lam '⊥ ; program already type-checked

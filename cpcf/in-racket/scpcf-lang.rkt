@@ -53,8 +53,9 @@
   [struct list-type ([of type?])]
   [struct con-type ([of type?])]
   
-  [δ (op? (listof value?) . -> . (set/c answer?))]
+  [shift (natural? exp? . -> . exp?)]
   
+  [δ (op? (listof value?) . -> . (set/c answer?))]
   [type-check (exp? . -> . type-result?)]
   
   [read-exp (s-exp? . -> . exp?)]
@@ -592,3 +593,42 @@
       [(cons z zs) (if (equal? z x) pos (go (+ 1 pos) zs))]
       [empty (error "expression not closed, unbound variable: " x )]))
   (go 0 xs))
+
+;; shift : Natural Exp -> Exp
+;; shifts free variables in expression by given number
+(define (shift d e)
+  
+  ;; shift-at : Natural Exp -> Exp
+  (define (shift-at depth e)
+    (match e
+      [(ref x) (if (>= x depth) (ref (+ x d)) e)]
+      [(value u cs)
+       (match u
+         [(lam t b) (value (lam t (shift-at (+ 1 depth) b)) cs)]
+         [_ e])]
+      [(blame/ l1 l2) e]
+      [(app e1 e2) (app (shift-at depth e1) (shift-at depth e2))]
+      [(rec t b) (rec t (shift-at (+ 1 depth) b))]
+      [(if/ e1 e2 e3)
+       (if/ (shift-at depth e1) (shift-at depth e2) (shift-at depth e3))]
+      [(prim-app o xs) (prim-app o (map (curry shift-at depth) xs))]
+      [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]
+      [(cons/ e1 e2) (cons/ (shift-at depth e1) (shift-at depth e2))]
+      [(nil?/ e1) (nil?/ (shift-at depth e1))]
+      [(cons?/ e1) (cons?/ (shift-at depth e1))]
+      [(car/ e1) (car/ (shift-at depth e1))]
+      [(cdr/ e1) (cdr/ (shift-at depth e1))]))
+  
+  ;; shift-con-at : Natural Contract -> Contract
+  (define (shift-con-at depth c)
+    (match c
+      [(flat/c e) (flat/c (shift-at depth e))]
+      [(func/c c1 t c2)
+       (func/c (shift-con-at depth c1) t (shift-con-at (+ 1 depth) c2))]
+      [(consc c1 c2) (consc (shift-con-at depth c1) (shift-con-at depth c2))]
+      [(orc c1 c2) (orc (shift-con-at depth c1) (shift-con-at depth c2))]
+      [(andc c1 c2) (andc (shift-con-at depth c1) (shift-con-at depth c2))]
+      [(rec/c t c1) (rec/c t (shift-con-at (+ 1 depth) c1))]
+      [(con-ref x) (if (>= x depth) (con-ref (+ x d)) c)]))
+  
+  (shift-at 0 e))

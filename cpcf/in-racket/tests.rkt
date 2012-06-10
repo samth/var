@@ -87,6 +87,13 @@
               (sort ((,filter (λ (y Num) (≤ y (car xs)))) (cdr xs))))
              (cons (car xs) (sort ((,filter (λ (y Num) (≥ y (car xs)))) (cdr xs)))))))))
 
+;; contract checking for list of even numbers
+(define all-even?
+  `(μ (all-even? (con (List Num)))
+      ((flat (λ (xs (List Num)) (nil? xs)))
+       ∨
+       (cons/c (flat ,ev?) all-even?))))
+
 ;;;;; testing
 (define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
 
