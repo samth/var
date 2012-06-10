@@ -20,11 +20,6 @@
                              [con contract/?] [exp exp?])]
   [struct prim-app ([op op?] [args (listof exp?)])]
   [struct blame/ ([violator label?] [violatee label?])]
-  [struct cons/ ([car exp?] [cdr exp?])]
-  [struct nil?/ ([of exp?])]
-  [struct cons?/ ([of exp?])]
-  [struct car/ ([of exp?])]
-  [struct cdr/ ([of exp?])]
   
   [struct flat/c ([exp exp?])]
   [struct func/c ([dom contract/?] [type type?] [rng contract/?])]
@@ -55,7 +50,7 @@
   
   [shift (natural? exp? . -> . exp?)]
   
-  [δ (op? (listof value?) . -> . (set/c answer?))]
+  [δ (op? (listof clo?) . -> . (set/c clo?))]
   [type-check (exp? . -> . type-result?)]
   
   [read-exp (s-exp? . -> . exp?)]
@@ -98,17 +93,6 @@
 (struct prim-app exp (op args) #:transparent)
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon exp (orig pos neg con exp) #:transparent)
-;; Cons := (cons/ Exp Exp)
-(struct cons/ exp (car cdr) #:transparent)
-
-;; Car := (car/ Exp)
-(struct car/ exp (of) #:transparent)
-;; Cdr := (cdr/ Exp)
-(struct cdr/ exp (of) #:transparent)
-;; Nil? := (nil?/ Exp)
-(struct nil?/ exp (of) #:transparent)
-;; Cons? := (cons?/ Exp)
-(struct cons?/ exp (of) #:transparent)
 
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
@@ -177,68 +161,143 @@
 (define (type-result? x)
   (or (type? x) (equal? x 'TypeError)))
 
-;; δ : Op [Listof Value] -> [Setof Answer]
+;; δ : Op [Listof Closure] -> [Setof Closure]
 ;; applies primitive op
 (define (δ o xs)
-  (if (andmap concrete? xs)
-      {set (match (apply (op-impl o) (map value-pre xs))
-             [(blame/ l1 l2) (blame/ l1 l2)]
-             [u (value u ∅)])}
-      (match (op-range o)
-        ['Num {set (value (opaque 'Num) ∅)}]
-        ['Bool {set (value #t ∅) (value #f ∅)}])))
+  (apply (third (hash-ref ops o)) xs))
 
-;; concrete? : Value -> Boolean
-;; checks whether value is concrete
-(define concrete? (compose not opaque? value-pre))
+;; extend : (Type* -> TypeResult) TypeResult* -> TypeResult
+;; extends function's range from Type* to TypeResult*
+;; returns 'TypeError if any argument is
+(define (extend f . maybeTypes)
+  (if (ormap (curry equal? 'TypeError) maybeTypes)
+      'TypeError
+      (apply f maybeTypes)))
 
-;; check-real : (Real Real -> Bool) Symbol -> (Num Num -> Bool or Blame)
-(define (check-real op name)
-  (λ (x y)
-    (if (and (real? x) (real? y))
-        (op x y)
-        (blame/ '† name))))
+;; Type Type -> TypeResult
+;; returns most specific supertype
+(define (⊔ t1 t2)
+  (match `(,t1 ,t2)
+    [`(,t ,t) t]
+    [`(⊥ ,t) t]
+    [`(,t ⊥) t]
+    [`(,(func-type x y1) ,(func-type x y2)) (func-type x (⊔ y1 y2))]
+    [`(,(list-type t1) ,(list-type t2)) (list-type (⊔ t1 t2))]
+    [`(,(con-type t1) ,(con-type t2)) (con-type (⊔ t1 t2))]
+    [else 'TypeError]))
 
 ;; ops : Symbol → (List (Listof Type) Type Function)
 ;; primitive ops' types and implementations
 (define ops
-  (hash
-   'zero? `((Num) Bool ,zero?)
-   'non-neg? `((Num) Bool ,(and/c real? (compose not negative?)))
-   'even? `((Num) Bool ,(and/c integer? even?))
-   'odd? `((Num) Bool ,(and/c integer? odd?))
-   'prime? `((Num) Bool ,(λ (n) (if (member n '(2 3 5 7 11 13) #t #f) #t #f)))
-   'true? `((Bool) Bool ,(compose not false?))
-   'false? `((Bool) Bool ,false?)
-   'sqrt `((Num) Num ,sqrt)
-   '+ `((Num Num) Num ,+)
-   '- `((Num Num) Num ,-)
-   '* `((Num Num) Num ,*)
-   '= `((Num Num) Bool ,=)
-   '≠ `((Num Num) Bool ,(compose not =))
-   '< `((Num Num) Bool ,(check-real < '<))
-   '≤ `((Num Num) Bool ,(check-real <= '≤))
-   '> `((Num Num) Bool ,(check-real > '>))
-   '≥ `((Num Num) Bool ,(check-real >= '≥))))
+  (local
+    (;; closures for booleans
+     [define TRUE (exp-clo (value #t ∅) ρ0)]
+     [define FALSE (exp-clo (value #f ∅) ρ0)]
+     [define ABSTRACT-NUM (exp-clo (value (opaque 'Num) ∅) ρ0)]
+     
+     ;; checks for function type (List _ -> Bool)
+     [define check:list→bool
+       (match-lambda
+         [`(,(list-type t)) 'Bool]
+         [_ 'TypeError])]
+     
+     ;; check-real : (Real Real -> Bool) Symbol -> (Num Num -> Bool or Blame)
+     ;; checks for real arguments before applying primitive function
+     [define (check-real op name)
+       (λ (x y)
+         (if (and (real? x) (real? y))
+             (op x y)
+             (blame/ '† name)))]
+     
+     ;; prim : Symbol [Listof Type] Type Proc
+     ;;     -> [List ([Listof Type] -> TypeResult) (Closure* -> Closure)]
+     (define (prim name param-types res-type proc)
+       `(,(length param-types)
+         ,(λ (arg-types)
+            (if (equal? param-types arg-types) res-type 'TypeError))
+         ,(local ;; TODO: how to define λ with var-args?
+            ([define (op1 . xs)
+               (if (andmap exp-clo? xs)
+                   (let ([pre-vals (map (compose value-pre exp-clo-exp) xs)])
+                     (if (ormap opaque? pre-vals)
+                         (match res-type
+                           ['Num {set ABSTRACT-NUM}]
+                           ['Bool {set TRUE FALSE}])
+                         {set (exp-clo (value (apply proc pre-vals) ∅) ρ0)}))
+                   {set (exp-clo (blame/ '† name) ρ0)})])
+            op1))))
+    
+    (hash
+     'zero? (prim 'zero? '(Num) 'Bool zero?)
+     'non-neg? (prim 'non-neg? '(Num) 'Bool
+                     (and/c real? (compose not negative?)))
+     'even? (prim 'even? '(Num) 'Bool (and/c integer? even?))
+     'odd? (prim 'odd? '(Num) 'Bool (and/c integer? odd?))
+     'prime? (prim 'prime? '(Num) 'Bool
+                   (λ (n) (if (member n '(2 3 5 7 11 13) #t #f) #t #f)))
+     'true? (prim 'true? '(Bool) 'Bool (compose not false?))
+     'false? (prim 'false? '(Bool) 'Bool false?)
+     'sqrt (prim 'sqrt '(Num) 'Num sqrt)
+     '+ (prim '+ '(Num Num) 'Num +)
+     '- (prim '- '(Num Num) 'Num -)
+     '* (prim '* '(Num Num) 'Num *)
+     '= (prim '= '(Num Num) 'Bool =)
+     '≠ (prim '≠ '(Num Num) 'Bool (compose not =))
+     '< (prim '< '(Num Num) 'Bool (check-real < '<))
+     '≤ (prim '≤ '(Num Num) 'Bool (check-real <= '≤))
+     '> (prim '> '(Num Num) 'Bool (check-real > '>))
+     '≥ (prim '≥ '(Num Num) 'Bool (check-real >= '≥))
+     'cons `(2
+             ,(match-lambda
+                [`(,t1 ,(list-type t2)) (extend list-type (⊔ t1 t2))]
+                [_ 'TypeError])
+             ,(compose set cons-clo))
+     'nil? `(1
+             ,check:list→bool
+             ,(match-lambda
+                [(exp-clo (value 'nil cs) ρ) {set TRUE}]
+                [(exp-clo (value (opaque (list-type t)) cs) ρ) {set TRUE FALSE}]
+                [_ {set FALSE}]))
+     'cons? `(1
+              ,check:list→bool
+              ,(match-lambda
+                 [(exp-clo (value (opaque (list-type t)) cs) ρ) {set TRUE FALSE}]
+                 [(cons-clo c1 c2) {set TRUE}]
+                 [_ {set FALSE}]))
+     'car `(1
+            ,(match-lambda
+               [`(,(list-type t)) t]
+               [_ 'TypeError])
+            ,(match-lambda
+               [(cons-clo c1 c2) {set c1}]
+               [(exp-clo (value (opaque (list-type t)) cs) ρ)
+                {set (exp-clo (value (opaque t) ∅) ρ0)
+                     (exp-clo (blame/ '† 'car) ρ0)}]
+               [_ {set (exp-clo (blame/ '† 'car) ρ0)}]))
+     'cdr `(1
+            ,(match-lambda
+               [`(,t) (if (list-type? t) t 'TypeError)]
+               [_ 'TypeError])
+            ,(match-lambda
+               [(cons-clo c1 c2) {set c2}]
+               [(exp-clo (value (opaque (list-type t)) cs) ρ)
+                {set (exp-clo (value (opaque (list-type t)) ∅) ρ0)
+                     (exp-clo (blame/ '† 'cdr) ρ0)}]
+               [_ {set (exp-clo (blame/ '† 'cdr) ρ0)}])))))
 
 ;; op-impl : Symbol -> Function
 (define (op-impl name)
   (third (hash-ref ops name)))
 
-;; op-range : Op -> ('Num or 'Bool)
-;; returns op's return type
-(define (op-range o)
-  (second (hash-ref ops o)))
-
 ;; o1 : Symbol -> Boolean
 (define (o1? name)
   (and (hash-has-key? ops name)
-       (= 1 (length (first (hash-ref ops name))))))
+       (= 1 (first (hash-ref ops name)))))
 
 ;; o2 : Symbol -> Boolean
 (define (o2? name)
   (and (hash-has-key? ops name)
-       (= 2 (length (first (hash-ref ops name))))))
+       (= 2 (first (hash-ref ops name)))))
 
 ;; type-check : Exp -> TypeResult
 (define (type-check e)
@@ -269,14 +328,7 @@
                               (map (curry type-check-with tenv) xs))]
       [(mon h f g c e) (extend type-mon
                                (type-check-con-with tenv c)
-                               (type-check-with tenv e))]
-      [(cons/ e1 e2) (extend type-list
-                             (type-check-with tenv e1)
-                             (type-check-with tenv e2))]
-      [(nil?/ e) (extend type-list→bool (type-check-with tenv e))]
-      [(cons?/ e) (extend type-list→bool (type-check-with tenv e))]
-      [(car/ e) (extend type-car (type-check-with tenv e))]
-      [(cdr/ e) (extend type-cdr (type-check-with tenv e))]))
+                               (type-check-with tenv e))]))
   
   ;; type-check-con-with : [Env TypeResult] Contract -> TypeResult
   (define (type-check-con-with tenv c)
@@ -291,24 +343,16 @@
           (extend con-type (func-type t1 t2))]
          [else 'TypeError])]
       [(consc c1 c2) (match `(,(type-check-con-with tenv c1)
-                               ,(type-check-con-with tenv c2))
-                        [`(,(con-type t1) ,(con-type (list-type t2)))
-                         (if (⊑ t2 t1) (con-type (list-type t1)) 'TypeError)]
-                        [_ 'TypeError])]
+                              ,(type-check-con-with tenv c2))
+                       [`(,(con-type t1) ,(con-type (list-type t2)))
+                        (if (⊑ t2 t1) (con-type (list-type t1)) 'TypeError)]
+                       [_ 'TypeError])]
       [(orc c1 c2) (extend ⊔ (type-check-con-with tenv c1)
                            (type-check-con-with tenv c2))]
       [(andc c1 c2) (extend ⊔ (type-check-con-with tenv c1)
                             (type-check-con-with tenv c2))]
       [(rec/c t c) (type-check-con-with (env-extend t tenv) c)]
       [(con-ref x) (env-get x tenv)]))
-  
-  ;; extend : (Type* -> TypeResult) TypeResult* -> TypeResult
-  ;; extends function's range from Type* to TypeResult*
-  ;; returns 'TypeError if any argument is
-  (define (extend f . maybeTypes)
-    (if (ormap (curry equal? 'TypeError) maybeTypes)
-        'TypeError
-        (apply f maybeTypes)))
   
   ;; type-app : Type Type -> TypeResult
   (define (type-app f arg)
@@ -322,42 +366,10 @@
       ['Bool (⊔ t2 t3)]
       [else 'TypeError]))
   
-  ;; type-car : Type -> TypeResult
-  (define (type-car t)
-    (match t
-      [(list-type te) te]
-      [else 'TypeError]))
-  
-  ;; type-cdr : Type -> TypeResult
-  (define (type-cdr t)
-    (if (list-type? t) t 'TypeError))
-  
-  ;; type-list : Type Type -> TypeResult
-  (define (type-list te tl)
-    (match `(,te ,tl)
-      [`(,t ,(list-type t1)) (if (⊑ t1 t) (list-type t) 'TypeError)]
-      [else 'TypeError]))
-  
-  ;; type-list→bool : Type -> TypeResult
-  (define (type-list→bool t)
-    (if (list-type? t) 'Bool 'TypeError))
-  
   ;; type-mon : Type Type -> TypeResult
   (define (type-mon c e)
     (match `(,c ,e)
       [`(,(con-type t1) ,t2) (if (equal? t1 t2) t1 'TypeError)]
-      [else 'TypeError]))
-  
-  ;; Type Type -> TypeResult
-  ;; returns most specific supertype
-  (define (⊔ t1 t2)
-    (match `(,t1 ,t2)
-      [`(,t ,t) t]
-      [`(⊥ ,t) t]
-      [`(,t ⊥) t]
-      [`(,(func-type x y1) ,(func-type x y2)) (func-type x (⊔ y1 y2))]
-      [`(,(list-type t1) ,(list-type t2)) (list-type (⊔ t1 t2))]
-      [`(,(con-type t1) ,(con-type t2)) (con-type (⊔ t1 t2))]
       [else 'TypeError]))
   
   ;; Type Type -> Boolean
@@ -373,9 +385,7 @@
   
   ;; ∆ : Op Type* -> TypeResult
   (define (∆ o . arg-types)
-    (let* ([entry (hash-ref ops o)]
-           [param-types (first entry)])
-      (if (andmap ⊑ arg-types param-types) (second entry) 'TypeError)))
+    ((second (hash-ref ops o)) arg-types))
   
   (type-check-with ρ0 e))
 
@@ -394,12 +404,7 @@
     [(rec t b) (vars≥ (+ 1 d) b)]
     [(if/ e1 e2 e3) (set-union (vars≥ d e1) (vars≥ d e2) (vars≥ d e3))]
     [(prim-app o args) (apply set-union (map (curry vars≥ d) args))]
-    [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]
-    [(cons/ e1 e2) (set-union (vars≥ d e1) (vars≥ d e2))]
-    [(nil?/ e) (vars≥ d e)]
-    [(cons?/ e) (vars≥ d e)]
-    [(car/ e) (vars≥ d e)]
-    [(cdr/ e) (vars≥ d e)]))
+    [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]))
 ;; con-free-vars : Contract -> [Setof Natural]
 (define (con-free-vars c)
   (con-vars≥ 0 c))
@@ -495,12 +500,6 @@
      (if (andmap symbol? `(,h ,f ,g))
          (mon h f g (read-con-with names c) (read-exp-with names e))
          (error "mon: expect symbols, given: " h f g))]
-    [`(cons ,s1 ,s2) (cons/ (read-exp-with names s1)
-                            (read-exp-with names s2))]
-    [`(nil? ,s) (nil?/ (read-exp-with names s))]
-    [`(cons? ,s) (cons?/ (read-exp-with names s))]
-    [`(car ,s) (car/ (read-exp-with names s))]
-    [`(cdr ,s) (cdr/ (read-exp-with names s))]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
     [`(,s0 ,s1)
@@ -551,13 +550,7 @@
       [(prim-app o args) `(,o ,@(map (curry show-exp-with names) args))]
       [(mon h f g c e) `(mon ,h ,f ,g
                              ,(show-con-with names c)
-                             ,(show-exp-with names e))]
-      [(cons/ e1 e2) `(cons ,(show-exp-with names e1)
-                            ,(show-exp-with names e2))]
-      [(nil?/ e) `(nil? ,(show-exp-with names e))]
-      [(cons?/ e) `(cons? ,(show-exp-with names e))]
-      [(car/ e) `(car ,(show-exp-with names e))]
-      [(cdr/ e) `(cdr ,(show-exp-with names e))]))
+                             ,(show-exp-with names e))]))
   
   ;; show-con-with : [Listof Symbol] Contract -> S-exp
   (define (show-con-with names c)
@@ -612,12 +605,7 @@
       [(if/ e1 e2 e3)
        (if/ (shift-at depth e1) (shift-at depth e2) (shift-at depth e3))]
       [(prim-app o xs) (prim-app o (map (curry shift-at depth) xs))]
-      [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]
-      [(cons/ e1 e2) (cons/ (shift-at depth e1) (shift-at depth e2))]
-      [(nil?/ e1) (nil?/ (shift-at depth e1))]
-      [(cons?/ e1) (cons?/ (shift-at depth e1))]
-      [(car/ e1) (car/ (shift-at depth e1))]
-      [(cdr/ e1) (cdr/ (shift-at depth e1))]))
+      [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]))
   
   ;; shift-con-at : Natural Contract -> Contract
   (define (shift-con-at depth c)

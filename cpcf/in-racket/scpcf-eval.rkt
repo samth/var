@@ -20,7 +20,7 @@
 ;;      | Ar Closure Kont
 ;;      | Fn Closure Kont
 ;;      | If Closure Closure Kont
-;;      | O Op [Listof Value] [Listof Exp] Env Kont
+;;      | O Op [Listof Closure] [Listof Exp] Env Kont
 ;;      | Mon Label Label Label ContractClosure Kont
 ;;      | Cons-car Closure Kont
 ;;      | Cons-cdr Closure Kont
@@ -35,12 +35,6 @@
 (struct if/k kont (then else k) #:transparent)
 (struct op/k kont (o vals exps env k) #:transparent)
 (struct mon/k kont (h f g con-clo k) #:transparent)
-(struct cons-car kont (clo k) #:transparent)
-(struct cons-cdr kont (clo k) #:transparent)
-(struct nil?/k kont (k) #:transparent)
-(struct cons?/k kont (k) #:transparent)
-(struct car/k kont (k) #:transparent)
-(struct cdr/k kont (k) #:transparent)
 
 ;; load : Exp -> CEK
 (define (load e)
@@ -62,24 +56,6 @@
        (lam t (app (havoc ty) (app (ref 0) (value (opaque tx) {set}))))]
       [else (rec 'Num (ref 0))]))
   
-  ;; nil-clo? : Closure -> [Setof Boolean]
-  ;; (non-deterministically) checks whether closure represents nil
-  (define (nil-clo? c)
-    (match c
-      [(exp-clo (value u cs) ρ) (match u
-                                  ['nil {set #t}]
-                                  [(opaque (list-type t)) {set #t #f}]
-                                  [_ {set #f}])]
-      [_ {set #f}]))
-  
-  ;; cons-clo?/ : Closure -> [Setof Boolean]
-  ;; (non-deterministically) checks whther closure represents nil
-  (define (cons-clo?/ c)
-    (match c
-      [(exp-clo (value (opaque (list-type t)) cs) ρ) {set #t #f}]
-      [(cons-clo cl1 cl2) {set #t}]
-      [_ {set #f}]))
-  
   (match conf
     [(cek clo κ)
      (if (and (exp-clo? clo) (not (value? (exp-clo-exp clo))))
@@ -95,12 +71,7 @@
                (cek (close e1 ρ) (if/k (close e2 ρ) (close e3 ρ) κ))]
               [(prim-app o (cons x xs)) (cek (close x ρ) (op/k o '[] xs ρ κ))]
               [(mon h f g c e1)
-               (cek (close e1 ρ) (mon/k h f g (close-contract c ρ) κ))]
-              [(cons/ e1 e2) (cek (close e1 ρ) (cons-cdr (close e2 ρ) κ))]
-              [(nil?/ e1) (cek (close e1 ρ) (nil?/k κ))]
-              [(cons?/ e1) (cek (close e1 ρ) (cons?/k κ))]
-              [(car/ e1) (cek (close e1 ρ) (car/k κ))]
-              [(cdr/ e1) (cek (close e1 ρ) (cdr/k κ))])})
+               (cek (close e1 ρ) (mon/k h f g (close-contract c ρ) κ))])})
          ;; Cl = <V, ρ> | MonFnClo | ConsClo, all are 'values' in some sense
          ;; dispatch on kontinuation
          (match κ
@@ -134,17 +105,16 @@
                         h f g (close-contract c2 (env-extend clo ρc)) κ))))}])]
            [(if/k clo1 clo2 κ)
             (s-map (λ (v)
-                     (cek (if (value-pre v) clo1 clo2) κ))
-                   (δ 'true? (list (exp-clo-exp clo))))]
+                     (cek (if (value-pre (exp-clo-exp v)) clo1 clo2) κ))
+                   (δ 'true? (list clo)))]
            [(op/k o vs es ρ κ)
             (match es
               [(cons e1 es1)
                {set (cek (close e1 ρ)
-                         (op/k o (cons (exp-clo-exp clo) vs) es1 ρ κ))}]
+                         (op/k o (cons clo vs) es1 ρ κ))}]
               [empty
-               (s-map (λ (a)
-                        (cek (close a ρ0) κ))
-                      (δ o (reverse (cons (exp-clo-exp clo) vs))))])]
+               (s-map (λ (a) (cek a κ))
+                      (δ o (reverse (cons clo vs))))])]
            [(mon/k h f g conclo κ)
             {set
              (match (verify clo conclo)
@@ -157,31 +127,8 @@
                         (ar clo
                             (if/k (refine clo conclo)
                                   (close (blame/ f h) ρ0) κ)))]
-                  [(func/c c1 t c2) (cek (mon-fn-clo h f g conclo clo) κ)])])}]
-           [(cons-car clo1 κ) {set (cek (cons-clo clo1 clo) κ)}]
-           [(cons-cdr clo1 κ) {set (cek clo1 (cons-car clo κ))}]
-           [(nil?/k κ) (s-map (λ (b)
-                                (cek (close (value b ∅) ρ0) κ))
-                              (nil-clo? clo))]
-           [(cons?/k κ) (s-map (λ (b)
-                                 (cek (close (value b ∅) ρ0) κ))
-                               (cons-clo?/ clo))]
-           [(car/k κ)
-            (match clo
-              [(cons-clo clo1 _) {set (cek clo1 κ)}]
-              [(exp-clo (value (opaque (list-type t)) cs) _)
-               ;; TODO: consider cs for more precision?
-               {set (cek (close (value (opaque t) ∅) ρ0) κ)
-                    (cek (close (blame/ '† 'car) ρ0) κ)}]
-              [else (cek (close (blame/ '† 'car) ρ0) κ)])]
-           [(cdr/k κ)
-            (match clo
-              [(cons-clo _ clo2) {set (cek clo2 κ)}]
-              [(exp-clo (value (opaque (list-type t)) cs) _)
-               ;; TODO: consider cs for more precision?
-               {set (cek (close (value (opaque (list-type t)) ∅) ρ0) κ)
-                    (cek (close (blame/ '† 'cdr) ρ0) κ)}]
-              [else {set (cek (close (blame/ '† 'cdr) ρ0) κ)}])]))]))
+                  [(func/c c1 t c2) (cek (mon-fn-clo h f g conclo clo) κ)])])}]))]))
+
 
 ;; EvalAnswer := Number | Boolean | '• | '(blame Label Label)
 ;;            | 'function | (cons EvalAnswser EvalAnswer)
@@ -308,9 +255,9 @@
     [(func/c c t d) empty]
     [(consc c1 c2) (lift (λ (p1 p2)
                             (value (lam '⊥ ; program already type-checked
-                                        (and/ (cons?/ (ref 0))
-                                              (app p1 (car/ (ref 0)))
-                                              (app p2 (cdr/ (ref 0)))))
+                                        (and/ (prim-app 'cons (ref 0))
+                                              (app p1 (prim-app 'car (ref 0)))
+                                              (app p2 (prim-app 'cdr (ref 0)))))
                                    ∅))
                           (maybe-flatten (car+1 ds) c1)
                           (maybe-flatten (car+1 ds) c2))]
