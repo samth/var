@@ -22,12 +22,8 @@
 ;;      | If Closure Closure Kont
 ;;      | O Op [Listof Closure] [Listof Exp] Env Kont
 ;;      | Mon Label Label Label ContractClosure Kont
-;;      | Cons-car Closure Kont
-;;      | Cons-cdr Closure Kont
-;;      | Nil? Kont
-;;      | Cons? Kont
-;;      | Car Kont
-;;      | Cdr Kont
+;;      | ChkCdr Label Label Label ContractClosure Closure Kont
+;;      | ChkOr Closure Label Label Label ContractClosure Kont
 (struct kont () #:transparent)
 (struct mt kont () #:transparent)
 (struct ar kont (clo k) #:transparent)
@@ -35,6 +31,9 @@
 (struct if/k kont (then else k) #:transparent)
 (struct op/k kont (o vals exps env k) #:transparent)
 (struct mon/k kont (h f g con-clo k) #:transparent)
+; ad-hoc frames for checking cdr of a pair, and right disjunction
+(struct chk-cdr kont (h f g con-clo clo k) #:transparent)
+(struct chk-or kont (checked-clo con1 h f g con2 k) #:transparent)
 
 ;; load : Exp -> CEK
 (define (load e)
@@ -115,20 +114,74 @@
               [empty
                (s-map (λ (a) (cek a κ))
                       (δ o (reverse (cons clo vs))))])]
-           [(mon/k h f g conclo κ)
-            {set
-             (match (verify clo conclo)
-               ['Proved (cek clo κ)]
-               ['Refuted (cek (close (blame/ f h) ρ0) (mt))]
-               ['Neither
-                (match (contract-clo-con conclo)
-                  [(flat/c p)
-                   (cek (close p (contract-clo-env conclo))
-                        (ar clo
-                            (if/k (refine clo conclo)
-                                  (close (blame/ f h) ρ0) κ)))]
-                  [(func/c c1 t c2) (cek (mon-fn-clo h f g conclo clo) κ)])])}]))]))
-
+           [(mon/k h f g (contract-clo c ρc) κ)
+            (match (maybe-flatten empty c)
+              [`(,pred)
+               (match (verify clo (contract-clo c ρc))
+                 ['Proved {set (cek clo κ)}]
+                 ['Refuted {set (close (blame/ f h) ρ0) (mt)}]
+                 ['Neither
+                  {set (cek (close pred ρc)
+                            (ar clo
+                                (if/k (refine clo (contract-clo c ρc))
+                                      (close (blame/ f h) ρ0) κ)))}])]
+              [`()
+               (match c
+                 [(func/c c1 t c2)
+                  {set (cek (mon-fn-clo h f g (contract-clo c ρc) clo) κ)}]
+                 [(consc c1 c2)
+                  ;; TODO: - more general when the language is uptyped
+                  ;;       - refactor with δ or something
+                  (match clo
+                    [(cons-clo car1 cdr1)
+                     {set
+                      (cek car1 (mon/k
+                                 h f g (close-contract c1 ρc)
+                                 (chk-cdr
+                                  h f g (close-contract c2 ρc) cdr1 κ)))}]
+                    [(exp-clo (value (opaque (list-type t)) cs) ρ1)
+                     {set
+                      (cek (value (opaque t) ∅)
+                           (mon/k h f g (close-contract c1 ρc)
+                                  (chk-cdr
+                                   h f g (close-contract c2 ρc)
+                                   (value (opaque (list-type t)) ∅) κ)))
+                      (cek (close (blame/ f h) ρ0) (mt))}]
+                    [_ {set (cek (close (blame/ f h) ρ0) (mt))}])]
+                 [(orc c1 c2)
+                  (match (verify clo (close-contract c1 ρc))
+                    ['Proved {set (cek clo κ)}]
+                    ['Refuted
+                     {set (cek clo (mon/k h f g (close-contract c2 ρc) κ))}]
+                    ['Neither
+                     (match (maybe-flatten empty c1)
+                       [`(,pred)
+                        {set
+                         (cek (close pred ρc)
+                              (ar clo
+                                  (chk-or clo (close-contract c1 ρc)
+                                          h f g (close-contract c2 ρc) κ)))}]
+                       [`() (error "First contract disjunction is not flat" c1)])])]
+                 [(andc c1 c2)
+                  {set (cek clo
+                            (mon/k h f g (close-contract c1 ρc)
+                                   (mon/k h f g (close-contract c2 ρc) κ)))}]
+                 [(rec/c t c1)
+                  {set (cek clo 
+                            (mon/k h f g
+                                   (close-contract c1 (env-extend c ρc)) κ))}]
+                 [(con-ref x)
+                  {set (cek clo (mon/k h f g (env-get x ρc) κ))}])])]
+           
+           [(chk-cdr h f g c clo1 κ)
+            {set (cek clo1 (mon/k h f g c
+                                  (op/k 'cons `(,clo) '() ρ0 κ)))}]
+           [(chk-or clo1 c1 h f g c2 κ)
+            (s-map (λ (r)
+                     (if (value-pre (exp-clo-exp r))
+                         (cek (refine clo1 c1) κ)
+                         (cek clo1 (mon/k h f g c2 κ))))
+                   (δ 'true? `(,clo)))]))]))
 
 ;; EvalAnswer := Number | Boolean | '• | '(blame Label Label)
 ;;            | 'function | (cons EvalAnswser EvalAnswer)
@@ -254,13 +307,13 @@
     [(flat/c p) (list (shift (apply + ds) p))]
     [(func/c c t d) empty]
     [(consc c1 c2) (lift (λ (p1 p2)
-                            (value (lam '⊥ ; program already type-checked
-                                        (and/ (prim-app 'cons (ref 0))
-                                              (app p1 (prim-app 'car (ref 0)))
-                                              (app p2 (prim-app 'cdr (ref 0)))))
-                                   ∅))
-                          (maybe-flatten (car+1 ds) c1)
-                          (maybe-flatten (car+1 ds) c2))]
+                           (value (lam '⊥ ; program already type-checked
+                                       (and/ (prim-app 'cons (ref 0))
+                                             (app p1 (prim-app 'car (ref 0)))
+                                             (app p2 (prim-app 'cdr (ref 0)))))
+                                  ∅))
+                         (maybe-flatten (car+1 ds) c1)
+                         (maybe-flatten (car+1 ds) c2))]
     [(orc c1 c2) (lift (λ (p1 p2)
                          (value (lam '⊥ ; program already type-checked
                                      (or/ (app p1 (ref 0))
@@ -278,4 +331,3 @@
     [(rec/c (con-type t) c1) (lift (λ (e) (rec (func-type t 'Bool) e))
                                    (maybe-flatten (cons 0 ds) c1))]
     [(con-ref x) (list (ref (+ (car ds) x)))]))
-                          
