@@ -11,6 +11,7 @@
 
 ;; expresions
 (define ev? '(λ (x Num) (even? x)))
+(define od? '(λ (x Num) (odd? x)))
 (define db1
   `(mon h f g
         (((flat ,ev?) ↦ (flat ,ev?))
@@ -94,6 +95,29 @@
        ∨
        (cons/c (flat ,ev?) all-even?))))
 
+;; contract checking for function pairs
+(define func-pair?
+  `(cons/c ((flat ,ev?) ↦ (flat ,od?))
+           ((flat ,od?) ↦ (flat ,ev?))))
+
+;; monitored list of evens
+(define even-list-ok
+  `(mon h f g ,all-even? (cons 0 (cons 2 nil))))
+(define even-list-er
+  `(mon h f g ,all-even? (cons 0 (cons 1 nil))))
+
+;; monitored function pairs
+(define func-pair-ok ; won't type check b/c current cons is too restricted
+  `((cdr (mon h f g ,func-pair? (cons (λ (x Num) (+ x 1))
+                                      (λ (x Num) (+ x 1)))))
+    1))
+(define func-pair-er1 ; won't type check b/c current cons is too restricted
+  `((car (mon h f g ,func-pair? (cons (λ (x Num) x) (λ (x Num) x))))
+    1))
+(define func-pair-er2 ; won't type check b/c current cons is too restricted
+  `((cdr (mon h f g ,func-pair? (cons (λ (x Num) x) (λ (x Num) x))))
+    1))
+
 ;;;;; testing
 (define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
 
@@ -121,6 +145,8 @@
 (check-equal? (tc append) '((List Num) → ((List Num) → (List Num))))
 (check-equal? (tc filter) '((Num → Bool) → ((List Num) → (List Num))))
 (check-equal? (tc slowsort) '((List Num) → (List Num)))
+(check-equal? (tc even-list-ok) '(List Num))
+(check-equal? (tc even-list-er) '(List Num))
 
 ;; for debugging
 (define (non-det f xs)
@@ -148,3 +174,8 @@
 #;(check-equal? (eval-cek `(,slowsort (• (List Num))))
                 ;; won't terminate, kont keeps growing
                 {set '(• (List Num))})
+(check-equal? (eval-cek even-list-ok) {set '(cons 0 (cons 2 nil))})
+(check-equal? (eval-cek even-list-er) {set '(blame f h)})
+(check-equal? (eval-cek func-pair-ok) {set 2})
+(check-equal? (eval-cek func-pair-er1) {set '(blame g h)})
+(check-equal? (eval-cek func-pair-er2) {set '(blame f h)})

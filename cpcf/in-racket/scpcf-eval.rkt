@@ -313,9 +313,9 @@
     [(func/c c t d) empty]
     [(consc c1 c2) (lift (λ (p1 p2)
                            (val (lam '⊥ ; program already type-checked
-                                     (and/ (prim-app 'cons (ref 0))
-                                           (app p1 (prim-app 'car (ref 0)))
-                                           (app p2 (prim-app 'cdr (ref 0)))))
+                                     (and/ (prim-app 'cons? (list (ref 0)))
+                                           (app p1 (prim-app 'car (list (ref 0))))
+                                           (app p2 (prim-app 'cdr (list (ref 0))))))
                                 ∅))
                          (maybe-flatten (car+1 ds) c1)
                          (maybe-flatten (car+1 ds) c2))]
