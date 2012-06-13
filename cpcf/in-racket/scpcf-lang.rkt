@@ -41,6 +41,7 @@
   [clo? (any/c . -> . boolean?)]
   [close (exp? env? . -> . clo?)]
   [close-contract (contract/? env? . -> . contract-clo?)]
+  [val-closure? (any/c . -> . boolean?)]
   
   ;; Type := BaseType | FuncType | ListType | ConType
   ;; BaseType = 'Num | 'Bool | '⊥
@@ -118,6 +119,13 @@
 ;; close : Exp Env -> Closure
 (define (close exp en)
   (exp-clo exp (env-restrict (free-vars exp) en)))
+
+;; val-closure? : Closure -> Boolean
+;; checks whether closure represents a value
+(define (val-closure? clo)
+  (or (and (exp-clo? clo) (val? (exp-clo-exp clo)))
+      (mon-fn-clo? clo)
+      (cons-clo? clo)))
 
 ;; checks whether symbol names a primitive op
 (define (op? o)
