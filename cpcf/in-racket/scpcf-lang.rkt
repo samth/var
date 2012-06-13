@@ -9,7 +9,7 @@
  
  (contract-out
   [struct ref ([distance natural?])]
-  [struct value ([pre pre-value?] [refinements (set/c contract-clo?)])]
+  [struct val ([pre pre-val?] [refinements (set/c contract-clo?)])]
   [struct opaque ([type type?])]
   
   [struct lam ([type type?] [body exp?])]
@@ -59,7 +59,7 @@
   
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
-  [pre-value? (any/c . -> . boolean?)]
+  [pre-val? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
   [op? (any/c . -> . boolean?)]
   [type? (any/c . -> . boolean?)]
@@ -79,8 +79,8 @@
 
 (struct exp () #:transparent)
 (struct answer exp () #:transparent)
-;; Value := (value PreValue [Listof ContractClosure])
-(struct value answer (pre refinements) #:transparent)
+;; Val := (val Preval [Listof ContractClosure])
+(struct val answer (pre refinements) #:transparent)
 ;; Ref := (ref Natural)
 (struct ref exp (distance) #:transparent)
 ;; App := (app Exp Exp)
@@ -97,14 +97,14 @@
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
 
-;; PreValue := Opaque | Number | Boolean | Lambda
-(define (pre-value? x)
+;; PreVal := Opaque | Number | Boolean | Lambda
+(define (pre-val? x)
   (or (number? x) (boolean? x) (opaque? x) (lam? x) (eq? 'nil x)))
 ;; Opaque := (opaque Type)
 (struct opaque (type) #:transparent)
 ;; Lambda := (lambda Type Exp)
 (struct lam (type body) #:transparent)
-;; pre-value? : Any -> Boolean
+;; pre-val? : Any -> Boolean
 
 ;; Closure := ExpClosure | MonFnClosure | ConsClosure
 (struct clo () #:transparent)
@@ -137,7 +137,7 @@
 (struct rec/c contract/ (type body) #:transparent)
 (struct con-ref contract/ (distance) #:transparent)
 
-;; ContractClosure = (contract-clo Contract [Env Value])
+;; ContractClosure = (contract-clo Contract [Env Val])
 (struct contract-clo (con env) #:transparent)
 
 ;; close-contract : Contract Env -> ContractClosure
@@ -191,9 +191,9 @@
 (define ops
   (local
     (;; closures for booleans
-     [define TRUE (exp-clo (value #t ∅) ρ0)]
-     [define FALSE (exp-clo (value #f ∅) ρ0)]
-     [define ABSTRACT-NUM (exp-clo (value (opaque 'Num) ∅) ρ0)]
+     [define TRUE (exp-clo (val #t ∅) ρ0)]
+     [define FALSE (exp-clo (val #f ∅) ρ0)]
+     [define ABSTRACT-NUM (exp-clo (val (opaque 'Num) ∅) ρ0)]
      
      ;; checks for function type (List _ -> Bool)
      [define check:list→bool
@@ -218,12 +218,12 @@
          ,(local ;; TODO: how to define λ with var-args?
             ([define (op1 . xs)
                (if (andmap exp-clo? xs)
-                   (let ([pre-vals (map (compose value-pre exp-clo-exp) xs)])
+                   (let ([pre-vals (map (compose val-pre exp-clo-exp) xs)])
                      (if (ormap opaque? pre-vals)
                          (match res-type
                            ['Num {set ABSTRACT-NUM}]
                            ['Bool {set TRUE FALSE}])
-                         {set (exp-clo (value (apply proc pre-vals) ∅) ρ0)}))
+                         {set (exp-clo (val (apply proc pre-vals) ∅) ρ0)}))
                    {set (exp-clo (blame/ '† name) ρ0)})])
             op1))))
     
@@ -255,13 +255,13 @@
      'nil? `(1
              ,check:list→bool
              ,(match-lambda
-                [(exp-clo (value 'nil cs) ρ) {set TRUE}]
-                [(exp-clo (value (opaque (list-type t)) cs) ρ) {set TRUE FALSE}]
+                [(exp-clo (val 'nil cs) ρ) {set TRUE}]
+                [(exp-clo (val (opaque (list-type t)) cs) ρ) {set TRUE FALSE}]
                 [_ {set FALSE}]))
      'cons? `(1
               ,check:list→bool
               ,(match-lambda
-                 [(exp-clo (value (opaque (list-type t)) cs) ρ) {set TRUE FALSE}]
+                 [(exp-clo (val (opaque (list-type t)) cs) ρ) {set TRUE FALSE}]
                  [(cons-clo c1 c2) {set TRUE}]
                  [_ {set FALSE}]))
      'car `(1
@@ -270,8 +270,8 @@
                [_ 'TypeError])
             ,(match-lambda
                [(cons-clo c1 c2) {set c1}]
-               [(exp-clo (value (opaque (list-type t)) cs) ρ)
-                {set (exp-clo (value (opaque t) ∅) ρ0)
+               [(exp-clo (val (opaque (list-type t)) cs) ρ)
+                {set (exp-clo (val (opaque t) ∅) ρ0)
                      (exp-clo (blame/ '† 'car) ρ0)}]
                [_ {set (exp-clo (blame/ '† 'car) ρ0)}]))
      'cdr `(1
@@ -280,8 +280,8 @@
                [_ 'TypeError])
             ,(match-lambda
                [(cons-clo c1 c2) {set c2}]
-               [(exp-clo (value (opaque (list-type t)) cs) ρ)
-                {set (exp-clo (value (opaque (list-type t)) ∅) ρ0)
+               [(exp-clo (val (opaque (list-type t)) cs) ρ)
+                {set (exp-clo (val (opaque (list-type t)) ∅) ρ0)
                      (exp-clo (blame/ '† 'cdr) ρ0)}]
                [_ {set (exp-clo (blame/ '† 'cdr) ρ0)}])))))
 
@@ -306,15 +306,15 @@
   (define (type-check-with tenv e)
     (match e
       [(ref d) (env-get-default d 'TypeError tenv)]
-      [(value u cs) (match u
-                      [(opaque t) t]
-                      [(lam t b)
-                       (extend func-type t
-                               (type-check-with (env-extend t tenv) b))]
-                      ['nil (list-type '⊥)]
-                      [_ (cond
-                           [(number? u) 'Num]
-                           [(boolean? u) 'Bool])])]
+      [(val u cs) (match u
+                    [(opaque t) t]
+                    [(lam t b)
+                     (extend func-type t
+                             (type-check-with (env-extend t tenv) b))]
+                    ['nil (list-type '⊥)]
+                    [_ (cond
+                         [(number? u) 'Num]
+                         [(boolean? u) 'Bool])])]
       [(blame/ l1 l2) '⊥]
       [(app f x) (extend type-app
                          (type-check-with tenv f)
@@ -396,9 +396,9 @@
 (define (vars≥ d e)
   (match e
     [(ref k) (if (>= k d) {set (- k d)} ∅)]
-    [(value u cs) (match u
-                    [(lam t b) (vars≥ (+ 1 d) b)]
-                    [else ∅])]
+    [(val u cs) (match u
+                  [(lam t b) (vars≥ (+ 1 d) b)]
+                  [else ∅])]
     [(blame/ l1 l2) ∅]
     [(app e1 e2) (set-union (vars≥ d e1) (vars≥ d e2))]
     [(rec t b) (vars≥ (+ 1 d) b)]
@@ -467,25 +467,25 @@
     (match terms
       [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names t1)
                                (read-and (rest terms))
-                               (value #f ∅))]
+                               (val #f ∅))]
       [`(,t) (read-exp-with names t)]
-      [`() (value #t ∅)]))
+      [`() (val #t ∅)]))
   
   ;; read-or : [Listof S-exp] -> Exp
   (define (read-or terms)
     (match terms
       [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names t1)
-                               (value #t ∅)
+                               (val #t ∅)
                                (read-or (rest terms)))]
       [`(,t) (read-exp-with names t)]
-      [`() (value #f ∅)]))
+      [`() (val #f ∅)]))
   
   (match s
-    [`(• ,t) (value (opaque (read-type t)) ∅)]
+    [`(• ,t) (val (opaque (read-type t)) ∅)]
     [`(λ (,x ,t) ,s) (if (symbol? x)
-                         (value (lam (read-type t)
-                                     (read-exp-with (cons x names) s))
-                                ∅)
+                         (val (lam (read-type t)
+                                   (read-exp-with (cons x names) s))
+                              ∅)
                          (error "λ: expect symbol, given: " x))]
     [`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
                         (blame/ f g)
@@ -511,7 +511,7 @@
          (prim-app s0 (list (read-exp-with names s1) (read-exp-with names s2)))
          (error "expect binary op, given: " s0))]
     [x (cond
-         [(pre-value? x) (value x ∅)]
+         [(pre-val? x) (val x ∅)]
          [(symbol? x) (ref (name-distance x names))]
          [else (error "invalid expression form: " x)])]))
 
@@ -532,7 +532,7 @@
   (define (show-exp-with names e)
     (match e
       [(ref d) (list-ref names d)] ;; closed expressions can't cause error
-      [(value u _)
+      [(val u _)
        (match u
          [(opaque t) `(• ,(show-type t))]
          [(lam t b) 
@@ -595,9 +595,9 @@
   (define (shift-at depth e)
     (match e
       [(ref x) (if (>= x depth) (ref (+ x d)) e)]
-      [(value u cs)
+      [(val u cs)
        (match u
-         [(lam t b) (value (lam t (shift-at (+ 1 depth) b)) cs)]
+         [(lam t b) (val (lam t (shift-at (+ 1 depth) b)) cs)]
          [_ e])]
       [(blame/ l1 l2) e]
       [(app e1 e2) (app (shift-at depth e1) (shift-at depth e2))]

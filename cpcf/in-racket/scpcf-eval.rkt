@@ -42,22 +42,22 @@
 ;; step : CEK -> [Setof CEK]
 (define (step conf)
   
-  ;; refine : Closure ContractClosure -> Value
+  ;; refine : Closure ContractClosure -> Val
   (define (refine clo conclo)
     (match clo
-      [(exp-clo (value u cs) ρ) (exp-clo (value u (set-add cs conclo)) ρ)]
+      [(exp-clo (val u cs) ρ) (exp-clo (val u (set-add cs conclo)) ρ)]
       [else clo #|TODO|#]))
   
   ;; havoc : (FuncType | BaseType) -> Exp
   (define (havoc t)
     (match t
       [(func-type tx ty)
-       (lam t (app (havoc ty) (app (ref 0) (value (opaque tx) {set}))))]
+       (lam t (app (havoc ty) (app (ref 0) (val (opaque tx) {set}))))]
       [else (rec 'Num (ref 0))]))
   
   (match conf
     [(cek clo κ)
-     (if (and (exp-clo? clo) (not (value? (exp-clo-exp clo))))
+     (if (and (exp-clo? clo) (not (val? (exp-clo-exp clo))))
          (let ([e (exp-clo-exp clo)]
                [ρ (exp-clo-env clo)])
            {set
@@ -78,12 +78,12 @@
            [(ar clo1 κ) {set (cek clo1 (fn clo κ))}]
            [(fn clo1 κ)
             (match clo1
-              [(exp-clo (value u cs) ρv)
+              [(exp-clo (val u cs) ρv)
                (match u
                  [(lam t b) {set (cek (close b (env-extend clo ρv)) κ)}]
                  [(opaque (func-type tx ty))
                   {set
-                   (cek (close (value (opaque ty)
+                   (cek (close (val (opaque ty)
                                       (s-map (λ (c)
                                                (match c
                                                  [(contract-clo (func/c c1 t c2) ρc)
@@ -104,7 +104,7 @@
                         h f g (close-contract c2 (env-extend clo ρc)) κ))))}])]
            [(if/k clo1 clo2 κ)
             (s-map (λ (v)
-                     (cek (if (value-pre (exp-clo-exp v)) clo1 clo2) κ))
+                     (cek (if (val-pre (exp-clo-exp v)) clo1 clo2) κ))
                    (δ 'true? (list clo)))]
            [(op/k o vs es ρ κ)
             (match es
@@ -139,13 +139,13 @@
                                  h f g (close-contract c1 ρc)
                                  (chk-cdr
                                   h f g (close-contract c2 ρc) cdr1 κ)))}]
-                    [(exp-clo (value (opaque (list-type t)) cs) ρ1)
+                    [(exp-clo (val (opaque (list-type t)) cs) ρ1)
                      {set
-                      (cek (value (opaque t) ∅)
+                      (cek (val (opaque t) ∅)
                            (mon/k h f g (close-contract c1 ρc)
                                   (chk-cdr
                                    h f g (close-contract c2 ρc)
-                                   (value (opaque (list-type t)) ∅) κ)))
+                                   (val (opaque (list-type t)) ∅) κ)))
                       (cek (close (blame/ f h) ρ0) (mt))}]
                     [_ {set (cek (close (blame/ f h) ρ0) (mt))}])]
                  [(orc c1 c2)
@@ -178,7 +178,7 @@
                                   (op/k 'cons `(,clo) '() ρ0 κ)))}]
            [(chk-or clo1 c1 h f g c2 κ)
             (s-map (λ (r)
-                     (if (value-pre (exp-clo-exp r))
+                     (if (val-pre (exp-clo-exp r))
                          (cek (refine clo1 c1) κ)
                          (cek clo1 (mon/k h f g c2 κ))))
                    (δ 'true? `(,clo)))]))]))
@@ -228,7 +228,7 @@
     (match clo
       [(exp-clo e ρ)
        (match e
-         [(value u cs) (match u
+         [(val u cs) (match u
                          [(lam t b) 'function]
                          [(opaque (func-type tx ty)) 'function]
                          [(opaque t) '•]
@@ -243,7 +243,7 @@
 ;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify clo conclo)
   (match clo
-    [(exp-clo (value u cs) ρ) (if (set-member? cs conclo) 'Proved 'Neither)]
+    [(exp-clo (val u cs) ρ) (if (set-member? cs conclo) 'Proved 'Neither)]
     [else 'Neither #|TODO|#]))
 
 ;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
@@ -276,16 +276,16 @@
   ;; generates conjunction
   (define (and/ . exps)
     (match exps
-      [`(,e1 ,e2 ,es ...) (if/ e1 (apply and/ (rest exps)) (value #f ∅))]
+      [`(,e1 ,e2 ,es ...) (if/ e1 (apply and/ (rest exps)) (val #f ∅))]
       [`(,e1) e1]
-      [_ (value #t ∅)]))
+      [_ (val #t ∅)]))
   
   ;; generates disjunction
   (define (or/ . exps)
     (match exps
-      [`(,e1 ,e2 ,es ...) (if/ e1 (value #t ∅) (apply or/ (rest exps)))]
+      [`(,e1 ,e2 ,es ...) (if/ e1 (val #t ∅) (apply or/ (rest exps)))]
       [`(,e1) e1]
-      [_ (value #f ∅)]))
+      [_ (val #f ∅)]))
   
   ;; lift : [X_1 ... X_n -> Y] [Maybe X_1] ... [Maybe X_n] -> [Maybe Y]
   ;; , where [Maybe X] = [List X] | Empty
@@ -307,7 +307,7 @@
     [(flat/c p) (list (shift (apply + ds) p))]
     [(func/c c t d) empty]
     [(consc c1 c2) (lift (λ (p1 p2)
-                           (value (lam '⊥ ; program already type-checked
+                           (val (lam '⊥ ; program already type-checked
                                        (and/ (prim-app 'cons (ref 0))
                                              (app p1 (prim-app 'car (ref 0)))
                                              (app p2 (prim-app 'cdr (ref 0)))))
@@ -315,14 +315,14 @@
                          (maybe-flatten (car+1 ds) c1)
                          (maybe-flatten (car+1 ds) c2))]
     [(orc c1 c2) (lift (λ (p1 p2)
-                         (value (lam '⊥ ; program already type-checked
+                         (val (lam '⊥ ; program already type-checked
                                      (or/ (app p1 (ref 0))
                                           (app p2 (ref 0))))
                                 ∅))
                        (maybe-flatten (car+1 ds) c1)
                        (maybe-flatten (car+1 ds) c2))]
     [(andc c1 c2) (lift (λ (p1 p2)
-                          (value (lam '⊥ ; program already type-checked
+                          (val (lam '⊥ ; program already type-checked
                                       (and/ (app p1 (ref 0))
                                             (app p2 (ref 0))))
                                  ∅))
