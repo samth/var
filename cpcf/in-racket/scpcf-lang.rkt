@@ -98,9 +98,9 @@
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
 
-;; PreVal := Opaque | Number | Boolean | Lambda
+;; PreVal := Opaque | Number | Boolean | String | Lambda
 (define (pre-val? x)
-  (or (number? x) (boolean? x) (opaque? x) (lam? x) (eq? 'nil x)))
+  (or (number? x) (boolean? x) (string? x) (opaque? x) (lam? x) (eq? 'nil x)))
 ;; Opaque := (opaque Type)
 (struct opaque (type) #:transparent)
 ;; Lambda := (lambda Type Exp)
@@ -161,9 +161,9 @@
 (struct list-type (of) #:transparent)
 
 ;; base-type? : Any -> Boolean
-;; BaseType = 'Num | 'Bool | '⊥
+;; BaseType = 'Num | 'Bool | String | '⊥
 (define (base-type? x)
-  (member x '(Num Bool ⊥)))
+  (member x '(Num Bool String ⊥)))
 
 ;; TypeResult = Type | TypeError
 (define (type-result? x)
@@ -255,6 +255,14 @@
      '≤ (prim '≤ '(Num Num) 'Bool (check-real <= '≤))
      '> (prim '> '(Num Num) 'Bool (check-real > '>))
      '≥ (prim '≥ '(Num Num) 'Bool (check-real >= '≥))
+     '++ (prim '++ '(String String) 'String string-append)
+     'str=? (prim 'str=? '(String String) 'Bool string=?)
+     'str≠? (prim 'str≠? '(String String) 'Bool (compose not string=?))
+     'str<? (prim 'str<? '(String String) 'Bool string<?)
+     'str≤? (prim 'str≤? '(String String) 'Bool string<=?)
+     'str>? (prim 'str>? '(String String) 'Bool string>?)
+     'str≥? (prim 'str≥? '(String String) 'Bool string>=?)
+     'str-length (prim 'str-length '(String) 'Num string-length)
      'cons `(2
              ,(match-lambda
                 [`(,t1 ,(list-type t2)) (extend list-type (⊔ t1 t2))]
@@ -322,7 +330,8 @@
                     ['nil (list-type '⊥)]
                     [_ (cond
                          [(number? u) 'Num]
-                         [(boolean? u) 'Bool])])]
+                         [(boolean? u) 'Bool]
+                         [(string? u) 'String])])]
       [(blame/ l1 l2) '⊥]
       [(app f x) (extend type-app
                          (type-check-with tenv f)
