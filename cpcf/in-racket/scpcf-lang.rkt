@@ -202,6 +202,7 @@
      [define TRUE (exp-clo (val #t ∅) ρ0)]
      [define FALSE (exp-clo (val #f ∅) ρ0)]
      [define ABSTRACT-NUM (exp-clo (val (opaque 'Num) ∅) ρ0)]
+     [define ABSTRACT-STR (exp-clo (val (opaque 'String) ∅) ρ0)]
      
      ;; checks for function type (List _ -> Bool)
      [define check:list→bool
@@ -219,7 +220,7 @@
      
      ;; prim : Symbol [Listof Type] Type Proc
      ;;     -> [List ([Listof Type] -> TypeResult) (Closure* -> Closure)]
-     (define (prim name param-types res-type proc)
+     (define (prim name param-types res-type proc #:partial [partial? #f])
        `(,(length param-types)
          ,(λ (arg-types)
             (if (equal? param-types arg-types) res-type 'TypeError))
@@ -228,10 +229,15 @@
                (if (andmap exp-clo? xs)
                    (let ([pre-vals (map (compose val-pre exp-clo-exp) xs)])
                      (if (ormap opaque? pre-vals)
-                         (match res-type
-                           ['Num {set ABSTRACT-NUM}]
-                           ['Bool {set TRUE FALSE}])
-                         {set (exp-clo (val (apply proc pre-vals) ∅) ρ0)}))
+                         (set-union
+                          (if partial? {set (exp-clo (blame/ '† name) ρ0)} ∅)
+                          (match res-type
+                            ['Num {set ABSTRACT-NUM}]
+                            ['Bool {set TRUE FALSE}]
+                            ['String {set ABSTRACT-STR}]))
+                         {set (exp-clo (let ([a (apply proc pre-vals)])
+                                         (if (blame/? a) a (val a ∅)))
+                                       ρ0)}))
                    {set (exp-clo (blame/ '† name) ρ0)})])
             op1))))
     
@@ -251,10 +257,10 @@
      '* (prim '* '(Num Num) 'Num *)
      '= (prim '= '(Num Num) 'Bool =)
      '≠ (prim '≠ '(Num Num) 'Bool (compose not =))
-     '< (prim '< '(Num Num) 'Bool (check-real < '<))
-     '≤ (prim '≤ '(Num Num) 'Bool (check-real <= '≤))
-     '> (prim '> '(Num Num) 'Bool (check-real > '>))
-     '≥ (prim '≥ '(Num Num) 'Bool (check-real >= '≥))
+     '< (prim '< '(Num Num) 'Bool (check-real < '<) #:partial #t)
+     '≤ (prim '≤ '(Num Num) 'Bool (check-real <= '≤) #:partial #t)
+     '> (prim '> '(Num Num) 'Bool (check-real > '>) #:partial #t)
+     '≥ (prim '≥ '(Num Num) 'Bool (check-real >= '≥) #:partial #t)
      '++ (prim '++ '(String String) 'String string-append)
      'str=? (prim 'str=? '(String String) 'Bool string=?)
      'str≠? (prim 'str≠? '(String String) 'Bool (compose not string=?))
@@ -263,6 +269,13 @@
      'str>? (prim 'str>? '(String String) 'Bool string>?)
      'str≥? (prim 'str≥? '(String String) 'Bool string>=?)
      'str-length (prim 'str-length '(String) 'Num string-length)
+     'substring (prim 'substring '(String Num Num) 'String
+                      (λ (s start end)
+                        (if (and (integer? start) (integer? end)
+                                 (<= 0 start end (string-length s)))
+                            (substring s start end)
+                            (blame/ '† 'substring)))
+                      #:partial #t)
      'cons `(2
              ,(match-lambda
                 [`(,t1 ,(list-type t2)) (extend list-type (⊔ t1 t2))]
@@ -305,15 +318,13 @@
 (define (op-impl name)
   (third (hash-ref ops name)))
 
-;; o1 : Symbol -> Boolean
-(define (o1? name)
-  (and (hash-has-key? ops name)
-       (= 1 (first (hash-ref ops name)))))
+;; prim? : Any -> Boolean
+(define (prim? name)
+  (hash-has-key? ops name))
 
-;; o2 : Symbol -> Boolean
-(define (o2? name)
-  (and (hash-has-key? ops name)
-       (= 2 (first (hash-ref ops name)))))
+;; arity : Op -> Natural
+(define (arity op-name)
+  (first (hash-ref ops op-name)))
 
 ;; type-check : Exp -> TypeResult
 (define (type-check e)
@@ -519,14 +530,14 @@
          (error "mon: expect symbols, given: " h f g))]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
-    [`(,s0 ,s1)
-     (if (o1? s0)
-         (prim-app s0 (list (read-exp-with names s1)))
-         (app (read-exp-with names s0) (read-exp-with names s1)))]
-    [`(,s0 ,s1 ,s2)
-     (if (o2? s0)
-         (prim-app s0 (list (read-exp-with names s1) (read-exp-with names s2)))
-         (error "expect binary op, given: " s0))]
+    [`(,s0 ,ss ...)
+     (if (prim? s0)
+         (if (= (arity s0) (length ss))
+             (prim-app s0 (map (curry read-exp-with names) ss))
+             (error "arity mismatch for " s0))
+         (if (= 1 (length ss))
+             (app (read-exp-with names s0) (read-exp-with names (first ss)))
+             (error "illegal application form " s)))]
     [x (cond
          [(pre-val? x) (val x ∅)]
          [(symbol? x) (ref (name-distance x names))]

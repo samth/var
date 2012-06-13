@@ -8,7 +8,7 @@
 ** [done] measure
 ** more primitives:
 *** [done] complex numbers
-*** strings
+*** [done] strings
 *** [done] pairs
 ** contracts:
-*** [part] recursive, disjunction, conjunction, pairs
+*** [done] recursive, disjunction, conjunction, pairs
