@@ -242,6 +242,7 @@
             op1))))
     
     (hash
+     'not (prim 'not '(Bool) 'Bool not)
      'zero? (prim 'zero? '(Num) 'Bool zero?)
      'non-neg? (prim 'non-neg? '(Num) 'Bool
                      (and/c real? (compose not negative?)))

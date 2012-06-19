@@ -336,3 +336,4 @@
     [(rec/c (con-type t) c1) (lift (λ (e) (rec (func-type t 'Bool) e))
                                    (maybe-flatten (cons 0 ds) c1))]
     [(con-ref x) (list (ref (+ (car ds) x)))]))
+

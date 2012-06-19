@@ -179,3 +179,17 @@
 (check-equal? (eval-cek func-pair-ok) {set 2})
 (check-equal? (eval-cek func-pair-er1) {set '(blame g h)})
 (check-equal? (eval-cek func-pair-er2) {set '(blame f h)})
+
+;; benchmarks
+(define tak
+  `(μ (tak (Num → (Num → (Num → Num))))
+      (λ (x Num)
+        (λ (y Num)
+          (λ (z Num)
+            (if (not (< y x))
+                z
+                (((tak (((tak (- x 1)) y) z))
+                  (((tak (- y 1)) z) x))
+                 (((tak (- z 1)) x) y))))))))
+(define tak-ap `(((,tak 9) 6) 3))
+(time (eval-cek tak-ap))
