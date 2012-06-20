@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>Verification by Abstract Reduction by samth</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/pygment_trac.css">
+    <script src="javascripts/scale.fix.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1 class="header">Verification by Abstract Reduction</h1>
+        <p class="header">Automatic, modular verification of Racket contracts</p>
+
+        <ul>
+          <li class="download"><a class="buttons" href="https://github.com/samth/var/zipball/master">Download ZIP</a></li>
+          <li class="download"><a class="buttons" href="https://github.com/samth/var/tarball/master">Download TAR</a></li>
+          <li><a class="buttons github" href="">View On GitHub</a></li>
+        </ul>
+
+        <p class="header">This project is maintained by <a class="header name" href="https://github.com/samth">samth</a></p>
+
+
+      </header>
+      <section>
+        <h3>Automatic, modular verification of Racket contracts</h3>
+
+<pre><code>#lang var
+(module def racket
+   ; ...
+   (provide/contract 
+      [f (-&gt; integer? integer?)]))
+
+(module use
+   (require 'def)
+   (f 7))
+
+(require 'use)
+</code></pre>
+
+<h3>Who's responsible for this?</h3>
+
+<p>The var tool is by <a href="https://github.com/samth" class="user-mention">@samth</a> and <a href="https://github.com/dvanhorn" class="user-mention">@dvanhorn</a>.</p>
+      </section>
+      <footer>
+        <p><small>Hosted on <a href="https://pages.github.com">GitHub Pages</a> using the Dinky theme</small></p>
+      </footer>
+    </div>
+    <!--[if !IE]><script>fixScale(document);</script><!--<![endif]-->
+		
+  </body>
+</html>
