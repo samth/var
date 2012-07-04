@@ -30,7 +30,7 @@
   [struct con-ref ([distance natural?])]
   
   ;; hiding closure constructors would make it tedious due to lack of
-  ;; pattern matching. But client is expected to use close instead of
+  ;; pattern matching. But client is expected to use 'close' instead of
   ;; 'exp-clo', and 'close-contract' instead of 'contract-clo'
   [struct exp-clo ([exp exp?] [env env?])]
   [struct mon-fn-clo ([orig label?] [pos label?] [neg label?]
@@ -175,7 +175,7 @@
   (apply (third (hash-ref ops o)) xs))
 
 ;; extend : (Type* -> TypeResult) TypeResult* -> TypeResult
-;; extends function's range from Type* to TypeResult*
+;; extends function's domain from Type* to TypeResult*
 ;; returns 'TypeError if any argument is
 (define (extend f . maybeTypes)
   (if (ormap (curry equal? 'TypeError) maybeTypes)
@@ -198,7 +198,7 @@
 ;; primitive ops' types and implementations
 (define ops
   (local
-    (;; closures for booleans
+    (;; closures for commonly used values
      [define TRUE (exp-clo (val #t ∅) ρ0)]
      [define FALSE (exp-clo (val #f ∅) ρ0)]
      [define ABSTRACT-NUM (exp-clo (val (opaque 'Num) ∅) ρ0)]
@@ -219,7 +219,7 @@
              (blame/ '† name)))]
      
      ;; prim : Symbol [Listof Type] Type Proc
-     ;;     -> [List ([Listof Type] -> TypeResult) (Closure* -> Closure)]
+     ;;   -> [List Natural ([Listof Type] -> TypeResult) (Closure* -> Closure)]
      (define (prim name param-types res-type proc #:partial [partial? #f])
        `(,(length param-types)
          ,(λ (arg-types)
@@ -249,7 +249,7 @@
      'even? (prim 'even? '(Num) 'Bool (and/c integer? even?))
      'odd? (prim 'odd? '(Num) 'Bool (and/c integer? odd?))
      'prime? (prim 'prime? '(Num) 'Bool
-                   (λ (n) (if (member n '(2 3 5 7 11 13) #t #f) #t #f)))
+                   (λ (n) (if (member n '(2 3 5 7 11 13)) #t #f)))
      'true? (prim 'true? '(Bool) 'Bool (compose not false?))
      'false? (prim 'false? '(Bool) 'Bool false?)
      'sqrt (prim 'sqrt '(Num) 'Num sqrt)
@@ -318,10 +318,6 @@
 ;; op-impl : Symbol -> Function
 (define (op-impl name)
   (third (hash-ref ops name)))
-
-;; prim? : Any -> Boolean
-(define (prim? name)
-  (hash-has-key? ops name))
 
 ;; arity : Op -> Natural
 (define (arity op-name)
@@ -532,7 +528,7 @@
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
     [`(,s0 ,ss ...)
-     (if (prim? s0)
+     (if (op? s0)
          (if (= (arity s0) (length ss))
              (prim-app s0 (map (curry read-exp-with names) ss))
              (error "arity mismatch for " s0))
