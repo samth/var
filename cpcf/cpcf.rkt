@@ -5,6 +5,8 @@
  ;; PCF with Contracts
  CPCF 
  
+ CPCF-red
+ 
  ;; for type-checking CPCF terms
  type ; M -> T or TypeError
  type-check ; TEnv M -> T or TypeError
@@ -48,8 +50,8 @@
   [B Num Bool ⊥]
   ; primitive ops
   [o o1 o2]
-  [o1 zero? non-neg? even? odd? prime? true? false? sqrt]
-  [o2 + - ∨ ∧]
+  [o1 not zero? non-neg? even? odd? prime? true? false? sqrt]
+  [o2 + - < ∨ ∧]
   ; contracts
   [(C D) (flat M)
          (C ↦ C)
@@ -143,6 +145,7 @@
 ;; interprets primitive ops
 (define-metafunction CPCF
   δ : o V ... -> A
+  [(δ not b) (to-bool ,(not (term b)))]
   [(δ zero? n) (to-bool ,(zero? (term n)))]
   [(δ non-neg? n) (to-bool ,(and (real? (term n)) (>= (term n) 0)))]
   [(δ even? n) (to-bool ,(and (integer? (term n)) (even? (term n))))]
@@ -153,6 +156,7 @@
   [(δ sqrt n) ,(sqrt (term n))] ; should blame caller, but not available here
   [(δ + m n) ,(+ (term m) (term n))]
   [(δ - m n) ,(- (term m) (term n))]
+  [(δ < m n) (to-bool ,(< (term m) (term n)))]
   [(δ ∨ b ...) ,(ormap (curry equal? (term #t)) (term (b ...)))]
   [(δ ∧ b ...) ,(andmap (curry equal? (term #t)) (term (b ...)))])
 
@@ -247,7 +251,7 @@
    (side-condition (member (term o) (term (zero? non-neg? even? odd? prime?))))]
   [(∆ o Bool)
    Bool
-   (side-condition (member (term o) (term (true? false?))))]
+   (side-condition (member (term o) (term (true? false? not))))]
   [(∆ sqrt Num) Num]
   [(∆ o Num Num)
    Num
@@ -255,6 +259,9 @@
   [(∆ o Bool Bool)
    Bool
    (side-condition (member (term o) (term (∨ ∧))))]
+  [(∆ o Num Num)
+   Bool
+   (side-condition (member (term o) (term <)))]
   [(∆ o any ...) TypeError])
 
 ;; returns most specific supertype
