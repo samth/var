@@ -180,7 +180,9 @@
 (check-equal? (eval-cek func-pair-er1) {set '(blame g h)})
 (check-equal? (eval-cek func-pair-er2) {set '(blame f h)})
 
-;; benchmarks
+;;;;; benchmarks
+
+;; tak, translated from http://www.larcenists.org/R6src/tak.sch
 (define tak
   `(μ (tak (Num → (Num → (Num → Num))))
       (λ (x Num)
@@ -191,5 +193,56 @@
                 (((tak (((tak (- x 1)) y) z))
                   (((tak (- y 1)) z) x))
                  (((tak (- z 1)) x) y))))))))
-(define tak-ap `(((,tak 9) 6) 3))
-(time (eval-cek tak-ap))
+#;(time (eval-cek `(((,tak 9) 6) 3)))
+
+;; takl, translated from http://www.larcenists.org/R6src/takl.sch
+(define listn
+  `(μ (listn (Num → (List Num)))
+      (λ (n Num)
+        (if (zero? n) nil (cons n (listn (- n 1)))))))
+(define mas
+  (let ([shorter? `(μ (shorter? ((List Num) → ((List Num) → Bool)))
+                      (λ (x (List Num))
+                        (λ (y (List Num))
+                          (and (not (nil? y))
+                               (or (nil? x)
+                                   ((shorter? (cdr x)) (cdr y)))))))])
+    `(μ (mas ((List Num) → ((List Num) → ((List Num) → (List Num)))))
+        (λ (x (List Num))
+          (λ (y (List Num))
+            (λ (z (List Num))
+              (if (not ((,shorter? y) x))
+                  z
+                  (((mas (((mas (cdr x)) y) z))
+                    (((mas (cdr y)) z) x))
+                   (((mas (cdr z)) x) y)))))))))
+#;(time (eval-cek `(((,mas (,listn 6)) (,listn 4)) (,listn 2))))
+
+;; cpstak, translated from http://www.larcenists.org/R6src/cpstak.sch
+(define cpstak
+  (let ([tak
+         `(μ (tak (Num → (Num → (Num → ((Num → Num) → Num)))))
+             (λ (x Num)
+               (λ (y Num)
+                 (λ (z Num)
+                   (λ (k (Num → Num))
+                     (if (not (< y x))
+                         (k z)
+                         ((((tak (- x 1))
+                            y)
+                           z)
+                          (λ (v1 Num)
+                            ((((tak (- y 1))
+                               z)
+                              x)
+                             (λ (v2 Num)
+                               ((((tak (- z 1))
+                                  x)
+                                 y)
+                                (λ (v3 Num)
+                                  ((((tak v1) v2) v3) k)))))))))))))])
+    `(λ (x Num)
+       (λ (y Num)
+         (λ (z Num)
+           ((((,tak x) y) z) (λ (a Num) a)))))))
+#;(time (eval-cek `(((,cpstak 9) 6) 3)))
