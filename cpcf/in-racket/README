@@ -1,14 +1,7 @@
-* TODO
-** clean up
-** [done] use real Racket contracts instead of comments
-** [done] use real sets
-** [done] use environment instead of substitution
-** [done] use nameless representation for lambdas
-** [done] make sure result is consistent with redex model
-** [done] measure
-** more primitives:
-*** [done] complex numbers
-*** [done] strings
-*** [done] pairs
-** contracts:
-*** [done] recursive, disjunction, conjunction, pairs
+This branch includes changes that have not been discussed yet
+
+TODO:
+* [part] remove type system
+** [part] re-implement primitive ops 
+* support multiple-argument functions
+* implement modules as in section 4
