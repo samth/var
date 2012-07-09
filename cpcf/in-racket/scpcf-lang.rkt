@@ -293,16 +293,6 @@
                    [_ {set (exp-clo (val '• ∅) ρ0)
                            (exp-clo (blame/ l 'cdr) ρ0)}]))]
               [_ {set (exp-clo (blame/ 'l 'cdr) ρ0)}])))))
-                         
-                         
-
-;; op-impl : Symbol -> Function
-(define (op-impl name)
-  (third (hash-ref ops name)))
-
-;; arity : Op -> Natural
-(define (arity op-name)
-  (first (hash-ref ops op-name)))
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)
