@@ -12,12 +12,12 @@
   [struct val ([pre pre-val?] [refinements (set/c contract-clo?)])]
   
   [struct lam ([body exp?])]
-  [struct app ([func exp?] [arg exp?])]
+  [struct app ([func exp?] [args (listof exp?)])]
   [struct rec ([body exp?])]
   [struct if/ ([test exp?] [then exp?] [else exp?])]
   [struct mon ([orig label?] [pos label?] [neg label?]
                              [con contract/?] [exp exp?])]
-  [struct prim-app ([op op?] [args (listof exp?)])]
+  [struct prim ([name label?])]
   [struct blame/ ([violator label?] [violatee label?])]
   
   [struct flat/c ([exp exp?])]
@@ -44,7 +44,7 @@
   
   [shift (natural? exp? . -> . exp?)]
   
-  [δ (label? op? (listof clo?) . -> . (set/c clo?))]
+  ;[δ (label? op? (listof clo?) . -> . (set/c clo?))]
   
   [read-exp (s-exp? . -> . exp?)]
   [show-exp (exp? . -> . s-exp?)]
@@ -75,14 +75,14 @@
 (struct val answer (pre refinements) #:transparent)
 ;; Ref := (ref Natural)
 (struct ref exp (distance) #:transparent)
-;; App := (app Exp Exp)
-(struct app exp (func arg) #:transparent)
+;; App := (app Exp [Listof Exp])
+(struct app exp (func args) #:transparent)
 ;; Rec := (rec Exp)
 (struct rec exp (body) #:transparent)
 ;; If := (if/ Exp Exp Exp)
 (struct if/ exp (test then else) #:transparent)
-;; PrimApp := (prim-app Op [Listof Exp])
-(struct prim-app exp (op args) #:transparent)
+;; Prim := (prim Label)
+(struct prim exp (name) #:transparent)
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon exp (orig pos neg con exp) #:transparent)
 
@@ -140,11 +140,6 @@
 (define (close-contract con en)
   (contract-clo con (env-restrict (con-free-vars con) en)))
 
-;; δ : Label Op [Listof Closure] -> [Setof Closure]
-;; applies primitive op
-(define (δ l o xs)
-  (apply (third (hash-ref ops o)) l xs))
-
 ;; OpImpl = Label [Listof ValClosure] -> [Setof ANswer]
 ;; ops : Symbol ↦ (Label [Listof Closure] -> [Setof Answer])
 ;; primitive ops' types and implementations
@@ -160,9 +155,9 @@
        (λ (l xs)
          (match xs
            [`(,(exp-clo (val u cs) ρ))
-              (match u
-                ['• (if (set-member? cs contract) T TF)]
-                [c (if (prim-test? u) T F)])]
+            (match u
+              ['• (if (set-member? cs contract) T TF)]
+              [c (if (prim-test? u) T F)])]
            [`(,clo) F]
            [_ (set (blame/ l op-name))]))] ; arity mismatch
      
@@ -183,6 +178,13 @@
      [define t-bool/c {set (contract-clo (flat/c (prim 'bool?)) ρ0)}]
      [define t-string/c {set (contract-clo (flat/c (prim 'string?)) ρ0)}]
      
+     ;; concrete? : ValClosure -> Bool
+     ;; checks whether a closure represents a concrete value
+     (define (concrete? cl)
+       (match cl
+         [(exp-clo (val u cs) ρ) (not (equal? u '•))]
+         [_ #f]))
+     
      ;; mk-op : Label [Listof TypePred] [PreVal -> PreVal] [Setof ContractClosure]
      ;;      -> OpImpl
      ;; makes fix-arity operator on non-pair values
@@ -190,11 +192,11 @@
        (λ (l xs)
          (let ([dom-oks (map (λ (test x) (test l (list x))) dom-tests xs)])
            (set-union
-            (if (or-map (curry subset? F) dom-oks)
+            (if (ormap (curry subset? F) dom-oks)
                 {set (exp-clo (blame/ l name) ρ0)}
                 ∅)
-            (if (and-map (curry subset? T) dom-oks)
-                (if (and-map concrete? xs)
+            (if (andmap (curry subset? T) dom-oks)
+                (if (andmap concrete? xs)
                     (exp-clo
                      (val
                       (apply prim-op l (map (compose val-pre exp-clo-exp) xs))
@@ -211,7 +213,7 @@
      'int? t-int?
      'bool? t-bool?
      'string? t-string?
-     'true? (type-pred 'true? (prim 'true?) true?)
+     'true? (type-pred 'true? (prim 'true?) (compose not false?))
      'false? (type-pred 'false? (prim 'false?) false?)
      'nil? (λ (l xs)
              (match xs
@@ -305,10 +307,11 @@
                   [(lam b) (vars≥ (+ 1 d) b)]
                   [else ∅])]
     [(blame/ l1 l2) ∅]
-    [(app e1 e2) (set-union (vars≥ d e1) (vars≥ d e2))]
+    [(app f xs) (set-union (vars≥ d f)
+                           (apply set-union (map (curry vars≥ d) xs)))]
     [(rec b) (vars≥ (+ 1 d) b)]
     [(if/ e1 e2 e3) (set-union (vars≥ d e1) (vars≥ d e2) (vars≥ d e3))]
-    [(prim-app o args) (apply set-union (map (curry vars≥ d) args))]
+    [(prim _) ∅]
     [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]))
 ;; con-free-vars : Contract -> [Setof Natural]
 (define (con-free-vars c)
@@ -349,7 +352,10 @@
     [`(,c ∧ ,d) (andc (read-con-with names c) (read-con-with names d))]
     [`(μ (,x ,t) ,c) (rec/c (read-con-with (cons x names) c))]
     [x (if (symbol? x)
-           (con-ref (name-distance x names))
+           (let ([d (name-distance x names)])
+             (if (<= 0 d) 
+                 (con-ref d)
+                 (error "unbound: " x)))
            (error "invalid contract form: " x))]))
 
 ;; read-exp-with : [Listof Symbol] S-exp -> Exp
@@ -393,17 +399,17 @@
          (error "mon: expect symbols, given: " h f g))]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
-    [`(,s0 ,ss ...)
-     (if (op? s0)
-         (if (= (arity s0) (length ss))
-             (prim-app s0 (map (curry read-exp-with names) ss))
-             (error "arity mismatch for " s0))
-         (if (= 1 (length ss))
-             (app (read-exp-with names s0) (read-exp-with names (first ss)))
-             (error "illegal application form " s)))]
+    [`(,sf ,sxs ...) (app (read-exp-with names sf)
+                          (map (curry read-exp-with names) sxs))]
     [x (cond
          [(pre-val? x) (val x ∅)]
-         [(symbol? x) (ref (name-distance x names))]
+         [(symbol? x)
+          (let ([d (name-distance x names)])
+            (if (<= 0 d)
+                (ref d)
+                (if (op? x)
+                    (prim x)
+                    (error "unbound: " x))))]
          [else (error "invalid expression form: " x)])]))
 
 ;; show-exp : Exp -> S-exp
@@ -427,12 +433,13 @@
             `(λ (,x) ,(show-exp-with (cons x names) b)))]
          [c c])]
       [(blame/ l1 l2) `(blame l1 l2)]
-      [(app f x) `(,(show-exp-with names f) ,(show-exp-with names x))]
+      [(app func args) (cons (show-exp-with names func)
+                             (map (curry show-exp-with names) args))]
       [(rec b)
-       (let ([f (new-fun-name names)])
+       (let ([f (new-var-name names)])
          `(μ (,f) ,(show-exp-with (cons f names) b)))]
       [(if/ e1 e2 e3) `(if ,@(map (curry show-exp-with names) `(,e1 ,e2 ,e3)))]
-      [(prim-app o args) `(,o ,@(map (curry show-exp-with names) args))]
+      [(prim name) name]
       [(mon h f g c e) `(mon ,h ,f ,g
                              ,(show-con-with names c)
                              ,(show-exp-with names e))]))
@@ -455,13 +462,13 @@
   
   (show-exp-with empty e))
 
-;; name-distance : Symbol [Listof Symbol] -> Natural
+;; name-distance : Symbol [Listof Symbol] -> Natural or -1 if name not bound
 (define (name-distance x xs)
   ;; go : Natural [Listof Symbol] -> Natural
   (define (go pos xs)
     (match xs
       [(cons z zs) (if (equal? z x) pos (go (+ 1 pos) zs))]
-      [empty (error "expression not closed, unbound variable: " x )]))
+      [empty -1]))
   (go 0 xs))
 
 ;; shift : Natural Exp -> Exp
@@ -477,11 +484,12 @@
          [(lam b) (val (lam (shift-at (+ 1 depth) b)) cs)]
          [_ e])]
       [(blame/ l1 l2) e]
-      [(app e1 e2) (app (shift-at depth e1) (shift-at depth e2))]
+      [(app func exps) (app (shift-at depth func)
+                            (map (curry shift-at depth) exps))]
       [(rec b) (rec (shift-at (+ 1 depth) b))]
       [(if/ e1 e2 e3)
        (if/ (shift-at depth e1) (shift-at depth e2) (shift-at depth e3))]
-      [(prim-app o xs) (prim-app o (map (curry shift-at depth) xs))]
+      [(prim name) (prim name)]
       [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]))
   
   ;; shift-con-at : Natural Contract -> Contract
