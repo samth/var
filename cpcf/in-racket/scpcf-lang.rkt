@@ -43,7 +43,8 @@
   
   [shift (natural? exp? . -> . exp?)]
   
-  ;[δ (label? op? (listof clo?) . -> . (set/c clo?))]
+  [δ (op? (listof clo?) label? . -> . (set/c clo?))]
+  [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
   [read-exp (s-exp? . -> . exp?)]
   [show-exp (exp? . -> . s-exp?)]
@@ -279,6 +280,8 @@
              {set (match xs
                     [`(,c1 ,c2) (cons-cl c1 c2)]
                     [_ (blame/ l 'cons)])}) ; arity mismatch
+     
+     ;; TODO: refactor car and cdr using split-cons
      'car (λ (l xs)
             (match xs
               [`(,(cons-cl c1 c2)) {set c1}]
@@ -301,6 +304,18 @@
                    [_ {set (exp-cl BULLET ρ0)
                            (exp-cl (blame/ l 'cdr) ρ0)}]))]
               [_ {set (exp-cl (blame/ 'l 'cdr) ρ0)}])))))
+
+;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
+(define (split-cons cl)
+  (match cl
+    [(cons-cl c1 c2) {set `(,c1 ,c2)}]
+    [(exp-cl (val u cs) ρ) {set} #|TODO|#]
+    [_ {set '()}]))
+     
+
+;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
+(define (δ op xs l)
+  ((hash-ref ops op) l xs))
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)
