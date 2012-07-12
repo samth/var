@@ -5,44 +5,38 @@
 (require "scpcf-eval.rkt")
 
 ;; contracts
-(define c/any `(flat (λ (x Num) #t)))
-(define c/prime `(flat (λ (x Num) (prime? x))))
-(define c/non-neg `(flat (λ (x Num) (non-neg? x))))
+(define c/any `(flat (λ (x) #t)))
+(define c/prime `(flat prime?))
+(define c/non-neg `(flat non-neg?))
 
 ;; expresions
-(define ev? '(λ (x Num) (even? x)))
-(define od? '(λ (x Num) (odd? x)))
 (define db1
   `(mon h f g
-        (((flat ,ev?) ↦ (flat ,ev?))
-         ↦ ((flat ,ev?) ↦ (flat ,ev?)))
-        (λ (f (Num → Num))
-          (λ (x Num)
-            (f (f x))))))
+        (((flat even?) ↦ (flat even?))
+         ↦ ((flat even?) ↦ (flat even?)))
+        (λ (f)
+          (λ (x) (f (f x))))))
 (define db2 ; like db1, but wrong
   `(mon h f g
-        (((flat ,ev?) ↦ (flat ,ev?))
-         ↦ ((flat ,ev?) ↦ (flat ,ev?)))
-        (λ (f (Num → Num))
-          (λ (x Num) 7))))
-(define ap0
-  `(,db1 (λ (x Num) 2)))
-(define ap1
-  `(,db1 (λ (x Num) 7)))
+        (((flat even?) ↦ (flat even?))
+         ↦ ((flat even?) ↦ (flat even?)))
+        (λ (f) (λ (x) 7))))
+(define ap0 `(,db1 (λ (x) 2)))
+(define ap1 `(,db1 (λ (x) 7)))
 (define ap00 `(,ap0 42))
 (define ap01 `(,ap0 13))
 (define ap10 `(,ap1 0))
-(define tri `(μ (f (Num → Num))
-                (λ (n Num)
+(define tri `(μ (f)
+                (λ (n)
                   (if (zero? n) 0
                       (+ n (f (- n 1)))))))
 (define ap00-db2 `((,db2 ,ap0) 0))
 (define keygen ; opaque
-  `(mon h f g (,c/any ↦ ,c/prime) (• (Num → Num))))
+  `(mon h f g (,c/any ↦ ,c/prime) •))
 (define rsa ; opaque
-  `(mon h f g (,c/prime ↦ (,c/any ↦ ,c/any)) (• (Num → (Num → Num)))))
+  `(mon h f g (,c/prime ↦ (,c/any ↦ ,c/any)) •))
 (define rsa-ap
-  `((,rsa (,keygen 13)) (• Num)))
+  `((,rsa (,keygen 13)) •))
 #;(define sqroot
     `(mon h f g (,c/non-neg ↦ ,c/non-neg)
           (λ (x Num) (sqrt x))))
@@ -52,53 +46,53 @@
 #;(define sqrt-ap
     `(,sqrt-user (• (Num → Num))))
 (define sum
-  `(μ (f ((List Num) → Num))
-      (λ (xs (List Num))
+  `(μ (f)
+      (λ (xs)
         (if (nil? xs) 0 (+ (car xs) (f (cdr xs)))))))
 (define range
-  `(μ (range (Num → (Num → (List Num))))
-      (λ (lo Num)
-        (λ (hi Num)
+  `(μ (range)
+      (λ (lo)
+        (λ (hi)
           (if (≤ lo hi)
               (cons lo ((range (+ 1 lo)) hi))
               nil)))))
 
 (define append
-  `(μ (append ((List Num) → ((List Num) → (List Num))))
-      (λ (xs (List Num))
-        (λ (ys (List Num))
+  `(μ (append)
+      (λ (xs)
+        (λ (ys)
           (if (nil? xs) ys
               (cons (car xs)
                     ((append (cdr xs)) ys)))))))
 
 (define filter
-  `(μ (filter ((Num → Bool) → ((List Num) → (List Num))))
-      (λ (p (Num → Bool))
-        (λ (xs (List Num))
+  `(μ (filter)
+      (λ (p)
+        (λ (xs)
           (if (nil? xs) nil
               (if (p (car xs))
                   (cons (car xs) ((filter p) (cdr xs)))
                   ((filter p) (cdr xs))))))))
 
 (define slowsort
-  `(μ (sort ((List Num) → (List Num)))
-      (λ (xs (List Num))
+  `(μ (sort)
+      (λ (xs)
         (if (nil? xs) nil
             ((,append
-              (sort ((,filter (λ (y Num) (≤ y (car xs)))) (cdr xs))))
-             (cons (car xs) (sort ((,filter (λ (y Num) (≥ y (car xs)))) (cdr xs)))))))))
+              (sort ((,filter (λ (y) (≤ y (car xs)))) (cdr xs))))
+             (cons (car xs) (sort ((,filter (λ (y) (≥ y (car xs)))) (cdr xs)))))))))
 
 ;; contract checking for list of even numbers
 (define all-even?
-  `(μ (all-even? (con (List Num)))
-      ((flat (λ (xs (List Num)) (nil? xs)))
+  `(μ (all-even?)
+      ((flat (λ (xs) (nil? xs)))
        ∨
-       (cons/c (flat ,ev?) all-even?))))
+       (cons/c (flat even?) all-even?))))
 
 ;; contract checking for function pairs
 (define func-pair?
-  `(cons/c ((flat ,ev?) ↦ (flat ,od?))
-           ((flat ,od?) ↦ (flat ,ev?))))
+  `(cons/c ((flat even?) ↦ (flat even?))
+           ((flat odd?) ↦ (flat even?))))
 
 ;; monitored list of evens
 (define even-list-ok
@@ -108,18 +102,18 @@
 
 ;; monitored function pairs
 (define func-pair-ok ; won't type check b/c current cons is too restricted
-  `((cdr (mon h f g ,func-pair? (cons (λ (x Num) (+ x 1))
-                                      (λ (x Num) (+ x 1)))))
+  `((cdr (mon h f g ,func-pair? (cons (λ (x) (+ x 1))
+                                      (λ (x) (+ x 1)))))
     1))
 (define func-pair-er1 ; won't type check b/c current cons is too restricted
-  `((car (mon h f g ,func-pair? (cons (λ (x Num) x) (λ (x Num) x))))
+  `((car (mon h f g ,func-pair? (cons (λ (x) x) (λ (x) x))))
     1))
 (define func-pair-er2 ; won't type check b/c current cons is too restricted
-  `((cdr (mon h f g ,func-pair? (cons (λ (x Num) x) (λ (x Num) x))))
+  `((cdr (mon h f g ,func-pair? (cons (λ (x) x) (λ (x) x))))
     1))
 
 ;;;;; testing
-(define exps (list ev? db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
+(define exps (list db1 db2 ap0 ap1 ap00 ap01 ap10 tri ap00-db2))
 
 ;; test read/show
 (for-each (λ (e)
@@ -127,26 +121,6 @@
              (read-exp e)
              ((compose read-exp show-exp read-exp) e)))
           exps)
-;; test type-checking
-(define tc (compose show-type type-check read-exp))
-(check-equal? (tc ev?) '(Num → Bool))
-(check-equal? (tc db1) '((Num → Num) → (Num → Num)))
-(check-equal? (tc ap0) '(Num → Num))
-(check-equal? (tc ap00) 'Num)
-(check-equal? (tc tri) '(Num → Num))
-(check-equal? (tc keygen) '(Num → Num))
-(check-equal? (tc rsa) '(Num → (Num → Num)))
-(check-equal? (tc rsa-ap) 'Num)
-#;(check-equal? (tc sqroot) '(Num → Num))
-#;(check-equal? (tc sqrt-user) '((Num → Num) → Num))
-#;(check-equal? (tc sqrt-ap) 'Num)
-(check-equal? (tc sum) '((List Num) → Num))
-(check-equal? (tc range) '(Num → (Num → (List Num))))
-(check-equal? (tc append) '((List Num) → ((List Num) → (List Num))))
-(check-equal? (tc filter) '((Num → Bool) → ((List Num) → (List Num))))
-(check-equal? (tc slowsort) '((List Num) → (List Num)))
-(check-equal? (tc even-list-ok) '(List Num))
-(check-equal? (tc even-list-er) '(List Num))
 
 ;; for debugging
 (define (non-det f xs)
@@ -156,7 +130,6 @@
 (define (step* k e) ((pow step1 k) (set (load (read-exp e)))))
 
 ;;;;; tests
-(check-equal? (eval-cek ev?) {set 'function})
 (check-equal? (eval-cek ap00) {set 2})
 (check-equal? (eval-cek ap01) {set `(blame g h)})
 (check-equal? (eval-cek `(,tri 3)) {set 6})
@@ -182,10 +155,10 @@
 
 ;; benchmarks
 (define tak
-  `(μ (tak (Num → (Num → (Num → Num))))
-      (λ (x Num)
-        (λ (y Num)
-          (λ (z Num)
+  `(μ (tak)
+      (λ (x)
+        (λ (y)
+          (λ (z)
             (if (not (< y x))
                 z
                 (((tak (((tak (- x 1)) y) z))

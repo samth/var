@@ -44,18 +44,18 @@
       [(exp-cl (val u cs) ρ) (exp-cl (val u (set-add cs conclo)) ρ)]
       [else clo #|TODO|#]))
   
+  ;; AMB : [Listof Exp] -> Exp
+  (define (AMB exps)
+    (match exps
+      [`(,e) e]
+      [`(,e ,e1 ...) `(if • ,e ,(AMB e1))]))
+  
   ;; havoc : Exp
   (define havoc
     (read-exp
      `(μ (y)
          (λ (x)
            ,(AMB `((y (x •)) (y (car x)) (y (cdr x))))))))
-  
-  ;; AMB : [Listof Exp] -> Exp
-  (define (AMB exps)
-    (match exps
-      [`(,e) e]
-      [`(,e ,e1 ...) `(if • ,e ,(AMB e1))]))
   
   ;; on-nonval : Closure Kont -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression

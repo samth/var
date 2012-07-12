@@ -32,8 +32,8 @@
   ;; 'exp-cl', and 'close-contract' instead of 'contract-cl'
   [struct exp-cl ([exp exp?] [env env?])]
   [struct mon-fn-cl ([orig label?] [pos label?] [neg label?]
-                                    [con (struct/c contract-cl func-c? env?)]
-                                    [exp clo?])]
+                                   [con (struct/c contract-cl func-c? env?)]
+                                   [exp clo?])]
   [struct cons-cl ([car clo?] [cdr clo?])]
   [struct contract-cl ([con contract/?] [env env?])]
   [clo? (any/c . -> . boolean?)]
@@ -203,12 +203,12 @@
                 ∅)
             (if (andmap (curry subset? T) dom-oks)
                 (if (andmap concrete? xs)
-                    (exp-cl
-                     (val
-                      (apply prim-op l (map (compose val-pre exp-cl-exp) xs))
-                      ∅)
-                     ρ0)
-                    (exp-cl (val '• refinements) ρ0))
+                    {set (exp-cl
+                          (val
+                           (apply prim-op (map (compose val-pre exp-cl-exp) xs))
+                           ∅)
+                          ρ0)}
+                    {set (exp-cl (val '• refinements) ρ0)})
                 ∅))))])
     
     (hash
@@ -237,7 +237,7 @@
                 [`(,clo) F]
                 [_ (set (blame/ l 'cons?))])) ; arity mismatch
      'proc? (type-pred 'proc? (mk-contract-cl 'proc?) lam?)
-              
+     
      
      'zero? (mk-op 'zero? `(,t-num?) zero? t-num/c)
      'non-neg? (mk-op 'non-neg? `(,t-real?) (curry <= 0) t-bool/c)
@@ -311,7 +311,7 @@
     [(cons-cl c1 c2) {set `(,c1 ,c2)}]
     [(exp-cl (val u cs) ρ) {set} #|TODO|#]
     [_ {set '()}]))
-     
+
 
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
@@ -359,14 +359,14 @@
 (define (read-con-with names s)
   (match s
     [`(flat ,e) (flat-c (read-exp-with names e))]
-    [`(,c ↦ (λ (,x ,t) ,d))
+    [`(,c ↦ (λ (,x) ,d))
      (if (symbol? x)
          (func-c (read-con-with names c)
                  (read-con-with (cons x names) d))
          (error "function contract: expect symbol, given: " x))]
     [`(,c ↦ ,d)
      (let ([x (variable-not-in d 'z)]) ; desugar independent contract
-       (read-con-with names `(,c ↦ (λ (,x Num) ,d))))]
+       (read-con-with names `(,c ↦ (λ (,x) ,d))))]
     [`(cons-c ,c ,d) (cons-c (read-con-with names c) (read-con-with names d))]
     [`(,c ∨ ,d) (or-c (read-con-with names c) (read-con-with names d))]
     [`(,c ∧ ,d) (and-c (read-con-with names c) (read-con-with names d))]
