@@ -44,7 +44,7 @@
       [(exp-cl (val u cs) ρ) (exp-cl (val u (set-add cs conclo)) ρ)]
       [else clo #|TODO|#]))
   
-  ;; AMB : [Listof Exp] -> Exp
+  ;; AMB : [Listof S-Exp] -> S-Exp
   (define (AMB exps)
     (match exps
       [`(,e) e]
@@ -98,7 +98,7 @@
                                  (λ (c)
                                    (match c
                                      [(contract-cl (func-c c1 c2) ρc)
-                                      (close-contract c2 (env-extend (first xs) ρc))]))
+                                      (close-contract c2 (env-extend (first xs) #|TODO|# ρc))]))
                                  cs))
                            ρ0)
                           κ)
@@ -126,19 +126,19 @@
                 (cek (match (val-pre (exp-cl-exp v)) [#t clo1] [#f clo2]) κ))
               (δ 'true? (list clo) '†))]
       [(mon-k h f g con-cl κ)
-       (match (maybe-flatten empty (contract-cl-con con-cl))
-         [`(,pred)
-          {set
-           (match (verify clo con-cl)
-             ['Proved (cek clo κ)]
-             ['Refuted (cek (close (blame/ f h) ρ0) (mt))]
-             ['Neither
-              (cek (close pred (contract-cl-env con-cl))
-                   (ap-k '() `(,clo)
-                         (if-k (refine clo con-cl)
-                               (close (blame/ f h) ρ0) κ)))])}]
-         [`()
-          (match-let ([(contract-cl c ρc) con-cl])
+       (match-let ([(contract-cl c ρc) con-cl])
+         (match (maybe-FC empty c)
+           [`(,pred)
+            {set
+             (match (verify clo con-cl)
+               ['Proved (cek clo κ)]
+               ['Refuted (cek (close (blame/ f h) ρ0) (mt))]
+               ['Neither
+                (cek (close pred ρc)
+                     (ap-k '() `(,clo)
+                           (if-k (refine clo con-cl)
+                                 (close (blame/ f h) ρ0) κ)))])}]
+           [`()
             (match c
               [(func-c c1 c2)
                (s-map (λ (r) (match (val-pre (exp-cl-exp r))
@@ -161,7 +161,7 @@
                   ['Proved (cek clo κ)]
                   ['Refuted (cek clo (mon-k h f g (close-contract c2 ρc) κ))]
                   ['Neither
-                   (match (maybe-flatten empty c1)
+                   (match (maybe-FC empty c1)
                      [`(,pred)
                       (cek (close pred ρc)
                            (ap-k '() `(,clo)
@@ -177,7 +177,7 @@
                          (mon-k h f g
                                 (close-contract c1 (env-extend con-cl ρc)) κ))}]
               [(ref-c x)
-               {set (cek clo (mon-k h f g (env-get x ρc) κ))}]))])]
+               {set (cek clo (mon-k h f g (env-get x ρc) κ))}])]))]
       [(cdr-k h f g c clo1 κ)
        {set (cek clo1
                  (mon-k h f g c
@@ -240,7 +240,7 @@
        (match e
          [(val u cs) (match u
                        [(lam b) 'function]
-                       ['• `(• ,cs)]
+                       ['• '•]
                        [u (if (op? u) 'function u)])]
          [(blame/ l1 l2) `(blame ,l1 ,l2)])]
       [(mon-fn-cl h f g conclo clo) 'function]
@@ -269,12 +269,12 @@
         (values (set-add p-true x) p-false)
         (values p-true (set-add p-false x)))))
 
-;; maybe-flatten : [Listof Natural] Contract -> [List Exp] or Empty
+;; maybe-FC : [Listof Natural] Contract -> [List Exp] or Empty
 ;; converts flat contract to predicate
 ;; whether result expression is closed or open depends on original contract
 ;; -- ds: (list-ref ds k) is number of extra levels of λ introduced
 ;;        after the k-th (μ.C)
-(define (maybe-flatten ds c)
+(define (maybe-FC ds c)
   
   ;; generates conjunction
   (define (and/ . exps)
@@ -310,27 +310,24 @@
     [(flat-c p) (list (shift (apply + ds) p))]
     [(func-c c d) empty]
     [(cons-c c1 c2) (lift (λ (p1 p2)
-                            (val (lam '⊥ ; program already type-checked
-                                      (and/ (app (val 'cons? ∅) `(,(ref 0)))
+                            (val (lam (and/ (app (val 'cons? ∅) `(,(ref 0)))
                                             (app p1 `(,(app (val 'car ∅) `(,(ref 0)))))
                                             (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)))))))
                                  ∅))
-                          (maybe-flatten (car+1 ds) c1)
-                          (maybe-flatten (car+1 ds) c2))]
+                          (maybe-FC (car+1 ds) c1)
+                          (maybe-FC (car+1 ds) c2))]
     [(or-c c1 c2) (lift (λ (p1 p2)
-                          (val (lam '⊥ ; program already type-checked
-                                    (or/ (app p1 `(,(ref 0)))
+                          (val (lam (or/ (app p1 `(,(ref 0)))
                                          (app p2 `(,(ref 0)))))
                                ∅))
-                        (maybe-flatten (car+1 ds) c1)
-                        (maybe-flatten (car+1 ds) c2))]
+                        (maybe-FC (car+1 ds) c1)
+                        (maybe-FC (car+1 ds) c2))]
     [(and-c c1 c2) (lift (λ (p1 p2)
-                           (val (lam '⊥ ; program already type-checked
-                                     (and/ (app p1 `(,(ref 0)))
+                           (val (lam (and/ (app p1 `(,(ref 0)))
                                            (app p2 `(,(ref 0)))))
                                 ∅))
-                         (maybe-flatten (car+1 ds) c1)
-                         (maybe-flatten (car+1 ds) c2))]
-    [(rec-c c1) (lift rec (maybe-flatten (cons 0 ds) c1))]
+                         (maybe-FC (car+1 ds) c1)
+                         (maybe-FC (car+1 ds) c2))]
+    [(rec-c c1) (lift rec (maybe-FC (cons 0 ds) c1))]
     [(ref-c x) (list (ref (+ (car ds) x)))]))
 
