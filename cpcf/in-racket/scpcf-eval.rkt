@@ -167,7 +167,7 @@
                            (ap-k '() `(,clo)
                                  (or-k clo (close-contract c1 ρc)
                                        h f g (close-contract c2 ρc) κ)))]
-                     [`() (cek (exp-cl (blame/ '† '†) ρ0) (mt))])])}]
+                     [`() (error "left disjunction is not flat: " c1)])])}]
               [(and-c c1 c2)
                {set (cek clo
                          (mon-k h f g (close-contract c1 ρc)

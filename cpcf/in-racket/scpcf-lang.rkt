@@ -236,7 +236,14 @@
                 [`(,(cons-cl c1 c2)) T]
                 [`(,clo) F]
                 [_ (set (blame/ l 'cons?))])) ; arity mismatch
-     'proc? (type-pred 'proc? (mk-contract-cl 'proc?) (or/c lam? op?))
+     'proc? (λ (l xs)
+              (match xs
+                [`(,(exp-cl (val '• cs) ρ))
+                 (if (set-member? cs (mk-contract-cl 'proc?)) T TF)]
+                [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (op? u)) T F)]
+                [`(,(mon-fn-cl h f g c e)) T]
+                [`(,cl) F]
+                [_ {set (exp-cl (blame/ l 'proc?) ρ0)}]))
      
      
      'zero? (mk-op 'zero? `(,t-num?) zero? t-num/c)
