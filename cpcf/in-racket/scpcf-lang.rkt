@@ -167,7 +167,7 @@
               ['• (if (set-member? cs contract) T TF)]
               [c (if (prim-test? u) T F)])]
            [`(,clo) F]
-           [_ (set (blame/ l op-name))]))] ; arity mismatch
+           [_ (error op-name ": arity mismatch")]))]
      
      ;; type predicates defined separately for use in several places
      [define t-any? (λ (l xs) T)]
@@ -228,14 +228,14 @@
                   ['• (if (set-member? cs (mk-contract-cl 'nil?)) T TF)]
                   [_ F])]
                [`(,clo) F]
-               [_ (set (blame/ l 'nil?))])) ; arity mismatch
+               [_ (error 'nil? ": arity mismatch")]))
      'cons? (λ (l xs)
               (match xs
-                [`(,(exp-cl (val '• cs) ρ))
-                 (if (set-member? cs (mk-contract-cl 'cons?)) T TF)]
-                [`(,(cons-cl c1 c2)) T]
-                [`(,clo) F]
-                [_ (set (blame/ l 'cons?))])) ; arity mismatch
+                [`(,clo) (s-map (match-lambda
+                                  [`(,c1 ,c2) (close TRUE ρ0)]
+                                  [_ (close FALSE ρ0)])
+                                (split-cons clo))]
+                [_ (error 'cons? ": arity mismatch")]))
      'proc? (λ (l xs)
               (match xs
                 [`(,(exp-cl (val '• cs) ρ))
@@ -286,38 +286,58 @@
      'cons (λ (l xs)
              {set (match xs
                     [`(,c1 ,c2) (cons-cl c1 c2)]
-                    [_ (blame/ l 'cons)])}) ; arity mismatch
+                    [_ (error 'cons ": arity mismatch")])})
      
      ;; TODO: refactor car and cdr using split-cons
      'car (λ (l xs)
             (match xs
-              [`(,(cons-cl c1 c2)) {set c1}]
-              [`(,(exp-cl (val u cs) ρ))
-               (let ([c-list (set->list cs)])
-                 ;; TODO: also consider case with weaker contract 'cons?'
-                 (match (memf cons-c? c-list)
-                   [`(,(cons-c c1 c2) ,_...) {set (exp-cl (val '• {set c1}) ρ0)}]
-                   [_ {set (exp-cl BULLET ρ0)
-                           (exp-cl (blame/ l 'car) ρ0)}]))]
-              [_ {set (exp-cl (blame/ 'l 'car) ρ0)}]))
+              [`(,clo) (s-map (match-lambda
+                                [`(,c1 ,c2) c1]
+                                ['() (close (blame/ l 'car) ρ0)])
+                              (split-cons clo))]
+              [_ (error 'car ": arity mismatch")]))
      'cdr (λ (l xs)
             (match xs
-              [`(,(cons-cl c1 c2)) {set c2}]
-              [`(,(exp-cl (val u cs) ρ))
-               (let ([c-list (set->list cs)])
-                 ;; TODO: also consider case with weaker contract 'cons?'
-                 (match (memf cons-c? c-list)
-                   [`(,(cons-c c1 c2) ,_...) {set (exp-cl (val '• {set c2}) ρ0)}]
-                   [_ {set (exp-cl BULLET ρ0)
-                           (exp-cl (blame/ l 'cdr) ρ0)}]))]
-              [_ {set (exp-cl (blame/ 'l 'cdr) ρ0)}])))))
+              [`(,clo) (s-map (match-lambda
+                                [`(,c1 ,c2) c2]
+                                ['() (close (blame/ l 'cdr) ρ0)])
+                              (split-cons clo))]
+              [_ (error 'cdr ": arity mismatch")])))))
 
 ;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
 (define (split-cons cl)
+  
+  ;; accum-cons-c : [Setof x] 
+  ;;             -> (List [Setof ContractClosure] [Setof ContractClosure]) or ()
+  ;; accumulates contracts for pair's car and cdr
+  ;; returns () if contracts cannot prove it's a pair
+  (define (accum-cons-c cs)
+    (for/fold ([acc '()]) ([c (in-set cs)])
+      (match (contract-cl-con c)
+        [(cons-c c1 c2)
+         (match acc
+           [`(,cs1 ,cs2) `(,(set-add cs1 c1) ,(set-add cs2 c2))]
+           [`() `(,(set c1) ,(set c2))])]
+        [(flat-c (val 'cons? _))
+         (match acc
+           [`(,cs1 ,cs2) acc]
+           ['() `(,∅ ,∅)])]
+        [_ acc])))
+  
   (match cl
+    ; TODO: case like (cons • •) / {(cons/c (flat even?) (flat odd?))}
+    ; maybe turn it to (• / {(flat even?)}) and (• / {(flat odd?)})
+    ; instead of currently just • and •
+    ; ah, ConsClosure currently does not have a 'dedicated' set of refinements
+    ; neither does MonitoredFuncClosure. Do they ever need that?
     [(cons-cl c1 c2) {set `(,c1 ,c2)}]
-    [(exp-cl (val u cs) ρ) {set} #|TODO|#]
-    [_ {set '()}]))
+    [(exp-cl (val '• cs) ρ)
+     (match (accum-cons-c cs)
+       ; proven abstract pair
+       [`(,cs1 ,cs2) {set `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))}]
+       ; nothing is known
+       [`() {set `(,(close BULLET ρ0) ,(close BULLET ρ0)) '()}])]
+    [_ {set '()}])) ; known not a pair
 
 
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
