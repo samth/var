@@ -143,7 +143,7 @@
               [(func-c c1 c2)
                (s-map (λ (r) (match (val-pre (exp-cl-exp r))
                                [#t (cek (mon-fn-cl h f g con-cl clo) κ)]
-                               [#f (cek (close (blame/ '† '†) ρ0) (mt))]))
+                               [#f (cek (close (blame/ f h) ρ0) (mt))]))
                       (δ 'proc? `(,clo) '†))]
               [(cons-c c1 c2)
                ;; TODO: - more general when the language is uptyped
