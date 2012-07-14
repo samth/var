@@ -236,7 +236,7 @@
                 [`(,(cons-cl c1 c2)) T]
                 [`(,clo) F]
                 [_ (set (blame/ l 'cons?))])) ; arity mismatch
-     'proc? (type-pred 'proc? (mk-contract-cl 'proc?) lam?)
+     'proc? (type-pred 'proc? (mk-contract-cl 'proc?) (or/c lam? op?))
      
      
      'zero? (mk-op 'zero? `(,t-num?) zero? t-num/c)
