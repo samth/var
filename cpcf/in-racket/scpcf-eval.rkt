@@ -120,7 +120,7 @@
                     `(,clo1) '()
                     (mon-k ; monitor result
                      h f g (close-contract c2 (env-extend clo ρc)) κ))))}]
-           [_ {set (cek (blame/ '† '†) ρ0) (mt)}]))]
+           [_ {set (cek (close (blame/ '† '†) ρ0) (mt))}]))]
       [(if-k clo1 clo2 κ)
        (s-map (λ (v)
                 (cek (match (val-pre (exp-cl-exp v)) [#t clo1] [#f clo2]) κ))
