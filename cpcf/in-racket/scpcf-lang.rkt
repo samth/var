@@ -8,11 +8,14 @@
 (provide
  
  (contract-out
+  [struct prog ([modules (list/c modl?)] [main exp?])]
+  [struct modl ([f label?] [c contract/?] [v exp?])]
+  
   [struct ref ([distance natural?])]
   [struct val ([pre pre-val?] [refinements (set/c contract-cl?)])]
   
   [struct lam ([body exp?])]
-  [struct app ([func exp?] [args (listof exp?)])]
+  [struct app ([func exp?] [args (listof exp?)] [lab label?])]
   [struct rec ([body exp?])]
   [struct if/ ([test exp?] [then exp?] [else exp?])]
   [struct mon ([orig label?] [pos label?] [neg label?]
@@ -69,14 +72,19 @@
 ;; s-exp? : Any -> Boolean
 (define s-exp? any/c) ; TODO
 
+;; Prog := (prog [Listof Module] Exp)
+(struct prog (modules main) #:transparent)
+;; Module := (modl Label Contract Value)
+(struct modl (f c v) #:transparent)
+
 (struct exp () #:transparent)
 (struct answer exp () #:transparent)
 ;; Val := (val Preval [Listof ContractClosure])
 (struct val answer (pre refinements) #:transparent)
 ;; Ref := (ref Natural)
 (struct ref exp (distance) #:transparent)
-;; App := (app Exp [Listof Exp])
-(struct app exp (func args) #:transparent)
+;; App := (app Exp [Listof Exp] Label)
+(struct app exp (func args lab) #:transparent)
 ;; Rec := (rec Exp)
 (struct rec exp (body) #:transparent)
 ;; If := (if/ Exp Exp Exp)
@@ -385,7 +393,6 @@
             {set '()})])]
     [_ {set '()}])) ; known not a pair
 
-
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
   ((hash-ref ops op) l xs))
@@ -401,8 +408,8 @@
                   [(lam b) (vars≥ (+ 1 d) b)]
                   [else ∅])]
     [(blame/ l1 l2) ∅]
-    [(app f xs) (set-union (vars≥ d f)
-                           (apply set-union (map (curry vars≥ d) xs)))]
+    [(app f xs l) (set-union (vars≥ d f)
+                             (apply set-union (map (curry vars≥ d) xs)))]
     [(rec b) (vars≥ (+ 1 d) b)]
     [(if/ e1 e2 e3) (set-union (vars≥ d e1) (vars≥ d e2) (vars≥ d e3))]
     [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]))
@@ -420,30 +427,43 @@
     [(rec-c c) (con-vars≥ (+ 1 d) c)]
     [(ref-c x) (if (>= x d) {set (- x d)} ∅)]))
 
+;; read-prog : S-exp -> Prog
+(define read-prog
+  (match-lambda
+    [`(,m ... ,e) (prog (map read-modl m) (read-exp e))]
+    [x (error "invalid program form: " x)]))
+
+;; read-modl : S-exp -> Module
+(define read-modl
+  (match-lambda
+    [`(module ,f ,c ,v) (modl f (read-con-with '() f c) (read-exp-with '() f v))]
+    [x (error "invlaid module form: " x)]))
+
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
-  (read-exp-with empty s))
+  (read-exp-with '() '† s))
 
 ;; read-con : S-exp -> Contract
 (define (read-con s)
-  (read-con-with empty s))
+  (read-con-with '() '† s))
 
-;; read-con-with : [Listof Symbol] S-exp -> Contract
-(define (read-con-with names s)
+;; read-con-with : [Listof Symbol] Label S-exp -> Contract
+(define (read-con-with names mod s)
   (match s
-    [`(flat ,e) (flat-c (read-exp-with names e))]
+    [`(flat ,e) (flat-c (read-exp-with names mod e))]
     [`(,c ↦ (λ (,x) ,d))
      (if (symbol? x)
-         (func-c (read-con-with names c)
-                 (read-con-with (cons x names) d))
+         (func-c (read-con-with names mod c)
+                 (read-con-with (cons x names) mod d))
          (error "function contract: expect symbol, given: " x))]
     [`(,c ↦ ,d)
      (let ([x (variable-not-in d 'z)]) ; desugar independent contract
-       (read-con-with names `(,c ↦ (λ (,x) ,d))))]
-    [`(cons-c ,c ,d) (cons-c (read-con-with names c) (read-con-with names d))]
-    [`(,c ∨ ,d) (or-c (read-con-with names c) (read-con-with names d))]
-    [`(,c ∧ ,d) (and-c (read-con-with names c) (read-con-with names d))]
-    [`(μ (,x ,t) ,c) (rec-c (read-con-with (cons x names) c))]
+       (read-con-with names mod `(,c ↦ (λ (,x) ,d))))]
+    [`(cons-c ,c ,d)
+     (cons-c (read-con-with names mod c) (read-con-with names mod d))]
+    [`(,c ∨ ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
+    [`(,c ∧ ,d) (and-c (read-con-with names mod c) (read-con-with names mod d))]
+    [`(μ (,x ,t) ,c) (rec-c (read-con-with (cons x names) mod c))]
     [x (if (symbol? x)
            (let ([d (name-distance x names)])
              (if (<= 0 d)
@@ -451,49 +471,49 @@
                  (error "unbound: " x)))
            (error "invalid contract form: " x))]))
 
-;; read-exp-with : [Listof Symbol] S-exp -> Exp
-(define (read-exp-with names s)
+;; read-exp-with : [Listof Symbol] Label S-exp -> Exp
+(define (read-exp-with names mod s)
   
   ;; read-and : [Listof S-exp] -> Exp
   (define (read-and terms)
     (match terms
-      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names t1)
+      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names mod t1)
                                (read-and (rest terms))
                                FALSE)]
-      [`(,t) (read-exp-with names t)]
+      [`(,t) (read-exp-with names mod t)]
       [`() TRUE]))
   
   ;; read-or : [Listof S-exp] -> Exp
   (define (read-or terms)
     (match terms
-      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names t1)
+      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names mod t1)
                                TRUE
                                (read-or (rest terms)))]
-      [`(,t) (read-exp-with names t)]
+      [`(,t) (read-exp-with names mod t)]
       [`() FALSE]))
   
   (match s
     [`• BULLET]
     [`(λ (,x) ,s) (if (symbol? x)
-                      (val (lam (read-exp-with (cons x names) s)) ∅)
+                      (val (lam (read-exp-with (cons x names) mod s)) ∅)
                       (error "λ: expect symbol, given: " x))]
     [`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
                         (blame/ f g)
                         (error "blame: expect symbols, given: " f g))]
     [`(μ (,f) ,s) (if (symbol? f)
-                      (rec (read-exp-with (cons f names) s))
+                      (rec (read-exp-with (cons f names) mod s))
                       (error "μ: expect symbol, given: " f))]
-    [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names s1)
-                            (read-exp-with names s2)
-                            (read-exp-with names s3))]
+    [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names mod s1)
+                            (read-exp-with names mod s2)
+                            (read-exp-with names mod s3))]
     [`(mon ,h ,f ,g ,c ,e)
      (if (andmap symbol? `(,h ,f ,g))
-         (mon h f g (read-con-with names c) (read-exp-with names e))
+         (mon h f g (read-con-with names mod c) (read-exp-with names mod e))
          (error "mon: expect symbols, given: " h f g))]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
-    [`(,sf ,sxs ...) (app (read-exp-with names sf)
-                          (map (curry read-exp-with names) sxs))]
+    [`(,sf ,sxs ...) (app (read-exp-with names mod sf)
+                          (map (curry read-exp-with names mod) sxs) mod)]
     [x (cond
          [(boolean? x) (if x TRUE FALSE)]
          [(symbol? x) (let ([d (name-distance x names)])
@@ -503,54 +523,67 @@
          [(pre-val? x) (val x ∅)]
          [else (error "invalid expression form: " x)])]))
 
+;; show-prog : Prog -> S-exp
+(define show-prog
+  (match-lambda
+    [(prog modules main) (append (map show-modl modules) (list (show-exp main)))]))
+
+;; show-modl : Module -> S-exp
+(define show-modl
+  (match-lambda
+    [(modl f c v) `(module ,f ,(show-con c) ,(show-exp v))]))
+
 ;; show-exp : Exp -> S-exp
 (define (show-exp e)
-  
-  ;; new-var-name : [Listof Symbol] -> Symbol
-  (define (new-var-name used-names)
-    (let ([pool '(x y z a b c w u v m n)])
-      (match (filter (λ (n) (not (member n used-names))) pool)
-        [(cons name names) name]
-        [empty (variable-not-in used-names (first pool))])))
-  
-  ;; show-exp-with : [Listof Symbol] -> S-exp
-  (define (show-exp-with names e)
-    (match e
-      [(ref d) (list-ref names d)] ;; closed expressions can't cause error
-      [(val u _)
-       (match u
-         [(lam b) 
-          (let ([x (new-var-name names)])
-            `(λ (,x) ,(show-exp-with (cons x names) b)))]
-         [c c])]
-      [(blame/ l1 l2) `(blame l1 l2)]
-      [(app func args) (cons (show-exp-with names func)
-                             (map (curry show-exp-with names) args))]
-      [(rec b)
-       (let ([f (new-var-name names)])
-         `(μ (,f) ,(show-exp-with (cons f names) b)))]
-      [(if/ e1 e2 e3) `(if ,@(map (curry show-exp-with names) `(,e1 ,e2 ,e3)))]
-      [(mon h f g c e) `(mon ,h ,f ,g
-                             ,(show-con-with names c)
-                             ,(show-exp-with names e))]))
-  
-  ;; show-con-with : [Listof Symbol] Contract -> S-exp
-  (define (show-con-with names c)
-    (match c
-      [(flat-c e) `(flat ,(show-exp-with names e))]
-      [(func-c c d)
-       `(,(show-con-with names c)
-         ↦
-         ,(let ([x (new-var-name names)])
-            `(λ (,x) ,(show-con-with (cons x names) d))))]
-      [(cons-c c d) `(cons/c ,(show-con-with names c) ,(show-con-with names d))]
-      [(or-c c d) `(,(show-con-with names c) ∨ ,(show-con-with names d))]
-      [(and-c c d) `(,(show-con-with names c) ∧ ,(show-con-with names d))]
-      [(rec-c c) (let ([x (new-var-name names)])
-                   `(μ (,x) ,(show-con-with (cons x names) c)))]
-      [(ref-c d) (list-ref names d)]))
-  
-  (show-exp-with empty e))
+  (show-exp-with '() e))
+
+;; show-con : Contract -> S-exp
+(define (show-con c)
+  (show-con-with '() c))
+
+;; show-exp-with : [Listof Symbol] -> S-exp
+(define (show-exp-with names e)
+  (match e
+    [(ref d) (list-ref names d)] ;; closed expressions can't cause error
+    [(val u _)
+     (match u
+       [(lam b) 
+        (let ([x (new-var-name names)])
+          `(λ (,x) ,(show-exp-with (cons x names) b)))]
+       [c c])]
+    [(blame/ l1 l2) `(blame l1 l2)]
+    [(app f xs l) (cons (show-exp-with names f)
+                        (map (curry show-exp-with names) xs))]
+    [(rec b)
+     (let ([f (new-var-name names)])
+       `(μ (,f) ,(show-exp-with (cons f names) b)))]
+    [(if/ e1 e2 e3) `(if ,@(map (curry show-exp-with names) `(,e1 ,e2 ,e3)))]
+    [(mon h f g c e) `(mon ,h ,f ,g
+                           ,(show-con-with names c)
+                           ,(show-exp-with names e))]))
+
+;; show-con-with : [Listof Symbol] Contract -> S-exp
+(define (show-con-with names c)
+  (match c
+    [(flat-c e) `(flat ,(show-exp-with names e))]
+    [(func-c c d)
+     `(,(show-con-with names c)
+       ↦
+       ,(let ([x (new-var-name names)])
+          `(λ (,x) ,(show-con-with (cons x names) d))))]
+    [(cons-c c d) `(cons/c ,(show-con-with names c) ,(show-con-with names d))]
+    [(or-c c d) `(,(show-con-with names c) ∨ ,(show-con-with names d))]
+    [(and-c c d) `(,(show-con-with names c) ∧ ,(show-con-with names d))]
+    [(rec-c c) (let ([x (new-var-name names)])
+                 `(μ (,x) ,(show-con-with (cons x names) c)))]
+    [(ref-c d) (list-ref names d)]))
+
+;; new-var-name : [Listof Symbol] -> Symbol
+(define (new-var-name used-names)
+  (let ([pool '(x y z a b c w u v m n)])
+    (match (filter (λ (n) (not (member n used-names))) pool)
+      [(cons name names) name]
+      ['() (variable-not-in used-names (first pool))])))
 
 ;; name-distance : Symbol [Listof Symbol] -> Natural or -1 if unbound
 (define (name-distance x xs)
@@ -558,7 +591,7 @@
   (define (go pos xs)
     (match xs
       [(cons z zs) (if (equal? z x) pos (go (+ 1 pos) zs))]
-      [empty -1]))
+      ['() -1]))
   (go 0 xs))
 
 ;; shift : Natural Exp -> Exp
@@ -574,8 +607,7 @@
          [(lam b) (val (lam (shift-at (+ 1 depth) b)) cs)]
          [_ e])]
       [(blame/ l1 l2) e]
-      [(app func exps) (app (shift-at depth func)
-                            (map (curry shift-at depth) exps))]
+      [(app f xs l) (app (shift-at depth f) (map (curry shift-at depth) xs) l)]
       [(rec b) (rec (shift-at (+ 1 depth) b))]
       [(if/ e1 e2 e3)
        (if/ (shift-at depth e1) (shift-at depth e2) (shift-at depth e3))]
