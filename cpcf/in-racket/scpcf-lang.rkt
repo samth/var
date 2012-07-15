@@ -500,19 +500,19 @@
     [`(λ (,x) ,s) (if (symbol? x)
                       (val (lam (read-exp-with (cons x names) mod s)) ∅)
                       (error "λ: expect symbol, given: " x))]
-    [`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
-                        (blame/ f g)
-                        (error "blame: expect symbols, given: " f g))]
+    #;[`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
+                          (blame/ f g)
+                          (error "blame: expect symbols, given: " f g))]
     [`(μ (,f) ,s) (if (symbol? f)
                       (rec (read-exp-with (cons f names) mod s))
                       (error "μ: expect symbol, given: " f))]
     [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names mod s1)
                             (read-exp-with names mod s2)
                             (read-exp-with names mod s3))]
-    [`(mon ,h ,f ,g ,c ,e)
-     (if (andmap symbol? `(,h ,f ,g))
-         (mon h f g (read-con-with names mod c) (read-exp-with names mod e))
-         (error "mon: expect symbols, given: " h f g))]
+    #;[`(mon ,h ,f ,g ,c ,e)
+       (if (andmap symbol? `(,h ,f ,g))
+           (mon h f g (read-con-with names mod c) (read-exp-with names mod e))
+           (error "mon: expect symbols, given: " h f g))]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
     [`(,sf ,sxs ...) (app (read-exp-with names mod sf)
