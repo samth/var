@@ -21,6 +21,7 @@
   [struct mon ([orig label?] [pos label?] [neg label?]
                              [con contract/?] [exp exp?])]
   [struct blame/ ([violator label?] [violatee label?])]
+  [struct mod-ref ([f label?] [l label?])]
   
   [struct flat-c ([exp exp?])]
   [struct func-c ([dom contract/?] [rng contract/?])]
