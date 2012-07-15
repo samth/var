@@ -91,6 +91,8 @@
 (struct if/ exp (test then else) #:transparent)
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon exp (orig pos neg con exp) #:transparent)
+;; ModRef := (mod-ref Label Label)
+(struct mod-ref exp (f l) #:transparent) ; reference to f from l
 
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
@@ -412,7 +414,8 @@
                              (apply set-union (map (curry vars≥ d) xs)))]
     [(rec b) (vars≥ (+ 1 d) b)]
     [(if/ e1 e2 e3) (set-union (vars≥ d e1) (vars≥ d e2) (vars≥ d e3))]
-    [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]))
+    [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]
+    [(mod-ref f l) ∅]))
 ;; con-free-vars : Contract -> [Setof Natural]
 (define (con-free-vars c)
   (con-vars≥ 0 c))
@@ -519,7 +522,11 @@
          [(symbol? x) (let ([d (name-distance x names)])
                         (if (<= 0 d)
                             (ref d)
-                            (if (op? x) (val x ∅) (error "unbound: " x))))]
+                            (if (op? x)
+                                (val x ∅) ; TODO clean up
+                                (if (not (pre-val? x))
+                                    (mod-ref x mod)
+                                    (val x ∅)))))]
          [(pre-val? x) (val x ∅)]
          [else (error "invalid expression form: " x)])]))
 
@@ -560,7 +567,8 @@
     [(if/ e1 e2 e3) `(if ,@(map (curry show-exp-with names) `(,e1 ,e2 ,e3)))]
     [(mon h f g c e) `(mon ,h ,f ,g
                            ,(show-con-with names c)
-                           ,(show-exp-with names e))]))
+                           ,(show-exp-with names e))]
+    [(mod-ref f l) f]))
 
 ;; show-con-with : [Listof Symbol] Contract -> S-exp
 (define (show-con-with names c)
@@ -611,7 +619,8 @@
       [(rec b) (rec (shift-at (+ 1 depth) b))]
       [(if/ e1 e2 e3)
        (if/ (shift-at depth e1) (shift-at depth e2) (shift-at depth e3))]
-      [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]))
+      [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]
+      [(mod-ref f l) e]))
   
   ;; shift-con-at : Natural Contract -> Contract
   (define (shift-con-at depth c)
