@@ -144,6 +144,23 @@
 (define FALSE (val #f ∅))
 (define BULLET (val '• ∅))
 
+;; mk-contract-cl : Label -> ContractClosure
+(define (mk-contract-cl name)
+  (contract-cl (flat-c (val name ∅)) ρ0))
+
+;; complement : [OneOf '(num? bool? string? proc? nil? cons?)] -> [Setof ContractClosure]
+;; returns set of contracts for complement datatypes
+(define complement
+  (let ([;; contracts for mutually exclusive partitions of datatypes
+         type-partitions (set (mk-contract-cl 'num?)
+                              (mk-contract-cl 'bool?)
+                              (mk-contract-cl 'string?)
+                              (mk-contract-cl 'proc?)
+                              (mk-contract-cl 'nil?)
+                              (mk-contract-cl 'cons?))])
+    (λ (type-pred-name)
+      (set-subtract type-partitions (set (mk-contract-cl type-pred-name))))))
+
 ;; OpImpl = Label [Listof ValClosure] -> [Setof ANswer]
 ;; ops : Symbol ↦ (Label [Listof Closure] -> [Setof Answer])
 ;; primitive ops' types and implementations
@@ -154,17 +171,16 @@
      [define F {set (exp-cl FALSE ρ0)}]
      [define TF (set-union T F)]
      
-     ;; mk-contract-cl : Label -> ContractClosure
-     (define (mk-contract-cl name)
-       (contract-cl (flat-c (val name ∅)) ρ0))
-     
      ;; type-pred : Label Exp (Any -> Boolean) -> OpImpl
      [define (type-pred op-name contract prim-test?)
        (λ (l xs)
          (match xs
            [`(,(exp-cl (val u cs) ρ))
             (match u
-              ['• (if (set-member? cs contract) T TF)]
+              ['• (cond
+                    [(set-member? cs contract) T]
+                    [(set-empty? (set-intersect cs (complement op-name))) TF]
+                    [else F])]
               [c (if (prim-test? u) T F)])]
            [`(,clo) F]
            [_ (error op-name ": arity mismatch")]))]
@@ -176,6 +192,28 @@
      [define t-int? (type-pred 'int? (mk-contract-cl 'int?) integer?)]
      [define t-bool? (type-pred 'bool? (mk-contract-cl 'bool?) boolean?)]
      [define t-string? (type-pred 'string? (mk-contract-cl 'string?) string?)]
+     [define t-false?
+       (λ (l xs)
+         (match xs
+           [`(,cl)
+            (match cl
+              [(exp-cl (val u cs) ρ)
+               (match u
+                 [#f T]
+                 ['• (cond
+                       [(set-member? cs (mk-contract-cl 'false?)) T]
+                       [(set-member? cs (mk-contract-cl 'true?)) F]
+                       [(set-empty? (set-intersect cs (set-union (complement 'bool?)))) TF]
+                       [else F])]
+                 [_ F])]
+              [_ F])]
+           [_ (error 'false? ": arity mismatch")]))]
+     [define t-true?
+       (λ (l xs)
+         (s-map (λ (r) (match (val-pre (exp-cl-exp r))
+                         [#t (close FALSE ρ0)]
+                         [#f (close TRUE ρ0)]))
+                (t-false? l xs)))]
      
      ;; contract sets defined separately for use in several places
      [define t-num/c {set (mk-contract-cl 'num?)}]
@@ -198,10 +236,10 @@
        (λ (l xs)
          (let ([dom-oks (map (λ (test x) (test l (list x))) dom-tests xs)])
            (set-union
-            (if (ormap (curry subset? F) dom-oks)
+            (if (ormap (curry subset? F) dom-oks) ; any argument violates
                 {set (exp-cl (blame/ l name) ρ0)}
                 ∅)
-            (if (andmap (curry subset? T) dom-oks)
+            (if (andmap (curry subset? T) dom-oks) ; exists combination of ok args
                 (if (andmap concrete? xs)
                     {set (exp-cl
                           (val
@@ -218,14 +256,17 @@
      'int? t-int?
      'bool? t-bool?
      'string? t-string?
-     'true? (type-pred 'true? (mk-contract-cl 'true?) (compose not false?))
-     'false? (type-pred 'false? (mk-contract-cl 'false?) false?)
+     'true? t-true?
+     'false? t-false?
      'nil? (λ (l xs)
              (match xs
                [`(,(exp-cl (val u cs) ρ))
                 (match u
                   ['nil T]
-                  ['• (if (set-member? cs (mk-contract-cl 'nil?)) T TF)]
+                  ['• (cond
+                        [(set-member? cs (mk-contract-cl 'nil?)) T]
+                        [(set-empty? (set-intersect cs (complement 'nil?))) TF]
+                        [else F])]
                   [_ F])]
                [`(,clo) F]
                [_ (error 'nil? ": arity mismatch")]))
@@ -239,14 +280,16 @@
      'proc? (λ (l xs)
               (match xs
                 [`(,(exp-cl (val '• cs) ρ))
-                 (if (set-member? cs (mk-contract-cl 'proc?)) T TF)]
+                 (cond
+                   [(set-member? cs (mk-contract-cl 'proc?)) T]
+                   [(set-empty? (set-intersect cs (complement 'proc?))) TF]
+                   [else F])]
                 [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (op? u)) T F)]
                 [`(,(mon-fn-cl h f g c e)) T]
                 [`(,cl) F]
                 [_ {set (exp-cl (blame/ l 'proc?) ρ0)}]))
      
-     
-     'zero? (mk-op 'zero? `(,t-num?) zero? t-num/c)
+     'zero? (mk-op 'zero? `(,t-num?) zero? t-bool/c)
      'non-neg? (mk-op 'non-neg? `(,t-real?) (curry <= 0) t-bool/c)
      'even? (mk-op 'even? `(,t-int?) even? t-bool/c)
      'odd? (mk-op 'odd? `(,t-int?) odd? t-bool/c)
@@ -336,7 +379,10 @@
        ; proven abstract pair
        [`(,cs1 ,cs2) {set `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))}]
        ; nothing is known
-       [`() {set `(,(close BULLET ρ0) ,(close BULLET ρ0)) '()}])]
+       [`()
+        (if (set-empty? (set-intersect cs (complement 'cons?)))
+            {set `(,(close BULLET ρ0) ,(close BULLET ρ0)) '()}
+            {set '()})])]
     [_ {set '()}])) ; known not a pair
 
 

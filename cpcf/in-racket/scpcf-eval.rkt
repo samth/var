@@ -331,3 +331,7 @@
     [(rec-c c1) (lift rec (maybe-FC (cons 0 ds) c1))]
     [(ref-c x) (list (ref (+ (car ds) x)))]))
 
+;; for debugging only
+(define (pow f n) (apply compose (make-list n f)))
+(define f (curry non-det step))
+(define (s n) (pow f n))
