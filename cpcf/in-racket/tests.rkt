@@ -53,37 +53,35 @@
       (μ (f)
          (λ (xs)
            (if (nil? xs) 0 (+ (car xs) (f (cdr xs)))))))
-    (module range ((flat int?) ↦ ((flat int?) ↦ ,c/num-list))
+    (module range ((flat num?) (flat num?) ↦ ,c/num-list)
       (μ (range)
-         (λ (lo)
-           (λ (hi)
-             (if (≤ lo hi)
-                 (cons lo ((range (+ 1 lo)) hi))
-                 nil)))))
-    (module append (,c/list ↦ (,c/list ↦ ,c/list))
+         (λ (lo hi)
+           (if (≤ lo hi)
+               (cons lo (range (+ 1 lo) hi))
+               nil))))
+    (module append (,c/list ,c/list ↦ ,c/list)
       (μ (append)
-         (λ (xs)
-           (λ (ys)
-             (if (nil? xs) ys
-                 (cons (car xs)
-                       ((append (cdr xs)) ys)))))))
-    (module filter ((,c/any ↦ (flat bool?)) ↦ (,c/list ↦ ,c/list))
+         (λ (xs ys)
+           (if (nil? xs) ys
+               (cons (car xs)
+                     (append (cdr xs) ys))))))
+    (module filter ((,c/any ↦ (flat bool?)) ,c/list ↦ ,c/list)
       (μ (filter)
-         (λ (p)
-           (λ (xs)
-             (if (nil? xs) nil
-                 (if (p (car xs))
-                     (cons (car xs) ((filter p) (cdr xs)))
-                     ((filter p) (cdr xs))))))))
+         (λ (p xs)
+           (if (nil? xs) nil
+               (if (p (car xs))
+                   (cons (car xs) (filter p (cdr xs)))
+                   (filter p (cdr xs)))))))
     (module sort (,c/num-list ↦ ,c/num-list)
       (μ (sort)
          (λ (xs)
            (if (nil? xs) nil
-               ((append
-                 (sort ((filter (λ (y) (≤ y (car xs)))) (cdr xs))))
-                (cons (car xs) (sort ((filter (λ (y) (≥ y (car xs)))) (cdr xs)))))))))
+               (append
+                (sort (filter (λ (y) (< y (car xs))) (cdr xs)))
+                (cons (car xs)
+                      (sort (filter (λ (y) (≥ y (car xs))) (cdr xs)))))))))
     
-    (sort ((append ((range 8) 10)) ((range 1) 3)))))
+    (sort (append (range 8 10) (range 1 3)))))
 
 ;; monitored list of evens
 (define even-list-ok
@@ -113,65 +111,60 @@
 
 ;; benchmarks
 (define tak ; translated from http://www.larcenists.org/R6src/tak.sch
-  `((module tak ((flat int?) ↦ ((flat int?) ↦ ((flat int?) ↦ (flat int?))))
+  `((module tak ((flat int?) (flat int?) (flat int?) ↦ (flat int?))
       (μ (tak)
-         (λ (x)
-           (λ (y)
-             (λ (z)
-               (if (not (< y x))
-                   z
-                   (((tak (((tak (- x 1)) y) z))
-                     (((tak (- y 1)) z) x))
-                    (((tak (- z 1)) x) y))))))))
-    (((tak 3) 2) 1)))
+         (λ (x y z)
+           (if (not (< y x))
+               z
+               (tak (tak (- x 1) y z)
+                    (tak (- y 1) z x)
+                    (tak (- z 1) x y))))))
+    (tak 3 2 1)))
 
 (define takl ; translated from http://www.larcenists.org/R6src/takl.sch
   `((module listn ((flat num?) ↦ ,c/num-list)
       (μ (listn) (λ (n)
                    (if (zero? n) nil (cons n (listn (- n 1)))))))
-    (module shorter? (,c/num-list ↦ (,c/num-list ↦ (flat bool?)))
+    (module shorter? (,c/num-list ,c/num-list ↦ (flat bool?))
       (μ (shorter?)
-         (λ (x) (λ (y)
-                  (and (not (nil? y))
-                       (or (nil? x)
-                           ((shorter? (cdr x)) (cdr y))))))))
-    (module mas (,c/num-list ↦ (,c/num-list ↦ (,c/num-list ↦ ,c/num-list)))
+         (λ (x y)
+           (and (not (nil? y))
+                (or (nil? x)
+                    (shorter? (cdr x) (cdr y)))))))
+    (module mas (,c/num-list ,c/num-list ,c/num-list ↦ ,c/num-list)
       (μ (mas)
-         (λ (x) (λ (y) (λ (z)
-                         (if (not ((shorter? y) x))
-                             z
-                             (((mas (((mas (cdr x)) y) z))
-                               (((mas (cdr y)) z) x))
-                              (((mas (cdr z)) x) y))))))))
-    (((mas (listn 3)) (listn 2)) (listn 1))))
+         (λ (x y z)
+           (if (not (shorter? y x))
+               z
+               (mas (mas (cdr x) y z)
+                    (mas (cdr y) z x)
+                    (mas (cdr z) x y))))))
+    (mas (listn 3) (listn 2) (listn 1))))
 
 (define cpstak ; translated from http://www.larcenists.org/R6src/cpstak.sch
   `((module tak
-      ((flat num?) ↦ ((flat num?) ↦ ((flat num?) ↦ (((flat num?) ↦ (flat num?)) ↦ (flat num?)))))
+      ((flat num?) (flat num?) (flat num?) ((flat num?) ↦ (flat num?)) ↦ (flat num?))
       (μ (tak)
-         (λ (x)
-           (λ (y)
-             (λ (z)
-               (λ (k)
-                 (if (not (< y x))
-                     (k z)
-                     ((((tak (- x 1))
-                        y)
-                       z)
-                      (λ (v1)
-                        ((((tak (- y 1))
-                           z)
-                          x)
-                         (λ (v2)
-                           ((((tak (- z 1))
-                              x)
-                             y)
-                            (λ (v3)
-                              ((((tak v1) v2) v3) k))))))))))))))
-    (module cpstak ((flat num?) ↦ ((flat num?) ↦ ((flat num?) ↦ (flat num?))))
-      (λ (x) (λ (y) (λ (z)
-                      ((((tak x) y) z) (λ (a) a))))))
-    (((cpstak 3) 2) 1)))
+         (λ (x y z k)
+           (if (not (< y x))
+               (k z)
+               (tak (- x 1)
+                    y
+                    z
+                    (λ (v1)
+                      (tak (- y 1)
+                           z
+                           x
+                           (λ (v2)
+                             (tak (- z 1)
+                                  x
+                                  y
+                                  (λ (v3)
+                                    (tak v1 v2 v3 k)))))))))))
+    (module cpstak ((flat num?) (flat num?) (flat num?) ↦ (flat num?))
+      (λ (x y z)
+        (tak x y z (λ (a) a))))
+    (cpstak 3 2 1)))
 
 ;;;;; testing
 (define progs

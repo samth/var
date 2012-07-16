@@ -1,6 +1,7 @@
 TODO:
 * [done] remove type system
 ** [done] re-implement primitive ops 
-* support multiple-argument functions
+* [mostly done] support multiple-argument functions
+** var-args??
 * [done] implement modules
 * (• •) won't terminate, can't run rsa example

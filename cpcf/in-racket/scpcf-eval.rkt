@@ -22,6 +22,8 @@
 ;;      | Mon Lab Lab Lab ContractClosure Kont
 ;;      | ChkCdr Lab Lab Lab ContractClosure Closure Kont
 ;;      | ChkOr Closure ContractClosure Lab Lab Lab ContractClosure Kont
+;;      | MonAp [Listof ValClosure] [Listof ValClosure] [Listof ContractCLosure]
+;;              Label Label Label Kont
 (struct kont () #:transparent)
 (struct mt kont () #:transparent)
 (struct ap-k kont (vals args l k) #:transparent)
@@ -30,6 +32,8 @@
 ; ad-hoc frames for checking cdr of a pair, and right disjunction
 (struct cdr-k kont (h f g con-clo clo k) #:transparent)
 (struct or-k kont (clo con1 h f g con2 k) #:transparent)
+; ad-hoc frames for monitoring arguments
+(struct mon-ap-k (vs xs cs h f g k) #:transparent)
 
 ;; load : Program -> CEK
 (define load
@@ -94,7 +98,7 @@
          (match f
            [(exp-cl (val u cs) ρv)
             (match u
-              [(lam e) {set (cek ms (close e (env-extend (first xs) #|TODO|# ρv)) κ)}]
+              [(lam n e) {set (cek ms (close e (env-extendl xs ρv)) κ)}]
               ['•
                {non-det
                 (λ (r)
@@ -106,8 +110,8 @@
                                 (s-map
                                  (λ (c)
                                    (match c
-                                     [(contract-cl (func-c c1 c2) ρc)
-                                      (close-contract c2 (env-extend (first xs) #|TODO|# ρc))]))
+                                     [(contract-cl (func-c cs1 c2) ρc)
+                                      (close-contract c2 (env-extend xs ρc))]))
                                  cs))
                            ρ0)
                           κ)
@@ -119,16 +123,12 @@
               [_ (if (op? u)
                      (s-map (λ (cl) (cek ms cl κ)) (δ u xs l))
                      {set (cek ms (close (blame/ l '∆) ρ0) (mt))})])]
-           [(mon-fn-cl h f g (contract-cl (func-c c1 c2) ρc) clo1)
-            ;; break into 3 simpler frames
+           [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) clo1)
             {set
-             (cek ms clo
-                  (mon-k ; monitor argument
-                   h g f (close-contract c1 ρc)
-                   (ap-k ; apply function
-                    `(,clo1) '() l
-                    (mon-k ; monitor result
-                     h f g (close-contract c2 (env-extend clo ρc)) κ))))}]
+             (cek ms clo1
+                  (mon-ap-k '() xs (map (λ (c) (close-contract c ρc)) cs1) h g f
+                            (mon-k ; monitor result
+                             h f g (close-contract c2 (env-extendl xs ρc)) κ)))}]
            [_ {set (cek ms (close (blame/ l '∆) ρ0) (mt))}]))]
       [(if-k clo1 clo2 κ)
        (s-map (λ (v)
@@ -149,7 +149,7 @@
                                  (close (blame/ f h) ρ0) κ)))])}]
            [`()
             (match c
-              [(func-c c1 c2)
+              [(func-c cs1 c2)
                (s-map (λ (r) (match (val-pre (exp-cl-exp r))
                                [#t (cek ms (mon-fn-cl h f g con-cl clo) κ)]
                                [#f (cek ms (close (blame/ f h) ρ0) (mt))]))
@@ -197,7 +197,14 @@
                 (match (val-pre (exp-cl-exp r))
                   [#t (cek ms (refine clo1 c1) κ)]
                   [#f (cek ms clo1 (mon-k h f g c2 κ))]))
-              (δ 'true? `(,clo) h))]))
+              (δ 'true? `(,clo) h))]
+      [(mon-ap-k vs (cons x xs) (cons c cs) h g f κ)
+       {set
+        (cek ms x (mon-k
+                   h g f c
+                   (mon-ap-k (cons clo vs) xs cs h g f κ)))}]
+      [(mon-ap-k vs '() '() h g f κ)
+       {set (cek ms clo (ap-k vs '() f κ))}]))
   
   (if (val-cl? clo) (on-val) (on-nonval)))
 
@@ -248,7 +255,7 @@
       [(exp-cl e ρ)
        (match e
          [(val u cs) (match u
-                       [(lam b) 'function]
+                       [(lam n b) 'function]
                        ['• '•]
                        [u (if (op? u) 'function u)])]
          [(blame/ l1 l2) `(blame ,l1 ,l2)])]
@@ -317,23 +324,23 @@
   
   (match c
     [(flat-c p) (list (shift (apply + ds) p))]
-    [(func-c c d) empty]
+    [(func-c cs d) empty]
     [(cons-c c1 c2) (lift (λ (p1 p2)
-                            (val (lam (and/ (app (val 'cons? ∅) `(,(ref 0)) '☠ #|TODO|#)
-                                            (app p1 `(,(app (val 'car ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)
-                                            (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)))
+                            (val (lam 1 (and/ (app (val 'cons? ∅) `(,(ref 0)) '☠ #|TODO|#)
+                                              (app p1 `(,(app (val 'car ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)
+                                              (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)))
                                  ∅))
                           (maybe-FC (car+1 ds) c1)
                           (maybe-FC (car+1 ds) c2))]
     [(or-c c1 c2) (lift (λ (p1 p2)
-                          (val (lam (or/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
-                                         (app p2 `(,(ref 0)) '☠ #|TODO|#)))
+                          (val (lam 1 (or/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
+                                           (app p2 `(,(ref 0)) '☠ #|TODO|#)))
                                ∅))
                         (maybe-FC (car+1 ds) c1)
                         (maybe-FC (car+1 ds) c2))]
     [(and-c c1 c2) (lift (λ (p1 p2)
-                           (val (lam (and/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
-                                           (app p2 `(,(ref 0)) '☠ #|TODO|#)))
+                           (val (lam 1 (and/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
+                                             (app p2 `(,(ref 0)) '☠ #|TODO|#)))
                                 ∅))
                          (maybe-FC (car+1 ds) c1)
                          (maybe-FC (car+1 ds) c2))]

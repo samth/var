@@ -6,6 +6,7 @@
  (contract-out
   [ρ0 env?] ; empty environment
   [env-extend (any/c env? . -> . env?)] ; TODO more precise
+  [env-extendl ([listof any/c] env? . -> . env?)] ; TODO more precise
   [env-get (natural? env? . -> . any/c)] ; TODO more precise
   [env-get-default (natural? any/c env? . -> . any/c)] ; TODO more precise
   [env-has? (natural? env? . -> . boolean?)]
@@ -45,8 +46,14 @@
 
 ;; env-extend : x [Env x] -> [Env x]
 (define (env-extend x en)
-  (match en
-    [(env m s) (env (hash-set m s x) (+ 1 s))]))
+  (match-let ([(env m s) en])
+    (env (hash-set m s x) (+ 1 s))))
+
+;; env-extendl : [Listof x] [Env x] -> [Env x]
+(define (env-extendl xs en)
+  (match xs
+    [(cons x xs1) (env-extendl xs1 (env-extend x en))]
+    ['() en]))
 
 ;; env-restrict : [Setof Natural] [Env x] -> [Env x]
 ;; restricts the environment to given set of distances.

@@ -14,7 +14,7 @@
   [struct ref ([distance natural?])]
   [struct val ([pre pre-val?] [refinements (set/c contract-cl?)])]
   
-  [struct lam ([body exp?])]
+  [struct lam ([arity natural?] [body exp?])]
   [struct app ([func exp?] [args (listof exp?)] [lab label?])]
   [struct rec ([body exp?])]
   [struct if/ ([test exp?] [then exp?] [else exp?])]
@@ -24,7 +24,7 @@
   [struct mod-ref ([f label?] [l label?])]
   
   [struct flat-c ([exp exp?])]
-  [struct func-c ([dom contract/?] [rng contract/?])]
+  [struct func-c ([dom (listof contract/?)] [rng contract/?])]
   [struct cons-c ([car contract/?] [cdr contract/?])]
   [struct or-c ([left contract/?] [right contract/?])]
   [struct and-c ([left contract/?] [right contract/?])]
@@ -105,8 +105,8 @@
 ;; PreVal := • | Number | Boolean | String | Lambda | Nil
 (define (pre-val? x)
   (or (eq? x '•) (number? x) (boolean? x) (string? x) (lam? x) (eq? 'nil x) (op? x)))
-;; Lambda := (lambda Exp)
-(struct lam (body) #:transparent)
+;; Lambda := (lambda Natural Exp)
+(struct lam (arity body) #:transparent)
 
 ;; Closure := ExpClosure | MonFnClosure | ConsClosure
 (struct clo () #:transparent)
@@ -412,7 +412,7 @@
   (match e
     [(ref k) (if (>= k d) {set (- k d)} ∅)]
     [(val u cs) (match u
-                  [(lam b) (vars≥ (+ 1 d) b)]
+                  [(lam n b) (vars≥ (+ n d) b)]
                   [else ∅])]
     [(blame/ l1 l2) ∅]
     [(app f xs l) (set-union (vars≥ d f)
@@ -428,7 +428,8 @@
 (define (con-vars≥ d c)
   (match c
     [(flat-c e) (vars≥ d e)]
-    [(func-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ (+ 1 d) c2))]
+    [(func-c cs1 c2) (set-union (apply set-union (map (curry con-vars≥ d) cs1))
+                                (con-vars≥ (+ (length cs1) d) c2))]
     [(cons-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
     [(or-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
     [(and-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
@@ -459,14 +460,14 @@
 (define (read-con-with names mod s)
   (match s
     [`(flat ,e) (flat-c (read-exp-with names mod e))]
-    [`(,c ↦ (λ (,x) ,d))
-     (if (symbol? x)
-         (func-c (read-con-with names mod c)
-                 (read-con-with (cons x names) mod d))
-         (error "function contract: expect symbol, given: " x))]
-    [`(,c ↦ ,d)
-     (let ([x (variable-not-in d 'z)]) ; desugar independent contract
-       (read-con-with names mod `(,c ↦ (λ (,x) ,d))))]
+    [`(,cs ... ↦ (λ (,xs ...) ,d))
+     (if ((listof symbol?) xs)
+         (func-c (map (curry read-con-with names mod) cs)
+                 (read-con-with (extend-names xs names) mod d))
+         (error "function contract: expect symbols, given: " xs))]
+    [`(,cs ... ↦ ,d)
+     (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
+       (read-con-with names mod (append cs `(↦ (λ ,xs ,d)))))]
     [`(cons/c ,c ,d)
      (cons-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(,c ∨ ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
@@ -502,9 +503,10 @@
   
   (match s
     [`• BULLET]
-    [`(λ (,x) ,s) (if (symbol? x)
-                      (val (lam (read-exp-with (cons x names) mod s)) ∅)
-                      (error "λ: expect symbol, given: " x))]
+    [`(λ (,xs ...) ,s)
+     (if ((listof symbol?) xs)
+         (val (lam (length xs) (read-exp-with (extend-names xs names) mod s)) ∅)
+         (error "λ: expect symbols, given: " xs))]
     #;[`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
                           (blame/ f g)
                           (error "blame: expect symbols, given: " f g))]
@@ -535,6 +537,10 @@
          [(pre-val? x) (val x ∅)]
          [else (error "invalid expression form: " x)])]))
 
+;; extend-names : [Listof Label] [Listof Label] -> [Listof Label]
+(define (extend-names new-names old-names)
+  (foldl cons old-names new-names))
+
 ;; show-prog : Prog -> S-exp
 (define show-prog
   (match-lambda
@@ -559,9 +565,9 @@
     [(ref d) (list-ref names d)] ;; closed expressions can't cause error
     [(val u _)
      (match u
-       [(lam b) 
-        (let ([x (new-var-name names)])
-          `(λ (,x) ,(show-exp-with (cons x names) b)))]
+       [(lam n b) 
+        (let ([xs (new-var-names n names)])
+          `(λ ,xs ,(show-exp-with (extend-names xs names) b)))]
        [c c])]
     [(blame/ l1 l2) `(blame l1 l2)]
     [(app f xs l) (cons (show-exp-with names f)
@@ -579,17 +585,22 @@
 (define (show-con-with names c)
   (match c
     [(flat-c e) `(flat ,(show-exp-with names e))]
-    [(func-c c d)
-     `(,(show-con-with names c)
-       ↦
-       ,(let ([x (new-var-name names)])
-          `(λ (,x) ,(show-con-with (cons x names) d))))]
+    [(func-c cs d)
+     (append (map (curry show-con-with names) cs)
+             `(↦ ,(let ([xs (new-var-names (length cs) names)])
+                    `(λ ,xs ,(show-con-with (extend-names xs names) d)))))]
     [(cons-c c d) `(cons/c ,(show-con-with names c) ,(show-con-with names d))]
     [(or-c c d) `(,(show-con-with names c) ∨ ,(show-con-with names d))]
     [(and-c c d) `(,(show-con-with names c) ∧ ,(show-con-with names d))]
     [(rec-c c) (let ([x (new-var-name names)])
                  `(μ (,x) ,(show-con-with (cons x names) c)))]
     [(ref-c d) (list-ref names d)]))
+
+;; new-var-names : Natural [Listof Symbol] -> Symbol
+(define (new-var-names n used-names)
+  (if (zero? n) '()
+      (let ([x (new-var-name used-names)])
+        (cons x (new-var-names (- n 1) (cons x used-names))))))
 
 ;; new-var-name : [Listof Symbol] -> Symbol
 (define (new-var-name used-names)
@@ -617,7 +628,7 @@
       [(ref x) (if (>= x depth) (ref (+ x d)) e)]
       [(val u cs)
        (match u
-         [(lam b) (val (lam (shift-at (+ 1 depth) b)) cs)]
+         [(lam n b) (val (lam n (shift-at (+ n depth) b)) cs)]
          [_ e])]
       [(blame/ l1 l2) e]
       [(app f xs l) (app (shift-at depth f) (map (curry shift-at depth) xs) l)]
@@ -631,8 +642,9 @@
   (define (shift-con-at depth c)
     (match c
       [(flat-c e) (flat-c (shift-at depth e))]
-      [(func-c c1 c2)
-       (func-c (shift-con-at depth c1) (shift-con-at (+ 1 depth) c2))]
+      [(func-c cs1 c2)
+       (func-c (map (curry shift-con-at depth) cs1)
+               (shift-con-at (+ (length cs1) depth) c2))]
       [(cons-c c1 c2) (cons-c (shift-con-at depth c1) (shift-con-at depth c2))]
       [(or-c c1 c2) (or-c (shift-con-at depth c1) (shift-con-at depth c2))]
       [(and-c c1 c2) (and-c (shift-con-at depth c1) (shift-con-at depth c2))]
