@@ -3,3 +3,4 @@ TODO:
 ** [done] re-implement primitive ops 
 * support multiple-argument functions
 * [done] implement modules
+* (• •) won't terminate, can't run rsa example
