@@ -8,7 +8,7 @@
 (provide
  
  (contract-out
-  [struct prog ([modules (list/c modl?)] [main exp?])]
+  [struct prog ([modules (listof modl?)] [main exp?])]
   [struct modl ([f label?] [c contract/?] [v exp?])]
   
   [struct ref ([distance natural?])]
@@ -50,8 +50,11 @@
   [δ (op? (listof clo?) label? . -> . (set/c clo?))]
   [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
+  [read-prog (s-exp? . -> . prog?)]
   [read-exp (s-exp? . -> . exp?)]
   [show-exp (exp? . -> . s-exp?)]
+  
+  [mod-by-name (label? [listof modl?] . -> . modl?)]
   
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
@@ -463,7 +466,7 @@
     [`(,c ↦ ,d)
      (let ([x (variable-not-in d 'z)]) ; desugar independent contract
        (read-con-with names mod `(,c ↦ (λ (,x) ,d))))]
-    [`(cons-c ,c ,d)
+    [`(cons/c ,c ,d)
      (cons-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(,c ∨ ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(,c ∧ ,d) (and-c (read-con-with names mod c) (read-con-with names mod d))]
@@ -636,6 +639,13 @@
       [(ref-c x) (if (>= x depth) (ref-c (+ x d)) c)]))
   
   (shift-at 0 e))
+
+;; mod-by-name : Label [Listof Module] -> Module
+(define (mod-by-name l ms)
+  (match ms
+    [(cons m ms1) (if (equal? (modl-f m) l) m
+                      (mod-by-name l ms1))]
+    [_ (error "unbound module name: " l)]))
 
 ;;;; set helper functions
 
