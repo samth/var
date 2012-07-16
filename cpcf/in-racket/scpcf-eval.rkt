@@ -320,8 +320,8 @@
     [(func-c c d) empty]
     [(cons-c c1 c2) (lift (λ (p1 p2)
                             (val (lam (and/ (app (val 'cons? ∅) `(,(ref 0)) '☠ #|TODO|#)
-                                            (app p1 `(,(app (val 'car ∅) `(,(ref 0)) '☠ #|TODO|#)))
-                                            (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)) '☠ #|TODO|#)))))
+                                            (app p1 `(,(app (val 'car ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)
+                                            (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)))
                                  ∅))
                           (maybe-FC (car+1 ds) c1)
                           (maybe-FC (car+1 ds) c2))]
