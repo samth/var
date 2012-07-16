@@ -1,7 +1,5 @@
-This branch includes changes that have not been discussed yet
-
 TODO:
-* [part] remove type system
-** [part] re-implement primitive ops 
+* [done] remove type system
+** [done] re-implement primitive ops 
 * support multiple-argument functions
-* implement modules as in section 4
+* [done] implement modules
