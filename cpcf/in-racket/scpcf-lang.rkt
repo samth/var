@@ -51,6 +51,7 @@
   [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
   [read-prog (s-exp? . -> . prog?)]
+  [show-prog (prog? . -> . s-exp?)]
   [read-exp (s-exp? . -> . exp?)]
   [show-exp (exp? . -> . s-exp?)]
   
@@ -470,11 +471,11 @@
      (cons-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(,c ∨ ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(,c ∧ ,d) (and-c (read-con-with names mod c) (read-con-with names mod d))]
-    [`(μ (,x ,t) ,c) (rec-c (read-con-with (cons x names) mod c))]
+    [`(μ (,x) ,c) (rec-c (read-con-with (cons x names) mod c))]
     [x (if (symbol? x)
            (let ([d (name-distance x names)])
              (if (<= 0 d)
-                 (ref-c )
+                 (ref-c d)
                  (error "unbound: " x)))
            (error "invalid contract form: " x))]))
 
