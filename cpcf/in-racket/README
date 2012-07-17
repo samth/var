@@ -2,6 +2,10 @@ TODO:
 * [done] remove type system
 ** [done] re-implement primitive ops 
 * [mostly done] support multiple-argument functions
+** properly check function against contract
 ** var-args??
 * [done] implement modules
 * (• •) won't terminate, can't run rsa example
+* precision improvement mentioned in 4.4
+* more tests
+* rewrite eval's loop using mutable hashtables + benchmark
