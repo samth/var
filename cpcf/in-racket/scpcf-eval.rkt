@@ -271,11 +271,6 @@
     [(exp-cl (val u cs) ρ) (if (set-member? cs conclo) 'Proved 'Neither)]
     [else 'Neither #|TODO|#]))
 
-;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
-(define (non-det f xs)
-  (apply set-union (set-map xs f)))
-
-
 ;;;; set helper functions
 
 ;; set-partition : (x -> Boolean) [Setof x] -> (Setof x) (Setof x)

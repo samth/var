@@ -6,9 +6,9 @@
 
 ;; contracts
 (define c/any `(flat (λ (x) #t)))
-(define c/list `(μ (list?) ((flat nil?) ∨ (cons/c ,c/any list?))))
-(define c/num-list `(μ (num-list?) ((flat nil?) ∨ (cons/c (flat num?) num-list?))))
-(define c/even-list `(μ (evens?) ((flat nil?) ∨ (cons/c (flat even?) evens?))))
+(define c/list `(μ (list?) (or/c (flat nil?) (cons/c ,c/any list?))))
+(define c/num-list `(μ (num-list?) (or/c (flat nil?) (cons/c (flat num?) num-list?))))
+(define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
 
 ;; db1 example from section 2
 (define modl-db
@@ -99,10 +99,10 @@
 ;; insertion sort example from section 1
 (define prog-ins-sort
   `(,modl-sorted?
-    (module insert ((flat num?) (,c/num-list ∧ (flat sorted?)) ↦ (,c/num-list ∧ (flat sorted?))) •)
+    (module insert ((flat num?) (and/c ,c/num-list (flat sorted?)) ↦ (and/c ,c/num-list (flat sorted?))) •)
     (module nums ,c/num-list •)
     ,modl-foldl
-    (module sort (,c/num-list ↦ (,c/num-list ∧ (flat sorted?)))
+    (module sort (,c/num-list ↦ (and/c ,c/num-list (flat sorted?)))
       (λ (l)
         (foldl insert nil l)))
     (sort nums)))
@@ -115,7 +115,7 @@
     ,modl-append
     ,modl-filter
     ,modl-sorted?
-    (module sort (,c/num-list ↦ (,c/num-list ∧ (flat sorted?)))
+    (module sort (,c/num-list ↦ (and/c ,c/num-list (flat sorted?)))
       (μ (sort)
          (λ (xs)
            (if (nil? xs) nil
@@ -162,10 +162,10 @@
 (define modl-flatten
   (let ([c/flat-list
          `(μ (flat-list?)
-             ((flat nil?)
-              ∨ ; TODO: add 'not' combinator for contract?
-              (cons/c ((flat num?) ∨ ((flat bool?) ∨ (flat string?)))
-                      flat-list?)))])
+             (or/c (flat nil?)
+                   ; TODO: add 'not' combinator for contract?
+                   (cons/c (or/c (flat num?) (or/c (flat bool?) (flat string?)))
+                           flat-list?)))])
     `(module flatten (,c/any ↦ ,c/flat-list)
        (μ (flatten)
           (λ (l)
@@ -213,24 +213,78 @@
 (check-equal? (eval-cek prog-flatten-err2) {set '(blame † -)})
 
 ;; taut from Wright paper, section 5.1
-(define modl-taut
+(define (prog-taut p)
   (let ([T? `(λ (x) (and (true? x) (not (proc? x))))]
         [F? 'false?])
-    `(module taut (,c/any ↦ ,c/any)
-       (μ (taut)
-          (λ (b)
-            (if (,T? b) #t
-                (if (,F? b) #f
-                    (and (taut (b #t)) (taut (b #f))))))))))
-(define prog-taut-a
-  `(,modl-taut (taut #t)))
-(define prog-taut-b
-  `(,modl-taut (taut not)))
-(define prog-taut-c
-  `(,modl-taut (taut (λ (x) (λ (y) (and x y))))))
-(check-equal? (eval-cek prog-taut-a) {set #t})
-(check-equal? (eval-cek prog-taut-b) {set #f})
-(check-equal? (eval-cek prog-taut-c) {set #f})
+    `((module taut (,c/any ↦ ,c/any)
+        (μ (taut)
+           (λ (b)
+             (if (,T? b) #t
+                 (if (,F? b) #f
+                     (and (taut (b #t)) (taut (b #f))))))))
+      (taut ,p))))
+(check-equal? (eval-cek (prog-taut #t)) {set #t})
+(check-equal? (eval-cek (prog-taut 'not)) {set #f})
+(check-equal? (eval-cek (prog-taut '(λ (x) (λ (y) (and x y))))) {set #f})
+
+;; 'member' from Wright paper Appendix
+(define (prog-member x l)
+  `((module member (,c/any ,c/list ↦ ,c/list)
+      (μ (member)
+         (λ (x l)
+           (if (nil? l) nil
+               (if (equal? x (car l)) l
+                   (member x (cdr l)))))))
+    (member ,x ,l)))
+(check-equal? (eval-cek (prog-member 3 '(cons 2 (cons 3 (cons 5 nil)))))
+              {set '(cons 3 (cons 5 nil))})
+(check-equal? (eval-cek (prog-member '• '(cons 2 (cons 3 (cons 5 nil)))))
+              ; every possible tail
+              {set '(cons 2 (cons 3 (cons 5 nil)))
+                   '(cons 3 (cons 5 nil)) '(cons 5 nil) 'nil})
+
+;; 'lastpair' from Wright paper Appendix
+(define (prog-lastpair s)
+  `((module lastpair ((cons/c ,c/any ,c/list) ↦ (cons/c ,c/any (flat nil?)))
+      (μ (lastpair)
+         (λ (s)
+           (if (cons? (cdr s))
+               (lastpair (cdr s))
+               s))))
+    (lastpair ,s)))
+(check-equal? (eval-cek (prog-lastpair '(cons 1 (cons 2 nil)))) {set '(cons 2 nil)})
+(check-equal? (eval-cek (prog-lastpair 'nil)) {set '(blame † lastpair)})
+(check-equal? (eval-cek (prog-lastpair '•)) {set '• '(blame † lastpair)}) ; TODO crash
+
+;; subst* from Wright paper Appendix
+(define (prog-subst* new old t)
+  `((module subst* (,c/any ,c/any ,c/any ↦ ,c/any)
+      (μ (subst*)
+         (λ (new old t)
+           (if (equal? old t) new
+               (if (cons? t) (cons (subst* new old (car t))
+                                   (subst* new old (cdr t)))
+                   t)))))
+    (subst* ,new ,old ,t)))
+(check-equal? (eval-cek (prog-subst* '42 '(cons 2 nil) '(cons 1 (cons (cons 2 nil) (cons 2 nil)))))
+              {set '(cons 1 (cons 42 42))})
+
+;; 'Y' + 'last' from Wright paper Appendix
+(define prog-last
+  `((module Y ,c/any #|TODO|#
+      (λ (f)
+        (λ (y)
+          (((λ (x) (f (λ (z) ((x x) z))))
+            (λ (x) (f (λ (z) ((x x) z)))))
+           y))))
+    (module last (,c/list ↦ ,c/any)
+      (Y (λ (f)
+           (λ (x)
+             (if (nil? (cdr x))
+                 (car x)
+                 (f (cdr x)))))))
+    (last (cons 1 (cons 2 nil)))))
+(check-equal? (eval-cek prog-last) {set 2})
 
 ;; benchmarks
 (define tak ; translated from http://www.larcenists.org/R6src/tak.sch
@@ -303,12 +357,10 @@
        prog-even-list-ok prog-even-list-err
        prog-func-pair-ok prog-func-pair-err1 prog-func-pair-err2
        prog-flatten-ok1 prog-flatten-ok2 prog-flatten-err1 prog-flatten-err2
-       prog-taut-a prog-taut-b prog-taut-c
+       (prog-taut '•)
        tak takl cpstak))
 
 ;; for debugging
-(define (non-det f xs)
-  (apply set-union (set-map xs f)))
 (define step1 (curry non-det step))
 (define (pow f n) (apply compose (make-list n f)))
 (define (step* k e) ((pow step1 k) (set (load (read-exp e)))))
