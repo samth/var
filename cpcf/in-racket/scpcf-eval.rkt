@@ -83,7 +83,7 @@
                               (cek ms (close v ρ0) κ)
                               (match v
                                 ; TODO: page 8: isn't (mon f f g C (• · C)) the same as (• · C) ?
-                                [(val '• cs) (cek ms (close (mon f f g c (val '• (set-add cs c))) ρ0) κ)]
+                                [(val '• cs) (cek ms (close (mon f f g c (val '• (set-add cs (close-contract c ρ0)))) ρ0) κ)]
                                 [_ (cek ms (close (mon f f g c v) ρ0) κ)])))])}))
   
   ;; on-val : -> [Setof CEK]
