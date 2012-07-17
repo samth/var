@@ -67,6 +67,8 @@
  ;; s-map : [x -> y] [Setof x] -> [Setof y]
  s-map
  
+ ;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
+ non-det
  ∅)
 
 ;; ∅ : Setof x
@@ -262,7 +264,24 @@
                            ∅)
                           ρ0)}
                     {set (exp-cl (val '• refinements) ρ0)})
-                ∅))))])
+                ∅))))]
+     
+     ;; cl=? : ValClosure ValClosure -> [Setof Boolean]
+     ; TODO rewrite
+     [define (cl=? cl1 cl2)
+       (match `(,cl1 ,cl2)
+         [`(,(cons-cl c1 c2) ,(cons-cl c3 c4))
+          (non-det (match-lambda
+                     [#t (cl=? c2 c4)]
+                     [#f {set #f}])
+                   (cl=? c1 c3))]
+         [`(,(mon-fn-cl h f g c1 cl1) ,(mon-fn-cl h f g c2 cl2))
+          (set-union {set #f} {set (cl=? cl1 cl2)})]
+         [`(,(exp-cl (val u1 cs1) ρ1) ,(exp-cl (val u2 cs2) ρ2))
+          (if (or (equal? '• u1) (equal? '• u2))
+              {set #t #f}
+              {set (equal? u1 u2)})]
+         [_ {set #f}])])
     
     (hash
      ;; type predicates
@@ -303,6 +322,15 @@
                 [`(,(mon-fn-cl h f g c e)) T]
                 [`(,cl) F]
                 [_ {set (exp-cl (blame/ l 'proc?) ρ0)}]))
+     
+     'equal? (λ (l xs)
+               (match xs
+                 [`(,cl1 ,cl2)
+                  (s-map (match-lambda
+                           [#t (close TRUE ρ0)]
+                           [#f (close FALSE ρ0)])
+                         (cl=? cl1 cl2))]
+                 [_ (error 'equal? ": arity mismatch")]))
      
      'zero? (mk-op 'zero? `(,t-num?) zero? t-bool/c)
      'non-neg? (mk-op 'non-neg? `(,t-real?) (curry <= 0) t-bool/c)
@@ -365,22 +393,23 @@
 ;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
 (define (split-cons cl)
   
-  ;; accum-cons-c : [Setof x] 
+  ;; accum-cons-c : [Setof ContractClosure] 
   ;;             -> (List [Setof ContractClosure] [Setof ContractClosure]) or ()
   ;; accumulates contracts for pair's car and cdr
   ;; returns () if contracts cannot prove it's a pair
   (define (accum-cons-c cs)
     (for/fold ([acc '()]) ([c (in-set cs)])
-      (match (contract-cl-con c)
-        [(cons-c c1 c2)
-         (match acc
-           [`(,cs1 ,cs2) `(,(set-add cs1 c1) ,(set-add cs2 c2))]
-           [`() `(,(set c1) ,(set c2))])]
-        [(flat-c (val 'cons? _))
-         (match acc
-           [`(,cs1 ,cs2) acc]
-           ['() `(,∅ ,∅)])]
-        [_ acc])))
+      (match-let ([(contract-cl c ρc) c])
+        (match c
+          [(cons-c c1 c2)
+           (match acc
+             [`(,cs1 ,cs2) `(,(set-add cs1 (close-contract c1 ρc)) ,(set-add cs2 (close-contract c2 ρc)))]
+             [`() `(,(set (close-contract c1 ρc)) ,(set (close-contract c2 ρc)))])]
+          [(flat-c (val 'cons? _))
+           (match acc
+             [`(,cs1 ,cs2) acc]
+             ['() `(,∅ ,∅)])]
+          [_ acc]))))
   
   (match cl
     ; TODO: case like (cons • •) / {(cons/c (flat even?) (flat odd?))}
@@ -470,8 +499,8 @@
        (read-con-with names mod (append cs `(↦ (λ ,xs ,d)))))]
     [`(cons/c ,c ,d)
      (cons-c (read-con-with names mod c) (read-con-with names mod d))]
-    [`(,c ∨ ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
-    [`(,c ∧ ,d) (and-c (read-con-with names mod c) (read-con-with names mod d))]
+    [`(or/c ,c ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
+    [`(and/c ,c ,d) (and-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(μ (,x) ,c) (rec-c (read-con-with (cons x names) mod c))]
     [x (if (symbol? x)
            (let ([d (name-distance x names)])
@@ -590,8 +619,8 @@
              `(↦ ,(let ([xs (new-var-names (length cs) names)])
                     `(λ ,xs ,(show-con-with (extend-names xs names) d)))))]
     [(cons-c c d) `(cons/c ,(show-con-with names c) ,(show-con-with names d))]
-    [(or-c c d) `(,(show-con-with names c) ∨ ,(show-con-with names d))]
-    [(and-c c d) `(,(show-con-with names c) ∧ ,(show-con-with names d))]
+    [(or-c c d) `(or/c ,(show-con-with names c) ,(show-con-with names d))]
+    [(and-c c d) `(and/c ,(show-con-with names c) ,(show-con-with names d))]
     [(rec-c c) (let ([x (new-var-name names)])
                  `(μ (,x) ,(show-con-with (cons x names) c)))]
     [(ref-c d) (list-ref names d)]))
@@ -667,3 +696,7 @@
   #;(for/set ([x xs]) (f x))
   ; TODO: is this how I use in-set?
   (for/fold ([ys ∅]) ([x (in-set xs)]) (set-add ys (f x))))
+
+;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
+(define (non-det f xs)
+  (apply set-union (set-map xs f)))
