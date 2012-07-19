@@ -105,6 +105,7 @@
                   (match (val-pre (exp-cl-exp r))
                     [#t {set
                          (cek
+                          ms
                           (close
                            (val '• ; value refined by function's contract's range
                                 (s-map

@@ -200,7 +200,7 @@
                     [else F])]
               [c (if (prim-test? u) T F)])]
            [`(,clo) F]
-           [_ (error op-name ": arity mismatch")]))]
+           [_ {set (exp-cl (blame/ l op-name) ρ0)}]))] ; arity mismatch
      
      ;; type predicates defined separately for use in several places
      [define t-any? (λ (l xs) T)]
@@ -224,13 +224,26 @@
                        [else F])]
                  [_ F])]
               [_ F])]
-           [_ (error 'false? ": arity mismatch")]))]
+           [_ {set (exp-cl (blame/ l 'false?) ρ0)}]))] ; arity mismatch
      [define t-true?
        (λ (l xs)
          (s-map (λ (r) (match (val-pre (exp-cl-exp r))
                          [#t (close FALSE ρ0)]
                          [#f (close TRUE ρ0)]))
                 (t-false? l xs)))]
+     [define t-proc?
+       (λ (l xs)
+         (match xs
+           [`(,(exp-cl (val '• cs) ρ))
+            (cond
+              [(set-member? cs (mk-contract-cl 'proc?)) T]
+              [(set-empty? (set-intersect cs (complement 'proc?))) TF]
+              [else F])]
+           [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (op? u)) T F)]
+           [`(,(mon-fn-cl h f g c e)) T]
+           [`(,cl) F]
+           [_ {set (exp-cl (blame/ l 'proc?) ρ0)}]))] ; arity mismatch
+     
      
      ;; contract sets defined separately for use in several places
      [define t-num/c {set (mk-contract-cl 'num?)}]
@@ -303,25 +316,15 @@
                         [else F])]
                   [_ F])]
                [`(,clo) F]
-               [_ (error 'nil? ": arity mismatch")]))
+               [_ {set (exp-cl (blame/ l 'nil?) ρ0)}])) ; arity mismatch
      'cons? (λ (l xs)
               (match xs
                 [`(,clo) (s-map (match-lambda
                                   [`(,c1 ,c2) (close TRUE ρ0)]
                                   [_ (close FALSE ρ0)])
                                 (split-cons clo))]
-                [_ (error 'cons? ": arity mismatch")]))
-     'proc? (λ (l xs)
-              (match xs
-                [`(,(exp-cl (val '• cs) ρ))
-                 (cond
-                   [(set-member? cs (mk-contract-cl 'proc?)) T]
-                   [(set-empty? (set-intersect cs (complement 'proc?))) TF]
-                   [else F])]
-                [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (op? u)) T F)]
-                [`(,(mon-fn-cl h f g c e)) T]
-                [`(,cl) F]
-                [_ {set (exp-cl (blame/ l 'proc?) ρ0)}]))
+                [_ {set (exp-cl (blame/ l 'cons?) ρ0)}])) ; arity mismatch
+     'proc? t-proc?
      
      'equal? (λ (l xs)
                (match xs
@@ -330,7 +333,7 @@
                            [#t (close TRUE ρ0)]
                            [#f (close FALSE ρ0)])
                          (cl=? cl1 cl2))]
-                 [_ (error 'equal? ": arity mismatch")]))
+                 [_ {set (exp-cl (blame/ l 'equal?) ρ0)}])) ; arity mismatch
      
      'zero? (mk-op 'zero? `(,t-num?) zero? t-bool/c)
      'non-neg? (mk-op 'non-neg? `(,t-real?) (curry <= 0) t-bool/c)
@@ -372,7 +375,7 @@
      'cons (λ (l xs)
              {set (match xs
                     [`(,c1 ,c2) (cons-cl c1 c2)]
-                    [_ (error 'cons ": arity mismatch")])})
+                    [_ {set (exp-cl (blame/ l 'cons) ρ0)}])}) ; arity mismatch
      
      ;; TODO: refactor car and cdr using split-cons
      'car (λ (l xs)
@@ -381,14 +384,14 @@
                                 [`(,c1 ,c2) c1]
                                 ['() (close (blame/ l 'car) ρ0)])
                               (split-cons clo))]
-              [_ (error 'car ": arity mismatch")]))
+              [_ {set (exp-cl (blame/ l 'car) ρ0)}])) ; arity mismatch
      'cdr (λ (l xs)
             (match xs
               [`(,clo) (s-map (match-lambda
                                 [`(,c1 ,c2) c2]
                                 ['() (close (blame/ l 'cdr) ρ0)])
                               (split-cons clo))]
-              [_ (error 'cdr ": arity mismatch")])))))
+              [_ {set (exp-cl (blame/ l 'cdr) ρ0)}]))))) ; arity mismatch
 
 ;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
 (define (split-cons cl)
