@@ -461,7 +461,9 @@
                   [else ∅])]
     [(blame/ l1 l2) ∅]
     [(app f xs l) (set-union (vars≥ d f)
-                             (apply set-union (map (curry vars≥ d) xs)))]
+                             (if (empty? xs) ∅
+                                 ; why doesn't set-union handle 0 arg?
+                                 (apply set-union (map (curry vars≥ d) xs))))]
     [(rec b) (vars≥ (+ 1 d) b)]
     [(if/ e1 e2 e3) (set-union (vars≥ d e1) (vars≥ d e2) (vars≥ d e3))]
     [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]
@@ -552,23 +554,20 @@
      (if ((listof symbol?) xs)
          (val (lam (length xs) (read-exp-with (extend-names xs names) mod s)) ∅)
          (error "λ: expect symbols, given: " xs))]
-    #;[`(blame ,f ,g) (if (and (symbol? f) (symbol? g))
-                          (blame/ f g)
-                          (error "blame: expect symbols, given: " f g))]
     [`(μ (,f) ,s) (if (symbol? f)
                       (rec (read-exp-with (cons f names) mod s))
                       (error "μ: expect symbol, given: " f))]
     [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names mod s1)
                             (read-exp-with names mod s2)
                             (read-exp-with names mod s3))]
-    #;[`(mon ,h ,f ,g ,c ,e)
-       (if (andmap symbol? `(,h ,f ,g))
-           (mon h f g (read-con-with names mod c) (read-exp-with names mod e))
-           (error "mon: expect symbols, given: " h f g))]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
-    [`(,sf ,sxs ...) (app (read-exp-with names mod sf)
-                          (map (curry read-exp-with names mod) sxs) mod)]
+    [`(let ([,x ,e] ...) ,b) (read-exp-with names mod `((λ ,x ,b) ,@e))]
+    [`(let* ([,x1 ,e1] ,p ...) ,b)
+     (read-exp-with names mod `(let ([,x1 ,e1]) (let* ,p ,b)))]
+    [`(let* () ,b) (read-exp-with names mod `(let () ,b))]
+    [`(,f ,xs ...) (app (read-exp-with names mod f)
+                        (map (curry read-exp-with names mod) xs) mod)]
     [x (cond
          [(boolean? x) (if x TRUE FALSE)]
          [(symbol? x) (let ([d (name-distance x names)])

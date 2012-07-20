@@ -102,7 +102,7 @@
                 (match-lambda
                   [#t (set-add
                        (list->set
-                        (map (λ (havoc)
+                        (map (λ (havoc) ; TODO wrong
                                (cek ms (close havoc ρ0)
                                     (ap-k '() xs l #|TODO right label?|#
                                           (mt) #|TODO is it safe to kill κ?|#)))
