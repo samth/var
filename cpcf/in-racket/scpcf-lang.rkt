@@ -352,6 +352,10 @@
      '+ (mk-op '+ `(,t-num? ,t-num?) + t-num/c)
      '- (mk-op '- `(,t-num? ,t-num?) - t-num/c)
      '* (mk-op '* `(,t-num? ,t-num?) * t-num/c)
+     '/ (mk-op '/ `(,t-num? ,t-num?) / t-num/c) ;; TODO: handles div by 0!!
+     'mod (mk-op 'mod `(,t-int? ,t-int?) modulo t-int/c) ;; TODO: handles div by 0!!
+     'quot (mk-op 'quotient `(,t-int? ,t-int?) quotient t-int/c) ;; TODO: handles div by 0!!
+     'gcd (mk-op 'gcd `(,t-int? ,t-int?) gcd t-int/c)
      '= (mk-op '= `(,t-num? ,t-num?) = t-bool/c)
      '≠ (mk-op '≠ `(,t-num? ,t-num?) (compose not =) t-bool/c)
      '< (mk-op '< `(,t-real? ,t-real?) < t-bool/c)

@@ -45,10 +45,10 @@
 #;(check-equal? (eval-cek (prog-factorial '•)) {set '• '(blame † fac)}) ; won't terminate
 
 ;; rsa example from section 3.4
-(define prog-rsa
-  `((module keygen (,c/any ↦ (flat prime?)) •)
-    (module rsa ((flat prime?) ↦ (,c/any ↦ ,c/any)) •)
-    ((rsa (keygen 0)) "Plaintext")))
+#;(define prog-rsa
+    `((module keygen (,c/any ↦ (flat prime?)) •)
+      (module rsa ((flat prime?) ↦ (,c/any ↦ ,c/any)) •)
+      ((rsa (keygen 0)) "Plaintext")))
 ;; TODO test prog-rsa
 
 ;; list functions
@@ -345,6 +345,67 @@
         (tak x y z (λ (a) a))))
     (cpstak 3 2 1)))
 (time (eval-cek cpstak))
+
+;; rsa example translated from
+;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/rsa.scm
+(define prog-rsa
+  `((module extended-gcd ((flat int?) (flat int?) ↦ (cons/c (flat int?) (flat int?)))
+      (μ (ext-gcd)
+         (λ (a b)
+           (if (zero? (mod a b))
+               (cons 0 1)
+               (let* ([x:y (ext-gcd b (mod a b))]
+                      [x (car x:y)]
+                      [y (cdr x:y)])
+                 (cons y (- x (* y (quot a b)))))))))
+    (module modulo-inverse ((flat int?) (flat int?) ↦ (flat int?))
+      (λ (a n)
+        (mod (car (extended-gcd a n)) n)))
+    (module totient ((flat int?) (flat int?) ↦ (flat int?))
+      (λ (p q)
+        (* (- p 1) (- q 1))))
+    (module square ((flat int?) ↦ (flat int?))
+      (λ (x) (* x x)))
+    (module modulo-power ((flat int?) (flat int?) (flat int?) ↦ (flat int?))
+      (μ (mod-pow)
+         (λ (base exp n)
+           (if (= exp 0) 1
+               (if (odd? exp)
+                   (mod (* base (mod-pow base (- exp 1) n)) n)
+                   (mod (square (mod-pow base (/ exp 2) n)) n))))))
+    (module legal-public-exponent?
+      ((flat int?) (flat int?) (flat int?) ↦ (flat bool?))
+      (λ (e p q)
+        (and (< 1 e)
+             (< e (totient p q))
+             (= 1 (gcd e (totient p q))))))
+    (module private-exponent
+      ((flat int?) (flat int?) (flat int?) ↦ (or/c (flat int?) (flat false?)))
+      (λ (e p q)
+        (if (legal-public-exponent? e p q)
+            (modulo-inverse e (totient p q))
+            #f)))
+    (module encrypt
+      ((flat int?) (flat int?) (flat int?) ↦ (or/c (flat int?) (flat false?)))
+      (λ (m e n)
+        (if (> m n) #f
+            (modulo-power m e n))))
+    (module decrypt
+      ((flat int?) (flat int?) (flat int?) ↦ (flat int?))
+      (λ (c d n)
+        (modulo-power c d n)))
+    
+    (let* ([p 41] ; "large" prime
+           [q 47] ; "large" prime
+           [n (* p q)] ; public modulus
+           [e 7] ; public exponent
+           [d (private-exponent e p q)] ; private exponent
+           [plaintext 42]
+           [ciphertext (encrypt plaintext e n)]
+           [decrypted-ciphertext (decrypt ciphertext d n)])
+      (= plaintext decrypted-ciphertext))))
+(check-equal? (eval-cek prog-rsa) {set #t})
+
 
 ;; test read/show
 (for-each
