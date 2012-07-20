@@ -57,6 +57,8 @@
   
   [mod-by-name (label? [listof modl?] . -> . modl?)]
   
+  [proc-with-arity? (val-cl? natural? . -> . (set/c boolean?))]
+  
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
   [pre-val? (any/c . -> . boolean?)]
@@ -179,8 +181,9 @@
       (set-subtract type-partitions (set (mk-contract-cl type-pred-name))))))
 
 ;; OpImpl = Label [Listof ValClosure] -> [Setof ANswer]
-;; ops : Symbol ↦ (Label [Listof Closure] -> [Setof Answer])
-;; primitive ops' types and implementations
+;; OpRecord = (List (Natural -> Boolean) OpImpl)
+;; ops : Symbol ↦ OpImpl ; TODO map to OpRecord
+;; primitive ops' implementations
 (define ops
   (local
     (;; closures for commonly used values
@@ -188,7 +191,7 @@
      [define F {set (exp-cl FALSE ρ0)}]
      [define TF (set-union T F)]
      
-     ;; type-pred : Label Exp (Any -> Boolean) -> OpImpl
+     ;; type-pred : Label Exp (Any -> Boolean) -> OpRecord
      [define (type-pred op-name contract prim-test?)
        (λ (l xs)
          (match xs
@@ -435,6 +438,16 @@
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
   ((hash-ref ops op) l xs))
+
+;; arity : Op -> Natural
+;; TODO: just temporary fix, move all this info to ops table!!
+(define (arity o)
+  (cond
+    [(member o '(num? real? int? bool? string? true? false? nil? cons?
+                      proc? zero? even? odd? prime? not sqrt str-len car cdr)) 1]
+    [(member o '(+ - * = ≠ < ≤ > ≥ ++ str=? str≠? str<? str≤? str>? str≥? cons)) 2]
+    [(member o '(substring)) 3]))
+
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)
@@ -691,6 +704,21 @@
     [(cons m ms1) (if (equal? (modl-f m) l) m
                       (mod-by-name l ms1))]
     [_ (error "unbound module name: " l)]))
+
+;; proc-with-arity? : ValClosure Natural -> [Setof Boolean]
+;; checks whether closure represents a procedure compatible with given number of args
+(define (proc-with-arity? cl n)
+  (match cl
+    [(exp-cl (val u cs) ρ)
+     (match u
+       [(lam m e) {set (= m n)}]
+       ['• (set-subtract {set #t #f}
+                         (for/set ([c cs] #:when (func-c? c))
+                                  (match-let ([(func-c cs1 c2) c])
+                                    (not (= n (length cs1))))))]
+       [_ {set (= n (arity u))}])]
+    [(mon-fn-cl h f g (func-c cs1 c2) cl1) {set (= n (length (cs1)))}]
+    [_ {set #f}]))
 
 ;;;; set helper functions
 

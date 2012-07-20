@@ -50,18 +50,14 @@
       [(exp-cl (val u cs) ρ) (exp-cl (val u (set-add cs conclo)) ρ)]
       [else clo #|TODO|#]))
   
-  ;; AMB : [Listof S-Exp] -> S-Exp
-  (define (AMB exps)
-    (match exps
-      [`(,e) e]
-      [`(,e ,e1 ...) `(if • ,e ,(AMB e1))]))
-  
-  ;; havoc : Exp
-  (define havoc
-    (read-exp
-     `(μ (y)
-         (λ (x)
-           ,(AMB `((y (x •)) (y (car x)) (y (cdr x))))))))
+  ;; TODO: does this alter semantics compared to old 'havoc' and AMB,
+  ;;       with nondeterminism 'embedded' in the object language?
+  ;; havocs :: [Listof Exp]
+  (define havocs
+    (map (λ (sub) (read-exp `(μ (y)
+                                (λ (x) ; relies in this 'x' being that 'x'
+                                  (y ,sub)))))
+         `((x •) (car x) (cdr x))))
   
   ;; on-nonval : -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression
@@ -98,38 +94,48 @@
          (match f
            [(exp-cl (val u cs) ρv)
             (match u
-              [(lam n e) {set (cek ms (close e (env-extendl xs ρv)) κ)}]
+              [(lam n e) {set (if (= n (length xs)) ; arity check
+                                  (cek ms (close e (env-extendl xs ρv)) κ)
+                                  (cek ms (close (blame/ l '∆) ρ0) (mt)))}]
               ['•
                {non-det
-                (λ (r)
-                  (match (val-pre (exp-cl-exp r))
-                    [#t {set
-                         (cek
-                          ms
-                          (close
-                           (val '• ; value refined by function's contract's range
-                                (s-map
-                                 (λ (c)
-                                   (match c
-                                     [(contract-cl (func-c cs1 c2) ρc)
-                                      (close-contract c2 (env-extend xs ρc))]))
-                                 cs))
-                           ρ0)
-                          κ)
-                         (cek ms (close havoc ρ0)
-                              ;; TODO: temporary, for 1-param function only
-                              (ap-k '() xs l #|TODO right label?|# κ))}]
-                    [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}]))
-                (δ 'proc? `(,f) l)}]
-              [_ (if (op? u)
+                (match-lambda
+                  [#t (set-add
+                       (list->set
+                        (map (λ (havoc)
+                               (cek ms (close havoc ρ0)
+                                    (ap-k '() xs l #|TODO right label?|#
+                                          (mt) #|TODO is it safe to kill κ?|#)))
+                             havocs))
+                       (cek ; value refined by function's contract's range
+                        ms
+                        (close
+                         (val '•
+                              (s-map
+                               (λ (c)
+                                 (match c
+                                   [(contract-cl (func-c cs1 c2) ρc)
+                                    (close-contract c2 (env-extend xs ρc))]))
+                               cs))
+                         ρ0)
+                        κ))]
+                  [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}])
+                (proc-with-arity? f (length xs))}]
+              [_ (if (op? u) ; primitive op handles arity check on its own
                      (s-map (λ (cl) (cek ms cl κ)) (δ u xs l))
                      {set (cek ms (close (blame/ l '∆) ρ0) (mt))})])]
            [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) clo1)
-            {set
-             (cek ms clo1
-                  (mon-ap-k '() xs (map (λ (c) (close-contract c ρc)) cs1) h g f
-                            (mon-k ; monitor result
-                             h f g (close-contract c2 (env-extendl xs ρc)) κ)))}]
+            (if (= (length xs) (length cs1))
+                (s-map
+                 (match-lambda
+                   [#t (cek ms clo1
+                            (mon-ap-k
+                             '() xs (map (λ (c) (close-contract c ρc)) cs1) h g f
+                             (mon-k ; monitor result
+                              h f g (close-contract c2 (env-extendl xs ρc)) κ)))]
+                   [#f (cek ms (close (blame/ f h) ρ0) (mt))])
+                 (proc-with-arity? clo1 (length cs1)))
+                {set (cek ms (close (blame/ l h) ρ0) (mt))})]
            [_ {set (cek ms (close (blame/ l '∆) ρ0) (mt))}]))]
       [(if-k clo1 clo2 κ)
        (s-map (λ (v)
@@ -163,7 +169,7 @@
                   [`(,cl1 ,cl2)
                    (cek ms cl1 (mon-k h f g (close-contract c1 ρc)
                                       (cdr-k h f g (close-contract c2 ρc) cl2 κ)))]
-                  ['() (cek ms (exp-cl (blame/ '† '†) ρ0) (mt))])
+                  ['() (cek ms (exp-cl (blame/ f h) ρ0) (mt))])
                 (split-cons clo))]
               [(or-c c1 c2)
                {set
