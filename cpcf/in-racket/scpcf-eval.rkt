@@ -157,10 +157,10 @@
            [`()
             (match c
               [(func-c cs1 c2)
-               (s-map (λ (r) (match (val-pre (exp-cl-exp r))
-                               [#t (cek ms (mon-fn-cl h f g con-cl clo) κ)]
-                               [#f (cek ms (close (blame/ f h) ρ0) (mt))]))
-                      (δ 'proc? `(,clo) '†))]
+               (s-map (match-lambda
+                        [#t (cek ms (mon-fn-cl h f g con-cl clo) κ)]
+                        [#f (cek ms (close (blame/ f h) ρ0) (mt))])
+                      (proc-with-arity? clo (length cs1)))]
               [(cons-c c1 c2)
                ;; TODO: - more general when the language is uptyped
                ;;       - refactor with δ or something

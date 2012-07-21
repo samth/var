@@ -716,11 +716,12 @@
      (match u
        [(lam m e) {set (= m n)}]
        ['• (set-subtract {set #t #f}
-                         (for/set ([c cs] #:when (func-c? c))
-                                  (match-let ([(func-c cs1 c2) c])
+                         (for/set ([c cs] #:when (func-c? (contract-cl-con c)))
+                                  (match-let ([(contract-cl (func-c cs1 c2) _) c])
                                     (not (= n (length cs1))))))]
        [_ {set (= n (arity u))}])]
-    [(mon-fn-cl h f g (func-c cs1 c2) cl1) {set (= n (length (cs1)))}]
+    [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) cl1)
+     {set (= n (length cs1))}]
     [_ {set #f}]))
 
 ;;;; set helper functions

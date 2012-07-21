@@ -406,6 +406,29 @@
       (= plaintext decrypted-ciphertext))))
 (check-equal? (eval-cek prog-rsa) {set #t})
 
+;; sat-brute translated from
+;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/sat-brute.scm
+(define prog-sat
+  `((module phi ((flat bool?) (flat bool?) (flat bool?) (flat bool?) ↦ (flat bool?))
+      (λ (x1 x2 x3 x4)
+        (and (or x1 (not x2) (not x3))
+             (or (not x2) (not x3))
+             (or x4 x2))))
+    (module try (((flat bool?) ↦ (flat bool?)) ↦ (flat bool?))
+      (λ (f)
+        (or (f #t) (f #f))))
+    (module sat-solve-4
+      (((flat bool?) (flat bool?) (flat bool?) (flat bool?) ↦ (flat bool?))
+       ↦ (flat bool?))
+      (λ (p)
+        (try (λ (n1)
+               (try (λ (n2)
+                      (try (λ (n3)
+                             (try (λ (n4)
+                                    (p n1 n2 n3 n4)))))))))))
+    (sat-solve-4 phi)))
+(check-equal? (eval-cek prog-sat) {set #t})
+
 
 ;; test read/show
 (for-each
