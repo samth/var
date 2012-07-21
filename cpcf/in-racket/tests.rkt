@@ -6,6 +6,7 @@
 
 ;; contracts
 (define c/any `(flat (λ (x) #t)))
+(define c/bool `(flat bool?))
 (define c/list `(μ (list?) (or/c (flat nil?) (cons/c ,c/any list?))))
 (define c/num-list `(μ (num-list?) (or/c (flat nil?) (cons/c (flat num?) num-list?))))
 (define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
@@ -297,7 +298,7 @@
                     (tak (- y 1) z x)
                     (tak (- z 1) x y))))))
     (tak 3 2 1)))
-(time (eval-cek tak))
+(time (check-equal? (eval-cek tak) {set 2}) 'tak)
 
 (define takl ; translated from http://www.larcenists.org/R6src/takl.sch
   `((module listn ((flat num?) ↦ ,c/num-list)
@@ -318,7 +319,7 @@
                     (mas (cdr y) z x)
                     (mas (cdr z) x y))))))
     (mas (listn 3) (listn 2) (listn 1))))
-(time (eval-cek takl))
+(time (check-equal? (eval-cek takl) {set '(cons 2 (cons 1 nil))}) 'takl)
 
 (define cpstak ; translated from http://www.larcenists.org/R6src/cpstak.sch
   `((module tak
@@ -344,7 +345,7 @@
       (λ (x y z)
         (tak x y z (λ (a) a))))
     (cpstak 3 2 1)))
-(time (eval-cek cpstak))
+(time (check-equal? (eval-cek cpstak) {set 2}) 'cpstak)
 
 ;; rsa example translated from
 ;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/rsa.scm
@@ -404,30 +405,69 @@
            [ciphertext (encrypt plaintext e n)]
            [decrypted-ciphertext (decrypt ciphertext d n)])
       (= plaintext decrypted-ciphertext))))
-(check-equal? (eval-cek prog-rsa) {set #t})
+(time (check-equal? (eval-cek prog-rsa) {set #t}) 'rsa)
 
 ;; sat-brute translated from
-;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/sat-brute.scm
+;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/kcfa/sat-brute.scm
 (define prog-sat
-  `((module phi ((flat bool?) (flat bool?) (flat bool?) (flat bool?) ↦ (flat bool?))
-      (λ (x1 x2 x3 x4)
-        (and (or x1 (not x2) (not x3))
+  `((module phi (,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool)
+      (λ (x1 x2 x3 x4 x5 x6 x7)
+        (and (or x1 x2)
+             (or x1 (not x2) (not x3))
+             (or x3 x4)
+             (or (not x4) x1)
              (or (not x2) (not x3))
              (or x4 x2))))
-    (module try (((flat bool?) ↦ (flat bool?)) ↦ (flat bool?))
+    
+    (module try ((,c/bool ↦ ,c/bool) ↦ ,c/bool)
       (λ (f)
         (or (f #t) (f #f))))
-    (module sat-solve-4
-      (((flat bool?) (flat bool?) (flat bool?) (flat bool?) ↦ (flat bool?))
-       ↦ (flat bool?))
+    
+    (module sat-solve-7
+      ((,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool)
+       ↦ ,c/bool)
       (λ (p)
         (try (λ (n1)
                (try (λ (n2)
                       (try (λ (n3)
                              (try (λ (n4)
-                                    (p n1 n2 n3 n4)))))))))))
-    (sat-solve-4 phi)))
-(check-equal? (eval-cek prog-sat) {set #t})
+                                    (try (λ (n5)
+                                           (try (λ (n6)
+                                                  (try (λ (n7)
+                                                         (p n1 n2 n3 n4 n5 n6 n7)))))))))))))))))
+    
+    
+    (sat-solve-7 phi)))
+(time (check-equal? (eval-cek prog-sat) {set #t}) 'sat-7)
+
+;; 'worst case', translated from
+;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/kcfa-worst-case.scm
+(define prog-worst-case
+  `(((λ (f1)
+       (let ([a (f1 #t)])
+         (f1 #f)))
+     (λ (x1) ((λ (f2)
+                (let ([b (f2 #t)])
+                  (let ([c (f2 #f)])
+                    (f2 #t))))
+              (λ (x2) ((λ (z) (z x1 x2)) (λ (y1 y2) y1))))))))
+(time (check-equal? (eval-cek prog-worst-case) {set #f}) 'worst-case)
+
+;; 'even worse', translated from
+;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/kcfa-even-worse.scm
+(define prog-even-worse
+  `(((λ (f1)
+       (let ([a (f1 #t)])
+         (f1 #f)))
+     (λ (x1)
+       ((λ (f2)
+          (let ([b (f2 #t)])
+            (f2 #f)))
+        (λ (x2)
+          ((λ (f3)
+             (let ([c (f3 #t)])
+               (f3 #f))) (λ (x3) ((λ (z) (z x1 x2 x3)) (λ (y1 y2 y3) y1))))))))))
+(time (check-equal? (eval-cek prog-even-worse) {set #f}) 'even-worse)
 
 
 ;; test read/show
