@@ -44,11 +44,18 @@
 (define (step conf)
   (match-define (cek ms clo κ) conf)
   
-  ;; refine : Closure ContractClosure -> Val
+  ;; refine : ValClosure ContractClosure -> (Setof ValClosure)
   (define (refine clo conclo)
     (match clo
-      [(exp-cl (val u cs) ρ) (exp-cl (val u (set-add cs conclo)) ρ)]
-      [else clo #|TODO|#]))
+      [(exp-cl (val u cs) ρ)
+       (match conclo
+         [(contract-cl (or-c c1 c2) ρc) ; split disjunction
+          (set-union (refine clo (close-contract c1 ρc))
+                     (refine clo (close-contract c2 ρc)))]
+         [(contract-cl (rec-c c) ρc) ; unroll recursive contract
+          (refine clo (close-contract c (env-extend conclo ρc)))]
+         [_ {set (exp-cl (val u (set-add cs conclo)) ρ)}])]
+      [else {set clo} #|TODO|#]))
   
   ;; TODO: does this alter semantics compared to old 'havoc' and AMB,
   ;;       with nondeterminism 'embedded' in the object language?
@@ -145,15 +152,15 @@
        (match-let ([(contract-cl c ρc) con-cl])
          (match (maybe-FC empty c)
            [`(,pred)
-            {set
-             (match (verify clo con-cl)
-               ['Proved (cek ms clo κ)]
-               ['Refuted (cek ms (close (blame/ f h) ρ0) (mt))]
-               ['Neither
-                (cek ms (close pred ρc)
-                     (ap-k '() `(,clo) h #|TODO: is h the right label?|#
-                           (if-k (refine clo con-cl)
-                                 (close (blame/ f h) ρ0) κ)))])}]
+            (match (verify clo con-cl)
+              ['Proved {set (cek ms clo κ)}]
+              ['Refuted {set (cek ms (close (blame/ f h) ρ0) (mt))}]
+              ['Neither
+               (s-map (λ (v)
+                        (cek ms (close pred ρc)
+                             (ap-k '() `(,clo) h #|TODO: is h the right label?|#
+                                   (if-k v (close (blame/ f h) ρ0) κ))))
+                      (refine clo con-cl))])]
            [`()
             (match c
               [(func-c cs1 c2)
@@ -200,11 +207,12 @@
                         (ap-k `(,clo ,(close (val 'cons ∅) ρ0)) '()
                               h #|TODO: h, right label?|# κ)))}]
       [(or-k clo1 c1 h f g c2 κ)
-       (s-map (λ (r)
-                (match (val-pre (exp-cl-exp r))
-                  [#t (cek ms (refine clo1 c1) κ)]
-                  [#f (cek ms clo1 (mon-k h f g c2 κ))]))
-              (δ 'true? `(,clo) h))]
+       (non-det (λ (r)
+                  (match (val-pre (exp-cl-exp r))
+                    [#t (s-map (λ (clo) (cek ms clo κ))
+                               (refine clo1 c1))]
+                    [#f {set (cek ms clo1 (mon-k h f g c2 κ))}]))
+                (δ 'true? `(,clo) h))]
       [(mon-ap-k vs (cons x xs) (cons c cs) h g f κ)
        {set
         (cek ms x (mon-k

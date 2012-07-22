@@ -1,11 +1,13 @@
 TODO:
-* [done] remove type system
-** [done] re-implement primitive ops 
 * [mostly done] support multiple-argument functions
 ** properly check function against contract
 ** var-args??
-* [done] implement modules
-* (• •) won't terminate, can't run rsa example
-* precision improvement mentioned in 4.4
-* more tests
+* [part] (• •) won't terminate
+** currently solved by discarding kontinuation in havoc b/c it never produces a value anyway. Is that safe?
+* [done] precision improvement mentioned in 4.4
+* [part] more tests
+** [done] length, factorial, insertion sort
+** [done] rsa, sat-brute, worst-case, even-worse
+** [done] tak, takl, cpstak
+** [done] from Wright paper: flatten, taut, member, lastpair, subst*, last
 * rewrite eval's loop using mutable hashtables + benchmark
