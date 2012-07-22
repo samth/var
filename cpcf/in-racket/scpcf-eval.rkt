@@ -150,7 +150,20 @@
               (δ 'true? (list clo) '†))]
       [(mon-k h f g con-cl κ)
        (match-let ([(contract-cl c ρc) con-cl])
-         (match (maybe-FC empty c)
+         (match (maybe-FC `(,0) c)
+           [`(,(ref x))
+            (let ([pred-or-contract (env-get x ρc)])
+              (if (contract-cl? pred-or-contract)
+                  {set (cek ms clo (mon-k h f g pred-or-contract κ))}
+                  (match (verify clo con-cl) ; TODO: code duplication, temp
+                    ['Proved {set (cek ms clo κ)}]
+                    ['Refuted {set (cek ms (close (blame/ f h) ρ0) (mt))}]
+                    ['Neither
+                     (s-map (λ (v)
+                              (cek ms pred-or-contract
+                                   (ap-k '() `(,clo) h #|TODO: is h the right label?|#
+                                         (if-k v (close (blame/ f h) ρ0) κ))))
+                            (refine clo con-cl))])))]
            [`(,pred)
             (match (verify clo con-cl)
               ['Proved {set (cek ms clo κ)}]
@@ -184,7 +197,7 @@
                   ['Proved (cek ms clo κ)]
                   ['Refuted (cek ms clo (mon-k h f g (close-contract c2 ρc) κ))]
                   ['Neither
-                   (match (maybe-FC empty c1)
+                   (match (maybe-FC `(,0) c1)
                      [`(,pred)
                       (cek ms (close pred ρc)
                            (ap-k '() `(,clo) h #|TODO: is h the right label?|#
@@ -196,7 +209,7 @@
                          (mon-k h f g (close-contract c1 ρc)
                                 (mon-k h f g (close-contract c2 ρc) κ)))}]
               [(rec-c c1)
-               {set (cek clo 
+               {set (cek ms clo 
                          (mon-k h f g
                                 (close-contract c1 (env-extend con-cl ρc)) κ))}]
               [(ref-c x)
@@ -305,7 +318,8 @@
         (values p-true (set-add p-false x)))))
 
 ;; maybe-FC : [Listof Natural] Contract -> [List Exp] or Empty
-;; converts flat contract to predicate
+;; converts flat contract to predicate;
+;; OR returns reference to (predicate|contract) (i feel sooo dirty)
 ;; whether result expression is closed or open depends on original contract
 ;; -- ds: (list-ref ds k) is number of extra levels of λ introduced
 ;;        after the k-th (μ.C)

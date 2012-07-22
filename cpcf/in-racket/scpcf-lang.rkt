@@ -450,7 +450,8 @@
     [(member o '(num? real? int? bool? string? true? false? nil? cons?
                       proc? zero? even? odd? prime? not sqrt str-len car cdr)) 1]
     [(member o '(+ - * = ≠ < ≤ > ≥ ++ str=? str≠? str<? str≤? str>? str≥? cons)) 2]
-    [(member o '(substring)) 3]))
+    [(member o '(substring)) 3]
+    [(error "forgot " o)]))
 
 
 ;; free-vars : Exp -> [Setof Natural]
@@ -719,7 +720,7 @@
                          (for/set ([c cs] #:when (func-c? (contract-cl-con c)))
                                   (match-let ([(contract-cl (func-c cs1 c2) _) c])
                                     (not (= n (length cs1))))))]
-       [_ {set (= n (arity u))}])]
+       [_ {set (if (op? u) (= n (arity u)) #f)}])]
     [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) cl1)
      {set (= n (length cs1))}]
     [_ {set #f}]))

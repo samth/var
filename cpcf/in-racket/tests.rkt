@@ -251,9 +251,10 @@
 
 ;; taut from Wright paper, section 5.1
 (define (prog-taut p)
-  (let ([T? `(λ (x) (and (true? x) (not (proc? x))))]
-        [F? 'false?])
-    `((module taut (,c/any ↦ ,c/any)
+  (let ([T? `(λ (x) (equal? #t x))]
+        [F? 'false?]
+        [c/taut `(μ (taut?) (or/c (flat bool?) ((flat bool?) ↦ taut?)))])
+    `((module taut (,c/taut ↦ (flat bool?))
         (μ (taut)
            (λ (b)
              (if (,T? b) #t

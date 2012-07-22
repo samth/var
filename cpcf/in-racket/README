@@ -10,4 +10,4 @@ TODO:
 ** [done] rsa, sat-brute, worst-case, even-worse
 ** [done] tak, takl, cpstak
 ** [done] from Wright paper: flatten, taut, member, lastpair, subst*, last
-* rewrite eval's loop using mutable hashtables + benchmark
+* [part] rewrite eval's loop using mutable hashtables + benchmark
