@@ -38,12 +38,25 @@
 (check-equal? (eval-cek prog-db00-2) {set '(blame db db)}) 
 
 ;; computes factorial
-(define (prog-factorial n)
-  `((module fac ((flat int?) ↦ (flat int?))
-      (μ (fac) (λ (n) (if (zero? n) 1 (* n (fac (- n 1)))))))
+(define modl-factorial
+  `(module fac ((flat int?) ↦ (flat int?))
+     (μ (fac) (λ (n) (if (zero? n) 1 (* n (fac (- n 1))))))))
+(define modl-factorial-acc
+  `(module fac ((flat num? #|TODO|#) ↦ (flat num? #|TODO|#))
+     (let ([fac1 (μ (go)
+                    (λ (n acc)
+                      (if (zero? n) acc
+                          (go (- n 1) (* n acc)))))])
+       (λ (n) (fac1 n 1)))))
+(define (prog-factorial mod-fac n)
+  `(,mod-fac
     (fac ,n)))
-(check-equal? (eval-cek (prog-factorial 3)) {set 6})
-#;(check-equal? (eval-cek (prog-factorial '•)) {set '• '(blame † fac)}) ; won't terminate
+(check-equal? (eval-cek (prog-factorial modl-factorial 3)) {set 6})
+#;(check-equal? (eval-cek (prog-factorial modl-factorial '•))
+                {set '• '(blame † fac)}) ; won't terminate
+(check-equal? (eval-cek (prog-factorial modl-factorial-acc 3)) {set 6})
+(check-equal? (eval-cek (prog-factorial modl-factorial-acc '•))
+              {set '• '(blame † fac)})
 
 ;; rsa example from section 3.4
 #;(define prog-rsa
@@ -108,6 +121,29 @@
         (foldl insert nil l)))
     (sort nums)))
 (check-equal? (eval-cek prog-ins-sort) {set '•})
+
+;; 'length' from section 4.4
+(define modl-length
+  `(module len (,c/list ↦ (flat int?))
+     (μ (len)
+        (λ (l)
+          (if (nil? l) 0
+              (+ 1 (len (cdr l))))))))
+(define modl-length-acc
+  `(module len (,c/list ↦ (flat int?))
+     (let ([len-acc (μ (go)
+                       (λ (l acc)
+                         (if (nil? l) acc
+                             (go (cdr l) (+ 1 acc)))))])
+       (λ (l) (len-acc l 0)))))
+(define (prog-length mod-len l)
+  `(,mod-len (len ,l)))
+(check-equal? (eval-cek (prog-length modl-length '(cons 1 (cons 2 nil)))) {set 2})
+#;(check-equal? (eval-cek (prog-length modl-length '•)) {set '(blame '† 'len) '•}) ; won't terminate
+(check-equal? (eval-cek (prog-length modl-length-acc '(cons 1 (cons 2 nil)))) {set 2})
+#;(check-equal? (eval-cek (prog-length modl-length-acc '•)) {set '(blame '† 'len) '•}) ; won't terminate
+
+
 
 ;; 'quick'sort
 (define prog-qsort
@@ -477,7 +513,7 @@
     (read-prog p)
     ((compose read-prog show-prog read-prog) p)))
  (list prog-db00 prog-db01 prog-db10 prog-db00-2
-       (prog-factorial '•) prog-rsa prog-ins-sort prog-qsort
+       (prog-factorial modl-factorial '•) prog-rsa prog-ins-sort prog-qsort
        prog-even-list-ok prog-even-list-err
        prog-func-pair-ok prog-func-pair-err1 prog-func-pair-err2
        prog-flatten-ok1 prog-flatten-ok2 prog-flatten-err1 prog-flatten-err2
