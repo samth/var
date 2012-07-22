@@ -247,22 +247,31 @@
   
   ;; run : CEK -> [Setof CEK]
   (define (run conf)
-    ;; go : [Setof CEK] [Setof CEK] [Setof CEK] -> [Setof CEK]
+    (define known (make-hash))
+    (define final (make-hash))
+    
+    ;; go : -> [Setof CEK]
     ;; INVARIANT:
     ;; -- known: states whose next states are explored
     ;; -- unknown: non-final states whose next states are unexplored
     ;; -- final: final states (~ answers)
-    (define (go known unknown final)
+    (define (go unknown)
       (cond
-        [(set-empty? unknown) final]
+        [(set-empty? unknown) (list->set (hash-keys final))]
         [else
          (define next (non-det step unknown))
-         (define known1 (set-union known unknown))
-         (define-values (final1 non-final1) (set-partition final? next))
-         (go known1
-             (set-subtract non-final1 known1)
-             (set-union final final1))]))
-    (go ∅ {set conf} ∅))
+         (for/set ([x unknown])
+                  (hash-set! known x '()))
+         (define unknown1 (set-subtract
+                           (for/set ([x next])
+                                    (if (final? x)
+                                        (hash-set! final x '())
+                                        (if (hash-has-key? known x)
+                                            (void 'ignore)
+                                            x)))
+                           {set (void '())}))
+         (go unknown1)]))
+    (go {set conf}))
   
   ;; get-answer : Closure -> EvalAnswer
   (define (get-answer clo)
