@@ -66,6 +66,8 @@
   [op? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)])
  
+ c/any c/bool c/list c/num-list c/even-list
+ 
  ;; s-map : [x -> y] [Setof x] -> [Setof y]
  s-map
  
@@ -162,6 +164,13 @@
 (define TRUE (val #t ∅))
 (define FALSE (val #f ∅))
 (define BULLET (val '• ∅))
+
+;; contracts
+(define c/any `(flat (λ (x) #t)))
+(define c/bool `(flat bool?))
+(define c/list `(μ (list?) (or/c (flat nil?) (cons/c ,c/any list?))))
+(define c/num-list `(μ (num-list?) (or/c (flat nil?) (cons/c (flat num?) num-list?))))
+(define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
 
 ;; mk-contract-cl : Label -> ContractClosure
 (define (mk-contract-cl name)
@@ -381,8 +390,59 @@
                        t-string/c)
      'cons (λ (l xs)
              {set (match xs
+                    ; promote (cons/c (•/{...c...}) nil) to (• {...(listof c)...})
+                    [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val 'nil cs2) ρ2))
+                     (close
+                      (val '•
+                           (set-add
+                            (s-map (λ (cl)
+                                     (match-let ([(contract-cl c ρc) cl])
+                                       (close-contract
+                                        (cons-c c
+                                                (rec-c (or-c (flat-c (val 'nil ∅))
+                                                             (cons-c (shift-con 1 c)
+                                                                     (ref-c 0)))))
+                                        ρc)))
+                                   cs1)
+                            (let ([C/ANY (read-con c/any)])
+                              (close-contract
+                               (cons-c C/ANY
+                                       (rec-c (or-c (flat-c (val 'nil ∅))
+                                                    (cons-c C/ANY (ref-c 0)))))
+                               ρ0)))) ρ0)]
+                    ; promote (cons/c (•/{...c...}) (•/{...(cons c (listof c))...}) to
+                    ; (•/{...(cons/c c (listof c)...}
+                    [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
+                     (let* ([cdr-is-list? #f]
+                            [C/ANY (read-con c/any)]
+                            [list-contracts
+                             (set-subtract
+                              (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
+                                       (match c
+                                         [(contract-cl (cons-c c1
+                                                               (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                            (cons-c c2 (ref-c 0)))))
+                                                       ρc)
+                                          (if (equal? c2 (shift-con 1 c1))
+                                              (begin
+                                                (set! cdr-is-list? #t)
+                                                (if (set-member? cs1 c1)
+                                                    c
+                                                    'ignore))
+                                              'ignore)]
+                                         [_ 'ignore]))
+                              (set 'ignore))])
+                       (if cdr-is-list?
+                           (close (val '• (set-add list-contracts
+                                                   (close-contract
+                                                    (cons-c C/ANY
+                                                            (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                         (cons-c C/ANY (ref-c 0)))))
+                                                    ρ0)))
+                                  ρ0)
+                           (cons-cl (first xs) (second xs))))]
                     [`(,c1 ,c2) (cons-cl c1 c2)]
-                    [_ {set (exp-cl (blame/ l 'cons) ρ0)}])}) ; arity mismatch
+                    [_ (exp-cl (blame/ l 'cons) ρ0)])}) ; arity mismatch
      
      ;; TODO: refactor car and cdr using split-cons
      'car (λ (l xs)
@@ -669,38 +729,41 @@
 
 ;; shift : Natural Exp -> Exp
 ;; shifts free variables in expression by given number
-(define (shift d e)
-  
-  ;; shift-at : Natural Exp -> Exp
-  (define (shift-at depth e)
-    (match e
-      [(ref x) (if (>= x depth) (ref (+ x d)) e)]
-      [(val u cs)
-       (match u
-         [(lam n b) (val (lam n (shift-at (+ n depth) b)) cs)]
-         [_ e])]
-      [(blame/ l1 l2) e]
-      [(app f xs l) (app (shift-at depth f) (map (curry shift-at depth) xs) l)]
-      [(rec b) (rec (shift-at (+ 1 depth) b))]
-      [(if/ e1 e2 e3)
-       (if/ (shift-at depth e1) (shift-at depth e2) (shift-at depth e3))]
-      [(mon h f g c e) (mon h f g (shift-con-at depth c) (shift-at depth e))]
-      [(mod-ref f l) e]))
-  
-  ;; shift-con-at : Natural Contract -> Contract
-  (define (shift-con-at depth c)
-    (match c
-      [(flat-c e) (flat-c (shift-at depth e))]
-      [(func-c cs1 c2)
-       (func-c (map (curry shift-con-at depth) cs1)
-               (shift-con-at (+ (length cs1) depth) c2))]
-      [(cons-c c1 c2) (cons-c (shift-con-at depth c1) (shift-con-at depth c2))]
-      [(or-c c1 c2) (or-c (shift-con-at depth c1) (shift-con-at depth c2))]
-      [(and-c c1 c2) (and-c (shift-con-at depth c1) (shift-con-at depth c2))]
-      [(rec-c c1) (rec-c (shift-con-at (+ 1 depth) c1))]
-      [(ref-c x) (if (>= x depth) (ref-c (+ x d)) c)]))
-  
-  (shift-at 0 e))
+(define (shift ∆ e)
+  (shift-at ∆ 0 e))
+
+;; shift-at : Natural Exp -> Exp
+(define (shift-at ∆ depth e)
+  (match e
+    [(ref x) (if (>= x depth) (ref (+ x ∆)) e)]
+    [(val u cs)
+     (match u
+       [(lam n b) (val (lam n (shift-at ∆ (+ n depth) b)) cs)]
+       [_ e])]
+    [(blame/ l1 l2) e]
+    [(app f xs l) (app (shift-at ∆ depth f) (map (curry shift-at depth) xs) l)]
+    [(rec b) (rec (shift-at ∆ (+ 1 depth) b))]
+    [(if/ e1 e2 e3)
+     (if/ (shift-at ∆ depth e1) (shift-at ∆ depth e2) (shift-at ∆ depth e3))]
+    [(mon h f g c e) (mon h f g (shift-con-at ∆ depth c) (shift-at ∆ depth e))]
+    [(mod-ref f l) e]))
+
+;; shift-con : Natural Contract -> Contract
+(define (shift-con ∆ c)
+  (shift-con-at ∆ 0 c))
+
+;; shift-con-at : Natural Natural Contract -> Contract
+(define (shift-con-at ∆ depth c)
+  (match c
+    [(flat-c e) (flat-c (shift-at ∆ depth e))]
+    [(func-c cs1 c2)
+     (func-c (map (curry shift-con-at ∆ depth) cs1)
+             (shift-con-at ∆ (+ (length cs1) depth) c2))]
+    [(cons-c c1 c2) (cons-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
+    [(or-c c1 c2) (or-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
+    [(and-c c1 c2) (and-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
+    [(rec-c c1) (rec-c (shift-con-at ∆ (+ 1 depth) c1))]
+    [(ref-c x) (if (>= x depth) (ref-c (+ x ∆)) c)]))
 
 ;; mod-by-name : Label [Listof Module] -> Module
 (define (mod-by-name l ms)

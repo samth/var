@@ -4,13 +4,6 @@
 (require "scpcf-lang.rkt")
 (require "scpcf-eval.rkt")
 
-;; contracts
-(define c/any `(flat (λ (x) #t)))
-(define c/bool `(flat bool?))
-(define c/list `(μ (list?) (or/c (flat nil?) (cons/c ,c/any list?))))
-(define c/num-list `(μ (num-list?) (or/c (flat nil?) (cons/c (flat num?) num-list?))))
-(define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
-
 ;; db1 example from section 2
 (define modl-db
   `(module db (((flat even?) ↦ (flat even?)) ↦ ((flat even?) ↦ (flat even?)))
@@ -172,7 +165,7 @@
 (check-equal? (eval-cek (prog-filter modl-filter-tc '• '(range 1 2)))
               {set '(blame † filter) '(blame † ∆) '(blame † car) '(blame † cdr)
                    '(cons 1 (cons 2 nil)) '(cons 1 nil) '(cons 2 nil) 'nil})
-#;(check-equal? (eval-cek (prog-filter modl-filter-tc 'cons? '•)) {set '•})
+(check-equal? (eval-cek (prog-filter modl-filter-tc 'cons? '•)) {set '•})
 
 ;; 'quick'sort
 (define prog-qsort
