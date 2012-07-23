@@ -78,14 +78,28 @@
         (λ (f a xs)
           (if (nil? xs) a
               (foldl f (f a (car xs)) (cdr xs)))))))
+(define modl-reverse
+  `(module reverse (,c/list ↦ ,c/list)
+     (λ (xs)
+       (foldl (λ (acc x) (cons x acc)) nil xs))))
 (define modl-map
   `(module map ((,c/any ↦ ,c/any) ,c/list ↦ ,c/list)
      (λ (f xs)
        (foldr (λ (x ys) (cons (f x) ys)) nil xs))))
 (define modl-filter
-  `(module filter ((,c/any ↦ (flat bool?)) ,c/list ↦ ,c/list)
+  `(module filter ((,c/any ↦ ,c/any) ,c/list ↦ ,c/list)
      (λ (p xs)
        (foldr (λ (x ys) (if (p x) (cons x ys) ys)) nil xs))))
+(define modl-filter-tc
+  `(module filter ((,c/any ↦ ,c/any) ,c/list ↦ ,c/list)
+     (λ (p xs)
+       (let ([loop (μ (go)
+                    (λ (xs acc)
+                      (if (nil? xs)
+                          (reverse acc)
+                          (let ([x (car xs)])
+                            (go (cdr xs) (if (p x) (cons x acc) acc))))))])
+         (loop xs nil)))))
 (define modl-append
   `(module append (,c/list ,c/list ↦ ,c/list)
      (λ (xs ys)
@@ -97,10 +111,6 @@
           (if (≤ lo hi)
               (cons lo (range (+ 1 lo) hi))
               nil)))))
-(define modl-sum
-  `(module sum (,c/num-list ↦ (flat num?))
-     (λ (xs)
-       (foldl + 0 xs))))
 (define modl-sorted?
   `(module sorted? (,c/num-list ↦ (flat bool?))
      (μ (sorted?)
@@ -143,7 +153,26 @@
 (check-equal? (eval-cek (prog-length modl-length-acc '(cons 1 (cons 2 nil)))) {set 2})
 #;(check-equal? (eval-cek (prog-length modl-length-acc '•)) {set '(blame '† 'len) '•}) ; won't terminate
 
-
+;; 'filter'
+(define (prog-filter filter-mod p xs)
+  `(,modl-foldr
+    ,modl-foldl
+    ,filter-mod
+    ,modl-range
+    ,modl-reverse
+    (filter ,p ,xs)))
+(check-equal? (eval-cek (prog-filter modl-filter 'even? '(range 1 4)))
+              {set '(cons 2 (cons 4 nil))})
+(check-equal? (eval-cek (prog-filter modl-filter '• '(range 1 2))) ; every possible subsequence
+              {set '(blame † filter) '(blame † ∆) '(blame † car) '(blame † cdr)
+                   '(cons 1 (cons 2 nil)) '(cons 1 nil) '(cons 2 nil) 'nil})
+#;(check-equal? (eval-cek (prog-filter modl-filter  'cons? '•)) {set '•}) ; won't terminate
+(check-equal? (eval-cek (prog-filter modl-filter-tc 'even? '(range 1 4)))
+              {set '(cons 2 (cons 4 nil))})
+(check-equal? (eval-cek (prog-filter modl-filter-tc '• '(range 1 2)))
+              {set '(blame † filter) '(blame † ∆) '(blame † car) '(blame † cdr)
+                   '(cons 1 (cons 2 nil)) '(cons 1 nil) '(cons 2 nil) 'nil})
+#;(check-equal? (eval-cek (prog-filter modl-filter-tc 'cons? '•)) {set '•})
 
 ;; 'quick'sort
 (define prog-qsort
