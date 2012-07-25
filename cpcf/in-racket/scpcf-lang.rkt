@@ -66,7 +66,7 @@
   [op? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)])
  
- c/any c/bool c/list c/num-list c/even-list
+ c/any c/bool c/list c/num-list c/even-list c/bool-list
  
  ;; s-map : [x -> y] [Setof x] -> [Setof y]
  s-map
@@ -171,6 +171,7 @@
 (define c/list `(μ (list?) (or/c (flat nil?) (cons/c ,c/any list?))))
 (define c/num-list `(μ (num-list?) (or/c (flat nil?) (cons/c (flat num?) num-list?))))
 (define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
+(define c/bool-list `(μ (bools?) (or/c (flat nil?) (cons/c (flat bool?) bools?))))
 
 ;; mk-contract-cl : Label -> ContractClosure
 (define (mk-contract-cl name)

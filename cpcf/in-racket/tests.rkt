@@ -87,11 +87,11 @@
   `(module filter ((,c/any ↦ ,c/any) ,c/list ↦ ,c/list)
      (λ (p xs)
        (let ([loop (μ (go)
-                    (λ (xs acc)
-                      (if (nil? xs)
-                          (reverse acc)
-                          (let ([x (car xs)])
-                            (go (cdr xs) (if (p x) (cons x acc) acc))))))])
+                      (λ (xs acc)
+                        (if (nil? xs)
+                            (reverse acc)
+                            (let ([x (car xs)])
+                              (go (cdr xs) (if (p x) (cons x acc) acc))))))])
          (loop xs nil)))))
 (define modl-append
   `(module append (,c/list ,c/list ↦ ,c/list)
@@ -245,6 +245,12 @@
                            b))
 (check-equal? (eval-cek prog-flatten-ok1)
               {set '(cons 1 (cons 2 (cons 3 nil)))})
+(define prog-flatten-•
+  `(,modl-foldr
+    ,modl-flatten
+    ,modl-append
+    (flatten •)))
+#;(check-equal? (eval-cek prog-flatten-•) {set '•}) ; won't terminate
 (define prog-flatten-ok2 `(,modl-foldr
                            ,modl-flatten
                            ,modl-append
@@ -286,6 +292,7 @@
 (check-equal? (eval-cek (prog-taut #t)) {set #t})
 (check-equal? (eval-cek (prog-taut 'not)) {set #f})
 (check-equal? (eval-cek (prog-taut '(λ (x) (λ (y) (and x y))))) {set #f})
+#;(check-equal? (eval-cek (prog-taut '•)) {set '(blame † taut) #t #f}) ; FIXME
 
 ;; 'member' from Wright paper Appendix
 (define (prog-member x l)
@@ -302,6 +309,7 @@
               ; every possible tail
               {set '(cons 2 (cons 3 (cons 5 nil)))
                    '(cons 3 (cons 5 nil)) '(cons 5 nil) 'nil})
+(check-equal? (eval-cek (prog-member '• '•)) {set '(blame † member) 'nil '•})
 
 ;; 'lastpair' from Wright paper Appendix
 (define (prog-lastpair s)
@@ -314,7 +322,7 @@
     (lastpair ,s)))
 (check-equal? (eval-cek (prog-lastpair '(cons 1 (cons 2 nil)))) {set '(cons 2 nil)})
 (check-equal? (eval-cek (prog-lastpair 'nil)) {set '(blame † lastpair)})
-(check-equal? (eval-cek (prog-lastpair '•)) {set '• '(blame † lastpair)}) ; TODO crash
+(check-equal? (eval-cek (prog-lastpair '•)) {set '• '(blame † lastpair)})
 
 ;; subst* from Wright paper Appendix
 (define (prog-subst* new old t)
@@ -328,23 +336,29 @@
     (subst* ,new ,old ,t)))
 (check-equal? (eval-cek (prog-subst* '42 '(cons 2 nil) '(cons 1 (cons (cons 2 nil) (cons 2 nil)))))
               {set '(cons 1 (cons 42 42))})
+(check-equal? (eval-cek (prog-subst* '• '• '(cons 1 (cons 2 nil))))
+              ; all possible substitutions, b/c (equal? old t) is not remembered
+              {set '(cons • (cons 2 nil)) '(cons 1 •) '(cons 1 (cons 2 •))
+                   '• '(cons 1 (cons • •)) '(cons • (cons 2 •))
+                   '(cons • (cons • •)) '(cons 1 (cons 2 nil))})
 
 ;; 'Y' + 'last' from Wright paper Appendix
-(define prog-last
+(define (prog-last xs)
   `((module Y ,c/any #|TODO|#
       (λ (f)
         (λ (y)
           (((λ (x) (f (λ (z) ((x x) z))))
             (λ (x) (f (λ (z) ((x x) z)))))
            y))))
-    (module last (,c/list ↦ ,c/any)
+    (module last ((cons/c ,c/any ,c/list) ↦ ,c/any)
       (Y (λ (f)
            (λ (x)
              (if (nil? (cdr x))
                  (car x)
                  (f (cdr x)))))))
-    (last (cons 1 (cons 2 nil)))))
-(check-equal? (eval-cek prog-last) {set 2})
+    (last ,xs)))
+(check-equal? (eval-cek (prog-last '(cons 1 (cons 2 nil)))) {set 2})
+(check-equal? (eval-cek (prog-last '•)) {set '(blame † last) '•})
 
 ;; benchmarks
 (define tak ; translated from http://www.larcenists.org/R6src/tak.sch
@@ -468,15 +482,20 @@
 
 ;; sat-brute translated from
 ;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/kcfa/sat-brute.scm
-(define prog-sat
-  `((module phi (,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool)
+(define modl-phi
+  `(module phi (,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool)
       (λ (x1 x2 x3 x4 x5 x6 x7)
         (and (or x1 x2)
              (or x1 (not x2) (not x3))
              (or x3 x4)
              (or (not x4) x1)
              (or (not x2) (not x3))
-             (or x4 x2))))
+             (or x4 x2)))))
+(define modl-phi-•
+  `(module phi (,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool) •))
+  
+(define (prog-sat phi-mod)
+  `(,phi-mod
     
     (module try ((,c/bool ↦ ,c/bool) ↦ ,c/bool)
       (λ (f)
@@ -497,7 +516,11 @@
     
     
     (sat-solve-7 phi)))
-(time (check-equal? (eval-cek prog-sat) {set #t}) 'sat-7)
+(time (check-equal? (eval-cek (prog-sat modl-phi)) {set #t}) 'sat-7)
+(time (check-equal? (eval-cek (prog-sat modl-phi-•))
+                    ; FIXME
+                    {set #t #f '(blame phi ∆) '(blame phi car) '(blame phi cdr)})
+      'sat-7-•)
 
 ;; 'worst case', translated from
 ;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/kcfa-worst-case.scm
