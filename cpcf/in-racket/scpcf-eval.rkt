@@ -260,31 +260,25 @@
   
   ;; run : CEK -> [Setof CEK]
   (define (run conf)
-    (define known (make-hash))
-    (define final (make-hash))
-    
-    ;; go : -> [Setof CEK]
+    ;; go : [Setof CEK] [Setof CEK] [Setof CEK] -> [Setof CEK]
     ;; INVARIANT:
     ;; -- known: states whose next states are explored
     ;; -- unknown: non-final states whose next states are unexplored
     ;; -- final: final states (~ answers)
-    (define (go unknown)
+    (define (go known unknown final)
       (cond
-        [(set-empty? unknown) (list->set (hash-keys final))]
+        [(set-empty? unknown) final]
         [else
-         (define next (non-det step unknown))
-         (for/set ([x unknown])
-                  (hash-set! known x '()))
-         (define unknown1 (set-subtract
-                           (for/set ([x next])
-                                    (if (final? x)
-                                        (hash-set! final x '())
-                                        (if (hash-has-key? known x)
-                                            (void 'ignore)
-                                            x)))
-                           {set (void '())}))
-         (go unknown1)]))
-    (go {set conf}))
+         (define known1 (set-union known unknown))
+         (define-values (final1 unknown1)
+           (for/fold ([final1 final] [unknown1 ∅]) ([next (non-det step unknown)])
+             (cond
+               [(final? next) (values (set-add final1 next) unknown1)]
+               [(set-member? known1 next) (values final1 unknown1)]
+               [else (values final1 (set-add unknown1 next))])))
+         
+         (go known1 unknown1 final1)]))
+    (go ∅ {set conf} ∅))
   
   ;; get-answer : Closure -> EvalAnswer
   (define (get-answer clo)
@@ -307,15 +301,6 @@
   (match clo
     [(exp-cl (val u cs) ρ) (if (set-member? cs conclo) 'Proved 'Neither)]
     [else 'Neither #|TODO|#]))
-
-;;;; set helper functions
-
-;; set-partition : (x -> Boolean) [Setof x] -> (Setof x) (Setof x)
-(define (set-partition p? xs)
-  (for/fold ([p-true ∅] [p-false ∅]) ([x (in-set xs)])
-    (if (p? x)
-        (values (set-add p-true x) p-false)
-        (values p-true (set-add p-false x)))))
 
 ;; maybe-FC : [Listof Natural] Contract -> [List Exp] or Empty
 ;; converts flat contract to predicate;
