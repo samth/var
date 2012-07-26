@@ -789,6 +789,77 @@
      {set (= n (length cs1))}]
     [_ {set #f}]))
 
+
+
+;; mechanism for proving primitive predicates
+
+(define rules
+  ;; (...p?... ⇒ ...q?...) means ((or ... (p? x) ...) implies (and ... (q? x) ...))
+  ;; each predicate only appears on the left hand side of one rule
+  ;; assume partial order, so there should be no cycle
+  `([prime? ⇒ nat?]
+    [zero? ⇒ even? nat?]
+    [even? odd? ⇒ int?]
+    [nat? ⇒ int? non-neg?]
+    [neg? ⇒ non-pos?]
+    [pos? ⇒ non-neg?]
+    [int? non-pos? non-neg? ⇒ real?]
+    [real? ⇒ num?]
+    [num? string? proc? cons? nil? ⇒ true?]
+    [false? ⇒ bool?]
+    [bool? true? ⇒ any]))
+
+;; rhs : Pred -> [Listof Pred]
+;; returns predicates that can be directly implied from given one
+(define (rhs name)
+  (let loop ([rs rules])
+    (match rs
+      ['() (error "no rule for " name)]
+      [(cons `(,p ... ⇒ ,q ...) rs1)
+       (if (member name p) q (loop rs1))])))
+
+;; lhs : Pred -> [SetOf Pred]
+;; returns predicates that can directly imply given one
+(define (lhs name)
+  (foldl (λ (rule lhs)
+           (match-let ([`(,p ... ⇒ ,q ...) rule])
+             (if (member name q) (append p lhs) lhs)))
+         empty rules))
+
+;; imply : Pred -> [SetOf Pred]
+;; returns predicates that given one can imply
+(define imply
+  (letrec ([cache (make-hash)]
+           [memoized
+            (λ (op)
+              (match (hash-ref cache op '☹)
+                ['☹ (let ([result (trace op)])
+                      (hash-set! cache op result)
+                      result)]
+                [result result]))]
+           [trace
+            (λ (op)
+              (match op
+                ['any ∅]
+                [_ (set-add (apply set-union (map memoized (rhs op))) op)]))])
+    memoized))
+
+;; that-can-imply : Pred -> [Setof Pred]
+;; returns predicates that can imply given one
+(define that-can-imply
+  (letrec ([cache (make-hash)]
+           [memoized
+            (λ (op)
+              (match (hash-ref cache op '☹)
+                ['☹ (let ([result (trace op)])
+                      (hash-set! cache op result)
+                      result)]
+                [result result]))]
+           [trace
+            (λ (op)
+              (set-add (apply set-union (map memoized (lhs op))) op))])
+    memoized))
+
 ;;;; set helper functions
 
 ;; s-map : [x -> y] [Setof x] -> [Setof y]
