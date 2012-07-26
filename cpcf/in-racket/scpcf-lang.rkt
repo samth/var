@@ -860,6 +860,46 @@
               (set-add (apply set-union (map memoized (lhs op))) op))])
     memoized))
 
+;; TODO: how to factor out memoization? macros?
+
+;; exlucde : Pred -> [Setof Pred]
+;; ad-hoc rules for disproving primitive predicates
+(define exclude
+  (letrec ([rules
+            ;; groups of predicates that 'obviously' exclude each other
+            ;; hopefully there'll be no cycle
+            `([true? false?]
+              [num? bool? proc? string? nil? cons?]
+              [odd? even?]
+              [nat? neg?]
+              [zero? pos? neg?]
+              [non-neg? neg?]
+              [non-pos? pos?])]
+           [others ; i run out of names
+            ;; returns all predicates that 'obviously' excludes this one
+            (λ (op)
+              (foldl (λ (group acc)
+                       (let-values ([(me them) (partition (curry equal? op) group)])
+                         (if (empty? me) acc
+                             (append them acc))))
+                     empty rules))]
+           [cache (make-hash)]
+           [memoized
+            (λ (op)
+              (match (hash-ref cache op '☹)
+                ['☹ (let ([result (trace op)])
+                      (hash-set! cache op result)
+                      result)]
+                [result result]))]
+           [trace
+            (λ (op)
+              (set-union
+               (list->set (others op))
+               (let ([implied (set-subtract (imply op) {set op})])
+                 (if (set-empty? implied) ∅
+                     (apply set-union (set-map implied memoized))))))])
+    memoized))
+
 ;;;; set helper functions
 
 ;; s-map : [x -> y] [Setof x] -> [Setof y]
