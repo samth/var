@@ -162,8 +162,11 @@
 
 ;; commonly re-used values
 (define TRUE (val #t ∅))
+(define CL-TRUE (exp-cl TRUE ρ0))
 (define FALSE (val #f ∅))
+(define CL-FALSE (exp-cl FALSE ρ0))
 (define BULLET (val '• ∅))
+(define CL-BULLET (exp-cl BULLET ρ0))
 
 ;; contracts
 (define c/any `(flat (λ (x) #t)))
@@ -173,332 +176,28 @@
 (define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
 (define c/bool-list `(μ (bools?) (or/c (flat nil?) (cons/c (flat bool?) bools?))))
 
-;; mk-contract-cl : Label -> ContractClosure
+;; mk-contract-cl : Pred -> ContractClosure
+;; makes contract out of primitive predicate
 (define (mk-contract-cl name)
   (contract-cl (flat-c (val name ∅)) ρ0))
 
-;; complement : [OneOf '(num? bool? string? proc? nil? cons?)] -> [Setof ContractClosure]
-;; returns set of contracts for complement datatypes
-(define complement
-  (let ([;; contracts for mutually exclusive partitions of datatypes
-         type-partitions (set (mk-contract-cl 'num?)
-                              (mk-contract-cl 'bool?)
-                              (mk-contract-cl 'string?)
-                              (mk-contract-cl 'proc?)
-                              (mk-contract-cl 'nil?)
-                              (mk-contract-cl 'cons?))])
-    (λ (type-pred-name)
-      (set-subtract type-partitions (set (mk-contract-cl type-pred-name))))))
+;; OpImpl := (op-impl (Nat -> Bool) (Lab [Listof ValClosure] -> [Setof ValClosure])
+(struct op-impl (arity-check proc))
 
-;; OpImpl = Label [Listof ValClosure] -> [Setof ANswer]
-;; OpRecord = (List (Natural -> Boolean) OpImpl)
-;; ops : Symbol ↦ OpImpl ; TODO map to OpRecord
-;; primitive ops' implementations
-(define ops
-  (local
-    (;; closures for commonly used values
-     [define T {set (exp-cl TRUE ρ0)}]
-     [define F {set (exp-cl FALSE ρ0)}]
-     [define TF (set-union T F)]
-     
-     ;; type-pred : Label Exp (Any -> Boolean) -> OpRecord
-     [define (type-pred op-name contract prim-test?)
-       (λ (l xs)
-         (match xs
-           [`(,(exp-cl (val u cs) ρ))
-            (match u
-              ['• (cond
-                    [(set-member? cs contract) T]
-                    [(set-empty? (set-intersect cs (complement op-name))) TF]
-                    [else F])]
-              [c (if (prim-test? u) T F)])]
-           [`(,clo) F]
-           [_ {set (exp-cl (blame/ l op-name) ρ0)}]))] ; arity mismatch
-     
-     ;; type predicates defined separately for use in several places
-     [define t-any? (λ (l xs) T)]
-     [define t-num? (type-pred 'num? (mk-contract-cl 'num?) number?)]
-     [define t-real? (type-pred 'real? (mk-contract-cl 'real?) real?)]
-     [define t-int? (type-pred 'int? (mk-contract-cl 'int?) integer?)]
-     [define t-bool? (type-pred 'bool? (mk-contract-cl 'bool?) boolean?)]
-     [define t-string? (type-pred 'string? (mk-contract-cl 'string?) string?)]
-     [define t-false?
-       (λ (l xs)
-         (match xs
-           [`(,cl)
-            (match cl
-              [(exp-cl (val u cs) ρ)
-               (match u
-                 [#f T]
-                 ['• (cond
-                       [(set-member? cs (mk-contract-cl 'false?)) T]
-                       [(set-member? cs (mk-contract-cl 'true?)) F]
-                       [(set-empty? (set-intersect cs (set-union (complement 'bool?)))) TF]
-                       [else F])]
-                 [_ F])]
-              [_ F])]
-           [_ {set (exp-cl (blame/ l 'false?) ρ0)}]))] ; arity mismatch
-     [define t-true?
-       (λ (l xs)
-         (s-map (λ (r) (match (val-pre (exp-cl-exp r))
-                         [#t (close FALSE ρ0)]
-                         [#f (close TRUE ρ0)]))
-                (t-false? l xs)))]
-     [define t-proc?
-       (λ (l xs)
-         (match xs
-           [`(,(exp-cl (val '• cs) ρ))
-            (cond
-              [(set-member? cs (mk-contract-cl 'proc?)) T]
-              [(set-empty? (set-intersect cs (complement 'proc?))) TF]
-              [else F])]
-           [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (op? u)) T F)]
-           [`(,(mon-fn-cl h f g c e)) T]
-           [`(,cl) F]
-           [_ {set (exp-cl (blame/ l 'proc?) ρ0)}]))] ; arity mismatch
-     
-     
-     ;; contract sets defined separately for use in several places
-     [define t-num/c {set (mk-contract-cl 'num?)}]
-     [define t-real/c (set-add t-num/c (mk-contract-cl 'real?))]
-     [define t-int/c (set-add t-real/c (mk-contract-cl 'int?))]
-     [define t-bool/c {set (mk-contract-cl 'bool?)}]
-     [define t-string/c {set (mk-contract-cl 'string?)}]
-     
-     ;; concrete? : ValClosure -> Bool
-     ;; checks whether a closure represents a concrete value
-     (define (concrete? cl)
-       (match cl
-         [(exp-cl (val u cs) ρ) (not (equal? u '•))]
-         [_ #f]))
-     
-     ;; mk-op : Label [Listof TypePred] [PreVal -> PreVal] [Setof ContractClosure]
-     ;;      -> OpImpl
-     ;; makes fixed-arity operator on non-pair values
-     [define (mk-op name dom-tests prim-op refinements)
-       (λ (l xs)
-         (let ([dom-oks (map (λ (test x) (test l (list x))) dom-tests xs)])
-           (set-union
-            (if (ormap (curry subset? F) dom-oks) ; any argument violates
-                {set (exp-cl (blame/ l name) ρ0)}
-                ∅)
-            (if (andmap (curry subset? T) dom-oks) ; exists combination of ok args
-                (if (andmap concrete? xs)
-                    {set (exp-cl
-                          (val
-                           (apply prim-op (map (compose val-pre exp-cl-exp) xs))
-                           ∅)
-                          ρ0)}
-                    {set (exp-cl (val '• refinements) ρ0)})
-                ∅))))]
-     
-     ;; cl=? : ValClosure ValClosure -> [Setof Boolean]
-     ; TODO rewrite
-     [define (cl=? cl1 cl2)
-       (match `(,cl1 ,cl2)
-         [`(,(cons-cl c1 c2) ,(cons-cl c3 c4))
-          (non-det (match-lambda
-                     [#t (cl=? c2 c4)]
-                     [#f {set #f}])
-                   (cl=? c1 c3))]
-         [`(,(mon-fn-cl h f g c1 cl1) ,(mon-fn-cl h f g c2 cl2))
-          (set-union {set #f} {set (cl=? cl1 cl2)})]
-         [`(,(exp-cl (val u1 cs1) ρ1) ,(exp-cl (val u2 cs2) ρ2))
-          (if (or (equal? '• u1) (equal? '• u2))
-              {set #t #f}
-              {set (equal? u1 u2)})]
-         [_ {set #f}])])
-    
-    (hash
-     ;; type predicates
-     'num? t-num?
-     'real? t-real?
-     'int? t-int?
-     'bool? t-bool?
-     'string? t-string?
-     'true? t-true?
-     'false? t-false?
-     'nil? (λ (l xs)
-             (match xs
-               [`(,(exp-cl (val u cs) ρ))
-                (match u
-                  ['nil T]
-                  ['• (cond
-                        [(set-member? cs (mk-contract-cl 'nil?)) T]
-                        [(set-empty? (set-intersect cs (complement 'nil?))) TF]
-                        [else F])]
-                  [_ F])]
-               [`(,clo) F]
-               [_ {set (exp-cl (blame/ l 'nil?) ρ0)}])) ; arity mismatch
-     'cons? (λ (l xs)
-              (match xs
-                [`(,clo) (s-map (match-lambda
-                                  [`(,c1 ,c2) (close TRUE ρ0)]
-                                  [_ (close FALSE ρ0)])
-                                (split-cons clo))]
-                [_ {set (exp-cl (blame/ l 'cons?) ρ0)}])) ; arity mismatch
-     'proc? t-proc?
-     
-     'equal? (λ (l xs)
-               (match xs
-                 [`(,cl1 ,cl2)
-                  (s-map (match-lambda
-                           [#t (close TRUE ρ0)]
-                           [#f (close FALSE ρ0)])
-                         (cl=? cl1 cl2))]
-                 [_ {set (exp-cl (blame/ l 'equal?) ρ0)}])) ; arity mismatch
-     
-     'zero? (mk-op 'zero? `(,t-num?) zero? t-bool/c)
-     'non-neg? (mk-op 'non-neg? `(,t-real?) (curry <= 0) t-bool/c)
-     'even? (mk-op 'even? `(,t-int?) even? t-bool/c)
-     'odd? (mk-op 'odd? `(,t-int?) odd? t-bool/c)
-     'prime? (mk-op 'prime? `(,t-int?)
-                    (λ (n) (if (member n '(2 3 5 7 11 13)) #t #f))
-                    t-bool/c)
-     'not (mk-op 'not `(,t-any?) (λ (v) (if (false? v) #t #f)) t-bool/c)
-     'sqrt (mk-op 'sqrt `(,t-num?) sqrt t-num/c)
-     
-     ;; TODO: extend ops to var-arg, maybe with fold on bin-ops? potentially slow...
-     '+ (mk-op '+ `(,t-num? ,t-num?) + t-num/c)
-     '- (mk-op '- `(,t-num? ,t-num?) - t-num/c)
-     '* (mk-op '* `(,t-num? ,t-num?) * t-num/c)
-     '/ (mk-op '/ `(,t-num? ,t-num?) / t-num/c) ;; TODO: handles div by 0!!
-     'mod (mk-op 'mod `(,t-int? ,t-int?) modulo t-int/c) ;; TODO: handles div by 0!!
-     'quot (mk-op 'quotient `(,t-int? ,t-int?) quotient t-int/c) ;; TODO: handles div by 0!!
-     'gcd (mk-op 'gcd `(,t-int? ,t-int?) gcd t-int/c)
-     '= (mk-op '= `(,t-num? ,t-num?) = t-bool/c)
-     '≠ (mk-op '≠ `(,t-num? ,t-num?) (compose not =) t-bool/c)
-     '< (mk-op '< `(,t-real? ,t-real?) < t-bool/c)
-     '≤ (mk-op '≤ `(,t-real? ,t-real?) <= t-bool/c)
-     '> (mk-op '> `(,t-real? ,t-real?) > t-bool/c)
-     '≥ (mk-op '≥ `(,t-real? ,t-real?) >= t-bool/c)
-     '++ (mk-op '++ `(,t-string? ,t-string?) string-append t-string/c)
-     'str=? (mk-op 'str=? `(,t-string? ,t-string?) string=? t-bool/c)
-     'str≠? (mk-op 'str≠? `(,t-string? ,t-string?) (compose not string=?) t-bool/c)
-     'str<? (mk-op 'str<? `(,t-string? ,t-string?) string<? t-bool/c)
-     'str≤? (mk-op 'str≤? `(,t-string? ,t-string?) string<=? t-bool/c)
-     'str>? (mk-op 'str>? `(,t-string? ,t-string?) string>? t-bool/c)
-     'str≥? (mk-op 'str≥? `(,t-string? ,t-string?) string>=? t-bool/c)
-     'str-len (mk-op 'str-len `(,t-string?) string-length t-int/c)
-     'substring (mk-op 'substring `(,t-string? ,t-int? ,t-int?)
-                       (match-lambda
-                         [`(,s ,i_0 ,i_n) ; TODO: restructure mk-op, maybe
-                          (if (<= i_0 i_n)
-                              (substring s
-                                         (max 0 i_0)
-                                         (min (string-length s) i_n))
-                              "")])
-                       t-string/c)
-     'cons (λ (l xs)
-             {set (match xs
-                    ; promote (cons/c (•/{...c...}) nil) to (• {...(listof c)...})
-                    [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val 'nil cs2) ρ2))
-                     (close
-                      (val '•
-                           (set-add
-                            (s-map (λ (cl)
-                                     (match-let ([(contract-cl c ρc) cl])
-                                       (close-contract
-                                        (cons-c c
-                                                (rec-c (or-c (flat-c (val 'nil ∅))
-                                                             (cons-c (shift-con 1 c)
-                                                                     (ref-c 0)))))
-                                        ρc)))
-                                   cs1)
-                            (let ([C/ANY (read-con c/any)])
-                              (close-contract
-                               (cons-c C/ANY
-                                       (rec-c (or-c (flat-c (val 'nil ∅))
-                                                    (cons-c C/ANY (ref-c 0)))))
-                               ρ0)))) ρ0)]
-                    ; promote (cons/c (•/{...c...}) (•/{...(cons c (listof c))...}) to
-                    ; (•/{...(cons/c c (listof c)...}
-                    [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
-                     (let* ([cdr-is-list? #f]
-                            [C/ANY (read-con c/any)]
-                            [list-contracts
-                             (set-subtract
-                              (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
-                                       (match c
-                                         [(contract-cl (cons-c c1
-                                                               (rec-c (or-c (flat-c (val 'nil ∅))
-                                                                            (cons-c c2 (ref-c 0)))))
-                                                       ρc)
-                                          (if (equal? c2 (shift-con 1 c1))
-                                              (begin
-                                                (set! cdr-is-list? #t)
-                                                (if (set-member? cs1 c1)
-                                                    c
-                                                    'ignore))
-                                              'ignore)]
-                                         [_ 'ignore]))
-                              (set 'ignore))])
-                       (if cdr-is-list?
-                           (close (val '• (set-add list-contracts
-                                                   (close-contract
-                                                    (cons-c C/ANY
-                                                            (rec-c (or-c (flat-c (val 'nil ∅))
-                                                                         (cons-c C/ANY (ref-c 0)))))
-                                                    ρ0)))
-                                  ρ0)
-                           (cons-cl (first xs) (second xs))))]
-                    [`(,c1 ,c2) (cons-cl c1 c2)]
-                    [_ (exp-cl (blame/ l 'cons) ρ0)])}) ; arity mismatch
-     
-     ;; TODO: refactor car and cdr using split-cons
-     'car (λ (l xs)
-            (match xs
-              [`(,clo) (s-map (match-lambda
-                                [`(,c1 ,c2) c1]
-                                ['() (close (blame/ l 'car) ρ0)])
-                              (split-cons clo))]
-              [_ {set (exp-cl (blame/ l 'car) ρ0)}])) ; arity mismatch
-     'cdr (λ (l xs)
-            (match xs
-              [`(,clo) (s-map (match-lambda
-                                [`(,c1 ,c2) c2]
-                                ['() (close (blame/ l 'cdr) ρ0)])
-                              (split-cons clo))]
-              [_ {set (exp-cl (blame/ l 'cdr) ρ0)}]))))) ; arity mismatch
+;; contracts-imply? : [Setof Contract] Pred -> [Setof (Refuted|Proved)]
+(define (contracts-imply? cs p)
+  (let ([excludes (exclude p)]
+        [proves (what-imply p)])
+    (for/set ([c cs])
+             (match c
+               [(contract-cl (flat-c (val p cs1)) ρc)
+                (cond
+                  [(set-member? excludes p) 'Refuted]
+                  [(set-member? proves p) 'Proved]
+                  [else 'Neither])]
+               [_ 'Neither]))))
 
-;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
-(define (split-cons cl)
-  
-  ;; accum-cons-c : [Setof ContractClosure] 
-  ;;             -> (List [Setof ContractClosure] [Setof ContractClosure]) or ()
-  ;; accumulates contracts for pair's car and cdr
-  ;; returns () if contracts cannot prove it's a pair
-  (define (accum-cons-c cs)
-    (for/fold ([acc '()]) ([c (in-set cs)])
-      (match-let ([(contract-cl c ρc) c])
-        (match c
-          [(cons-c c1 c2)
-           (match acc
-             [`(,cs1 ,cs2) `(,(set-add cs1 (close-contract c1 ρc)) ,(set-add cs2 (close-contract c2 ρc)))]
-             [`() `(,(set (close-contract c1 ρc)) ,(set (close-contract c2 ρc)))])]
-          [(flat-c (val 'cons? _))
-           (match acc
-             [`(,cs1 ,cs2) acc]
-             ['() `(,∅ ,∅)])]
-          [_ acc]))))
-  
-  (match cl
-    ; TODO: case like (cons • •) / {(cons/c (flat even?) (flat odd?))}
-    ; maybe turn it to (• / {(flat even?)}) and (• / {(flat odd?)})
-    ; instead of currently just • and •
-    ; ah, ConsClosure currently does not have a 'dedicated' set of refinements
-    ; neither does MonitoredFuncClosure. Do they ever need that?
-    [(cons-cl c1 c2) {set `(,c1 ,c2)}]
-    [(exp-cl (val '• cs) ρ)
-     (match (accum-cons-c cs)
-       ; proven abstract pair
-       [`(,cs1 ,cs2) {set `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))}]
-       ; nothing is known
-       [`()
-        (if (set-empty? (set-intersect cs (complement 'cons?)))
-            {set `(,(close BULLET ρ0) ,(close BULLET ρ0)) '()}
-            {set '()})])]
-    [_ {set '()}])) ; known not a pair
+
 
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
@@ -801,9 +500,10 @@
     [zero? ⇒ even? nat?]
     [even? odd? ⇒ int?]
     [nat? ⇒ int? non-neg?]
-    [neg? ⇒ non-pos?]
-    [pos? ⇒ non-neg?]
+    [neg? ⇒ non-pos? non-zero?]
+    [pos? ⇒ non-neg? non-zero?]
     [int? non-pos? non-neg? ⇒ real?]
+    [non-zero? ⇒ num?]
     [real? ⇒ num?]
     [num? string? proc? cons? nil? ⇒ true?]
     [false? ⇒ bool?]
@@ -826,9 +526,9 @@
              (if (member name q) (append p lhs) lhs)))
          empty rules))
 
-;; imply : Pred -> [SetOf Pred]
+;; implies-what : Pred -> [SetOf Pred]
 ;; returns predicates that given one can imply
-(define imply
+(define implies-what
   (letrec ([cache (make-hash)]
            [memoized
             (λ (op)
@@ -841,12 +541,12 @@
             (λ (op)
               (match op
                 ['any ∅]
-                [_ (set-add (apply set-union (map memoized (rhs op))) op)]))])
+                [_ (set-add (apply set-union (map implies-what (rhs op))) op)]))])
     memoized))
 
-;; that-can-imply : Pred -> [Setof Pred]
+;; what-imply : Pred -> [Setof Pred]
 ;; returns predicates that can imply given one
-(define that-can-imply
+(define what-imply
   (letrec ([cache (make-hash)]
            [memoized
             (λ (op)
@@ -857,7 +557,11 @@
                 [result result]))]
            [trace
             (λ (op)
-              (set-add (apply set-union (map memoized (lhs op))) op))])
+              (let ([lhs (lhs op)])
+                (set-add
+                 (if (empty? lhs) ∅
+                     (apply set-union (map what-imply lhs)))
+                 op)))])
     memoized))
 
 ;; TODO: how to factor out memoization? macros?
@@ -895,9 +599,11 @@
             (λ (op)
               (set-union
                (list->set (others op))
-               (let ([implied (set-subtract (imply op) {set op})])
-                 (if (set-empty? implied) ∅
-                     (apply set-union (set-map implied memoized))))))])
+               (non-det
+                what-imply ;; ((p ⇒ ¬q) ∧ (r ⇒ q)) ⇒ (p ⇒ ¬r)
+                (non-det
+                 exclude ;; ((p ⇒ q) ∧ (q ⇒ ¬r)) ⇒ (p ⇒ ¬r)
+                 (set-subtract (implies-what op) {set op})))))])
     memoized))
 
 ;;;; set helper functions
@@ -910,4 +616,5 @@
 
 ;; non-det : (x -> [Setof y]) [Setof x] -> [Setof y]
 (define (non-det f xs)
-  (apply set-union (set-map xs f)))
+  (if (set-empty? xs) ∅
+      (apply set-union (set-map xs f))))
