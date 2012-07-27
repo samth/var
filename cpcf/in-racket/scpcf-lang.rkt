@@ -185,6 +185,8 @@
 (struct op-impl (arity-check proc))
 
 ;; contracts-imply? : [Setof Contract] Pred -> [Setof (Refuted|Proved)]
+;; checks whether set of refinements is enough to prove or refute given
+;; primitive predicate
 (define (contracts-imply? cs p)
   (let ([excludes (exclude p)]
         [proves (what-imply p)])
@@ -198,20 +200,6 @@
                [_ 'Neither]))))
 
 
-
-;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
-(define (δ op xs l)
-  ((hash-ref ops op) l xs))
-
-;; arity : Op -> Natural
-;; TODO: just temporary fix, move all this info to ops table!!
-(define (arity o)
-  (cond
-    [(member o '(num? real? int? bool? string? true? false? nil? cons?
-                      proc? zero? even? odd? prime? not sqrt str-len car cdr)) 1]
-    [(member o '(+ - * = ≠ < ≤ > ≥ ++ str=? str≠? str<? str≤? str>? str≥? cons)) 2]
-    [(member o '(substring)) 3]
-    [(error "forgot " o)]))
 
 
 ;; free-vars : Exp -> [Setof Natural]
@@ -483,7 +471,9 @@
                          (for/set ([c cs] #:when (func-c? (contract-cl-con c)))
                                   (match-let ([(contract-cl (func-c cs1 c2) _) c])
                                     (not (= n (length cs1))))))]
-       [_ {set (if (op? u) (= n (arity u)) #f)}])]
+       [_ {set (if (op? u)
+                   ((op-impl-arity-check (hash-ref ops u)) n)
+                   #f)}])]
     [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) cl1)
      {set (= n (length cs1))}]
     [_ {set #f}]))
@@ -497,7 +487,7 @@
   ;; each predicate only appears on the left hand side of one rule
   ;; assume partial order, so there should be no cycle
   `([prime? ⇒ nat?]
-    [zero? ⇒ even? nat?]
+    [zero? ⇒ even? nat? non-neg? non-pos?]
     [even? odd? ⇒ int?]
     [nat? ⇒ int? non-neg?]
     [neg? ⇒ non-pos? non-zero?]
@@ -577,6 +567,8 @@
               [odd? even?]
               [nat? neg?]
               [zero? pos? neg?]
+              [zero? non-zero?]
+              [zero? prime?]
               [non-neg? neg?]
               [non-pos? pos?])]
            [others ; i run out of names
@@ -597,10 +589,10 @@
                 [result result]))]
            [trace
             (λ (op)
-              (set-union
-               (list->set (others op))
-               (non-det
-                what-imply ;; ((p ⇒ ¬q) ∧ (r ⇒ q)) ⇒ (p ⇒ ¬r)
+              (non-det
+               what-imply ;; ((p ⇒ ¬q) ∧ (r ⇒ q)) ⇒ (p ⇒ ¬r)
+               (set-union
+                (list->set (others op))
                 (non-det
                  exclude ;; ((p ⇒ q) ∧ (q ⇒ ¬r)) ⇒ (p ⇒ ¬r)
                  (set-subtract (implies-what op) {set op})))))])
