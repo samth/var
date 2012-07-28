@@ -190,22 +190,30 @@
 ;; OpImpl := (op-impl (Nat -> Bool) (Lab [Listof ValClosure] -> [Setof ValClosure])
 (struct op-impl (arity-check proc))
 
-;; contracts-imply? : [Setof ContractClosure] Pred -> Refuted|Proved|Neither
+;; contracts-imply? : [Setof ContractClosure] [TreeOf Pred] -> Refuted|Proved|Neither
 ;; checks whether set of refinements is enough to prove or refute given
-;; primitive predicate
+;; primitive predicate(s)
 (define (contracts-imply? cs p)
-  (let ([excludes (exclude p)]
-        [proves (what-imply p)])
-    (for/fold ([acc 'Neither]) ([c (in-set cs)])
-      (match acc
-        ['Refuted 'Refuted]
-        [_ (match c
-             [(contract-cl (flat-c (val q cs1)) ρc)
-              (cond
-                [(set-member? excludes q) 'Refuted]
-                [(set-member? proves q) 'Proved]
-                [else acc])]
-             [_ acc])]))))
+  (if (cons? p) ; is list? more expensive?
+      ; on list of all predicates to prove
+      (let ([rs (map (curry contracts-imply? cs) p)])
+        (cond
+          [(ormap (curry equal? 'Refuted) rs) 'Refuted]
+          [(andmap (curry equal? 'Proved) rs) 'Proved]
+          [else 'Neither]))
+      ; on single predicate
+      (let ([excludes (exclude p)]
+            [proves (what-imply p)])
+        (for/fold ([acc 'Neither]) ([c (in-set cs)])
+          (match acc
+            ['Refuted 'Refuted]
+            [_ (match c
+                 [(contract-cl (flat-c (val q cs1)) ρc)
+                  (cond
+                    [(set-member? excludes q) 'Refuted]
+                    [(set-member? proves q) 'Proved]
+                    [else acc])]
+                 [_ acc])])))))
 
 ;; ops : Symbol -> OpImpl
 (define ops
@@ -219,6 +227,7 @@
      ;; predicates on primitive data
      [define entries-prim-pred
        `([prime? ,(and/c number? (λ (x) (if (member x '(2 3 5 7)) #t #f)))]
+         [zero? ,(and/c number? zero?)]
          [nat? ,(and/c integer? (or/c positive? zero?))]
          [even? ,(and/c integer? even?)]
          [odd? ,(and/c integer? odd?)]
@@ -239,12 +248,14 @@
      (define prim-preds
        (map first entries-prim-pred))
      
-     ;; prim-check : Pred Preval -> Boolean
+     ;; prim-check : [TreeOf Pred] Preval -> Boolean
      ;; checks whether primitive value satisfy predicate with given name
-     (define (prim-check name pre-val)
-       (match-let ([(cons (list nm op) _)
-                    (memf (compose (curry equal? name) first) entries-prim-pred)])
-         (op pre-val)))
+     (define (prim-check p pre-val)
+       (if (cons? p)
+           (andmap (λ (q) (prim-check q pre-val)) p)
+           (match-let ([(cons (list nm op) _)
+                        (memf (compose (curry equal? p) first) entries-prim-pred)])
+             (op pre-val))))
      
      ;; concrete? : ValClosure -> Bool
      ;; checks whether a closure represents a concrete value
@@ -253,7 +264,7 @@
          [(exp-cl (val u cs) ρ) (not (equal? u '•))]
          [_ #f]))
      
-     ;; entries-prim-op : Listof (List Symbol (ListOf (Pred* → Pred)) (PreVal* → PreVal))
+     ;; entries-prim-op : Listof (List Symbol (ListOf ((TreeOf Pred)* → Pred)) (PreVal* → PreVal))
      ;; operators on primitive data
      ;; IMPORTANT:
      ;; * the first contract must be a catch-all one; the other ones don't matter
@@ -295,6 +306,8 @@
              [int? int? → int?])
             ,*]
          [/ ([num? non-zero? → num?]) ,/]
+         [mod ([int? (int? non-zero?) → int?]) ,modulo]
+         [quot ([int? (int? non-zero?) → int?]) ,quotient]
          [sqrt ([num? → num?]
                 [non-neg? → real?])
                ,sqrt]
@@ -448,58 +461,6 @@
                              {set (close (val '• res) ρ0)})])))
                   {set (close (blame/ l name) ρ0)})]))])
        entries-prim-op)
-      
-      ;; ops on primitive data that do not fit well to 'the framework'
-      (hash-set! tb 'mod
-                 (op-impl
-                  [curry = 2]
-                  [λ (l xs)
-                    (match xs
-                      [`(,cl1 ,cl2)
-                       (if (andmap exp-cl? xs)
-                           (match-let ([(exp-cl (val u1 cs1) _) cl1]
-                                       [(exp-cl (val u2 cs2) _) cl2])
-                             (if (or (equal? '• u1) (equal? '• u2))
-                                 (let* ([cs1 (approx cl1)]
-                                        [cs2 (approx cl2)]
-                                        [r1 (contracts-imply? cs1 'int?)]
-                                        [r2a (contracts-imply? cs2 'int?)]
-                                        [r2b (contracts-imply? cs2 'non-zero?)])
-                                   (cond
-                                     [(ormap (curry equal? 'Refuted) `(,r1 ,r2a ,r2b)) {set (close (blame/ l 'mod) ρ0)}]
-                                     [(andmap (curry equal? 'Proved) `(,r1 ,r2a ,r2b)) {set (close (val '• {set (mk-contract-cl 'int?)}) ρ0)}]
-                                     [else {set (close (blame/ l 'mod) ρ0)
-                                                (close (val '• (mk-contract-cl 'int?)) ρ0)}]))
-                                 (if (and (integer? u1) (integer? u2)
-                                          (not (zero? u2)))
-                                     {set (close (val (modulo u1 u2) ∅) ρ0)}
-                                     {set (close (blame/ l 'mod) ρ0)})))
-                           {set (close (blame/ l 'mod) ρ0)})])]))
-      (hash-set! tb 'quot ; TODO: embarassing code duplication!!
-                 (op-impl
-                  [curry = 2]
-                  [λ (l xs)
-                    (match xs
-                      [`(,cl1 ,cl2)
-                       (if (andmap exp-cl? xs)
-                           (match-let ([(exp-cl (val u1 cs1) _) cl1]
-                                       [(exp-cl (val u2 cs2) _) cl2])
-                             (if (or (equal? '• u1) (equal? '• u2))
-                                 (let* ([cs1 (approx cl1)]
-                                        [cs2 (approx cl2)]
-                                        [r1 (contracts-imply? cs1 'int?)]
-                                        [r2a (contracts-imply? cs2 'int?)]
-                                        [r2b (contracts-imply? cs2 'non-zero?)])
-                                   (cond
-                                     [(ormap (curry equal? 'Refuted) `(,r1 ,r2a ,r2b)) {set (close (blame/ l 'mod) ρ0)}]
-                                     [(andmap (curry equal? 'Proved) `(,r1 ,r2a ,r2b)) {set (close (val '• {set (mk-contract-cl 'int?)}) ρ0)}]
-                                     [else {set (close (blame/ l 'quot) ρ0)
-                                                (close (val '• (mk-contract-cl 'int?)) ρ0)}]))
-                                 (if (and (integer? u1) (integer? u2)
-                                          (not (zero? u2)))
-                                     {set (close (val (quotient u1 u2) ∅) ρ0)}
-                                     {set (close (blame/ l 'quot) ρ0)})))
-                           {set (close (blame/ l 'quot) ρ0)})])]))
       
       tb)))
 
