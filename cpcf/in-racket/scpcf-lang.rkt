@@ -47,7 +47,7 @@
   
   [shift (natural? exp? . -> . exp?)]
   
-  [δ (op? (listof clo?) label? . -> . (set/c clo?))]
+  [δ (prim? (listof clo?) label? . -> . (set/c clo?))]
   [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
   [read-prog (s-exp? . -> . prog?)]
@@ -63,7 +63,7 @@
   [answer? (any/c . -> . boolean?)]
   [pre-val? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
-  [op? (any/c . -> . boolean?)]
+  [prim? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)])
  
  c/any c/bool c/list c/num-list c/even-list c/bool-list
@@ -110,7 +110,7 @@
 
 ;; PreVal := • | Number | Boolean | String | Lambda | Nil
 (define (pre-val? x)
-  (or (eq? x '•) (number? x) (boolean? x) (string? x) (lam? x) (eq? 'nil x) (op? x)))
+  (or (eq? x '•) (number? x) (boolean? x) (string? x) (lam? x) (eq? 'nil x) (prim? x)))
 ;; Lambda := (lambda Natural Exp)
 (struct lam (arity body) #:transparent)
 
@@ -136,7 +136,7 @@
       (cons-cl? clo)))
 
 ;; checks whether symbol names a primitive op
-(define (op? o)
+(define (prim? o)
   (hash-has-key? ops o))
 
 ;; label? : Any -> Boolean
@@ -178,29 +178,332 @@
 
 ;; mk-contract-cl : Pred -> ContractClosure
 ;; makes contract out of primitive predicate
-(define (mk-contract-cl name)
-  (contract-cl (flat-c (val name ∅)) ρ0))
+(define mk-contract-cl
+  (let ([cache (make-hash)])
+    (λ (name) ; memoized
+      (match (hash-ref cache name '☹)
+        ['☹ (let ([r (contract-cl (flat-c (val name ∅)) ρ0)])
+              (hash-set! cache name r)
+              r)]
+        [r r]))))
 
 ;; OpImpl := (op-impl (Nat -> Bool) (Lab [Listof ValClosure] -> [Setof ValClosure])
 (struct op-impl (arity-check proc))
 
-;; contracts-imply? : [Setof Contract] Pred -> [Setof (Refuted|Proved)]
+;; contracts-imply? : [Setof ContractClosure] Pred -> Refuted|Proved|Neither
 ;; checks whether set of refinements is enough to prove or refute given
 ;; primitive predicate
 (define (contracts-imply? cs p)
   (let ([excludes (exclude p)]
         [proves (what-imply p)])
-    (for/set ([c cs])
-             (match c
-               [(contract-cl (flat-c (val p cs1)) ρc)
-                (cond
-                  [(set-member? excludes p) 'Refuted]
-                  [(set-member? proves p) 'Proved]
-                  [else 'Neither])]
-               [_ 'Neither]))))
+    (for/fold ([acc 'Neither]) ([c (in-set cs)])
+      (match acc
+        ['Refuted 'Refuted]
+        [_ (match c
+             [(contract-cl (flat-c (val q cs1)) ρc)
+              (cond
+                [(set-member? excludes q) 'Refuted]
+                [(set-member? proves q) 'Proved]
+                [else acc])]
+             [_ acc])]))))
 
+;; ops : Symbol -> OpImpl
+(define ops
+  (local
+    (;; closures for commonly used values
+     [define T {set CL-TRUE}]
+     [define F {set CL-FALSE}]
+     [define TF (set-union T F)]
+     
+     ;; entries-prim-pred : Listof (List Symbol (PreVal -> Boolean))
+     ;; predicates on primitive data
+     [define entries-prim-pred
+       `([prime? ,(and/c number? (λ (x) (if (member x '(2 3 5 7)) #t #f)))]
+         [nat? ,(and/c integer? (or/c positive? zero?))]
+         [even? ,(and/c integer? even?)]
+         [odd? ,(and/c integer? odd?)]
+         [non-neg? ,(and/c real? (not/c negative?))]
+         [non-pos? ,(and/c real? (not/c positive?))]
+         [non-zero? ,(or/c (not/c number?) (not/c zero?))]
+         [pos? ,(and/c real? positive?)]
+         [neg? ,(and/c real? negative?)]
+         [int? ,integer?]
+         [real? ,real?]
+         [num? ,number?]
+         [string? ,string?]
+         [nil? ,(curry equal? 'nil)]
+         [false? ,false?]
+         [bool? ,boolean?])]
+     
+     ; prim-preds : [Listof Symbol]
+     (define prim-preds
+       (map first entries-prim-pred))
+     
+     ;; prim-check : Pred Preval -> Boolean
+     ;; checks whether primitive value satisfy predicate with given name
+     (define (prim-check name pre-val)
+       (match-let ([(cons (list nm op) _)
+                    (memf (compose (curry equal? name) first) entries-prim-pred)])
+         (op pre-val)))
+     
+     [define op-cons?
+       (op-impl
+        [curry = 1]
+        [λ (_ xs)
+          (match xs
+            [`(,cl) (s-map (match-lambda
+                             [`(,c1 ,c2) CL-TRUE]
+                             [_ CL-FALSE])
+                           (split-cons cl))])])]
+     
+     [define op-proc?
+       (op-impl
+        [curry = 1]
+        [λ (_ xs)
+          (match xs
+            [`(,(exp-cl (val '• cs) ρ))
+             (match (contracts-imply? cs 'proc?)
+               ['Refuted F]
+               ['Proved T]
+               ['Neither TF])]
+            [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (prim? u)) T F)]
+            [`(,cl) (if (mon-fn-cl? cl) T F)])])]
+     
+     [define op-true?
+       (op-impl
+        [curry = 1]
+        [λ (_ xs)
+          (s-map (match-lambda
+                   [(exp-cl (val #f cs) ρ) CL-TRUE]
+                   [_ CL-FALSE])
+                 (δ 'false? xs '†))])]
+     
+     ;; concrete? : ValClosure -> Bool
+     ;; checks whether a closure represents a concrete value
+     (define (concrete? cl)
+       (match cl
+         [(exp-cl (val u cs) ρ) (not (equal? u '•))]
+         [_ #f]))
+     
+     ;; entries-prim-op : Listof (List Symbol (ListOf (Pred* → Pred)) (PreVal* → PreVal))
+     ;; operators on primitive data
+     ;; IMPORTANT:
+     ;; * the first contract must be a catch-all one; the other ones don't matter
+     ;; * try to make range as specific as possible, while domains as general as possible
+     (define entries-prim-op
+       `([+ ([num? num? → num?]
+             [zero? zero? → zero?]
+             [nat? nat? → nat?]
+             ; the even/odd things are just for fun, not sure if these are practical
+             [even? even? → even?]
+             [odd? odd? → even?]
+             [even? odd? → odd?]
+             [odd? even? → odd?]
+             [int? int? → int?]
+             [pos? pos? → pos?]
+             [neg? neg? → neg?]
+             [pos? non-neg? → pos?]
+             [non-neg? pos? → pos?]
+             [neg? non-pos? → neg?]
+             [non-pos? neg? → neg?]
+             [non-pos? non-pos? → non-pos?]
+             [non-neg? non-neg? → non-neg?])
+            ,+]
+         [- ([num? num? → num?]
+             [zero? zero? → zero?]
+             [even? even? → even?]
+             [odd? odd? → even?]
+             [even? odd? → odd?]
+             [odd? even? → odd?]
+             [int? int? → int?])
+            ,-]
+         [* ([num? num? → num?]
+             [zero? num? → zero?]
+             [num? zero? → zero?]
+             [nat? nat? → nat?]
+             [even? int? → even?]
+             [int? even? → even?]
+             [odd? odd? → odd?]
+             [int? int? → int?])
+            ,*]
+         [/ ([num? non-zero? → num?]) ,/]
+         [sqrt ([num? → num?]
+                [non-neg? → real?])
+               ,sqrt]
+         [gcd ([int? int? → int?]) ,gcd]
+         
+         ;; TODO: maybe improve precision?
+         [= ([num? num? → bool?]) ,=]
+         [≠ ([num? num? → bool?]) ,(compose not =)]
+         [< ([real? real? → bool?]) ,<]
+         [≤ ([real? real? → bool?]) ,<=]
+         [> ([real? real? → bool?]) ,>]
+         [≥ ([real? real? → bool?]) ,>=]
+         
+         [++ ([string? string? → string?]) ,string-append]
+         [str=? ([string? string? → bool?]) ,string=?]
+         [str≠? ([string? string? → bool?]) ,(compose not string=?)]
+         [str<? ([string? string? → bool?]) ,string<?]
+         [str≤? ([string? string? → bool?]) ,string<=?]
+         [str>? ([string? string? → bool?]) ,string>?]
+         [str≥? ([string? string? → bool?]) ,string>=?]
+         [str-len ([string? → nat?]) ,string-length]))
+     
+     ;; approx : ValExpClosure -> [Setof ContractClosure]
+     (define approx
+       (match-lambda
+         [(exp-cl (val '• cs) ρ) cs]
+         [(exp-cl (val u cs) ρ) (approx-contracts u)]))
+     
+     ;; approx-contracts : PreVal -> [Setof Pred]
+     (define (approx-contracts u)
+       (foldl (λ (pred acc)
+                (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
+              ∅ prim-preds))
+     
+     ;; try-rule : `(,p ... → ,q) [Listof [Setof Contract]] -> Proved|Refuted|Neither
+     (define (try-rule rule cs)
+       (match-let* ([`(,p ... → ,q) rule]
+                    [rs (map contracts-imply? cs p)])
+         (cond
+           [(ormap (curry equal? 'Refuted) rs) 'Refuted]
+           [(andmap (curry equal? 'Proved) rs) 'Proved]
+           [else 'Neither])))
+     
+     ;; elim-contradictions : [Setof Pred] -> [Setof Pred]
+     ;; eliminates predicates that exclude each other
+     (define (elim-contradictions ps)
+       (for/fold ([acc ps]) ([p (in-set ps)])
+         (let ([ex (exclude p)])
+           (if (set-empty? (set-intersect ex acc))
+               acc
+               (set-subtract acc (set-add ex p))))))
+     
+     
+     ;; cl=? : ValClosure ValClosure -> [Setof Boolean]
+     ; TODO rewrite
+     [define (cl=? cl1 cl2)
+       (match `(,cl1 ,cl2)
+         [`(,(cons-cl c1 c2) ,(cons-cl c3 c4))
+          (non-det (match-lambda
+                     [#t (cl=? c2 c4)]
+                     [#f {set #f}])
+                   (cl=? c1 c3))]
+         [`(,(mon-fn-cl h f g c1 cl1) ,(mon-fn-cl h f g c2 cl2))
+          (set-union {set #f} {set (cl=? cl1 cl2)})]
+         [`(,(exp-cl (val u1 cs1) ρ1) ,(exp-cl (val u2 cs2) ρ2))
+          (if (or (equal? '• u1) (equal? '• u2))
+              {set #t #f}
+              {set (equal? u1 u2)})]
+         [_ {set #f}])])
+    
+    (begin
+      ;; INITIALIZING
+      (define tb (make-hash))
+      
+      ;; add primitive predicates on primitive data
+      (for-each (match-lambda
+                  [`(,name ,impl)
+                   (hash-set! tb name
+                              (op-impl
+                               [curry = 1]
+                               [λ (_ xs)
+                                 (match-let ([`(,cl) xs])
+                                   (match cl
+                                     [(exp-cl (val '• cs) ρ)
+                                      (match (contracts-imply? cs name)
+                                        ['Refuted F]
+                                        ['Proved T]
+                                        ['Neither TF])]
+                                     [(exp-cl (val u cs) ρ) (if (impl u) T F)]
+                                     [_ F]))]))])
+                entries-prim-pred)
+      
+      ;; TODO add primitive predicates on compound data
+      
+      ;; add primitive ops on primitive data
+      (for-each
+       (match-lambda
+         [`(,name (,contracts ...) ,impl)
+          (hash-set!
+           tb name
+           (op-impl
+            [curry = (- (length (first contracts)) 2)]
+            [λ (l xs) ; assume (length xs) matches arity
+              (if (andmap exp-cl? xs)
+                  (if (andmap concrete? xs)
+                      ; check against most generic contract, then apply primitive impl
+                      (match-let ([`(,p ... → ,q) (first contracts)]
+                                  [zs (map (compose val-pre exp-cl-exp) xs)])
+                        {set (close
+                              (if (andmap prim-check p zs)
+                                  (val (apply impl zs) ∅)
+                                  (blame/ l name))
+                              ρ0)})
+                      ; approximate all arguments then return symbolic result as accurate
+                      ; as possible
+                      (match-let* ([zs (map approx xs)]
+                                   [(cons r0 rs) contracts])
+                        (match (try-rule r0 zs)
+                          ; if the catch-all one fails to prove (positively),
+                          ; don't bother the other ones
+                          ['Refuted {set (close (blame/ l name) ρ0)}]
+                          ['Neither {set (close (blame/ l name) ρ0)
+                                         (close (val '• {set (mk-contract-cl (last r0))}) ρ0)}]
+                          ['Proved
+                           (let ([res
+                                  (for/fold ([res {set (mk-contract-cl (last r0))}]) ([r rs])
+                                    (match (try-rule r zs)
+                                      ['Proved (set-add res (mk-contract-cl (last r)))]
+                                      [_ res]))])
+                             {set (close (val '• res) ρ0)})])))
+                  {set (close (blame/ l name) ρ0)})]))])
+       entries-prim-op)
+      
+      tb)))
 
+;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
+(define (split-cons cl)
+  
+  ;; accum-cons-c : [Setof ContractClosure] 
+  ;;             -> (List [Setof ContractClosure] [Setof ContractClosure]) or ()
+  ;; accumulates contracts for pair's car and cdr
+  ;; returns () if contracts cannot prove it's a pair
+  (define (accum-cons-c cs)
+    (for/fold ([acc '()]) ([c (in-set cs)])
+      (match-let ([(contract-cl c ρc) c])
+        (match c
+          [(cons-c c1 c2)
+           (match acc
+             [`(,cs1 ,cs2) `(,(set-add cs1 (close-contract c1 ρc)) ,(set-add cs2 (close-contract c2 ρc)))]
+             [`() `(,(set (close-contract c1 ρc)) ,(set (close-contract c2 ρc)))])]
+          [(flat-c (val 'cons? _))
+           (match acc
+             [`(,cs1 ,cs2) acc]
+             ['() `(,∅ ,∅)])]
+          [_ acc]))))
+  
+  (match cl
+    ; TODO: case like (cons • •) / {(cons/c (flat even?) (flat odd?))}
+    ; maybe turn it to (• / {(flat even?)}) and (• / {(flat odd?)})
+    ; instead of currently just • and •
+    ; ah, ConsClosure currently does not have a 'dedicated' set of refinements
+    ; neither does MonitoredFuncClosure. Do they ever need that?
+    [(cons-cl c1 c2) {set `(,c1 ,c2)}]
+    [(exp-cl (val '• cs) ρ)
+     (match (accum-cons-c cs)
+       ; proven abstract pair
+       [`(,cs1 ,cs2) {set `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))}]
+       ; nothing is known
+       [`() (match (contracts-imply? cs 'cons?)
+              ['Refuted {set '()}]
+              ['Proved {set `(,CL-BULLET ,CL-BULLET)}]
+              ['Neither {set '() `(,CL-BULLET ,CL-BULLET)}])])]
+    [_ {set '()}])) ; known not a pair
 
+;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
+(define (δ op xs l)
+  ((op-impl-proc (hash-ref ops op)) l xs))
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)
@@ -326,7 +629,7 @@
          [(symbol? x) (let ([d (name-distance x names)])
                         (if (<= 0 d)
                             (ref d)
-                            (if (op? x)
+                            (if (prim? x)
                                 (val x ∅) ; TODO clean up
                                 (if (not (pre-val? x))
                                     (mod-ref x mod)
@@ -471,7 +774,7 @@
                          (for/set ([c cs] #:when (func-c? (contract-cl-con c)))
                                   (match-let ([(contract-cl (func-c cs1 c2) _) c])
                                     (not (= n (length cs1))))))]
-       [_ {set (if (op? u)
+       [_ {set (if (prim? u)
                    ((op-impl-arity-check (hash-ref ops u)) n)
                    #f)}])]
     [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) cl1)
