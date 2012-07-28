@@ -246,38 +246,6 @@
                     (memf (compose (curry equal? name) first) entries-prim-pred)])
          (op pre-val)))
      
-     [define op-cons?
-       (op-impl
-        [curry = 1]
-        [λ (_ xs)
-          (match xs
-            [`(,cl) (s-map (match-lambda
-                             [`(,c1 ,c2) CL-TRUE]
-                             [_ CL-FALSE])
-                           (split-cons cl))])])]
-     
-     [define op-proc?
-       (op-impl
-        [curry = 1]
-        [λ (_ xs)
-          (match xs
-            [`(,(exp-cl (val '• cs) ρ))
-             (match (contracts-imply? cs 'proc?)
-               ['Refuted F]
-               ['Proved T]
-               ['Neither TF])]
-            [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (prim? u)) T F)]
-            [`(,cl) (if (mon-fn-cl? cl) T F)])])]
-     
-     [define op-true?
-       (op-impl
-        [curry = 1]
-        [λ (_ xs)
-          (s-map (match-lambda
-                   [(exp-cl (val #f cs) ρ) CL-TRUE]
-                   [_ CL-FALSE])
-                 (δ 'false? xs '†))])]
-     
      ;; concrete? : ValClosure -> Bool
      ;; checks whether a closure represents a concrete value
      (define (concrete? cl)
@@ -419,7 +387,36 @@
                                      [_ F]))]))])
                 entries-prim-pred)
       
-      ;; TODO add primitive predicates on compound data
+      ;; add primitive predicates on compound data
+      (hash-set! tb 'cons?
+                 (op-impl
+                  [curry = 1]
+                  [λ (_ xs)
+                    (match xs
+                      [`(,cl) (s-map (match-lambda
+                                       [`(,c1 ,c2) CL-TRUE]
+                                       [_ CL-FALSE])
+                                     (split-cons cl))])]))
+      (hash-set! tb 'proc?
+                 (op-impl
+                  [curry = 1]
+                  [λ (_ xs)
+                    (match xs
+                      [`(,(exp-cl (val '• cs) ρ))
+                       (match (contracts-imply? cs 'proc?)
+                         ['Refuted F]
+                         ['Proved T]
+                         ['Neither TF])]
+                      [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (prim? u)) T F)]
+                      [`(,cl) (if (mon-fn-cl? cl) T F)])]))
+      (hash-set! tb 'true?
+                 (op-impl
+                  [curry = 1]
+                  [λ (_ xs)
+                    (s-map (match-lambda
+                             [(exp-cl (val #f cs) ρ) CL-TRUE]
+                             [_ CL-FALSE])
+                           (δ 'false? xs '†))]))
       
       ;; add primitive ops on primitive data
       (for-each
