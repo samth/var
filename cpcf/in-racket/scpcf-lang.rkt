@@ -462,6 +462,119 @@
                   {set (close (blame/ l name) ρ0)})]))])
        entries-prim-op)
       
+      ;; ops on primitive data that don't quite 'fit' into the framework
+      (hash-set! tb 'substring
+                 (op-impl
+                  [curry = 3]
+                  [λ (l xs)
+                    (match xs
+                      [`(,s ,i_0 ,i_n)
+                       (if (andmap exp-cl? xs)
+                           (if (andmap concrete? xs)
+                               (match-let ([(exp-cl (val s cs1) ρ1) s]
+                                           [(exp-cl (val i_0 cs2) ρ2) i_0]
+                                           [(exp-cl (val i_n cs3) ρ3) i_n])
+                                 (if (and (string? s) (natural? i_0) (natural? i_n)
+                                          (<= i_0 i_n (string-length s)))
+                                     {set (close (val (substring s i_0 i_n) ∅) ρ0)}
+                                     {set (close (blame/ l 'substring) ρ0)}))
+                               (match-let* ([`(,cs1 ,cs2 ,cs3) (map approx xs)]
+                                            [r1 (contracts-imply? cs1 'string?)]
+                                            [r2 (contracts-imply? cs2 'nat?)]
+                                            [r3 (contracts-imply? cs3 'nat?)])
+                                 (if (or (equal? 'Refuted r1) (equal? 'Refuted r2) (equal? 'Refuted r3))
+                                     {set (close (blame/ l 'substring) ρ0)}
+                                     {set (close (val '• {set (mk-contract-cl 'string?)}) ρ0)
+                                          (close (blame/ l 'substring) ρ0)})))
+                           
+                           {set (close (blame/ l 'substring) ρ0)})])]))
+      
+      ;; primitive ops on compound data, too complicated to fit into framework
+      (hash-set! tb 'cons
+                 (op-impl
+                  [curry = 2]
+                  [λ (l xs)
+                    {set (match xs
+                           ; promote (cons/c (•/{...c...}) nil) to (• {...(listof c)...})
+                           [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val 'nil cs2) ρ2))
+                            (close
+                             (val '•
+                                  (set-add
+                                   (s-map (λ (cl)
+                                            (match-let ([(contract-cl c ρc) cl])
+                                              (close-contract
+                                               (cons-c c
+                                                       (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                    (cons-c (shift-con 1 c)
+                                                                            (ref-c 0)))))
+                                               ρc)))
+                                          cs1)
+                                   (let ([C/ANY (read-con c/any)])
+                                     (close-contract
+                                      (cons-c C/ANY
+                                              (rec-c (or-c (flat-c (val 'nil ∅))
+                                                           (cons-c C/ANY (ref-c 0)))))
+                                      ρ0)))) ρ0)]
+                           ; promote (cons/c (•/{...c...}) (•/{...(cons c (listof c))...}) to
+                           ; (•/{...(cons/c c (listof c)...}
+                           [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
+                            (let* ([cdr-is-list? #f]
+                                   [C/ANY (read-con c/any)]
+                                   [list-contracts
+                                    (set-subtract
+                                     (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
+                                              (match c
+                                                [(contract-cl (cons-c c1
+                                                                      (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                                   (cons-c c2 (ref-c 0)))))
+                                                              ρc)
+                                                 (if (equal? c2 (shift-con 1 c1))
+                                                     (begin
+                                                       (set! cdr-is-list? #t)
+                                                       (if (set-member? cs1 c1)
+                                                           c
+                                                           'ignore))
+                                                     'ignore)]
+                                                [_ 'ignore]))
+                                     (set 'ignore))])
+                              (if cdr-is-list?
+                                  (close (val '• (set-add list-contracts
+                                                          (close-contract
+                                                           (cons-c C/ANY
+                                                                   (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                                (cons-c C/ANY (ref-c 0)))))
+                                                           ρ0)))
+                                         ρ0)
+                                  (cons-cl (first xs) (second xs))))]
+                           [`(,c1 ,c2) (cons-cl c1 c2)])}]))
+      
+      (hash-set! tb 'car
+                 (op-impl
+                  [curry = 1]
+                  [λ (l xs)
+                    (s-map (match-lambda
+                             [`(,c1 ,c2) c1]
+                             ['() (close (blame/ l 'car) ρ0)])
+                           (split-cons (first xs)))]))
+      (hash-set! tb 'cdr
+                 (op-impl
+                  [curry = 1]
+                  [λ (l xs)
+                    (s-map (match-lambda
+                             [`(,c1 ,c2) c2]
+                             ['() (close (blame/ l 'cdr) ρ0)])
+                           (split-cons (first xs)))]))
+      
+      (hash-set! tb 'equal?
+                 (op-impl
+                  [curry = 2]
+                  [λ (l xs)
+                    (match-let ([`(,cl1 ,cl2) xs])
+                      (s-map (match-lambda
+                               [#t CL-TRUE]
+                               [#f CL-FALSE])
+                             (cl=? cl1 cl2)))]))
+      
       tb)))
 
 ;; split-cons : ValClosure -> [SetOf [(List ValClosure Closure) or Empty]]
