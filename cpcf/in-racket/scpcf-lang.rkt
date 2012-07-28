@@ -885,10 +885,26 @@
     [(exp-cl (val u cs) ρ)
      (match u
        [(lam m e) {set (= m n)}]
-       ['• (set-subtract {set #t #f}
-                         (for/set ([c cs] #:when (func-c? (contract-cl-con c)))
-                                  (match-let ([(contract-cl (func-c cs1 c2) _) c])
-                                    (not (= n (length cs1))))))]
+       ['• (letrec ([xcludes (exclude 'proc?)]
+                    [check-with
+                     (match-lambda
+                       [(flat-c (val q _)) (if (set-member? xcludes q) 'Refuted 'Neither)]
+                       [(flat-c _) 'Neither]
+                       [(func-c cs1 d) (if (= (length cs1) n) 'Proved 'Refuted)]
+                       [(cons-c c1 c2) 'Refuted]
+                       [(or-c c1 c2) (check-with c2)] ; first-order contract doesn't give new info if it passes
+                       [(and-c c1 c2) (if (equal? 'Proved (check-with c1)) 'Proved
+                                          (check-with c2))]
+                       [(rec-c c) (check-with c)]
+                       [(ref-c x) 'Neither])]
+                    [r (for/fold ([acc 'Neither]) ([c cs])
+                         (match acc
+                           ['Neither (check-with (contract-cl-con c))]
+                           [_ acc]))])
+             (match r
+               ['Proved {set #t}]
+               ['Refuted {set #f}]
+               [_ {set #t #f}]))]
        [_ {set (if (prim? u)
                    ((op-impl-arity-check (hash-ref ops u)) n)
                    #f)}])]

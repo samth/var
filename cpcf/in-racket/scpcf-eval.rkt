@@ -128,7 +128,7 @@
                         κ))]
                   [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}])
                 (proc-with-arity? f (length xs))}]
-              [_ (if (op? u) ; primitive op handles arity check on its own
+              [_ (if (prim? u) ; primitive op handles arity check on its own
                      (s-map (λ (cl) (cek ms cl κ)) (δ u xs l))
                      {set (cek ms (close (blame/ l '∆) ρ0) (mt))})])]
            [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) clo1)
@@ -288,7 +288,7 @@
          [(val u cs) (match u
                        [(lam n b) 'function]
                        ['• '•]
-                       [u (if (op? u) 'function u)])]
+                       [u (if (prim? u) 'function u)])]
          [(blame/ l1 l2) `(blame ,l1 ,l2)])]
       [(mon-fn-cl h f g conclo clo) 'function]
       [(cons-cl cl1 cl2) `(cons ,(get-answer cl1) ,(get-answer cl2))]))
