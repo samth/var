@@ -338,15 +338,6 @@
            [(andmap (curry equal? 'Proved) rs) 'Proved]
            [else 'Neither])))
      
-     ;; elim-contradictions : [Setof Pred] -> [Setof Pred]
-     ;; eliminates predicates that exclude each other
-     (define (elim-contradictions ps)
-       (for/fold ([acc ps]) ([p (in-set ps)])
-         (let ([ex (exclude p)])
-           (if (set-empty? (set-intersect ex acc))
-               acc
-               (set-subtract acc (set-add ex p))))))
-     
      
      ;; cl=? : ValClosure ValClosure -> [Setof Boolean]
      ; TODO rewrite
@@ -417,6 +408,7 @@
                              [(exp-cl (val #f cs) ρ) CL-TRUE]
                              [_ CL-FALSE])
                            (δ 'false? xs '†))]))
+      (hash-set! tb 'not (hash-ref tb 'false?)) ; ok b/c false? never produces blame
       
       ;; add primitive ops on primitive data
       (for-each
@@ -456,6 +448,58 @@
                              {set (close (val '• res) ρ0)})])))
                   {set (close (blame/ l name) ρ0)})]))])
        entries-prim-op)
+      
+      ;; ops on primitive data that do not fit well to 'the framework'
+      (hash-set! tb 'mod
+                 (op-impl
+                  [curry = 2]
+                  [λ (l xs)
+                    (match xs
+                      [`(,cl1 ,cl2)
+                       (if (andmap exp-cl? xs)
+                           (match-let ([(exp-cl (val u1 cs1) _) cl1]
+                                       [(exp-cl (val u2 cs2) _) cl2])
+                             (if (or (equal? '• u1) (equal? '• u2))
+                                 (let* ([cs1 (approx cl1)]
+                                        [cs2 (approx cl2)]
+                                        [r1 (contracts-imply? cs1 'int?)]
+                                        [r2a (contracts-imply? cs2 'int?)]
+                                        [r2b (contracts-imply? cs2 'non-zero?)])
+                                   (cond
+                                     [(ormap (curry equal? 'Refuted) `(,r1 ,r2a ,r2b)) {set (close (blame/ l 'mod) ρ0)}]
+                                     [(andmap (curry equal? 'Proved) `(,r1 ,r2a ,r2b)) {set (close (val '• {set (mk-contract-cl 'int?)}) ρ0)}]
+                                     [else {set (close (blame/ l 'mod) ρ0)
+                                                (close (val '• (mk-contract-cl 'int?)) ρ0)}]))
+                                 (if (and (integer? u1) (integer? u2)
+                                          (not (zero? u2)))
+                                     {set (close (val (modulo u1 u2) ∅) ρ0)}
+                                     {set (close (blame/ l 'mod) ρ0)})))
+                           {set (close (blame/ l 'mod) ρ0)})])]))
+      (hash-set! tb 'quot ; TODO: embarassing code duplication!!
+                 (op-impl
+                  [curry = 2]
+                  [λ (l xs)
+                    (match xs
+                      [`(,cl1 ,cl2)
+                       (if (andmap exp-cl? xs)
+                           (match-let ([(exp-cl (val u1 cs1) _) cl1]
+                                       [(exp-cl (val u2 cs2) _) cl2])
+                             (if (or (equal? '• u1) (equal? '• u2))
+                                 (let* ([cs1 (approx cl1)]
+                                        [cs2 (approx cl2)]
+                                        [r1 (contracts-imply? cs1 'int?)]
+                                        [r2a (contracts-imply? cs2 'int?)]
+                                        [r2b (contracts-imply? cs2 'non-zero?)])
+                                   (cond
+                                     [(ormap (curry equal? 'Refuted) `(,r1 ,r2a ,r2b)) {set (close (blame/ l 'mod) ρ0)}]
+                                     [(andmap (curry equal? 'Proved) `(,r1 ,r2a ,r2b)) {set (close (val '• {set (mk-contract-cl 'int?)}) ρ0)}]
+                                     [else {set (close (blame/ l 'quot) ρ0)
+                                                (close (val '• (mk-contract-cl 'int?)) ρ0)}]))
+                                 (if (and (integer? u1) (integer? u2)
+                                          (not (zero? u2)))
+                                     {set (close (val (quotient u1 u2) ∅) ρ0)}
+                                     {set (close (blame/ l 'quot) ρ0)})))
+                           {set (close (blame/ l 'quot) ρ0)})])]))
       
       tb)))
 
