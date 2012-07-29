@@ -74,24 +74,28 @@
   ;; determines machine's next state, dispatching on expression
   (define (on-nonval)
     (match-let ([(exp-cl e ρ) clo])
-      {set
-       (match e
-         [(ref x) (cek ms (env-get x ρ) κ)]
-         [(blame/ f h) (cek ms clo (mt))]
-         [(app f xs l)
-          (cek ms (close f ρ) (ap-k '() (map (λ (e) (close e ρ)) xs) l κ))]
-         [(rec b) (cek ms (close b (env-extend clo ρ)) κ)]
-         [(if/ e1 e2 e3)
-          (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))]
-         [(mon h f g c e1)
-          (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))]
-         [(mod-ref f g) (match-let ([(modl f c v) (mod-by-name f ms)])
-                          (if (equal? f g)
-                              (cek ms (close v ρ0) κ)
-                              (match v
-                                ; TODO: page 8: isn't (mon f f g C (• · C)) the same as (• · C) ?
-                                [(val '• cs) (cek ms (close (mon f f g c (val '• (set-add cs (close-contract c ρ0)))) ρ0) κ)]
-                                [_ (cek ms (close (mon f f g c v) ρ0) κ)])))])}))
+      (match e
+        [(ref x) {set (cek ms (env-get x ρ) κ)}]
+        [(blame/ f h) {set (cek ms clo (mt))}]
+        [(app f xs l)
+         {set (cek ms (close f ρ) (ap-k '() (map (λ (e) (close e ρ)) xs) l κ))}]
+        [(rec b) {set (cek ms (close b (env-extend clo ρ)) κ)}]
+        [(if/ e1 e2 e3)
+         {set (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))}]
+        [(mon h f g c e1)
+         {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
+        [(mod-ref f g) (match-let ([(modl f c v) (mod-by-name f ms)])
+                         (if (equal? f g)
+                             {set (cek ms (close v ρ0) κ)}
+                             (match v
+                               ; TODO: page 8: isn't (mon f f g C (• · C)) the same as (• · C) ?
+                               [(val '• cs)
+                                (let* ([C (close-contract c ρ)]
+                                       [κ1 (mon-k f f g C κ)])
+                                  (s-map (λ (cl) (cek ms cl κ1))
+                                         (refine (close v ρ) C)))]
+                               [_ {set (cek ms (close v ρ)
+                                            (mon-k f f g (close-contract c ρ) κ))}])))])))
   
   ;; on-val : -> [Setof CEK]
   ;; determines machine's next state, dispatching on kont
@@ -283,20 +287,34 @@
          (go known1 unknown1 final1)]))
     (go ∅ {set conf} ∅))
   
-  ;; get-answer : Closure -> EvalAnswer
+  ;; get-answer : Closure -> [Setof EvalAnswer]
   (define (get-answer clo)
     (match clo
       [(exp-cl e ρ)
        (match e
          [(val u cs) (match u
-                       [(lam n b) 'function]
-                       ['• '•]
-                       [u (if (prim? u) 'function u)])]
-         [(blame/ l1 l2) `(blame ,l1 ,l2)])]
-      [(mon-fn-cl h f g conclo clo) 'function]
-      [(cons-cl cl1 cl2) `(cons ,(get-answer cl1) ,(get-answer cl2))]))
+                       [(lam n b) {set 'function}]
+                       ['•
+                        (cond
+                          [(set-member? cs (mk-contract-cl 'nil?)) {set 'nil}]
+                          [(set-member? cs (mk-contract-cl 'false?)) {set #f}]
+                          [(set-member? cs (mk-contract-cl 'bool?)) {set #t #f}]
+                          [(set-member? cs (mk-contract-cl 'zero?)) {set 0}]
+                          [(equal? (contracts-imply? cs 'proc?) 'Proved) {set 'function}]
+                          [else {set '•}])]
+                       [u {set (if (prim? u) 'function u)}])]
+         [(blame/ l1 l2) {set `(blame ,l1 ,l2)}])]
+      [(mon-fn-cl h f g conclo clo) {set 'function}]
+      [(cons-cl cl1 cl2)
+       (let ([s1 (get-answer cl1)]
+             [s2 (get-answer cl2)])
+         (non-det (λ (x1)
+                    (non-det (λ (x2)
+                               {set `(cons ,x1 ,x2)})
+                             s2))
+                  s1))]))
   
-  (s-map (compose get-answer cek-clo) (run (load (read-prog p)))))
+  (non-det (compose get-answer cek-clo) (run (load (read-prog p)))))
 
 ;; verify : Closure ContractClosure -> Verified
 ;; Verified := 'Proved | 'Refuted | 'Neither

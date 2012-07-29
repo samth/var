@@ -61,6 +61,10 @@
   
   [proc-with-arity? (val-cl? natural? . -> . (set/c boolean?))]
   
+  [mk-contract-cl (prim? . -> . contract-cl?)]
+  
+  [contracts-imply? ([set/c contract-cl?] prim? . -> . verified?)]
+  
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
   [pre-val? (any/c . -> . boolean?)]
@@ -192,7 +196,11 @@
 ;; OpImpl := (op-impl (Nat -> Bool) (Lab [Listof ValClosure] -> [Setof ValClosure])
 (struct op-impl (arity-check proc))
 
-;; contracts-imply? : [Setof ContractClosure] [TreeOf Pred] -> Refuted|Proved|Neither
+;; Verified := Proved|Refuted|Neither
+(define (verified? x)
+  (or (equal? 'Proved x) (equal? 'Refuted x) (equal? 'Neither x)))
+
+;; contracts-imply? : [Setof ContractClosure] [TreeOf Pred] -> Verified
 ;; checks whether set of refinements is enough to prove or refute given
 ;; primitive predicate(s)
 (define (contracts-imply? cs p)
@@ -344,7 +352,7 @@
                 (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
               ∅ prim-preds))
      
-     ;; try-rule : `(,p ... → ,q) [Listof [Setof Contract]] -> Proved|Refuted|Neither
+     ;; try-rule : `(,p ... → ,q) [Listof [Setof Contract]] -> Verified
      (define (try-rule rule cs)
        (match-let* ([`(,p ... → ,q) rule]
                     [rs (map contracts-imply? cs p)])
