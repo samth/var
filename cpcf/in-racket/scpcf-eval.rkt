@@ -57,14 +57,18 @@
          [_ {set (exp-cl (val u (set-add cs conclo)) ρ)}])]
       [else {set clo} #|TODO|#]))
   
-  ;; TODO: does this alter semantics compared to old 'havoc' and AMB,
-  ;;       with nondeterminism 'embedded' in the object language?
-  ;; havocs :: [Listof Exp]
-  (define havocs
-    (map (λ (sub) (read-exp `(μ (y)
-                                (λ (x) ; relies in this 'x' being that 'x'
-                                  (y ,sub)))))
-         `((x •) (car x) (cdr x))))
+  ;; AMB : [Listof S-Exp] -> S-Exp
+  (define (AMB exps)
+    (match exps
+      [`(,e) e]
+      [`(,e ,e1 ...) `(if • ,e ,(AMB e1))]))
+  
+  ;; havoc : Label -> Exp
+  (define (havoc from)
+    (read-exp-with '() from
+                   `(μ (y)
+                       (λ (x)
+                         ,(AMB `((y (x •)) (y (car x)) (y (cdr x))))))))
   
   ;; on-nonval : -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression
@@ -107,13 +111,12 @@
               ['•
                {non-det
                 (match-lambda
-                  [#t (set-add
+                  [#t {set-add
                        (list->set
-                        (map (λ (havoc) ; TODO wrong
-                               (cek ms (close havoc ρ0)
-                                    (ap-k '() xs l #|TODO right label?|#
-                                          (mt) #|TODO is it safe to kill κ?|#)))
-                             havocs))
+                        (map (λ (x)
+                               (cek ms (close (havoc l) ρ0)
+                                    (ap-k '() `(,x) l (mt))))
+                             xs))
                        (cek ; value refined by function's contract's range
                         ms
                         (close
@@ -125,7 +128,7 @@
                                     (close-contract c2 (env-extend xs ρc))]))
                                cs))
                          ρ0)
-                        κ))]
+                        κ)}]
                   [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}])
                 (proc-with-arity? f (length xs))}]
               [_ (if (prim? u) ; primitive op handles arity check on its own
@@ -232,7 +235,7 @@
                    h g f c
                    (mon-ap-k (cons clo vs) xs cs h g f κ)))}]
       [(mon-ap-k vs '() '() h g f κ)
-       {set (cek ms clo (ap-k vs '() f κ))}]))
+       {set (cek ms clo (ap-k vs '() h κ))}]))
   
   (if (val-cl? clo) (on-val) (on-nonval)))
 

@@ -53,6 +53,8 @@
   [read-prog (s-exp? . -> . prog?)]
   [show-prog (prog? . -> . s-exp?)]
   [read-exp (s-exp? . -> . exp?)]
+  ; for use by havoc
+  [read-exp-with ((listof symbol?) symbol? s-exp? . -> . s-exp?)]
   [show-exp (exp? . -> . s-exp?)]
   
   [mod-by-name (label? [listof modl?] . -> . modl?)]
