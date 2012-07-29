@@ -70,11 +70,11 @@
      (μ (foldl)
         (λ (f a xs)
           (if (nil? xs) a
-              (foldl f (f a (car xs)) (cdr xs)))))))
+              (foldl f (f (car xs) a) (cdr xs)))))))
 (define modl-reverse
   `(module reverse (,c/list ↦ ,c/list)
      (λ (xs)
-       (foldl (λ (acc x) (cons x acc)) nil xs))))
+       (foldl cons nil xs))))
 (define modl-map
   `(module map ((,c/any ↦ ,c/any) ,c/list ↦ ,c/list)
      (λ (f xs)
@@ -165,7 +165,8 @@
 (check-equal? (eval-cek (prog-filter modl-filter-tc '• '(range 1 2)))
               {set '(blame † filter) '(blame † ∆) '(blame † car) '(blame † cdr)
                    '(cons 1 (cons 2 nil)) '(cons 1 nil) '(cons 2 nil) 'nil})
-(check-equal? (eval-cek (prog-filter modl-filter-tc 'cons? '•)) {set '•})
+(check-equal? (eval-cek (prog-filter modl-filter-tc 'cons? '•))
+              {set '• '(blame † filter)})
 
 ;; 'quick'sort
 (define prog-qsort
@@ -484,16 +485,16 @@
 ;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/kcfa/sat-brute.scm
 (define modl-phi
   `(module phi (,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool)
-      (λ (x1 x2 x3 x4 x5 x6 x7)
-        (and (or x1 x2)
-             (or x1 (not x2) (not x3))
-             (or x3 x4)
-             (or (not x4) x1)
-             (or (not x2) (not x3))
-             (or x4 x2)))))
+     (λ (x1 x2 x3 x4 x5 x6 x7)
+       (and (or x1 x2)
+            (or x1 (not x2) (not x3))
+            (or x3 x4)
+            (or (not x4) x1)
+            (or (not x2) (not x3))
+            (or x4 x2)))))
 (define modl-phi-•
   `(module phi (,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ,c/bool ↦ ,c/bool) •))
-  
+
 (define (prog-sat phi-mod)
   `(,phi-mod
     

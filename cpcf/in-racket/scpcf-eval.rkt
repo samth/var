@@ -125,12 +125,11 @@
                         ms
                         (close
                          (val '•
-                              (s-map
-                               (λ (c)
-                                 (match c
-                                   [(contract-cl (func-c cs1 c2) ρc)
-                                    (close-contract c2 (env-extend xs ρc))]))
-                               cs))
+                              (for/fold ([acc ∅]) ([c cs])
+                                (match c
+                                  [(contract-cl (func-c cs1 c2) ρc)
+                                   (set-add acc (close-contract c2 (env-extend xs ρc)))]
+                                  [_ acc])))
                          ρ0)
                         κ)}]
                   [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}])
@@ -239,7 +238,7 @@
                    h g f c
                    (mon-ap-k (cons clo vs) xs cs h g f κ)))}]
       [(mon-ap-k vs '() '() h g f κ)
-       {set (cek ms clo (ap-k vs '() h κ))}]))
+       {set (cek ms clo (ap-k vs '() f κ))}]))
   
   (if (val-cl? clo) (on-val) (on-nonval)))
 
