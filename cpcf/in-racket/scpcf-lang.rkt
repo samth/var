@@ -243,7 +243,7 @@
          [odd? ,(and/c integer? odd?)]
          [non-neg? ,(and/c real? (not/c negative?))]
          [non-pos? ,(and/c real? (not/c positive?))]
-         [non-zero? ,(or/c (not/c number?) (not/c zero?))]
+         [non-zero? ,(and/c number? (not/c zero?))]
          [pos? ,(and/c real? positive?)]
          [neg? ,(and/c real? negative?)]
          [int? ,integer?]
