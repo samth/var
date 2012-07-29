@@ -1,12 +1,13 @@
 TODO:
 * [mostly done] support multiple-argument functions
-** properly check function against contract
+** [done] properly check function against contract
 ** var-args??
 * expressions that won't terminate:
-** (havoc •) -> (havoc (• •)) -> (havoc (havoc •)): currently solved by discarding kontinuation for havoc b/c it never produces a value anyway. Is this safe?
-** (foldl f a •), therefore (reverse •) and (filter p •): currently solved by introducing inaccuracy in cons:
+** [done] (havoc •) -> (havoc (• •)) -> (havoc (havoc •)): currently solved by discarding kontinuation for havoc b/c it never produces a value anyway. Is this safe?
+** [done] (foldl f a •), therefore (reverse •) and (filter p •): currently solved by introducing inaccuracy in cons:
 *** (cons (•/{c...}) nil) -> (•/{(cons/c c (listof c))...})
 *** (cons (•/{c1...}) (•/{cons/c c2 (listof c2)...})) -> (•/{(cons/c c (listof c))...}∪{cons/c any/c (listof any/c)}), where c ∈ c1 ∩ c2
+** when one argument is symbolic, approximate everything else
 * [done] precision improvement mentioned in 4.4
 * [part] more tests
 ** [done] length, factorial, insertion sort
@@ -15,4 +16,5 @@ TODO:
 ** [done] from Wright paper: flatten, taut, member, lastpair, subst*, last
 * [part] rewrite eval's loop using mutable hashtables + benchmark
 * improve contract checking/proving to get rid of false blames
+** remember passed test in if clause
 * clean up
