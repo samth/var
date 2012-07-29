@@ -12,6 +12,8 @@
   [env-has? (natural? env? . -> . boolean?)]
   [env-size (env? . -> . natural?)]
   [env-restrict ((set/c natural?) env? . -> . env?)]
+  [env-set (natural? any/c env? . -> . env?)]
+  [env-upd (natural? (any/c . -> . any/c) env? . -> . env?)]
   
   [env? (any/c . -> . boolean?)]
   [natural? (any/c . -> . boolean?)]
@@ -82,6 +84,20 @@
 ;; returns element at given distance, or default value if there's nothing
 (define (env-get-default d def en)
   (if (env-has? d en) (env-get d en) def))
+
+;; env-set : Natural X [Env X] -> [Env X]
+(define (env-set d x ρ)
+  (if (env-has? d ρ)
+      (match-let ([(env m s) ρ])
+        (env (hash-set m (- s 1 d) x) s))
+      (error "Nothing at distance " d)))
+
+;; env-upd : Natural (X -> X) [Env X] -> [Env X]
+(define (env-upd d f ρ)
+  (if (env-has? d ρ)
+      (match-let ([(env m s) ρ])
+        (env (hash-update m (- s 1 d) f) s))
+      (error "Nothing at distance " d)))
 
 ;; tests
 (define closures `(3 2 1 0))

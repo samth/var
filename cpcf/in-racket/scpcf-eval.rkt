@@ -81,7 +81,14 @@
          {set (cek ms (close f ρ) (ap-k '() (map (λ (e) (close e ρ)) xs) l κ))}]
         [(rec b) {set (cek ms (close b (env-extend clo ρ)) κ)}]
         [(if/ e1 e2 e3)
-         {set (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))}]
+         (match e1
+           [(app pred `(,(ref x)) _)
+            (let ([cl (env-get x ρ)]
+                  [cl-else (close e3 ρ)])
+              (s-map (λ (cl1) (cek ms (close e1 ρ)
+                                   (if-k (close e2 (env-set x cl1 ρ)) cl-else κ)))
+                     (refine cl (close-contract (flat-c pred) ρ))))]
+           [_ {set (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))}])]
         [(mon h f g c e1)
          {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
         [(mod-ref f g) (match-let ([(modl f c v) (mod-by-name f ms)])

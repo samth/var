@@ -16,5 +16,5 @@ TODO:
 ** [done] from Wright paper: flatten, taut, member, lastpair, subst*, last
 * [part] rewrite eval's loop using mutable hashtables + benchmark
 * improve contract checking/proving to get rid of false blames
-** remember passed test in if clause
+** [done] remember passed test in if clause
 * clean up
