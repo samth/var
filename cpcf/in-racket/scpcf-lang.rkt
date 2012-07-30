@@ -58,12 +58,16 @@
   [show-exp (exp? . -> . s-exp?)]
   
   [mod-by-name (label? [listof modl?] . -> . modl?)]
+  [upd-mod-by-name (label? (val? . -> . val?) [listof modl?] . -> . [listof modl?])]
   
   [proc-with-arity? (val-cl? natural? . -> . (set/c boolean?))]
   
   [mk-contract-cl (prim? . -> . contract-cl?)]
   
   [contracts-imply? ([set/c contract-cl?] prim? . -> . verified?)]
+  [concrete? (val-cl? . -> . boolean?)]
+  [proc? (val-cl? . -> . verified?)]
+  [approx (val-cl? . -> . val-cl?)]
   
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
@@ -72,7 +76,7 @@
   [prim? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)])
  
- c/any c/bool c/list c/num-list c/even-list c/bool-list
+ c/any c/bool c/list c/num-list c/real-list c/even-list c/bool-list
  
  ;; s-map : [x -> y] [Setof x] -> [Setof y]
  s-map
@@ -175,12 +179,15 @@
 (define CL-BULLET (exp-cl BULLET ρ0))
 
 ;; contracts
+(define (c/list-of p)
+  `(μ (pred) (or/c (flat nil?) (cons/c (flat ,p) pred))))
 (define c/any `(flat (λ (x) #t)))
 (define c/bool `(flat bool?))
-(define c/list `(μ (list?) (or/c (flat nil?) (cons/c ,c/any list?))))
-(define c/num-list `(μ (num-list?) (or/c (flat nil?) (cons/c (flat num?) num-list?))))
-(define c/even-list `(μ (evens?) (or/c (flat nil?) (cons/c (flat even?) evens?))))
-(define c/bool-list `(μ (bools?) (or/c (flat nil?) (cons/c (flat bool?) bools?))))
+(define c/list (c/list-of '(λ (x) #t)))
+(define c/num-list (c/list-of 'num?))
+(define c/real-list (c/list-of 'real?))
+(define c/even-list (c/list-of 'even?))
+(define c/bool-list (c/list-of 'bool?))
 
 ;; mk-contract-cl : Pred -> ContractClosure
 ;; makes contract out of primitive predicate
@@ -225,6 +232,76 @@
                     [else acc])]
                  [_ acc])])))))
 
+;; proc? : ValClosure -> Verified
+;; checks whether closure represents a function
+(define proc?
+  (match-lambda
+    [(exp-cl (val '• cs) ρ) (contracts-imply? cs 'proc?)]
+    [(exp-cl (val u cs) ρ) (if (or (lam? u) (prim? u)) 'Proved 'Refuted)]
+    [(mon-fn-cl h f g c cl) 'Proved]
+    [_ 'Refuted]))
+
+;; concrete? : ValClosure -> Bool
+;; checks whether a closure represents a concrete value
+(define (concrete? cl)
+  (match cl
+    [(exp-cl (val u cs) ρ) (not (equal? u '•))]
+    [(mon-fn-cl h f g c v) (concrete? v)]
+    [(cons-cl c1 c2) #t] #|TODO|#))
+
+;; entries-prim-pred : Listof (List Symbol (PreVal -> Boolean))
+;; predicates on primitive data
+[define entries-prim-pred
+  `([prime? ,(and/c number? (λ (x) (if (member x '(2 3 5 7)) #t #f)))]
+    [zero? ,(and/c number? zero?)]
+    [nat? ,(and/c integer? (or/c positive? zero?))]
+    [even? ,(and/c integer? even?)]
+    [odd? ,(and/c integer? odd?)]
+    [non-neg? ,(and/c real? (not/c negative?))]
+    [non-pos? ,(and/c real? (not/c positive?))]
+    [non-zero? ,(and/c number? (not/c zero?))]
+    [pos? ,(and/c real? positive?)]
+    [neg? ,(and/c real? negative?)]
+    [int? ,integer?]
+    [real? ,real?]
+    [num? ,number?]
+    [string? ,string?]
+    [nil? ,(curry equal? 'nil)]
+    [false? ,false?]
+    [bool? ,boolean?])]
+
+; prim-preds : [Listof Symbol]
+(define prim-preds
+  (map first entries-prim-pred))
+
+;; prim-check : [TreeOf Pred] Preval -> Boolean
+;; checks whether primitive value satisfy predicate with given name
+(define (prim-check p pre-val)
+  (if (cons? p)
+      (andmap (λ (q) (prim-check q pre-val)) p)
+      (match-let ([(cons (list nm op) _)
+                   (memf (compose (curry equal? p) first) entries-prim-pred)])
+        (op pre-val))))
+
+;; approx-contracts : ValExpClosure -> [Setof ContractClosure]
+(define approx-contracts
+  (let ([satisfying-contracts
+         (λ (u)
+           (foldl (λ (pred acc)
+                    (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
+                  ∅ prim-preds))])
+    (match-lambda
+      [(exp-cl (val (lam n e) cs) ρ) {set-union cs (mk-contract-cl 'proc?)}]
+      [(exp-cl (val '• cs) ρ) cs]
+      [(exp-cl (val u cs) ρ) (set-union cs (satisfying-contracts u))])))
+
+;; approx : ValClosure -> ValClosure
+(define (approx x)
+  (match x
+    [(exp-cl (val (lam n e) _) ρ) x]
+    [(exp-cl _ ρ) (close (val '• (approx-contracts x)) ρ0)]
+    [_ x #|TODO|#]))
+
 ;; ops : Symbol -> OpImpl
 (define ops
   (local
@@ -232,47 +309,6 @@
      [define T {set CL-TRUE}]
      [define F {set CL-FALSE}]
      [define TF (set-union T F)]
-     
-     ;; entries-prim-pred : Listof (List Symbol (PreVal -> Boolean))
-     ;; predicates on primitive data
-     [define entries-prim-pred
-       `([prime? ,(and/c number? (λ (x) (if (member x '(2 3 5 7)) #t #f)))]
-         [zero? ,(and/c number? zero?)]
-         [nat? ,(and/c integer? (or/c positive? zero?))]
-         [even? ,(and/c integer? even?)]
-         [odd? ,(and/c integer? odd?)]
-         [non-neg? ,(and/c real? (not/c negative?))]
-         [non-pos? ,(and/c real? (not/c positive?))]
-         [non-zero? ,(and/c number? (not/c zero?))]
-         [pos? ,(and/c real? positive?)]
-         [neg? ,(and/c real? negative?)]
-         [int? ,integer?]
-         [real? ,real?]
-         [num? ,number?]
-         [string? ,string?]
-         [nil? ,(curry equal? 'nil)]
-         [false? ,false?]
-         [bool? ,boolean?])]
-     
-     ; prim-preds : [Listof Symbol]
-     (define prim-preds
-       (map first entries-prim-pred))
-     
-     ;; prim-check : [TreeOf Pred] Preval -> Boolean
-     ;; checks whether primitive value satisfy predicate with given name
-     (define (prim-check p pre-val)
-       (if (cons? p)
-           (andmap (λ (q) (prim-check q pre-val)) p)
-           (match-let ([(cons (list nm op) _)
-                        (memf (compose (curry equal? p) first) entries-prim-pred)])
-             (op pre-val))))
-     
-     ;; concrete? : ValClosure -> Bool
-     ;; checks whether a closure represents a concrete value
-     (define (concrete? cl)
-       (match cl
-         [(exp-cl (val u cs) ρ) (not (equal? u '•))]
-         [_ #f]))
      
      ;; entries-prim-op : Listof (List Symbol (ListOf ((TreeOf Pred)* → Pred)) (PreVal* → PreVal))
      ;; operators on primitive data
@@ -340,18 +376,6 @@
          [str≥? ([string? string? → bool?]) ,string>=?]
          [str-len ([string? → nat?]) ,string-length]))
      
-     ;; approx : ValExpClosure -> [Setof ContractClosure]
-     (define approx
-       (match-lambda
-         [(exp-cl (val '• cs) ρ) cs]
-         [(exp-cl (val u cs) ρ) (approx-contracts u)]))
-     
-     ;; approx-contracts : PreVal -> [Setof Pred]
-     (define (approx-contracts u)
-       (foldl (λ (pred acc)
-                (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
-              ∅ prim-preds))
-     
      ;; try-rule : `(,p ... → ,q) [Listof [Setof Contract]] -> Verified
      (define (try-rule rule cs)
        (match-let* ([`(,p ... → ,q) rule]
@@ -415,14 +439,11 @@
                  (op-impl
                   [curry = 1]
                   [λ (_ xs)
-                    (match xs
-                      [`(,(exp-cl (val '• cs) ρ))
-                       (match (contracts-imply? cs 'proc?)
-                         ['Refuted F]
-                         ['Proved T]
-                         ['Neither TF])]
-                      [`(,(exp-cl (val u cs) ρ)) (if (or (lam? u) (prim? u)) T F)]
-                      [`(,cl) (if (mon-fn-cl? cl) T F)])]))
+                    (match-let ([`(,cl) xs])
+                      (match (proc? cl)
+                        ['Proved T]
+                        ['Refuted F]
+                        ['Neither TF]))]))
       (hash-set! tb 'true?
                  (op-impl
                   [curry = 1]
@@ -454,7 +475,7 @@
                               ρ0)})
                       ; approximate all arguments then return symbolic result as accurate
                       ; as possible
-                      (match-let* ([zs (map approx xs)]
+                      (match-let* ([zs (map approx-contracts xs)]
                                    [(cons r0 rs) contracts])
                         (match (try-rule r0 zs)
                           ; if the catch-all one fails to prove (positively),
@@ -488,7 +509,7 @@
                                           (<= i_0 i_n (string-length s)))
                                      {set (close (val (substring s i_0 i_n) ∅) ρ0)}
                                      {set (close (blame/ l 'substring) ρ0)}))
-                               (match-let* ([`(,cs1 ,cs2 ,cs3) (map approx xs)]
+                               (match-let* ([`(,cs1 ,cs2 ,cs3) (map approx-contracts xs)]
                                             [r1 (contracts-imply? cs1 'string?)]
                                             [r2 (contracts-imply? cs2 'nat?)]
                                             [r3 (contracts-imply? cs3 'nat?)])
@@ -514,7 +535,7 @@
                                             (match-let ([(contract-cl c ρc) cl])
                                               (close-contract
                                                (cons-c c
-                                                       (rec-c (or-c (flat-c (val 'nil ∅))
+                                                       (rec-c (or-c (flat-c (val 'nil? ∅))
                                                                     (cons-c (shift-con 1 c)
                                                                             (ref-c 0)))))
                                                ρc)))
@@ -522,7 +543,7 @@
                                    (let ([C/ANY (read-con c/any)])
                                      (close-contract
                                       (cons-c C/ANY
-                                              (rec-c (or-c (flat-c (val 'nil ∅))
+                                              (rec-c (or-c (flat-c (val 'nil? ∅))
                                                            (cons-c C/ANY (ref-c 0)))))
                                       ρ0)))) ρ0)]
                            ; promote (cons/c (•/{...c...}) (•/{...(cons c (listof c))...}) to
@@ -535,7 +556,7 @@
                                      (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
                                               (match c
                                                 [(contract-cl (cons-c c1
-                                                                      (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                      (rec-c (or-c (flat-c (val 'nil? ∅))
                                                                                    (cons-c c2 (ref-c 0)))))
                                                               ρc)
                                                  (if (equal? c2 (shift-con 1 c1))
@@ -551,7 +572,7 @@
                                   (close (val '• (set-add list-contracts
                                                           (close-contract
                                                            (cons-c C/ANY
-                                                                   (rec-c (or-c (flat-c (val 'nil ∅))
+                                                                   (rec-c (or-c (flat-c (val 'nil? ∅))
                                                                                 (cons-c C/ANY (ref-c 0)))))
                                                            ρ0)))
                                          ρ0)
@@ -887,6 +908,17 @@
     [(cons m ms1) (if (equal? (modl-f m) l) m
                       (mod-by-name l ms1))]
     [_ (error "unbound module name: " l)]))
+
+;; upd-mod-by-name : Label [Value -> Value] [Listof Module] -> Module
+(define (upd-mod-by-name l f ms)
+  (match ms
+    [(cons m ms1)
+     (match-let ([(modl n c v) m])
+       (if (equal? n l)
+           (cons (modl n c (f v)) ms1)
+           (cons m (upd-mod-by-name l f ms1))))]
+    [_ (error "unbound module name: " l)]))
+
 
 ;; proc-with-arity? : ValClosure Natural -> [Setof Boolean]
 ;; checks whether closure represents a procedure compatible with given number of args

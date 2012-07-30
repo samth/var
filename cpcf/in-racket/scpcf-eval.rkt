@@ -44,18 +44,22 @@
 (define (step conf)
   (match-define (cek ms clo κ) conf)
   
-  ;; refine : ValClosure ContractClosure -> (Setof ValClosure)
-  (define (refine clo conclo)
-    (match clo
-      [(exp-cl (val u cs) ρ)
-       (match conclo
-         [(contract-cl (or-c c1 c2) ρc) ; split disjunction
-          (set-union (refine clo (close-contract c1 ρc))
-                     (refine clo (close-contract c2 ρc)))]
-         [(contract-cl (rec-c c) ρc) ; unroll recursive contract
-          (refine clo (close-contract c (env-extend conclo ρc)))]
-         [_ {set (exp-cl (val u (set-add cs conclo)) ρ)}])]
-      [else {set clo} #|TODO|#]))
+  ;; refine : Value ContractClosure -> (Setof Value)
+  (define (refine v c)
+    (match-let ([(val u cs) v])
+      (match c
+        [(contract-cl (or-c c1 c2) ρc) ; split disjunction
+         (set-union (refine v (close-contract c1 ρc))
+                    (refine v (close-contract c2 ρc)))]
+        [(contract-cl (rec-c c) ρc) ; unroll recursive contract
+         (refine v (close-contract c (env-extend c ρc)))]
+        [_ {set (val u (set-add cs c))}])))
+  
+  ;; refine-cl : ValClosure ContractClosure -> (Setof ValueClosure)
+  (define (refine-cl cl c)
+    (match cl
+      [(exp-cl v ρ) (s-map (λ (v1) (exp-cl v1 ρ)) (refine v c))]
+      [_ {set cl} #|TODO|#]))
   
   ;; AMB : [Listof S-Exp] -> S-Exp
   (define (AMB exps)
@@ -84,10 +88,20 @@
          (match e1
            [(app pred `(,(ref x)) _)
             (let ([cl (env-get x ρ)]
+                  [cl-test (close e1 ρ)]
                   [cl-else (close e3 ρ)])
-              (s-map (λ (cl1) (cek ms (close e1 ρ)
+              (s-map (λ (cl1) (cek ms cl-test
                                    (if-k (close e2 (env-set x cl1 ρ)) cl-else κ)))
-                     (refine cl (close-contract (flat-c pred) ρ))))]
+                     (refine-cl cl (close-contract (flat-c pred) ρ))))]
+           [(app pred `(,(mod-ref a b)) _)
+            (let* ([cl-test (close e1 ρ)]
+                   [cl-then (close e2 ρ)]
+                   [cl-else (close e3 ρ)]
+                   [v (modl-v (mod-by-name a ms))])
+              (s-map (λ (v) (cek (upd-mod-by-name a (const v) ms)
+                                 cl-test
+                                 (if-k cl-then cl-else κ)))
+                     (refine v (close-contract (flat-c pred) ρ))))]
            [_ {set (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))}])]
         [(mon h f g c e1)
          {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
@@ -100,7 +114,7 @@
                                 (let* ([C (close-contract c ρ)]
                                        [κ1 (mon-k f f g C κ)])
                                   (s-map (λ (cl) (cek ms cl κ1))
-                                         (refine (close v ρ) C)))]
+                                         (refine-cl (close v ρ) C)))]
                                [_ {set (cek ms (close v ρ)
                                             (mon-k f f g (close-contract c ρ) κ))}])))])))
   
@@ -117,7 +131,10 @@
            [(exp-cl (val u cs) ρv)
             (match u
               [(lam n e) {set (if (= n (length xs)) ; arity check
-                                  (cek ms (close e (env-extendl xs ρv)) κ)
+                                  ; delay approximating arguments until this point
+                                  ; to avoid false blames in earlier stages
+                                  (let ([zs (if (andmap concrete? xs) xs (map approx xs))])
+                                    (cek ms (close e (env-extendl xs ρv)) κ))
                                   (cek ms (close (blame/ l '∆) ρ0) (mt)))}]
               ['•
                {non-det
@@ -176,7 +193,7 @@
                               (cek ms pred-or-contract
                                    (ap-k '() `(,clo) h #|TODO: is h the right label?|#
                                          (if-k v (close (blame/ f h) ρ0) κ))))
-                            (refine clo con-cl))])))]
+                            (refine-cl clo con-cl))])))]
            [`(,pred)
             (match (verify clo con-cl)
               ['Proved {set (cek ms clo κ)}]
@@ -186,7 +203,7 @@
                         (cek ms (close pred ρc)
                              (ap-k '() `(,clo) h #|TODO: is h the right label?|#
                                    (if-k v (close (blame/ f h) ρ0) κ))))
-                      (refine clo con-cl))])]
+                      (refine-cl clo con-cl))])]
            [`()
             (match c
               [(func-c cs1 c2)
@@ -236,7 +253,7 @@
        (non-det (λ (r)
                   (match (val-pre (exp-cl-exp r))
                     [#t (s-map (λ (clo) (cek ms clo κ))
-                               (refine clo1 c1))]
+                               (refine-cl clo1 c1))]
                     [#f {set (cek ms clo1 (mon-k h f g c2 κ))}]))
                 (δ 'true? `(,clo) h))]
       [(mon-ap-k vs (cons x xs) (cons c cs) h g f κ)
