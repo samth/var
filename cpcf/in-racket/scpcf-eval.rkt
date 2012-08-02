@@ -18,7 +18,8 @@
 
 ;; Kont = Mt
 ;;      | Ap [Listof ValClosure] [Listof Closure] Label Kont
-;;      | If Closure Closure Kont
+;;      Abuse kont frame to remember passed tests
+;;      | If [(List Label ContractClosure)|'()] Closure Closure Kont
 ;;      | Mon Lab Lab Lab ContractClosure Kont
 ;;      | ChkCdr Lab Lab Lab ContractClosure Closure Kont
 ;;      | ChkOr Closure ContractClosure Lab Lab Lab ContractClosure Kont
@@ -27,7 +28,7 @@
 (struct kont () #:transparent)
 (struct mt kont () #:transparent)
 (struct ap-k kont (vals args l k) #:transparent)
-(struct if-k kont (then else k) #:transparent)
+(struct if-k kont (passed then else k) #:transparent)
 (struct mon-k kont (h f g con-clo k) #:transparent)
 ; ad-hoc frames for checking cdr of a pair, and right disjunction
 (struct cdr-k kont (h f g con-clo clo k) #:transparent)
@@ -39,6 +40,17 @@
 (define load
   (match-lambda
     [(prog mods main) (cek mods (close main ρ0) (mt))]))
+
+;; kont-len : Kont -> Nat
+(define kont-len
+  (match-lambda
+    [(mt) 0]
+    [(ap-k v xs l k) (+ 1 (kont-len k))]
+    [(if-k p t e k) (+ 1 (kont-len k))]
+    [(mon-k h f g c k) (+ 1 (kont-len k))]
+    [(cdr-k h f g c cl k) (+ 1 (kont-len k))]
+    [(or-k cl c h f g c2 k) (+ 1 (kont-len k))]
+    [(mon-ap-k v x c h f g k) (+ 1 (kont-len k))]))
 
 ;; step : CEK -> [Setof CEK]
 (define (step conf)
@@ -53,9 +65,16 @@
                     (refine v (close-contract c2 ρc)))]
         [(contract-cl (rec-c c) ρc) ; unroll recursive contract
          (refine v (close-contract c (env-extend c ρc)))]
+        [(contract-cl (flat-c (val p _)) ρc)
+         (if (prim? p)
+             (match (contracts-imply? cs p)
+               ['Refuted {set v}]
+               ['Proved {set v}]
+               ['Neither {set (val u (set-add cs c))}])
+             {set (val u (set-add cs c))})]
         [_ {set (val u (set-add cs c))}])))
   
-  ;; refine-cl : ValClosure ContractClosure -> (Setof ValueClosure)
+  ;; refine-cl : ValClosure ContractClosure -> (Setof (ValueClosure | 'Refuted))
   (define (refine-cl cl c)
     (match cl
       [(exp-cl v ρ) (s-map (λ (v1) (exp-cl v1 ρ)) (refine v c))]
@@ -85,24 +104,26 @@
          {set (cek ms (close f ρ) (ap-k '() (map (λ (e) (close e ρ)) xs) l κ))}]
         [(rec b) {set (cek ms (close b (env-extend clo ρ)) κ)}]
         [(if/ e1 e2 e3)
-         (match e1
-           [(app pred `(,(ref x)) _)
-            (let ([cl (env-get x ρ)]
-                  [cl-test (close e1 ρ)]
-                  [cl-else (close e3 ρ)])
-              (s-map (λ (cl1) (cek ms cl-test
-                                   (if-k (close e2 (env-set x cl1 ρ)) cl-else κ)))
-                     (refine-cl cl (close-contract (flat-c pred) ρ))))]
-           [(app pred `(,(mod-ref a b)) _)
-            (let* ([cl-test (close e1 ρ)]
-                   [cl-then (close e2 ρ)]
-                   [cl-else (close e3 ρ)]
-                   [v (modl-v (mod-by-name a ms))])
-              (s-map (λ (v) (cek (upd-mod-by-name a (const v) ms)
-                                 cl-test
-                                 (if-k cl-then cl-else κ)))
-                     (refine v (close-contract (flat-c pred) ρ))))]
-           [_ {set (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))}])]
+         (let ([cl-test (close e1 ρ)]
+               [cl-then (close e2 ρ)]
+               [cl-else (close e3 ρ)])
+           (match e1
+             [(app (val u cs) `(,ar) _)
+              (match ar
+                ;; if it's a local variable, remember passed test in 'then' closure
+                [(ref x) (let ([cl (env-get x ρ)])
+                           (s-map (λ (cl1)
+                                    (cek ms cl-test
+                                         (if-k '()
+                                               (close e2 (env-set x cl1 ρ))
+                                               cl-else κ)))
+                                  (refine-cl cl (close-contract (flat-c (val u cs)) ρ))))]
+                ;; if it's a module reference, abuse kont frame to modify module later
+                [(mod-ref a _)
+                 {set (cek ms cl-test (if-k `(,a ,(close-contract (flat-c (val u cs)) ρ))
+                                            cl-then cl-else κ))}]
+                [_ {set (cek ms cl-test (if-k '() cl-then cl-else κ))}])]
+             [_ {set (cek ms cl-test (if-k '() cl-then cl-else κ))}]))]
         [(mon h f g c e1)
          {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
         [(mod-ref f g) (match-let ([(modl f c v) (mod-by-name f ms)])
@@ -113,8 +134,10 @@
                                [(val '• cs)
                                 (let* ([C (close-contract c ρ)]
                                        [κ1 (mon-k f f g C κ)])
-                                  (s-map (λ (cl) (cek ms cl κ1))
-                                         (refine-cl (close v ρ) C)))]
+                                  (s-map (λ (v) (cek (upd-mod-by-name f (const v) ms)
+                                                     (close v ρ)
+                                                     κ1))
+                                         (refine v C)))]
                                [_ {set (cek ms (close v ρ)
                                             (mon-k f f g (close-contract c ρ) κ))}])))])))
   
@@ -134,7 +157,7 @@
                                   ; delay approximating arguments until this point
                                   ; to avoid false blames in earlier stages
                                   (let ([zs (if (andmap concrete? xs) xs (map approx xs))])
-                                    (cek ms (close e (env-extendl xs ρv)) κ))
+                                    (cek ms (close e (env-extendl zs ρv)) κ))
                                   (cek ms (close (blame/ l '∆) ρ0) (mt)))}]
               ['•
                {non-det
@@ -174,10 +197,19 @@
                  (proc-with-arity? clo1 (length cs1)))
                 {set (cek ms (close (blame/ l h) ρ0) (mt))})]
            [_ {set (cek ms (close (blame/ l '∆) ρ0) (mt))}]))]
-      [(if-k clo1 clo2 κ)
-       (s-map (λ (v)
-                (cek ms (match (val-pre (exp-cl-exp v)) [#t clo1] [#f clo2]) κ))
-              (δ 'true? (list clo) '†))]
+      [(if-k passed clo1 clo2 κ)
+       (non-det (match-lambda
+                  [(exp-cl (val #t cs) ρv)
+                   (match passed
+                     [`(,l ,ccl) (match-let* ([(modl l c v) (mod-by-name l ms)])
+                                   (s-map (λ (v1)
+                                            (cek (upd-mod-by-name l (const v1) ms)
+                                                 clo1 κ))
+                                          (refine v ccl)))]
+                     ['() {set (cek ms clo1 κ)}])]
+                  [(exp-cl (val #f cs) ρv)
+                   {set (cek ms clo2 κ)}])
+                (δ 'true? (list clo) '†))]
       [(mon-k h f g con-cl κ)
        (match-let ([(contract-cl c ρc) con-cl])
          (match (maybe-FC `(,0) c)
@@ -192,7 +224,7 @@
                      (s-map (λ (v)
                               (cek ms pred-or-contract
                                    (ap-k '() `(,clo) h #|TODO: is h the right label?|#
-                                         (if-k v (close (blame/ f h) ρ0) κ))))
+                                         (if-k '() v (close (blame/ f h) ρ0) κ))))
                             (refine-cl clo con-cl))])))]
            [`(,pred)
             (match (verify clo con-cl)
@@ -202,7 +234,7 @@
                (s-map (λ (v)
                         (cek ms (close pred ρc)
                              (ap-k '() `(,clo) h #|TODO: is h the right label?|#
-                                   (if-k v (close (blame/ f h) ρ0) κ))))
+                                   (if-k '() v (close (blame/ f h) ρ0) κ))))
                       (refine-cl clo con-cl))])]
            [`()
             (match c
@@ -343,7 +375,14 @@
 ;; Verified := 'Proved | 'Refuted | 'Neither
 (define (verify clo conclo)
   (match clo
-    [(exp-cl (val u cs) ρ) (if (set-member? cs conclo) 'Proved 'Neither)]
+    [(exp-cl (val u cs) ρ)
+     (match conclo
+       [(contract-cl (val p _) ρc)
+        (cond
+          [(prim? p) (contracts-imply? cs p)]
+          [(set-member? cs conclo) 'Proved]
+          [else 'Neither])]
+       [_ (if (set-member? cs conclo) 'Proved 'Neither)])]
     [else 'Neither #|TODO|#]))
 
 ;; maybe-FC : [Listof Natural] Contract -> [List Exp] or Empty

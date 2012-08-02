@@ -268,6 +268,7 @@
     [string? ,string?]
     [nil? ,(curry equal? 'nil)]
     [false? ,false?]
+    [not ,false?]
     [bool? ,boolean?])]
 
 ; prim-preds : [Listof Symbol]
@@ -355,7 +356,9 @@
          [mod ([int? (int? non-zero?) → int?]) ,modulo]
          [quot ([int? (int? non-zero?) → int?]) ,quotient]
          [sqrt ([num? → num?]
-                [non-neg? → real?])
+                [zero? → zero?]
+                [pos? → pos?]
+                [non-neg? → non-neg?])
                ,sqrt]
          [gcd ([int? int? → int?]) ,gcd]
          
@@ -452,7 +455,6 @@
                              [(exp-cl (val #f cs) ρ) CL-TRUE]
                              [_ CL-FALSE])
                            (δ 'false? xs '†))]))
-      (hash-set! tb 'not (hash-ref tb 'false?)) ; ok b/c false? never produces blame
       
       ;; add primitive ops on primitive data
       (for-each
@@ -546,7 +548,7 @@
                                               (rec-c (or-c (flat-c (val 'nil? ∅))
                                                            (cons-c C/ANY (ref-c 0)))))
                                       ρ0)))) ρ0)]
-                           ; promote (cons/c (•/{...c...}) (•/{...(cons c (listof c))...}) to
+                           ; promote (cons/c (•/{...c...}) (•/{...(cons/c c (listof c))...}) to
                            ; (•/{...(cons/c c (listof c)...}
                            [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
                             (let* ([cdr-is-list? #f]
@@ -964,7 +966,8 @@
   ;; assume partial order, so there should be no cycle
   `([prime? ⇒ nat?]
     [zero? ⇒ even? nat? non-neg? non-pos?]
-    [even? odd? ⇒ int?]
+    [even? ⇒ int?]
+    [odd? ⇒ non-zero? int?]
     [nat? ⇒ int? non-neg?]
     [neg? ⇒ non-pos? non-zero?]
     [pos? ⇒ non-neg? non-zero?]
@@ -972,7 +975,7 @@
     [non-zero? ⇒ num?]
     [real? ⇒ num?]
     [num? string? proc? cons? nil? ⇒ true?]
-    [false? ⇒ bool?]
+    [false? not ⇒ bool?]
     [bool? true? ⇒ any]))
 
 ;; rhs : Pred -> [Listof Pred]
