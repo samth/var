@@ -47,7 +47,7 @@
   
   [shift (natural? exp? . -> . exp?)]
   
-  [δ (prim? (listof clo?) label? . -> . (set/c clo?))]
+  [δ (prim? (listof val-cl?) label? . -> . (set/c clo?))]
   [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
   [read-prog (s-exp? . -> . prog?)]
@@ -68,6 +68,7 @@
   [concrete? (val-cl? . -> . boolean?)]
   [proc? (val-cl? . -> . verified?)]
   [approx (val-cl? . -> . val-cl?)]
+  [refine ((set/c contract-cl?) contract-cl? . -> . (set/c (set/c contract-cl?)))]
   
   [exp? (any/c . -> . boolean?)]
   [answer? (any/c . -> . boolean?)]
@@ -211,26 +212,51 @@
 ;; checks whether set of refinements is enough to prove or refute given
 ;; primitive predicate(s)
 (define (contracts-imply? cs p)
-  (if (cons? p) ; is list? more expensive?
+  (if (cons? p) ; is (list? p) more expensive?
+      
       ; on list of all predicates to prove
+      ; TODO: write manual loop for short-circuit behavior?
       (let ([rs (map (curry contracts-imply? cs) p)])
         (cond
           [(ormap (curry equal? 'Refuted) rs) 'Refuted]
           [(andmap (curry equal? 'Proved) rs) 'Proved]
           [else 'Neither]))
+      
       ; on single predicate
-      (let ([excludes (exclude p)]
-            [proves (what-imply p)])
+      (local ([define excludes (exclude p)]
+              [define proves (what-imply p)]
+              [define (on-contract acc c)
+                (match acc
+                  ['Refuted 'Refuted]
+                  [_ (match c
+                       [(contract-cl (flat-c (val q cs1)) ρc)
+                        (cond
+                          [(set-member? excludes q) 'Refuted]
+                          [(set-member? proves q) 'Proved]
+                          [else acc])]
+                       [(contract-cl (cons-c c1 c2) ρc)
+                        ; relies on 'cons? having no predicate that implies it
+                        (if (set-member? (implies-what 'cons?) p) 'Proved 'Refuted)]
+                       [(contract-cl (func-c cs1 c2) ρc)
+                        ; relies on 'proc? having no predicate that implies it
+                        (if (set-member? (implies-what 'proc?) p) 'Proved 'Refuted)]
+                       [(contract-cl (or-c c1 c2) ρc)
+                        (match (on-contract acc (close-contract c1 ρc))
+                          ['Refuted (on-contract acc (close-contract c2 ρc))]
+                          ['Proved 'Proved]
+                          ['Neither (match (on-contract acc (close-contract c2 ρc))
+                                      ['Refuted 'Neither]
+                                      [r r])])]
+                       [(contract-cl (rec-c c1) ρc)
+                        ; TODO potential infinite loop?
+                        (on-contract acc (close-contract c1 (env-extend c ρc)))]
+                       [(contract-cl (and-c c1 c2) ρc)
+                        (on-contract (on-contract acc (close-contract c1 ρc)) (close-contract c2 ρc))]
+                       [(contract-cl (ref-c x) ρc) (on-contract acc (env-get x ρc))]
+                       [_ acc])])])
+        
         (for/fold ([acc 'Neither]) ([c (in-set cs)])
-          (match acc
-            ['Refuted 'Refuted]
-            [_ (match c
-                 [(contract-cl (flat-c (val q cs1)) ρc)
-                  (cond
-                    [(set-member? excludes q) 'Refuted]
-                    [(set-member? proves q) 'Proved]
-                    [else acc])]
-                 [_ acc])])))))
+          (on-contract acc c)))))
 
 ;; proc? : ValClosure -> Verified
 ;; checks whether closure represents a function
@@ -292,7 +318,7 @@
                     (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
                   ∅ prim-preds))])
     (match-lambda
-      [(exp-cl (val (lam n e) cs) ρ) {set-union cs (mk-contract-cl 'proc?)}]
+      [(exp-cl (val (lam n e) cs) ρ) (set-union cs (mk-contract-cl 'proc?))]
       [(exp-cl (val '• cs) ρ) cs]
       [(exp-cl (val u cs) ρ) (set-union cs (satisfying-contracts u))])))
 
@@ -301,7 +327,10 @@
   (match x
     [(exp-cl (val (lam n e) _) ρ) x]
     [(exp-cl _ ρ) (close (val '• (approx-contracts x)) ρ0)]
-    [_ x #|TODO|#]))
+    [(mon-fn-cl h f g c v) (mon-fn-cl h f g c (approx v))]
+    [(cons-cl c1 c2)
+     ; TODO drop too much
+     (close (val '• {set (mk-contract-cl 'cons?)}) ρ0)]))
 
 ;; ops : Symbol -> OpImpl
 (define ops
@@ -527,59 +556,77 @@
                  (op-impl
                   [curry = 2]
                   [λ (l xs)
-                    {set (match xs
-                           ; promote (cons/c (•/{...c...}) nil) to (• {...(listof c)...})
-                           [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val 'nil cs2) ρ2))
-                            (close
-                             (val '•
-                                  (set-add
-                                   (s-map (λ (cl)
-                                            (match-let ([(contract-cl c ρc) cl])
-                                              (close-contract
-                                               (cons-c c
-                                                       (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                    (cons-c (shift-con 1 c)
-                                                                            (ref-c 0)))))
-                                               ρc)))
-                                          cs1)
-                                   (let ([C/ANY (read-con c/any)])
-                                     (close-contract
-                                      (cons-c C/ANY
-                                              (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                           (cons-c C/ANY (ref-c 0)))))
-                                      ρ0)))) ρ0)]
-                           ; promote (cons/c (•/{...c...}) (•/{...(cons/c c (listof c))...}) to
-                           ; (•/{...(cons/c c (listof c)...}
-                           [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
-                            (let* ([cdr-is-list? #f]
-                                   [C/ANY (read-con c/any)]
-                                   [list-contracts
-                                    (set-subtract
-                                     (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
-                                              (match c
-                                                [(contract-cl (cons-c c1
-                                                                      (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                                   (cons-c c2 (ref-c 0)))))
-                                                              ρc)
-                                                 (if (equal? c2 (shift-con 1 c1))
-                                                     (begin
-                                                       (set! cdr-is-list? #t)
-                                                       (if (set-member? cs1 c1)
-                                                           c
-                                                           'ignore))
-                                                     'ignore)]
-                                                [_ 'ignore]))
-                                     (set 'ignore))])
-                              (if cdr-is-list?
-                                  (close (val '• (set-add list-contracts
-                                                          (close-contract
-                                                           (cons-c C/ANY
-                                                                   (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                                (cons-c C/ANY (ref-c 0)))))
-                                                           ρ0)))
-                                         ρ0)
-                                  (cons-cl (first xs) (second xs))))]
-                           [`(,c1 ,c2) (cons-cl c1 c2)])}]))
+                    {set 
+                     (match-let ([`(,cl1 ,cl2) xs])
+                       (if (andmap concrete? xs)
+                           (cons-cl cl1 cl2)
+                           (match-let ([`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
+                                        `(,(approx cl1) ,(approx cl2))]
+                                       [C/ANY (read-con c/any)])
+                             (cond
+                               ; promote (cons/c (•/{...c...}) nil) to (• {...(listof c)...})
+                               [(set-member? cs2 (mk-contract-cl 'nil?))
+                                (close
+                                 (val '•
+                                      (set-add
+                                       (s-map (match-lambda
+                                                [(contract-cl c ρc)
+                                                 (close-contract
+                                                  (cons-c c
+                                                          (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                                       (cons-c (shift-con 1 c)
+                                                                               (ref-c 0)))))
+                                                  ρc)])
+                                              cs1)
+                                       (let ([C/ANY (read-con c/any)])
+                                         (close-contract
+                                          (cons-c C/ANY
+                                                  (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                               (cons-c C/ANY (ref-c 0)))))
+                                          ρ0)))) ρ0)]
+                               [else
+                                ; promote (cons/c (•/{...c...}) (•/{...(cons/c c (listof c))...}) to
+                                ; (•/{...(cons/c c (listof c)...}
+                                (let* ([cdr-is-list? #f]
+                                       [list-contracts
+                                        (set-remove
+                                         (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
+                                                  (match c
+                                                    [(contract-cl (cons-c c1
+                                                                          (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                                                       (cons-c c2 (ref-c 0)))))
+                                                                  ρc)
+                                                     (if (equal? c2 (shift-con 1 c1))
+                                                         (begin
+                                                           (set! cdr-is-list? #t)
+                                                           (if (set-member? cs1 (close-contract c1 ρc))
+                                                               c
+                                                               'ignore))
+                                                         'ignore)]
+                                                    [(contract-cl (cons-c c1 (ref-c x)) ρc)
+                                                     (match (env-get x ρc)
+                                                       [(contract-cl (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                                                  (cons-c c2 (ref-c 0))))
+                                                                     ρc2)
+                                                        (if (equal? c2 (shift-con 1 c1))
+                                                            (begin
+                                                              (set! cdr-is-list? #t)
+                                                              (if (set-member? cs1 (close-contract c1 ρc))
+                                                                  c
+                                                                  'ignore))
+                                                            'ignore)]
+                                                       [_ 'ignore])]
+                                                    [_ 'ignore]))
+                                         'ignore)])
+                                  (if cdr-is-list?
+                                      (close (val '• (set-add list-contracts
+                                                              (close-contract
+                                                               (cons-c C/ANY
+                                                                       (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                                                    (cons-c C/ANY (ref-c 0)))))
+                                                               ρ0)))
+                                             ρ0)
+                                      (cons-cl cl1 cl2)))]))))}]))
       
       (hash-set! tb 'car
                  (op-impl
@@ -614,44 +661,74 @@
 (define (split-cons cl)
   
   ;; accum-cons-c : [Setof ContractClosure] 
-  ;;             -> (List [Setof ContractClosure] [Setof ContractClosure]) or ()
+  ;;             -> [Setof (List [Setof ContractClosure] [Setof ContractClosure])]
   ;; accumulates contracts for pair's car and cdr
   ;; returns () if contracts cannot prove it's a pair
   (define (accum-cons-c cs)
-    (for/fold ([acc '()]) ([c (in-set cs)])
-      (match-let ([(contract-cl c ρc) c])
-        (match c
-          [(cons-c c1 c2)
-           (match acc
-             [`(,cs1 ,cs2) `(,(set-add cs1 (close-contract c1 ρc)) ,(set-add cs2 (close-contract c2 ρc)))]
-             [`() `(,(set (close-contract c1 ρc)) ,(set (close-contract c2 ρc)))])]
-          [(flat-c (val 'cons? _))
-           (match acc
-             [`(,cs1 ,cs2) acc]
-             ['() `(,∅ ,∅)])]
-          [_ acc]))))
+    
+    ;; recursively explore contract for possibility of proving/refuting 'cons?
+    (define (on-contract acc c)
+      (match acc
+        ['Refuted 'Refuted]
+        [_ 
+         (match c
+           [(contract-cl (cons-c c1 c2) ρc)
+            (non-det
+             (match-lambda
+               [`(,cs1 ,cs2)
+                (for*/set ([cs1′ (refine cs1 (close-contract c1 ρc))]
+                           [cs2′ (refine cs2 (close-contract c2 ρc))])
+                          `(,cs1′ ,cs2′))]
+               ['() ∅])
+             (if (set-empty? acc) {set `(,∅ ,∅)} acc))]
+           [(contract-cl (flat-c (val p _)) ρc)
+            (cond
+              [(set-member? (exclude 'cons?) p) 'Refuted]
+              [(set-member? (what-imply 'cons?) p)
+               (if (set-empty? acc) {set `(,∅ ,∅)} acc)]
+              [else acc])]
+           [(contract-cl (func-c cs1 cs) ρc) 'Refuted]
+           [(contract-cl (and-c c1 c2) ρc)
+            (on-contract (on-contract acc (close-contract c1 ρc)) (close-contract c2 ρc))]
+           [(contract-cl (or-c c1 c2) ρc)
+            (let ([cs1s (on-contract acc (close-contract c1 ρc))]
+                  [cs2s (on-contract acc (close-contract c2 ρc))])
+              (match `(,cs1s ,cs2s)
+                [`(Refuted Refuted) 'Refuted]
+                [`(Refuted ,cs) (set-add cs '())]
+                [`(,cs Refuted) (set-add cs '())]
+                [_ (set-union cs1s cs2s)]))]
+           ; TODO: potential infinite loop?
+           [(contract-cl (rec-c c1) ρc)
+            (on-contract acc (close-contract c1 (env-extend c ρc)))]
+           [(contract-cl (ref-c x) ρc) (on-contract acc (env-get x ρc))]
+           [_ acc])]))
+    
+    (for/fold ([acc ∅]) ([c (in-set cs)])
+      (on-contract acc c)))
+  
   
   (match cl
-    ; TODO: case like (cons • •) / {(cons/c (flat even?) (flat odd?))}
-    ; maybe turn it to (• / {(flat even?)}) and (• / {(flat odd?)})
-    ; instead of currently just • and •
-    ; ah, ConsClosure currently does not have a 'dedicated' set of refinements
-    ; neither does MonitoredFuncClosure. Do they ever need that?
-    [(cons-cl c1 c2) {set `(,c1 ,c2)}]
+    [(cons-cl c1 c2) {set `(,c1 ,c2)}] ; concrete pair
     [(exp-cl (val '• cs) ρ)
      (match (accum-cons-c cs)
-       ; proven abstract pair
-       [`(,cs1 ,cs2) {set `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))}]
-       ; nothing is known
-       [`() (match (contracts-imply? cs 'cons?)
-              ['Refuted {set '()}]
-              ['Proved {set `(,CL-BULLET ,CL-BULLET)}]
-              ['Neither {set '() `(,CL-BULLET ,CL-BULLET)}])])]
+       ['Refuted {set '()}]
+       [s (if (set-empty? s)
+              ; nothing is known
+              {set '() `(,CL-BULLET ,CL-BULLET)}
+              ; proved abstract pair
+              (s-map (match-lambda
+                       [`(,cs1 ,cs2) `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))]
+                       ['() '()])
+                     s))])]
     [_ {set '()}])) ; known not a pair
 
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
-  ((op-impl-proc (hash-ref ops op)) l xs))
+  (let ([o (hash-ref ops op)])
+    (if ((op-impl-arity-check o) (length xs))
+        ((op-impl-proc o) l xs)
+        {set (close (blame/ l op) ρ0)})))
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)
@@ -956,6 +1033,37 @@
      {set (= n (length cs1))}]
     [_ {set #f}]))
 
+;; refine : (SetOf ContractClosure) ContractClosure -> (Setof (Setof ContractClosure))
+(define (refine cs c)
+  (match c
+    [(contract-cl (flat-c (val (lam 1 (val #t ∅)) ∅)) ρ0) {set cs}] ; ignore 'any'
+    [(contract-cl (or-c c1 c2) ρc) ; split disjunction
+     (set-union (refine cs (close-contract c1 ρc))
+                (refine cs (close-contract c2 ρc)))]
+    [(contract-cl (and-c c1 c2) ρc)
+     (let ([c1′ (close-contract c1 ρc)]
+           [c2′ (close-contract c2 ρc)])
+       (non-det (λ (cs′)
+                  (refine cs′ c2′))
+                (refine cs c1′)))]
+    [(contract-cl (rec-c c1) ρc) ; unroll recursive contract
+     (refine cs (close-contract c1 (env-extend c ρc)))]
+    [(contract-cl (flat-c (val p _)) ρc)
+     (if (prim? p)
+         (match (contracts-imply? cs p)
+           ['Neither {set (set-add cs c)}]
+           [_ {set cs}])
+         {set (set-add cs c)})]
+    [(contract-cl (cons-c c1 c2) ρc)
+     (match (contracts-imply? cs 'cons?)
+       ['Refuted {set cs}]
+       [(or 'Proved 'Neither) {set (set-add cs c)}])]
+    [(contract-cl (func-c c1s c2) ρc)
+     (match (contracts-imply? cs 'proc?)
+       ['Refuted {set cs}]
+       [(or 'Proved 'Neither) {set (set-add cs c)}])]
+    [(contract-cl (ref-c x) ρc) (refine cs (env-get x ρc))]
+    [_ {set (set-add cs c)}]))
 
 
 ;; mechanism for proving primitive predicates

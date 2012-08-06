@@ -56,28 +56,15 @@
 (define (step conf)
   (match-define (cek ms clo κ) conf)
   
-  ;; refine : Value ContractClosure -> (Setof Value)
-  (define (refine v c)
+  ;; refine-val : Value ContractClosure -> (Setof Value)
+  (define (refine-val v c)
     (match-let ([(val u cs) v])
-      (match c
-        [(contract-cl (or-c c1 c2) ρc) ; split disjunction
-         (set-union (refine v (close-contract c1 ρc))
-                    (refine v (close-contract c2 ρc)))]
-        [(contract-cl (rec-c c) ρc) ; unroll recursive contract
-         (refine v (close-contract c (env-extend c ρc)))]
-        [(contract-cl (flat-c (val p _)) ρc)
-         (if (prim? p)
-             (match (contracts-imply? cs p)
-               ['Refuted {set v}]
-               ['Proved {set v}]
-               ['Neither {set (val u (set-add cs c))}])
-             {set (val u (set-add cs c))})]
-        [_ {set (val u (set-add cs c))}])))
+      (s-map (λ (cs1) (val u cs1)) (refine cs c))))
   
-  ;; refine-cl : ValClosure ContractClosure -> (Setof (ValueClosure | 'Refuted))
+  ;; refine-cl : ValClosure ContractClosure -> (Setof ValClosure)
   (define (refine-cl cl c)
     (match cl
-      [(exp-cl v ρ) (s-map (λ (v1) (exp-cl v1 ρ)) (refine v c))]
+      [(exp-cl v ρ) (s-map (λ (v1) (exp-cl v1 ρ)) (refine-val v c))]
       [_ {set cl} #|TODO|#]))
   
   ;; AMB : [Listof S-Exp] -> S-Exp
@@ -137,7 +124,7 @@
                                   (s-map (λ (v) (cek (upd-mod-by-name f (const v) ms)
                                                      (close v ρ)
                                                      κ1))
-                                         (refine v C)))]
+                                         (refine-val v C)))]
                                [_ {set (cek ms (close v ρ)
                                             (mon-k f f g (close-contract c ρ) κ))}])))])))
   
@@ -205,7 +192,7 @@
                                    (s-map (λ (v1)
                                             (cek (upd-mod-by-name l (const v1) ms)
                                                  clo1 κ))
-                                          (refine v ccl)))]
+                                          (refine-val v ccl)))]
                      ['() {set (cek ms clo1 κ)}])]
                   [(exp-cl (val #f cs) ρv)
                    {set (cek ms clo2 κ)}])
