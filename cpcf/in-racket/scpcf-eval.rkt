@@ -100,15 +100,18 @@
                     f
                     (ap-k vs xs l κ))})))
   
-  ;; short-cut : AppClosure|MonClosure -> {Setof CEK}
+  ;; short-cut : Closure -> {Setof CEK}
   (define (short-cut cl)
     (match cl
-      [(exp-cl (val u cs) ρ) {set (cek hist ms cl κ)}]
-      [(exp-cl (app f xs l) ρ) {set (cek hist ms (close (val '• ∅) ρ0) κ)}]
-      [(exp-cl (mon h f g c e) ρ) (set-add
-                                   (s-map (λ (cs) (cek hist ms (close (val '• cs) ρ0) κ))
-                                          (refine ∅ (close-contract c ρ)))
-                                   (cek hist0 ms (close (blame/ f h) ρ0) κ))]))
+      [(exp-cl v ρ)
+       (match v
+         [(val u cs) {set (cek hist ms cl κ)}]
+         [(app f xs l) {set (cek hist ms (close (val '• ∅) ρ0) κ)}]
+         [(mon h f g c e) (set-add
+                           (s-map (λ (cs) (cek hist ms (close (val '• cs) ρ0) κ))
+                                  (refine ∅ (close-contract c ρ)))
+                           (cek hist0 ms (close (blame/ f h) ρ0) κ))])]
+      [_ {set (cek hist ms cl κ)}]))
   
   ;; on-nonval : -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression
