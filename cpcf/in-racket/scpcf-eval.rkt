@@ -4,6 +4,7 @@
 (require racket/contract)
 (require "scpcf-lang.rkt")
 (require "env.rkt")
+(require "bi-map.rkt")
 
 (provide
  (contract-out
@@ -13,8 +14,10 @@
   
   [eval-answer? (any/c . -> . boolean?)]))
 
-;; CEK = (cek [Listof Module] Closure Kont)
-(struct cek (ms clo kont) #:transparent)
+(define hist0 empty-bi-map)
+
+;; CEK = (cek History [Listof Module] Closure Kont)
+(struct cek (hist ms clo kont) #:transparent)
 
 ;; Kont = Mt
 ;;      | Ap [Listof ValClosure] [Listof Closure] Label Kont
@@ -39,7 +42,7 @@
 ;; load : Program -> CEK
 (define load
   (match-lambda
-    [(prog mods main) (cek mods (close main ρ0) (mt))]))
+    [(prog mods main) (cek hist0 mods (close main ρ0) (mt))]))
 
 ;; kont-len : Kont -> Nat
 (define kont-len
@@ -54,12 +57,18 @@
 
 ;; step : CEK -> [Setof CEK]
 (define (step conf)
-  (match-define (cek ms clo κ) conf)
+  (match-define (cek hist ms clo κ) conf)
+  
+  #;(begin ; check stack size
+      (display (kont-len κ))
+      (display "\n"))
   
   ;; refine-val : Value ContractClosure -> (Setof Value)
   (define (refine-val v c)
     (match-let ([(val u cs) v])
-      (s-map (λ (cs1) (val u cs1)) (refine cs c))))
+      (match u
+        ['• (s-map (λ (cs1) (val u cs1)) (refine cs c))]
+        [_ {set v}])))
   
   ;; refine-cl : ValClosure ContractClosure -> (Setof ValClosure)
   (define (refine-cl cl c)
@@ -80,16 +89,37 @@
                        (λ (x)
                          ,(AMB `((y (x •)) (y (car x)) (y (cdr x))))))))
   
+  ;; maybe-ap-k : Closure [Listof ValClosure] [Listof Closure] Label -> [SetOf CEK]
+  ;; decides whether to add another application kont frame or approximate it
+  (define (maybe-ap-k f vs xs l)
+    (let ([next-frame-sig (ap-k vs xs l (mt))])
+      (if (bi-map-has-val? hist next-frame-sig) ; dejavu
+          (short-cut clo)
+          {set (cek (bi-map-set hist κ next-frame-sig)
+                    ms
+                    f
+                    (ap-k vs xs l κ))})))
+  
+  ;; short-cut : AppClosure|MonClosure -> {Setof CEK}
+  (define (short-cut cl)
+    (match cl
+      [(exp-cl (val u cs) ρ) {set (cek hist ms cl κ)}]
+      [(exp-cl (app f xs l) ρ) {set (cek hist ms (close (val '• ∅) ρ0) κ)}]
+      [(exp-cl (mon h f g c e) ρ) (set-add
+                                   (s-map (λ (cs) (cek hist ms (close (val '• cs) ρ0) κ))
+                                          (refine ∅ (close-contract c ρ)))
+                                   (cek hist0 ms (close (blame/ f h) ρ0) κ))]))
+  
   ;; on-nonval : -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression
   (define (on-nonval)
     (match-let ([(exp-cl e ρ) clo])
       (match e
-        [(ref x) {set (cek ms (env-get x ρ) κ)}]
-        [(blame/ f h) {set (cek ms clo (mt))}]
+        [(ref x) {set (cek hist ms (env-get x ρ) κ)}]
+        [(blame/ f h) {set (cek hist0 ms clo (mt))}]
         [(app f xs l)
-         {set (cek ms (close f ρ) (ap-k '() (map (λ (e) (close e ρ)) xs) l κ))}]
-        [(rec b) {set (cek ms (close b (env-extend clo ρ)) κ)}]
+         (maybe-ap-k (close f ρ) '() (map (λ (e) (close e ρ)) xs) l)]
+        [(rec b) {set (cek hist ms (close b (env-extend clo ρ)) κ)}]
         [(if/ e1 e2 e3)
          (let ([cl-test (close e1 ρ)]
                [cl-then (close e2 ρ)]
@@ -100,32 +130,33 @@
                 ;; if it's a local variable, remember passed test in 'then' closure
                 [(ref x) (let ([cl (env-get x ρ)])
                            (s-map (λ (cl1)
-                                    (cek ms cl-test
+                                    (cek hist ms cl-test
                                          (if-k '()
                                                (close e2 (env-set x cl1 ρ))
                                                cl-else κ)))
                                   (refine-cl cl (close-contract (flat-c (val u cs)) ρ))))]
                 ;; if it's a module reference, abuse kont frame to modify module later
                 [(mod-ref a _)
-                 {set (cek ms cl-test (if-k `(,a ,(close-contract (flat-c (val u cs)) ρ))
-                                            cl-then cl-else κ))}]
-                [_ {set (cek ms cl-test (if-k '() cl-then cl-else κ))}])]
-             [_ {set (cek ms cl-test (if-k '() cl-then cl-else κ))}]))]
+                 {set (cek hist ms cl-test (if-k `(,a ,(close-contract (flat-c (val u cs)) ρ))
+                                                 cl-then cl-else κ))}]
+                [_ {set (cek hist ms cl-test (if-k '() cl-then cl-else κ))}])]
+             [_ {set (cek hist ms cl-test (if-k '() cl-then cl-else κ))}]))]
         [(mon h f g c e1)
-         {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
+         {set (cek hist ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
         [(mod-ref f g) (match-let ([(modl f c v) (mod-by-name f ms)])
                          (if (equal? f g)
-                             {set (cek ms (close v ρ0) κ)}
+                             {set (cek hist ms (close v ρ0) κ)}
                              (match v
                                ; TODO: page 8: isn't (mon f f g C (• · C)) the same as (• · C) ?
                                [(val '• cs)
                                 (let* ([C (close-contract c ρ)]
                                        [κ1 (mon-k f f g C κ)])
-                                  (s-map (λ (v) (cek (upd-mod-by-name f (const v) ms)
+                                  (s-map (λ (v) (cek hist
+                                                     (upd-mod-by-name f (const v) ms)
                                                      (close v ρ)
                                                      κ1))
                                          (refine-val v C)))]
-                               [_ {set (cek ms (close v ρ)
+                               [_ {set (cek hist ms (close v ρ)
                                             (mon-k f f g (close-contract c ρ) κ))}])))])))
   
   ;; on-val : -> [Setof CEK]
@@ -134,28 +165,31 @@
     (match κ
       [(mt) {set conf}]
       [(ap-k vs (cons x xs) l κ) ; eval next arg
-       {set (cek ms x (ap-k (cons clo vs) xs l κ))}]
+       {set (cek hist ms x (ap-k (cons clo vs) xs l κ))}]
       [(ap-k vals '() l κ) ; apply function/prim-op
-       (match-let ([(cons f xs) (reverse (cons clo vals))])
+       (match-let ([(cons f xs) (reverse (cons clo vals))]
+                   [hist1 (bi-map-del-key hist κ)])
          (match f
            [(exp-cl (val u cs) ρv)
             (match u
               [(lam n e) {set (if (= n (length xs)) ; arity check
                                   ; delay approximating arguments until this point
                                   ; to avoid false blames in earlier stages
-                                  (let ([zs (if (andmap concrete? xs) xs (map approx xs))])
-                                    (cek ms (close e (env-extendl zs ρv)) κ))
-                                  (cek ms (close (blame/ l '∆) ρ0) (mt)))}]
+                                  #;(let ([zs (if (andmap concrete? xs) xs (map approx xs))])
+                                      (cek hist1 ms (close e (env-extendl zs ρv)) κ))
+                                  (cek hist1 ms (close e (env-extendl xs ρv)) κ)
+                                  (cek hist0 ms (close (blame/ l '∆) ρ0) (mt)))}]
               ['•
                {non-det
                 (match-lambda
                   [#t {set-add
                        (list->set
                         (map (λ (x)
-                               (cek ms (close (havoc l) ρ0)
+                               (cek hist0 ms (close (havoc l) ρ0)
                                     (ap-k '() `(,x) l (mt))))
                              xs))
                        (cek ; value refined by function's contract's range
+                        hist1
                         ms
                         (close
                          (val '•
@@ -166,36 +200,36 @@
                                   [_ acc])))
                          ρ0)
                         κ)}]
-                  [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}])
+                  [#f {set (cek hist0 ms (close (blame/ l '∆) ρ0) (mt))}])
                 (proc-with-arity? f (length xs))}]
               [_ (if (prim? u) ; primitive op handles arity check on its own
-                     (s-map (λ (cl) (cek ms cl κ)) (δ u xs l))
-                     {set (cek ms (close (blame/ l '∆) ρ0) (mt))})])]
+                     (s-map (λ (cl) (cek hist1 ms cl κ)) (δ u xs l))
+                     {set (cek hist0 ms (close (blame/ l '∆) ρ0) (mt))})])]
            [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) clo1)
             (if (= (length xs) (length cs1))
                 (s-map
                  (match-lambda
-                   [#t (cek ms clo1
+                   [#t (cek hist1 ms clo1
                             (mon-ap-k
                              '() xs (map (λ (c) (close-contract c ρc)) cs1) h g f
                              (mon-k ; monitor result
                               h f g (close-contract c2 (env-extendl xs ρc)) κ)))]
-                   [#f (cek ms (close (blame/ f h) ρ0) (mt))])
+                   [#f (cek hist0 ms (close (blame/ f h) ρ0) (mt))])
                  (proc-with-arity? clo1 (length cs1)))
-                {set (cek ms (close (blame/ l h) ρ0) (mt))})]
-           [_ {set (cek ms (close (blame/ l '∆) ρ0) (mt))}]))]
+                {set (cek hist0 ms (close (blame/ l h) ρ0) (mt))})]
+           [_ {set (cek hist0 ms (close (blame/ l '∆) ρ0) (mt))}]))]
       [(if-k passed clo1 clo2 κ)
        (non-det (match-lambda
                   [(exp-cl (val #t cs) ρv)
                    (match passed
                      [`(,l ,ccl) (match-let* ([(modl l c v) (mod-by-name l ms)])
                                    (s-map (λ (v1)
-                                            (cek (upd-mod-by-name l (const v1) ms)
+                                            (cek hist (upd-mod-by-name l (const v1) ms)
                                                  clo1 κ))
                                           (refine-val v ccl)))]
-                     ['() {set (cek ms clo1 κ)}])]
+                     ['() {set (cek hist ms clo1 κ)}])]
                   [(exp-cl (val #f cs) ρv)
-                   {set (cek ms clo2 κ)}])
+                   {set (cek hist ms clo2 κ)}])
                 (δ 'true? (list clo) '†))]
       [(mon-k h f g con-cl κ)
        (match-let ([(contract-cl c ρc) con-cl])
@@ -203,23 +237,23 @@
            [`(,(ref x))
             (let ([pred-or-contract (env-get x ρc)])
               (if (contract-cl? pred-or-contract)
-                  {set (cek ms clo (mon-k h f g pred-or-contract κ))}
+                  {set (cek hist ms clo (mon-k h f g pred-or-contract κ))}
                   (match (verify clo con-cl) ; TODO: code duplication, temp
-                    ['Proved {set (cek ms clo κ)}]
-                    ['Refuted {set (cek ms (close (blame/ f h) ρ0) (mt))}]
+                    ['Proved {set (cek hist ms clo κ)}]
+                    ['Refuted {set (cek hist0 ms (close (blame/ f h) ρ0) (mt))}]
                     ['Neither
                      (s-map (λ (v)
-                              (cek ms pred-or-contract
+                              (cek hist ms pred-or-contract
                                    (ap-k '() `(,clo) h #|TODO: is h the right label?|#
                                          (if-k '() v (close (blame/ f h) ρ0) κ))))
                             (refine-cl clo con-cl))])))]
            [`(,pred)
             (match (verify clo con-cl)
-              ['Proved {set (cek ms clo κ)}]
-              ['Refuted {set (cek ms (close (blame/ f h) ρ0) (mt))}]
+              ['Proved {set (cek hist ms clo κ)}]
+              ['Refuted {set (cek hist0 ms (close (blame/ f h) ρ0) (mt))}]
               ['Neither
                (s-map (λ (v)
-                        (cek ms (close pred ρc)
+                        (cek hist ms (close pred ρc)
                              (ap-k '() `(,clo) h #|TODO: is h the right label?|#
                                    (if-k '() v (close (blame/ f h) ρ0) κ))))
                       (refine-cl clo con-cl))])]
@@ -227,61 +261,59 @@
             (match c
               [(func-c cs1 c2)
                (s-map (match-lambda
-                        [#t (cek ms (mon-fn-cl h f g con-cl clo) κ)]
-                        [#f (cek ms (close (blame/ f h) ρ0) (mt))])
+                        [#t (cek hist ms (mon-fn-cl h f g con-cl clo) κ)]
+                        [#f (cek hist0 ms (close (blame/ f h) ρ0) (mt))])
                       (proc-with-arity? clo (length cs1)))]
               [(cons-c c1 c2)
-               ;; TODO: - more general when the language is uptyped
-               ;;       - refactor with δ or something
                (s-map
                 (match-lambda
                   [`(,cl1 ,cl2)
-                   (cek ms cl1 (mon-k h f g (close-contract c1 ρc)
-                                      (cdr-k h f g (close-contract c2 ρc) cl2 κ)))]
-                  ['() (cek ms (exp-cl (blame/ f h) ρ0) (mt))])
+                   (cek hist ms cl1 (mon-k h f g (close-contract c1 ρc)
+                                           (cdr-k h f g (close-contract c2 ρc) cl2 κ)))]
+                  ['() (cek hist0 ms (exp-cl (blame/ f h) ρ0) (mt))])
                 (split-cons clo))]
               [(or-c c1 c2)
                {set
                 (match (verify clo (close-contract c1 ρc))
-                  ['Proved (cek ms clo κ)]
-                  ['Refuted (cek ms clo (mon-k h f g (close-contract c2 ρc) κ))]
+                  ['Proved (cek hist ms clo κ)]
+                  ['Refuted (cek hist ms clo (mon-k h f g (close-contract c2 ρc) κ))]
                   ['Neither
                    (match (maybe-FC `(,0) c1)
                      [`(,pred)
-                      (cek ms (close pred ρc)
+                      (cek hist ms (close pred ρc)
                            (ap-k '() `(,clo) h #|TODO: is h the right label?|#
                                  (or-k clo (close-contract c1 ρc)
                                        h f g (close-contract c2 ρc) κ)))]
                      [`() (error "left disjunction is not flat: " c1)])])}]
               [(and-c c1 c2)
-               {set (cek ms clo
+               {set (cek hist ms clo
                          (mon-k h f g (close-contract c1 ρc)
                                 (mon-k h f g (close-contract c2 ρc) κ)))}]
               [(rec-c c1)
-               {set (cek ms clo 
+               {set (cek hist ms clo 
                          (mon-k h f g
                                 (close-contract c1 (env-extend con-cl ρc)) κ))}]
               [(ref-c x)
-               {set (cek ms clo (mon-k h f g (env-get x ρc) κ))}])]))]
+               {set (cek hist ms clo (mon-k h f g (env-get x ρc) κ))}])]))]
       [(cdr-k h f g c clo1 κ)
-       {set (cek ms clo1
+       {set (cek hist ms clo1
                  (mon-k h f g c
                         (ap-k `(,clo ,(close (val 'cons ∅) ρ0)) '()
                               h #|TODO: h, right label?|# κ)))}]
       [(or-k clo1 c1 h f g c2 κ)
        (non-det (λ (r)
                   (match (val-pre (exp-cl-exp r))
-                    [#t (s-map (λ (clo) (cek ms clo κ))
+                    [#t (s-map (λ (clo) (cek hist ms clo κ))
                                (refine-cl clo1 c1))]
-                    [#f {set (cek ms clo1 (mon-k h f g c2 κ))}]))
+                    [#f {set (cek hist ms clo1 (mon-k h f g c2 κ))}]))
                 (δ 'true? `(,clo) h))]
       [(mon-ap-k vs (cons x xs) (cons c cs) h g f κ)
        {set
-        (cek ms x (mon-k
-                   h g f c
-                   (mon-ap-k (cons clo vs) xs cs h g f κ)))}]
+        (cek hist ms x (mon-k
+                        h g f c
+                        (mon-ap-k (cons clo vs) xs cs h g f κ)))}]
       [(mon-ap-k vs '() '() h g f κ)
-       {set (cek ms clo (ap-k vs '() f κ))}]))
+       {set (cek hist ms clo (ap-k vs '() f κ))}]))
   
   (if (val-cl? clo) (on-val) (on-nonval)))
 
@@ -301,7 +333,7 @@
   
   ;; final? : CEK -> Boolean
   (define (final? conf)
-    (match-let ([(cek _ clo κ) conf])
+    (match-let ([(cek hist _ clo κ) conf])
       (and (mt? κ)
            (or (cons-cl? clo)
                (mon-fn-cl? clo)

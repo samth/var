@@ -45,8 +45,8 @@
   `(,mod-fac
     (fac ,n)))
 (check-equal? (eval-cek (prog-factorial modl-factorial 3)) {set 6})
-#;(check-equal? (eval-cek (prog-factorial modl-factorial '•))
-                {set '• '(blame † fac)}) ; won't terminate
+(check-equal? (eval-cek (prog-factorial modl-factorial '•))
+              {set '• '(blame † fac)})
 (check-equal? (eval-cek (prog-factorial modl-factorial-acc 3)) {set 6})
 (check-equal? (eval-cek (prog-factorial modl-factorial-acc '•))
               {set '• '(blame † fac)})
@@ -105,13 +105,13 @@
               (cons lo (range (+ 1 lo) hi))
               nil)))))
 #;(define modl-sorted?
-  `(module sorted? (,c/real-list ↦ (flat bool?))
-     (μ (sorted?)
-        (λ (xs)
-          (or (nil? xs)
-              (nil? (cdr xs))
-              (and (≤ (car xs) (car (cdr xs)))
-                   (sorted? (cdr xs))))))))
+    `(module sorted? (,c/real-list ↦ (flat bool?))
+       (μ (sorted?)
+          (λ (xs)
+            (or (nil? xs)
+                (nil? (cdr xs))
+                (and (≤ (car xs) (car (cdr xs)))
+                     (sorted? (cdr xs))))))))
 (define modl-sorted?
   `(module sorted? (,c/real-list ↦ (flat bool?))
      (μ (sorted?)
@@ -153,9 +153,9 @@
 (define (prog-length mod-len l)
   `(,mod-len (len ,l)))
 (check-equal? (eval-cek (prog-length modl-length '(cons 1 (cons 2 nil)))) {set 2})
-#;(check-equal? (eval-cek (prog-length modl-length '•)) {set '(blame '† 'len) '•}) ; won't terminate
+(check-equal? (eval-cek (prog-length modl-length '•)) {set '(blame '† 'len) '•})
 (check-equal? (eval-cek (prog-length modl-length-acc '(cons 1 (cons 2 nil)))) {set 2})
-#;(check-equal? (eval-cek (prog-length modl-length-acc '•)) {set '(blame '† 'len) '•}) ; won't terminate
+#;(check-equal? (eval-cek (prog-length modl-length-acc '•)) {set '(blame '† 'len) '•}) ; FIXME won't terminate
 
 ;; 'filter'
 (define (prog-filter filter-mod p xs)
@@ -170,7 +170,7 @@
 (check-equal? (eval-cek (prog-filter modl-filter '• '(range 1 2))) ; every possible subsequence
               {set '(blame † filter) '(blame † ∆) '(blame † car) '(blame † cdr)
                    '(cons 1 (cons 2 nil)) '(cons 1 nil) '(cons 2 nil) 'nil})
-#;(check-equal? (eval-cek (prog-filter modl-filter  'cons? '•)) {set '• 'nil}) ; won't terminate
+(check-equal? (eval-cek (prog-filter modl-filter  'cons? '•)) {set '• 'nil})
 (check-equal? (eval-cek (prog-filter modl-filter-tc 'even? '(range 1 4)))
               {set '(cons 2 (cons 4 nil))})
 (check-equal? (eval-cek (prog-filter modl-filter-tc '• '(range 1 2)))
@@ -262,7 +262,7 @@
     ,modl-flatten
     ,modl-append
     (flatten •)))
-#;(check-equal? (eval-cek prog-flatten-•) {set '•}) ; won't terminate
+(check-equal? (eval-cek prog-flatten-•) {set '•})
 (define prog-flatten-ok2 `(,modl-foldr
                            ,modl-flatten
                            ,modl-append
@@ -348,12 +348,12 @@
     (subst* ,new ,old ,t)))
 (check-equal? (eval-cek (prog-subst* '42 '(cons 2 nil) '(cons 1 (cons (cons 2 nil) (cons 2 nil)))))
               {set '(cons 1 (cons 42 42))})
-;; FIXME: stop terminating after b/c I approximate all args
+;; FIXME: stop terminating after I approximate all args
 #;(check-equal? (eval-cek (prog-subst* '• '• '(cons 1 (cons 2 nil))))
-              ; all possible substitutions, b/c (equal? old t) is not remembered
-              {set '(cons • (cons 2 nil)) '(cons 1 •) '(cons 1 (cons 2 •))
-                   '• '(cons 1 (cons • •)) '(cons • (cons 2 •))
-                   '(cons • (cons • •)) '(cons 1 (cons 2 nil))})
+                ; all possible substitutions, b/c (equal? old t) is not remembered
+                {set '(cons • (cons 2 nil)) '(cons 1 •) '(cons 1 (cons 2 •))
+                     '• '(cons 1 (cons • •)) '(cons • (cons 2 •))
+                     '(cons • (cons • •)) '(cons 1 (cons 2 nil))})
 
 ;; 'Y' + 'last' from Wright paper Appendix
 (define (prog-last xs)
@@ -564,9 +564,16 @@
                (f3 #f))) (λ (x3) ((λ (z) (z x1 x2 x3)) (λ (y1 y2 y3) y1))))))))))
 (time (check-equal? (eval-cek prog-even-worse) {set #f}) 'even-worse)
 
+;; just to remind myself that i can generalize stuff to a bit more than just recognizing
+;; the same context
+#;(eval-cek `((module diverge ((flat nat?) ↦ (flat nat?))
+                (λ (n)
+                  (diverge (+ n 1))))
+              (diverge 0)))
+
 
 ;; test read/show
-#;(for-each
+(for-each
  (λ (p)
    (check-equal?
     (read-prog p)
