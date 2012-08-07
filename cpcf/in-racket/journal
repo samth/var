@@ -1,0 +1,34 @@
+things that don't terminate:
+(1) non-tail-recursive function trying to 'reduce' abstract value -> stack grow
+(2) tail-recursive function with accumulator(s) from infinite set -> # states grow. Some special cases:
+** applying (cons • _) to accumulator
+** adding concrete value to concrete accumulator
+(3) mutual tail calls from different modules. Monitoring the value builds up the stack.
+
+try 1:
+* solve (havoc •) as a special case of (1) by throwing away the kont
+
+try 2:
+* introduce inaccurcy into the common use case of cons.
+* e.g.:
+** (cons •/{num?} nil) -> •/{(cons/c num? (listof num?))} (approximate to non-empty list
+** (cons •/{num?,prime?} •/{(cons/c num? (listof num?))}) -> •/{(cons/c num? (listof num?))} (approximate to non-empty list of shared properties)
+* this partially solves (2) (mostly functions written in terms of foldl)
+
+try 3:
+* when one argument is abstract, approximate all the other ones
+* e.g.:
+** (length (cdr •) (+ 0 1)) -> (length • 1) -> (length • •/{nat?,odd?,etc.})
+* this seems to solve the rest of (2)
+* BUT blind approximating inadvertently causes problems for non-tail-recursive functions. E.g.: (filter • (cons 1 (cons 2 nil))) previously terminated with {nil, (1), (2), (1 2)} now becomes (filter • •) and runs forever.
+* i currently disable this and see if it can be done more carefully.
+
+try 4:
+* at C[D[e]] where i'm about to generate the application D[e], i remember <D,e> (along with current stack C, for later removal). Further down the stack, if i'm about to generate D[e] again, i approximate this application instead. 
+* when a frame is popped through β reduction, I 'forget' the <D,e> pair associated with the remaining stack.
+* this solves (1)
+
+try 5: (in progress)
+* there's no reason D[e] has to be restricted to a function application, but there are some technical difficulties resulting from my bad design. I'll see if i can refactor this.
+* this could solve (3)
+
