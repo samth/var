@@ -33,7 +33,7 @@
 ;; computes factorial
 (define modl-factorial
   `(module fac ((flat int?) ↦ (flat int?))
-     (μ (fac) (λ (n) (if (zero? n) 1 (* n (fac (- n 1))))))))
+     (λ (n) (if (zero? n) 1 (* n (fac (- n 1)))))))
 (define modl-factorial-acc
   `(module fac ((flat num? #|TODO|#) ↦ (flat num? #|TODO|#))
      (let ([fac1 (μ (go)
@@ -61,16 +61,14 @@
 ;; list functions
 (define modl-foldr
   `(module foldr ((,c/any ,c/any ↦ ,c/any) ,c/any ,c/list ↦ ,c/any)
-     (μ (foldr)
-        (λ (f a xs)
-          (if (nil? xs) a
-              (f (car xs) (foldr f a (cdr xs))))))))
+     (λ (f a xs)
+       (if (nil? xs) a
+           (f (car xs) (foldr f a (cdr xs)))))))
 (define modl-foldl
   `(module foldl ((,c/any ,c/any ↦ ,c/any) ,c/any ,c/list ↦ ,c/any)
-     (μ (foldl)
-        (λ (f a xs)
-          (if (nil? xs) a
-              (foldl f (f (car xs) a) (cdr xs)))))))
+     (λ (f a xs)
+       (if (nil? xs) a
+           (foldl f (f (car xs) a) (cdr xs))))))
 (define modl-reverse
   `(module reverse (,c/list ↦ ,c/list)
      (λ (xs)
@@ -99,30 +97,27 @@
        (foldr cons ys xs))))
 (define modl-range
   `(module range ((flat num?) (flat num?) ↦ ,c/real-list)
-     (μ (range)
-        (λ (lo hi)
-          (if (≤ lo hi)
-              (cons lo (range (+ 1 lo) hi))
-              nil)))))
+     (λ (lo hi)
+       (if (≤ lo hi)
+           (cons lo (range (+ 1 lo) hi))
+           nil))))
 #;(define modl-sorted?
     `(module sorted? (,c/real-list ↦ (flat bool?))
-       (μ (sorted?)
-          (λ (xs)
-            (or (nil? xs)
-                (nil? (cdr xs))
-                (and (≤ (car xs) (car (cdr xs)))
-                     (sorted? (cdr xs))))))))
+       (λ (xs)
+         (or (nil? xs)
+             (nil? (cdr xs))
+             (and (≤ (car xs) (car (cdr xs)))
+                  (sorted? (cdr xs)))))))
 (define modl-sorted?
   `(module sorted? (,c/real-list ↦ (flat bool?))
-     (μ (sorted?)
-        (λ (xs)
-          (if (cons? xs)
-              (let ([zs (cdr xs)])
-                (if (cons? zs)
-                    (and (≤ (car xs) (car zs))
-                         (sorted? (cdr xs)))
-                    #t))
-              #t)))))
+     (λ (xs)
+       (if (cons? xs)
+           (let ([zs (cdr xs)])
+             (if (cons? zs)
+                 (and (≤ (car xs) (car zs))
+                      (sorted? (cdr xs)))
+                 #t))
+           #t))))
 
 ;; insertion sort example from section 1
 (define prog-ins-sort
@@ -139,10 +134,9 @@
 ;; 'length' from section 4.4
 (define modl-length
   `(module len (,c/list ↦ (flat int?))
-     (μ (len)
-        (λ (l)
-          (if (nil? l) 0
-              (+ 1 (len (cdr l))))))))
+     (λ (l)
+       (if (nil? l) 0
+           (+ 1 (len (cdr l)))))))
 (define modl-length-acc
   `(module len (,c/list ↦ (flat int?))
      (let ([len-acc (μ (go)
@@ -187,13 +181,12 @@
     ,modl-filter
     ,modl-sorted?
     (module sort (,c/real-list ↦ (and/c ,c/real-list (flat sorted?)))
-      (μ (sort)
-         (λ (xs)
-           (if (nil? xs) nil
-               (append
-                (sort (filter (λ (y) (< y (car xs))) (cdr xs)))
-                (cons (car xs)
-                      (sort (filter (λ (y) (≥ y (car xs))) (cdr xs)))))))))
+      (λ (xs)
+        (if (nil? xs) nil
+            (append
+             (sort (filter (λ (y) (< y (car xs))) (cdr xs)))
+             (cons (car xs)
+                   (sort (filter (λ (y) (≥ y (car xs))) (cdr xs))))))))
     (sort (append (range 8 10) (range 1 3)))))
 (check-equal? (eval-cek prog-qsort)
               {set '(cons 1 (cons 2 (cons 3 (cons 8 (cons 9 (cons 10 nil))))))})
@@ -238,11 +231,10 @@
                    (cons/c (or/c (flat num?) (or/c (flat bool?) (flat string?)))
                            flat-list?)))])
     `(module flatten (,c/any ↦ ,c/flat-list)
-       (μ (flatten)
-          (λ (l)
-            (if (nil? l) nil
-                (if (cons? l) (append (flatten (car l)) (flatten (cdr l)))
-                    (cons l nil))))))))
+       (λ (l)
+         (if (nil? l) nil
+             (if (cons? l) (append (flatten (car l)) (flatten (cdr l)))
+                 (cons l nil)))))))
 (define modl-flatten-a
   `(module a (cons/c (flat num?) (cons/c (cons/c (flat num?) (flat nil?))
                                          (cons/c (flat num?) (flat nil?))))
@@ -295,11 +287,10 @@
         [F? 'false?]
         [c/taut `(μ (taut?) (or/c (flat bool?) ((flat bool?) ↦ taut?)))])
     `((module taut (,c/taut ↦ (flat bool?))
-        (μ (taut)
-           (λ (b)
-             (if (,T? b) #t
-                 (if (,F? b) #f
-                     (and (taut (b #t)) (taut (b #f))))))))
+        (λ (b)
+          (if (,T? b) #t
+              (if (,F? b) #f
+                  (and (taut (b #t)) (taut (b #f)))))))
       (taut ,p))))
 (check-equal? (eval-cek (prog-taut #t)) {set #t})
 (check-equal? (eval-cek (prog-taut 'not)) {set #f})
@@ -309,11 +300,10 @@
 ;; 'member' from Wright paper Appendix
 (define (prog-member x l)
   `((module member (,c/any ,c/list ↦ ,c/list)
-      (μ (member)
-         (λ (x l)
-           (if (nil? l) nil
-               (if (equal? x (car l)) l
-                   (member x (cdr l)))))))
+      (λ (x l)
+        (if (nil? l) nil
+            (if (equal? x (car l)) l
+                (member x (cdr l))))))
     (member ,x ,l)))
 (check-equal? (eval-cek (prog-member 3 '(cons 2 (cons 3 (cons 5 nil)))))
               {set '(cons 3 (cons 5 nil))})
@@ -326,11 +316,10 @@
 ;; 'lastpair' from Wright paper Appendix
 (define (prog-lastpair s)
   `((module lastpair ((cons/c ,c/any ,c/list) ↦ (cons/c ,c/any (flat nil?)))
-      (μ (lastpair)
-         (λ (s)
-           (if (cons? (cdr s))
-               (lastpair (cdr s))
-               s))))
+      (λ (s)
+        (if (cons? (cdr s))
+            (lastpair (cdr s))
+            s)))
     (lastpair ,s)))
 (check-equal? (eval-cek (prog-lastpair '(cons 1 (cons 2 nil)))) {set '(cons 2 nil)})
 (check-equal? (eval-cek (prog-lastpair 'nil)) {set '(blame † lastpair)})
@@ -339,12 +328,11 @@
 ;; subst* from Wright paper Appendix
 (define (prog-subst* new old t)
   `((module subst* (,c/any ,c/any ,c/any ↦ ,c/any)
-      (μ (subst*)
-         (λ (new old t)
-           (if (equal? old t) new
-               (if (cons? t) (cons (subst* new old (car t))
-                                   (subst* new old (cdr t)))
-                   t)))))
+      (λ (new old t)
+        (if (equal? old t) new
+            (if (cons? t) (cons (subst* new old (car t))
+                                (subst* new old (cdr t)))
+                t))))
     (subst* ,new ,old ,t)))
 (check-equal? (eval-cek (prog-subst* '42 '(cons 2 nil) '(cons 1 (cons (cons 2 nil) (cons 2 nil)))))
               {set '(cons 1 (cons 42 42))})
@@ -376,57 +364,53 @@
 ;; benchmarks
 (define tak ; translated from http://www.larcenists.org/R6src/tak.sch
   `((module tak ((flat int?) (flat int?) (flat int?) ↦ (flat int?))
-      (μ (tak)
-         (λ (x y z)
-           (if (not (< y x))
-               z
-               (tak (tak (- x 1) y z)
-                    (tak (- y 1) z x)
-                    (tak (- z 1) x y))))))
+      (λ (x y z)
+        (if (not (< y x))
+            z
+            (tak (tak (- x 1) y z)
+                 (tak (- y 1) z x)
+                 (tak (- z 1) x y)))))
     (tak 3 2 1)))
 (time (check-equal? (eval-cek tak) {set 2}) 'tak)
 
 (define takl ; translated from http://www.larcenists.org/R6src/takl.sch
   `((module listn ((flat num?) ↦ ,c/num-list)
-      (μ (listn) (λ (n)
-                   (if (zero? n) nil (cons n (listn (- n 1)))))))
+      (λ (n)
+        (if (zero? n) nil (cons n (listn (- n 1))))))
     (module shorter? (,c/num-list ,c/num-list ↦ (flat bool?))
-      (μ (shorter?)
-         (λ (x y)
-           (and (not (nil? y))
-                (or (nil? x)
-                    (shorter? (cdr x) (cdr y)))))))
+      (λ (x y)
+        (and (not (nil? y))
+             (or (nil? x)
+                 (shorter? (cdr x) (cdr y))))))
     (module mas (,c/num-list ,c/num-list ,c/num-list ↦ ,c/num-list)
-      (μ (mas)
-         (λ (x y z)
-           (if (not (shorter? y x))
-               z
-               (mas (mas (cdr x) y z)
-                    (mas (cdr y) z x)
-                    (mas (cdr z) x y))))))
+      (λ (x y z)
+        (if (not (shorter? y x))
+            z
+            (mas (mas (cdr x) y z)
+                 (mas (cdr y) z x)
+                 (mas (cdr z) x y)))))
     (mas (listn 3) (listn 2) (listn 1))))
 (time (check-equal? (eval-cek takl) {set '(cons 2 (cons 1 nil))}) 'takl)
 
 (define cpstak ; translated from http://www.larcenists.org/R6src/cpstak.sch
   `((module tak
       ((flat num?) (flat num?) (flat num?) ((flat num?) ↦ (flat num?)) ↦ (flat num?))
-      (μ (tak)
-         (λ (x y z k)
-           (if (not (< y x))
-               (k z)
-               (tak (- x 1)
-                    y
-                    z
-                    (λ (v1)
-                      (tak (- y 1)
-                           z
-                           x
-                           (λ (v2)
-                             (tak (- z 1)
-                                  x
-                                  y
-                                  (λ (v3)
-                                    (tak v1 v2 v3 k)))))))))))
+      (λ (x y z k)
+        (if (not (< y x))
+            (k z)
+            (tak (- x 1)
+                 y
+                 z
+                 (λ (v1)
+                   (tak (- y 1)
+                        z
+                        x
+                        (λ (v2)
+                          (tak (- z 1)
+                               x
+                               y
+                               (λ (v3)
+                                 (tak v1 v2 v3 k))))))))))
     (module cpstak ((flat num?) (flat num?) (flat num?) ↦ (flat num?))
       (λ (x y z)
         (tak x y z (λ (a) a))))
@@ -437,14 +421,13 @@
 ;; https://github.com/ilyasergey/reachability/blob/master/benchmarks/gcfa2/rsa.scm
 (define prog-rsa
   `((module extended-gcd ((flat int?) (flat int?) ↦ (cons/c (flat int?) (flat int?)))
-      (μ (ext-gcd)
-         (λ (a b)
-           (if (zero? (mod a b))
-               (cons 0 1)
-               (let* ([x:y (ext-gcd b (mod a b))]
-                      [x (car x:y)]
-                      [y (cdr x:y)])
-                 (cons y (- x (* y (quot a b)))))))))
+      (λ (a b)
+        (if (zero? (mod a b))
+            (cons 0 1)
+            (let* ([x:y (extended-gcd b (mod a b))]
+                   [x (car x:y)]
+                   [y (cdr x:y)])
+              (cons y (- x (* y (quot a b))))))))
     (module modulo-inverse ((flat int?) (flat int?) ↦ (flat int?))
       (λ (a n)
         (mod (car (extended-gcd a n)) n)))
@@ -454,12 +437,11 @@
     (module square ((flat int?) ↦ (flat int?))
       (λ (x) (* x x)))
     (module modulo-power ((flat int?) (flat int?) (flat int?) ↦ (flat int?))
-      (μ (mod-pow)
-         (λ (base exp n)
-           (if (= exp 0) 1
-               (if (odd? exp)
-                   (mod (* base (mod-pow base (- exp 1) n)) n)
-                   (mod (square (mod-pow base (/ exp 2) n)) n))))))
+      (λ (base exp n)
+        (if (= exp 0) 1
+            (if (odd? exp)
+                (mod (* base (modulo-power base (- exp 1) n)) n)
+                (mod (square (modulo-power base (/ exp 2) n)) n)))))
     (module legal-public-exponent?
       ((flat int?) (flat int?) (flat int?) ↦ (flat bool?))
       (λ (e p q)
