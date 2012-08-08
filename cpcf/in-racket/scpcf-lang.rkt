@@ -201,8 +201,8 @@
               r)]
         [r r]))))
 
-;; OpImpl := (op-impl (Nat -> Bool) (Lab [Listof ValClosure] -> [Setof ValClosure])
-(struct op-impl (arity-check proc))
+;; Op := (op (Nat -> Bool) (Lab [Listof ValClosure] -> [Setof ValClosure])
+(struct op (arity proc))
 
 ;; Verified := Proved|Refuted|Neither
 (define (verified? x)
@@ -306,9 +306,9 @@
 (define (prim-check p pre-val)
   (if (cons? p)
       (andmap (λ (q) (prim-check q pre-val)) p)
-      (match-let ([(cons (list nm op) _)
+      (match-let ([(cons (list nm o) _)
                    (memf (compose (curry equal? p) first) entries-prim-pred)])
-        (op pre-val))))
+        (o pre-val))))
 
 ;; approx-contracts : ValExpClosure -> [Setof ContractClosure]
 (define approx-contracts
@@ -443,8 +443,8 @@
       (for-each (match-lambda
                   [`(,name ,impl)
                    (hash-set! tb name
-                              (op-impl
-                               [curry = 1]
+                              (op
+                               1
                                [λ (_ xs)
                                  (match-let ([`(,cl) xs])
                                    (match cl
@@ -459,8 +459,8 @@
       
       ;; add primitive predicates on compound data
       (hash-set! tb 'cons?
-                 (op-impl
-                  [curry = 1]
+                 (op
+                  1
                   [λ (_ xs)
                     (match xs
                       [`(,cl) (s-map (match-lambda
@@ -468,8 +468,8 @@
                                        [_ CL-FALSE])
                                      (split-cons cl))])]))
       (hash-set! tb 'proc?
-                 (op-impl
-                  [curry = 1]
+                 (op
+                  1
                   [λ (_ xs)
                     (match-let ([`(,cl) xs])
                       (match (proc? cl)
@@ -477,8 +477,8 @@
                         ['Refuted F]
                         ['Neither TF]))]))
       (hash-set! tb 'true?
-                 (op-impl
-                  [curry = 1]
+                 (op
+                  1
                   [λ (_ xs)
                     (s-map (match-lambda
                              [(exp-cl (val #f cs) ρ) CL-TRUE]
@@ -491,8 +491,8 @@
          [`(,name (,contracts ...) ,impl)
           (hash-set!
            tb name
-           (op-impl
-            [curry = (- (length (first contracts)) 2)]
+           (op
+            (- (length (first contracts)) 2)
             [λ (l xs) ; assume (length xs) matches arity
               (if (andmap exp-cl? xs)
                   (if (andmap concrete? xs)
@@ -526,8 +526,8 @@
       
       ;; ops on primitive data that don't quite 'fit' into the framework
       (hash-set! tb 'substring
-                 (op-impl
-                  [curry = 3]
+                 (op
+                  3
                   [λ (l xs)
                     (match xs
                       [`(,s ,i_0 ,i_n)
@@ -553,8 +553,8 @@
       
       ;; primitive ops on compound data, too complicated to fit into framework
       (hash-set! tb 'cons
-                 (op-impl
-                  [curry = 2]
+                 (op
+                  2
                   [λ (l xs)
                     {set 
                      (match-let ([`(,cl1 ,cl2) xs])
@@ -629,16 +629,16 @@
                                       (cons-cl cl1 cl2)))]))))}]))
       
       (hash-set! tb 'car
-                 (op-impl
-                  [curry = 1]
+                 (op
+                  1
                   [λ (l xs)
                     (s-map (match-lambda
                              [`(,c1 ,c2) c1]
                              ['() (close (blame/ l 'car) ρ0)])
                            (split-cons (first xs)))]))
       (hash-set! tb 'cdr
-                 (op-impl
-                  [curry = 1]
+                 (op
+                  1
                   [λ (l xs)
                     (s-map (match-lambda
                              [`(,c1 ,c2) c2]
@@ -646,8 +646,8 @@
                            (split-cons (first xs)))]))
       
       (hash-set! tb 'equal?
-                 (op-impl
-                  [curry = 2]
+                 (op
+                  1
                   [λ (l xs)
                     (match-let ([`(,cl1 ,cl2) xs])
                       (s-map (match-lambda
@@ -726,8 +726,8 @@
 ;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
   (let ([o (hash-ref ops op)])
-    (if ((op-impl-arity-check o) (length xs))
-        ((op-impl-proc o) l xs)
+    (if (= (op-arity o) (length xs))
+        ((op-proc o) l xs)
         {set (close (blame/ l op) ρ0)})))
 
 ;; free-vars : Exp -> [Setof Natural]
@@ -938,7 +938,7 @@
 (define (name-distance x xs)
   (let loop ([pos 0] [xs xs])
     (match xs
-      [(cons z zs) (if (equal? z s) pos (loop (+ 1 pos) zs))]
+      [(cons z zs) (if (equal? z x) pos (loop (+ 1 pos) zs))]
       ['() -1])))
 
 ;; shift : Natural Exp -> Exp
@@ -1025,7 +1025,7 @@
                ['Refuted {set #f}]
                [_ {set #t #f}]))]
        [_ {set (if (prim? u)
-                   ((op-impl-arity-check (hash-ref ops u)) n)
+                   (= (op-arity (hash-ref ops u)) n)
                    #f)}])]
     [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) cl1)
      {set (= n (length cs1))}]
