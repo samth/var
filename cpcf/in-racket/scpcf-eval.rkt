@@ -356,12 +356,11 @@
   
   ;; run : CEK -> [Setof CEK]
   (define (run conf)
-    ;; go : [Setof CEK] [Setof CEK] [Setof CEK] -> [Setof CEK]
     ;; INVARIANT:
     ;; -- known: states whose next states are explored
     ;; -- unknown: non-final states whose next states are unexplored
     ;; -- final: final states (~ answers)
-    (define (go known unknown final)
+    (let loop ([known ∅] [unknown {set conf}] [final ∅])
       (cond
         [(set-empty? unknown) final]
         [else
@@ -373,8 +372,7 @@
                [(set-member? known1 next) (values final1 unknown1)]
                [else (values final1 (set-add unknown1 next))])))
          
-         (go known1 unknown1 final1)]))
-    (go ∅ {set conf} ∅))
+         (loop known1 unknown1 final1)])))
   
   ;; get-answer : Closure -> [Setof EvalAnswer]
   (define (get-answer clo)

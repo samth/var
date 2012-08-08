@@ -936,12 +936,10 @@
 
 ;; name-distance : Symbol [Listof Symbol] -> Natural or -1 if unbound
 (define (name-distance x xs)
-  ;; go : Natural [Listof Symbol] -> Natural
-  (define (go pos xs)
+  (let loop ([pos 0] [xs xs])
     (match xs
-      [(cons z zs) (if (equal? z x) pos (go (+ 1 pos) zs))]
-      ['() -1]))
-  (go 0 xs))
+      [(cons z zs) (if (equal? z s) pos (loop (+ 1 pos) zs))]
+      ['() -1])))
 
 ;; shift : Natural Exp -> Exp
 ;; shifts free variables in expression by given number
