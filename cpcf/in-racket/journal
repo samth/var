@@ -28,7 +28,6 @@ try 4:
 * when a frame is popped through β reduction, I 'forget' the <D,e> pair associated with the remaining stack.
 * this solves (1)
 
-try 5: (in progress)
-* there's no reason D[e] has to be restricted to a function application, but there are some technical difficulties resulting from my bad design. I'll see if i can refactor this.
-* this could solve (3)
+try 5: 
+* solve (3) specially by eliminating duplicates in consecutive monitoring frames (resulting from tail calls). Using the same technique as in try 4 could introduce unnecessary inaccuracy in this case. 
 

@@ -92,6 +92,7 @@
   ;; maybe-ap-k : Closure [Listof ValClosure] [Listof Closure] Label -> [SetOf CEK]
   ;; decides whether to add another application kont frame or approximate it
   (define (maybe-ap-k f vs xs l)
+    ; FIXME: turned out i forgot to remember the function
     (let ([next-frame-sig (ap-k vs xs l (mt))])
       (if (bi-map-has-val? hist next-frame-sig) ; dejavu
           (short-cut clo)
@@ -99,6 +100,17 @@
                     ms
                     f
                     (ap-k vs xs l κ))})))
+  
+  ;; maybe-mon-k : Label Label Label ContractClosure Kont -> Kont
+  (define (maybe-mon-k h f g c κ)
+    ;; already? : Kont -> Bool
+    (define (already? κ)
+      (match κ
+        [(mon-k h f g c1 κ1) (if (equal? c c1) #t (already? κ1))]
+        [_ #f]))
+    
+    (if (already? κ) κ
+        (mon-k h f g c κ)))
   
   ;; short-cut : Closure -> {Setof CEK}
   (define (short-cut cl)
@@ -215,7 +227,7 @@
                    [#t (cek hist1 ms clo1
                             (mon-ap-k
                              '() xs (map (λ (c) (close-contract c ρc)) cs1) h g f
-                             (mon-k ; monitor result
+                             (maybe-mon-k ; monitor result
                               h f g (close-contract c2 (env-extendl xs ρc)) κ)))]
                    [#f (cek hist0 ms (close (blame/ f h) ρ0) (mt))])
                  (proc-with-arity? clo1 (length cs1)))

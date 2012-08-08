@@ -546,6 +546,19 @@
                (f3 #f))) (λ (x3) ((λ (z) (z x1 x2 x3)) (λ (y1 y2 y3) y1))))))))))
 (time (check-equal? (eval-cek prog-even-worse) {set #f}) 'even-worse)
 
+;; mutual tail calls from different modules
+;; make sure stack doesn't grow
+(define prog-even?
+  `((module ev? ((flat int?) ↦ (flat bool?))
+      (λ (n)
+        (if (zero? n) #t (od? (- n 1)))))
+    (module od? ((flat int?) ↦ (flat bool?))
+      (λ (n)
+        (if (zero? n) #f (ev? (- n 1)))))
+    (module n (flat int?) •)
+    (ev? n)))
+(check-equal? (eval-cek prog-even?) {set #t #f})
+
 ;; just to remind myself that i can generalize stuff to a bit more than just recognizing
 ;; the same context
 #;(eval-cek `((module diverge ((flat nat?) ↦ (flat nat?))
