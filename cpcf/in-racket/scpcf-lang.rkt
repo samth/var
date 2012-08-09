@@ -14,7 +14,7 @@
   [struct ref ([distance natural?])]
   [struct val ([pre pre-val?] [refinements (set/c contract-cl?)])]
   
-  [struct lam ([arity natural?] [body exp?])]
+  [struct lam ([arity natural?] [body exp?] [varargs? boolean?])]
   [struct app ([func exp?] [args (listof exp?)] [lab label?])]
   [struct rec ([body exp?])]
   [struct if/ ([test exp?] [then exp?] [else exp?])]
@@ -24,7 +24,7 @@
   [struct mod-ref ([f label?] [l label?])]
   
   [struct flat-c ([exp exp?])]
-  [struct func-c ([dom (listof contract/?)] [rng contract/?])]
+  [struct func-c ([dom (listof contract/?)] [rng contract/?] [varargs? boolean?])]
   [struct cons-c ([car contract/?] [cdr contract/?])]
   [struct or-c ([left contract/?] [right contract/?])]
   [struct and-c ([left contract/?] [right contract/?])]
@@ -122,8 +122,8 @@
 ;; PreVal := • | Number | Boolean | String | Lambda | Nil
 (define (pre-val? x)
   (or (eq? x '•) (number? x) (boolean? x) (string? x) (lam? x) (eq? 'nil x) (prim? x)))
-;; Lambda := (lambda Natural Exp)
-(struct lam (arity body) #:transparent)
+;; Lambda := (lam Natural Exp Boolean)
+(struct lam (arity body varargs?) #:transparent)
 
 ;; Closure := ExpClosure | MonFnClosure | ConsClosure
 (struct clo () #:transparent)
@@ -157,7 +157,7 @@
 ;;           | OrContract | AndContract | RecContract
 (struct contract/ () #:transparent)
 (struct flat-c contract/ (exp) #:transparent)
-(struct func-c contract/ (dom rng) #:transparent)
+(struct func-c contract/ (dom rng varargs?) #:transparent)
 (struct cons-c contract/ (car cdr) #:transparent)
 (struct or-c contract/ (left right) #:transparent)
 (struct and-c contract/ (left right) #:transparent)
@@ -237,7 +237,7 @@
                        [(contract-cl (cons-c c1 c2) ρc)
                         ; relies on 'cons? having no predicate that implies it
                         (if (set-member? (implies-what 'cons?) p) 'Proved 'Refuted)]
-                       [(contract-cl (func-c cs1 c2) ρc)
+                       [(contract-cl (func-c cs1 c2 _) ρc)
                         ; relies on 'proc? having no predicate that implies it
                         (if (set-member? (implies-what 'proc?) p) 'Proved 'Refuted)]
                        [(contract-cl (or-c c1 c2) ρc)
@@ -318,14 +318,14 @@
                     (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
                   ∅ prim-preds))])
     (match-lambda
-      [(exp-cl (val (lam n e) cs) ρ) (set-union cs (mk-contract-cl 'proc?))]
+      [(exp-cl (val (lam n e _) cs) ρ) (set-union cs (mk-contract-cl 'proc?))]
       [(exp-cl (val '• cs) ρ) cs]
       [(exp-cl (val u cs) ρ) (set-union cs (satisfying-contracts u))])))
 
 ;; approx : ValClosure -> ValClosure
 (define (approx x)
   (match x
-    [(exp-cl (val (lam n e) _) ρ) x]
+    [(exp-cl (val (lam n e vargs?) _) ρ) x]
     [(exp-cl _ ρ) (close (val '• (approx-contracts x)) ρ0)]
     [(mon-fn-cl h f g c v) (mon-fn-cl h f g c (approx v))]
     [(cons-cl c1 c2)
@@ -687,7 +687,7 @@
               [(set-member? (what-imply 'cons?) p)
                (if (set-empty? acc) {set `(,∅ ,∅)} acc)]
               [else acc])]
-           [(contract-cl (func-c cs1 cs) ρc) 'Refuted]
+           [(contract-cl (func-c cs1 cs _) ρc) 'Refuted]
            [(contract-cl (and-c c1 c2) ρc)
             (on-contract (on-contract acc (close-contract c1 ρc)) (close-contract c2 ρc))]
            [(contract-cl (or-c c1 c2) ρc)
@@ -738,7 +738,7 @@
   (match e
     [(ref k) (if (>= k d) {set (- k d)} ∅)]
     [(val u cs) (match u
-                  [(lam n b) (vars≥ (+ n d) b)]
+                  [(lam n b _) (vars≥ (+ n d) b)]
                   [else ∅])]
     [(blame/ l1 l2) ∅]
     [(app f xs l) (set-union (vars≥ d f)
@@ -756,8 +756,8 @@
 (define (con-vars≥ d c)
   (match c
     [(flat-c e) (vars≥ d e)]
-    [(func-c cs1 c2) (set-union (apply set-union (map (curry con-vars≥ d) cs1))
-                                (con-vars≥ (+ (length cs1) d) c2))]
+    [(func-c cs1 c2 _) (set-union (apply set-union (map (curry con-vars≥ d) cs1))
+                                  (con-vars≥ (+ (length cs1) d) c2))]
     [(cons-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
     [(or-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
     [(and-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
@@ -791,11 +791,21 @@
     [`(,cs ... ↦ (λ (,xs ...) ,d))
      (if ((listof symbol?) xs)
          (func-c (map (curry read-con-with names mod) cs)
-                 (read-con-with (extend-names xs names) mod d))
+                 (read-con-with (extend-names xs names) mod d)
+                 #f)
          (error "function contract: expect symbols, given: " xs))]
     [`(,cs ... ↦ ,d)
      (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
        (read-con-with names mod (append cs `(↦ (λ ,xs ,d)))))]
+    [`(,cs ... ↦* (λ (,xs ...) ,d))
+     (if ((listof symbol?) xs)
+         (func-c (map (curry read-con-with names mod) cs)
+                 (read-con-with (extend-names xs names) mod d)
+                 #t)
+         (error "function* contract: expect symbols, given: " xs))]
+    [`(,cs ... ↦* ,d)
+     (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
+       (read-con-with names mod (append cs `(↦* (λ ,xs ,d)))))]
     [`(cons/c ,c ,d)
      (cons-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(or/c ,c ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
@@ -833,8 +843,12 @@
     [`• BULLET]
     [`(λ (,xs ...) ,s)
      (if ((listof symbol?) xs)
-         (val (lam (length xs) (read-exp-with (extend-names xs names) mod s)) ∅)
+         (val (lam (length xs) (read-exp-with (extend-names xs names) mod s) #f) ∅)
          (error "λ: expect symbols, given: " xs))]
+    [`(λ* (,xs ...) ,s)
+     (if ((listof symbol?) xs)
+         (val (lam (length xs) (read-exp-with (extend-names xs names) mod s) #t) ∅)
+         (error "λ*: expect symbols, given: " xs))]
     [`(μ (,f) ,s) (if (symbol? f)
                       (rec (read-exp-with (cons f names) mod s))
                       (error "μ: expect symbol, given: " f))]
@@ -890,9 +904,9 @@
     [(ref d) (list-ref names d)] ;; closed expressions can't cause error
     [(val u _)
      (match u
-       [(lam n b) 
+       [(lam n b v?) 
         (let ([xs (new-var-names n names)])
-          `(λ ,xs ,(show-exp-with (extend-names xs names) b)))]
+          `(,(if v? 'λ* 'λ) ,xs ,(show-exp-with (extend-names xs names) b)))]
        [c c])]
     [(blame/ l1 l2) `(blame l1 l2)]
     [(app f xs l) (cons (show-exp-with names f)
@@ -910,10 +924,11 @@
 (define (show-con-with names c)
   (match c
     [(flat-c e) `(flat ,(show-exp-with names e))]
-    [(func-c cs d)
+    [(func-c cs d v?)
      (append (map (curry show-con-with names) cs)
-             `(↦ ,(let ([xs (new-var-names (length cs) names)])
-                    `(λ ,xs ,(show-con-with (extend-names xs names) d)))))]
+             `(,(if v? '↦* '↦)
+               ,(let ([xs (new-var-names (length cs) names)])
+                  `(λ ,xs ,(show-con-with (extend-names xs names) d)))))]
     [(cons-c c d) `(cons/c ,(show-con-with names c) ,(show-con-with names d))]
     [(or-c c d) `(or/c ,(show-con-with names c) ,(show-con-with names d))]
     [(and-c c d) `(and/c ,(show-con-with names c) ,(show-con-with names d))]
@@ -952,7 +967,7 @@
     [(ref x) (if (>= x depth) (ref (+ x ∆)) e)]
     [(val u cs)
      (match u
-       [(lam n b) (val (lam n (shift-at ∆ (+ n depth) b)) cs)]
+       [(lam n b v?) (val (lam n (shift-at ∆ (+ n depth) b) v?) cs)]
        [_ e])]
     [(blame/ l1 l2) e]
     [(app f xs l) (app (shift-at ∆ depth f) (map (curry shift-at depth) xs) l)]
@@ -970,9 +985,10 @@
 (define (shift-con-at ∆ depth c)
   (match c
     [(flat-c e) (flat-c (shift-at ∆ depth e))]
-    [(func-c cs1 c2)
+    [(func-c cs1 c2 v?)
      (func-c (map (curry shift-con-at ∆ depth) cs1)
-             (shift-con-at ∆ (+ (length cs1) depth) c2))]
+             (shift-con-at ∆ (+ (length cs1) depth) c2)
+             v?)]
     [(cons-c c1 c2) (cons-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
     [(or-c c1 c2) (or-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
     [(and-c c1 c2) (and-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
@@ -1003,13 +1019,15 @@
   (match cl
     [(exp-cl (val u cs) ρ)
      (match u
-       [(lam m e) {set (= m n)}]
+       [(lam m e v?) {set (if v? (<= (- m 1) n) (= m n))}]
        ['• (letrec ([xcludes (exclude 'proc?)]
                     [check-with
                      (match-lambda
                        [(flat-c (val q _)) (if (set-member? xcludes q) 'Refuted 'Neither)]
                        [(flat-c _) 'Neither]
-                       [(func-c cs1 d) (if (= (length cs1) n) 'Proved 'Refuted)]
+                       [(func-c cs1 d v?)
+                        (let ([m (length cs1)])
+                          (if (or (and v? (<= (- m 1) n)) (= m n)) 'Proved 'Refuted))]
                        [(cons-c c1 c2) 'Refuted]
                        [(or-c c1 c2) (check-with c2)] ; first-order contract doesn't give new info if it passes
                        [(and-c c1 c2) (if (equal? 'Proved (check-with c1)) 'Proved
@@ -1027,14 +1045,15 @@
        [_ {set (if (prim? u)
                    (= (op-arity (hash-ref ops u)) n)
                    #f)}])]
-    [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) cl1)
-     {set (= n (length cs1))}]
+    [(mon-fn-cl h f g (contract-cl (func-c cs1 c2 v?) ρc) cl1)
+     (let ([m (length cs1)])
+       {set (or (and v? (<= (- m 1) n)) (= m n))})]
     [_ {set #f}]))
 
 ;; refine : (SetOf ContractClosure) ContractClosure -> (Setof (Setof ContractClosure))
 (define (refine cs c)
   (match c
-    [(contract-cl (flat-c (val (lam 1 (val #t ∅)) ∅)) ρ0) {set cs}] ; ignore 'any'
+    [(contract-cl (flat-c (val (lam 1 (val #t ∅) #f) ∅)) ρ0) {set cs}] ; ignore 'any'
     [(contract-cl (or-c c1 c2) ρc) ; split disjunction
      (set-union (refine cs (close-contract c1 ρc))
                 (refine cs (close-contract c2 ρc)))]
@@ -1056,7 +1075,7 @@
      (match (contracts-imply? cs 'cons?)
        ['Refuted {set cs}]
        [(or 'Proved 'Neither) {set (set-add cs c)}])]
-    [(contract-cl (func-c c1s c2) ρc)
+    [(contract-cl (func-c c1s c2 _) ρc)
      (match (contracts-imply? cs 'proc?)
        ['Refuted {set cs}]
        [(or 'Proved 'Neither) {set (set-add cs c)}])]
