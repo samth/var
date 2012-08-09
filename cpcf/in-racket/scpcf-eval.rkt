@@ -125,6 +125,12 @@
                            (cek hist0 ms (close (blame/ f h) ρ0) κ))])]
       [_ {set (cek hist ms cl κ)}]))
   
+  ;; bind-var-args : Natural [Listof ValClosure] -> [Listof ValClosure] ValClosure
+  (define (bind-var-args n xs)
+    (let-values ([(xs1 xs2) (split-at xs n)])
+      (values xs1
+              (foldr cons-cl (close (val 'nil ∅) ρ0) xs2))))
+  
   ;; on-nonval : -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression
   (define (on-nonval)
@@ -187,13 +193,19 @@
          (match f
            [(exp-cl (val u cs) ρv)
             (match u
-              [(lam n e) {set (if (= n (length xs)) ; arity check
-                                  ; delay approximating arguments until this point
-                                  ; to avoid false blames in earlier stages
-                                  #;(let ([zs (if (andmap concrete? xs) xs (map approx xs))])
-                                      (cek hist1 ms (close e (env-extendl zs ρv)) κ))
-                                  (cek hist1 ms (close e (env-extendl xs ρv)) κ)
-                                  (cek hist0 ms (close (blame/ l '∆) ρ0) (mt)))}]
+              [(lam n e var-args?)
+               {set (if (or (and var-args? (<= (- n 1) (length xs)))
+                            (= n (length xs))) ; arity check
+                        ; delay approximating arguments until this point
+                        ; to avoid false blames in earlier stages
+                        ; FIXME: disable approximating for now
+                        #;(let ([zs (if (andmap concrete? xs) xs (map approx xs))])
+                            (cek hist1 ms (close e (env-extendl zs ρv)) κ))
+                        (if var-args?
+                            (let-values ([(zs z) (bind-var-args (- n 1) xs)])
+                              (cek hist1 ms (close e (env-extend z (env-extendl zs ρv))) κ))
+                            (cek hist1 ms (close e (env-extendl xs ρv)) κ))
+                        (cek hist0 ms (close (blame/ l '∆) ρ0) (mt)))}]
               ['•
                {non-det
                 (match-lambda
@@ -210,7 +222,7 @@
                          (val '•
                               (for/fold ([acc ∅]) ([c cs])
                                 (match c
-                                  [(contract-cl (func-c cs1 c2) ρc)
+                                  [(contract-cl (func-c cs1 c2 _) ρc)
                                    (set-add acc (close-contract c2 (env-extend xs ρc)))]
                                   [_ acc])))
                          ρ0)
@@ -220,8 +232,9 @@
               [_ (if (prim? u) ; primitive op handles arity check on its own
                      (s-map (λ (cl) (cek hist1 ms cl κ)) (δ u xs l))
                      {set (cek hist0 ms (close (blame/ l '∆) ρ0) (mt))})])]
-           [(mon-fn-cl h f g (contract-cl (func-c cs1 c2) ρc) clo1)
-            (if (= (length xs) (length cs1))
+           [(mon-fn-cl h f g (contract-cl (func-c cs1 c2 var-args?) ρc) clo1)
+            (if (or (and var-args? (<= (- (length cs1) 1) (length xs)))
+                    (= (length cs1) (length xs)))
                 (s-map
                  (match-lambda
                    [#t (cek hist1 ms clo1
@@ -230,7 +243,7 @@
                              (maybe-mon-k ; monitor result
                               h f g (close-contract c2 (env-extendl xs ρc)) κ)))]
                    [#f (cek hist0 ms (close (blame/ f h) ρ0) (mt))])
-                 (proc-with-arity? clo1 (length cs1)))
+                 (proc-with-arity? clo1 (length xs)))
                 {set (cek hist0 ms (close (blame/ l h) ρ0) (mt))})]
            [_ {set (cek hist0 ms (close (blame/ l '∆) ρ0) (mt))}]))]
       [(if-k passed clo1 clo2 κ)
@@ -274,7 +287,7 @@
                       (refine-cl clo con-cl))])]
            [`()
             (match c
-              [(func-c cs1 c2)
+              [(func-c cs1 c2 _) ; delay var-args checking
                (s-map (match-lambda
                         [#t (cek hist ms (mon-fn-cl h f g con-cl clo) κ)]
                         [#f (cek hist0 ms (close (blame/ f h) ρ0) (mt))])
@@ -326,8 +339,11 @@
        {set
         (cek hist ms x (mon-k
                         h g f c
-                        (mon-ap-k (cons clo vs) xs cs h g f κ)))}]
-      [(mon-ap-k vs '() '() h g f κ)
+                        (mon-ap-k (cons clo vs)
+                                  xs
+                                  (if (empty? cs) (cons c cs) cs #|support var-args|#)
+                                  h g f κ)))}]
+      [(mon-ap-k vs '() _ h g f κ)
        {set (cek hist ms clo (ap-k vs '() f κ))}]))
   
   (if (val-cl? clo) (on-val) (on-nonval)))
@@ -380,7 +396,7 @@
       [(exp-cl e ρ)
        (match e
          [(val u cs) (match u
-                       [(lam n b) {set 'function}]
+                       [(lam n b _) {set 'function}]
                        ['•
                         (cond
                           [(set-member? cs (mk-contract-cl 'nil?)) {set 'nil}]
@@ -457,23 +473,29 @@
   
   (match c
     [(flat-c p) (list (shift (apply + ds) p))]
-    [(func-c cs d) empty]
+    [(func-c cs d _) empty]
     [(cons-c c1 c2) (lift (λ (p1 p2)
-                            (val (lam 1 (and/ (app (val 'cons? ∅) `(,(ref 0)) '☠ #|TODO|#)
-                                              (app p1 `(,(app (val 'car ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)
-                                              (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)))
+                            (val (lam 1
+                                      (and/ (app (val 'cons? ∅) `(,(ref 0)) '☠ #|TODO|#)
+                                            (app p1 `(,(app (val 'car ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#)
+                                            (app p2 `(,(app (val 'cdr ∅) `(,(ref 0)) '☠ #|TODO|#)) '☠ #|TODO|#))
+                                      #f)
                                  ∅))
                           (maybe-FC (car+1 ds) c1)
                           (maybe-FC (car+1 ds) c2))]
     [(or-c c1 c2) (lift (λ (p1 p2)
-                          (val (lam 1 (or/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
-                                           (app p2 `(,(ref 0)) '☠ #|TODO|#)))
+                          (val (lam 1
+                                    (or/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
+                                         (app p2 `(,(ref 0)) '☠ #|TODO|#))
+                                    #f)
                                ∅))
                         (maybe-FC (car+1 ds) c1)
                         (maybe-FC (car+1 ds) c2))]
     [(and-c c1 c2) (lift (λ (p1 p2)
-                           (val (lam 1 (and/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
-                                             (app p2 `(,(ref 0)) '☠ #|TODO|#)))
+                           (val (lam 1
+                                     (and/ (app p1 `(,(ref 0)) '☠ #|TODO|#)
+                                           (app p2 `(,(ref 0)) '☠ #|TODO|#))
+                                     #f)
                                 ∅))
                          (maybe-FC (car+1 ds) c1)
                          (maybe-FC (car+1 ds) c2))]

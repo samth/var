@@ -560,11 +560,44 @@
 
 ;; just to remind myself that i can generalize stuff to a bit more than just recognizing
 ;; the same context
+;; but i don't think this would be that useful commpared to the complexity
+;; that might result
 #;(eval-cek `((module diverge ((flat nat?) ↦ (flat nat?))
                 (λ (n)
                   (diverge (+ n 1))))
               (diverge 0)))
 
+;; test var-args function
+(define modl-max2 `(module max2 ((flat real?) (flat real?) ↦ (flat real?))
+                     (λ (x y) (if (> x y) x y))))
+(define modl-max `(module max ((flat real?) (flat real?) .. ↦ (flat real?))
+                    (λ (x xs ..)
+                      (if (nil? xs) x
+                          (foldl max2 x xs)))))
+(define (prog-max args)
+  `(,modl-foldl
+    ,modl-max2
+    ,modl-max
+    ,(cons `max args)))
+(check-equal? (eval-cek (prog-max '(4 3 5 2 6))) {set 6})
+(check-equal? (eval-cek (prog-max '())) {set '(blame † max)})
+(check-equal? (eval-cek (prog-max '(4 3 5 •))) {set 5 '• '(blame † max)})
+
+;; applying var-args contract on fixed-args function
+;; errors won't be detected unless function is applied on wrong number of args
+;; is this behavior preferred? It turned out i did less work for this
+(check-equal? (eval-cek `(,modl-max2
+                          (module max ((flat real?) (flat real?) .. ↦ (flat real?))
+                            max2)
+                          ; max is lucky
+                          (max 1 2)))
+              {set 2})
+(check-equal? (eval-cek `(,modl-max2
+                          (module max ((flat real?) (flat real?) .. ↦ (flat real?))
+                            max2)
+                          (max 1 2 3)))
+              ; max doesn't deliver what it promises
+              {set '(blame max max)})
 
 ;; test read/show
 (for-each

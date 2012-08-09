@@ -788,24 +788,30 @@
 (define (read-con-with names mod s)
   (match s
     [`(flat ,e) (flat-c (read-exp-with names mod e))]
+    [`(,cs ... ,c .. ↦ (λ (,xs ...) ,d))
+     (cond
+       [(not (= (length xs) (+ 1 (length cs)))) (error "arity mismatch" cs xs)]
+       [(not (andmap symbol? xs))
+        (error "function* contract: expect symbols, given: " xs)]
+       [else
+        (func-c (map (curry read-con-with names mod) (append cs `(,c)))
+                (read-con-with (extend-names xs names) mod d)
+                #t)])]
+    [`(,cs ... ,c .. ↦ ,d)
+     (let ([xs (variables-not-in d (map (const 'z) (append cs `(,c))))])
+       (read-con-with names mod (append cs `(,c) `(.. ↦ (λ ,xs ,d)))))]
     [`(,cs ... ↦ (λ (,xs ...) ,d))
-     (if ((listof symbol?) xs)
-         (func-c (map (curry read-con-with names mod) cs)
-                 (read-con-with (extend-names xs names) mod d)
-                 #f)
-         (error "function contract: expect symbols, given: " xs))]
+     (cond
+       [(not (= (length xs) (length cs))) (error "arity mismatch" cs xs)]
+       [(not (andmap symbol? xs))
+        (error "function contract: expect symbols, given: " xs)]
+       [else
+        (func-c (map (curry read-con-with names mod) cs)
+                (read-con-with (extend-names xs names) mod d)
+                #f)])]
     [`(,cs ... ↦ ,d)
      (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
        (read-con-with names mod (append cs `(↦ (λ ,xs ,d)))))]
-    [`(,cs ... ↦* (λ (,xs ...) ,d))
-     (if ((listof symbol?) xs)
-         (func-c (map (curry read-con-with names mod) cs)
-                 (read-con-with (extend-names xs names) mod d)
-                 #t)
-         (error "function* contract: expect symbols, given: " xs))]
-    [`(,cs ... ↦* ,d)
-     (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
-       (read-con-with names mod (append cs `(↦* (λ ,xs ,d)))))]
     [`(cons/c ,c ,d)
      (cons-c (read-con-with names mod c) (read-con-with names mod d))]
     [`(or/c ,c ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
@@ -841,14 +847,16 @@
   
   (match s
     [`• BULLET]
+    [`(λ (,xs ... ,z ..) ,s)
+     (if (and (symbol? z) ((listof symbol?) xs))
+         (val (lam (+ 1 (length xs))
+                   (read-exp-with
+                    (extend-names `(,z) (extend-names xs names)) mod s) #t) ∅)
+         (error "λ: expect symbols, given: " xs z))]
     [`(λ (,xs ...) ,s)
      (if ((listof symbol?) xs)
          (val (lam (length xs) (read-exp-with (extend-names xs names) mod s) #f) ∅)
          (error "λ: expect symbols, given: " xs))]
-    [`(λ* (,xs ...) ,s)
-     (if ((listof symbol?) xs)
-         (val (lam (length xs) (read-exp-with (extend-names xs names) mod s) #t) ∅)
-         (error "λ*: expect symbols, given: " xs))]
     [`(μ (,f) ,s) (if (symbol? f)
                       (rec (read-exp-with (cons f names) mod s))
                       (error "μ: expect symbol, given: " f))]
@@ -906,7 +914,7 @@
      (match u
        [(lam n b v?) 
         (let ([xs (new-var-names n names)])
-          `(,(if v? 'λ* 'λ) ,xs ,(show-exp-with (extend-names xs names) b)))]
+          `(λ ,(append xs (if v? '(..) '())) ,(show-exp-with (extend-names xs names) b)))]
        [c c])]
     [(blame/ l1 l2) `(blame l1 l2)]
     [(app f xs l) (cons (show-exp-with names f)
@@ -926,7 +934,8 @@
     [(flat-c e) `(flat ,(show-exp-with names e))]
     [(func-c cs d v?)
      (append (map (curry show-con-with names) cs)
-             `(,(if v? '↦* '↦)
+             (if v? '(..) '())
+             `(↦
                ,(let ([xs (new-var-names (length cs) names)])
                   `(λ ,xs ,(show-con-with (extend-names xs names) d)))))]
     [(cons-c c d) `(cons/c ,(show-con-with names c) ,(show-con-with names d))]
