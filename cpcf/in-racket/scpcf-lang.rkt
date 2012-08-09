@@ -647,7 +647,7 @@
       
       (hash-set! tb 'equal?
                  (op
-                  1
+                  2
                   [λ (l xs)
                     (match-let ([`(,cl1 ,cl2) xs])
                       (s-map (match-lambda
@@ -863,6 +863,12 @@
     [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names mod s1)
                             (read-exp-with names mod s2)
                             (read-exp-with names mod s3))]
+    ; currently ignore variable/module named 'else'
+    [`(cond [else ,e] ,e1 ...) (read-exp-with names mod e)]
+    [`(cond [,e1 ,e2] ,e3 ...) (if/ (read-exp-with names mod e1)
+                                    (read-exp-with names mod e2)
+                                    (read-exp-with names mod (cons 'cond e3)))]
+    [`(cond) (blame/ mod mod)]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
     [`(let ([,x ,e] ...) ,b) (read-exp-with names mod `((λ ,x ,b) ,@e))]

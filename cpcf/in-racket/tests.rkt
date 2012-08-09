@@ -232,9 +232,10 @@
                            flat-list?)))])
     `(module flatten (,c/any ↦ ,c/flat-list)
        (λ (l)
-         (if (nil? l) nil
-             (if (cons? l) (append (flatten (car l)) (flatten (cdr l)))
-                 (cons l nil)))))))
+         (cond
+           [(nil? l) nil]
+           [(cons? l) (append (flatten (car l)) (flatten (cdr l)))]
+           [else (cons l nil)])))))
 (define modl-flatten-a
   `(module a (cons/c (flat num?) (cons/c (cons/c (flat num?) (flat nil?))
                                          (cons/c (flat num?) (flat nil?))))
@@ -288,9 +289,10 @@
         [c/taut `(μ (taut?) (or/c (flat bool?) ((flat bool?) ↦ taut?)))])
     `((module taut (,c/taut ↦ (flat bool?))
         (λ (b)
-          (if (,T? b) #t
-              (if (,F? b) #f
-                  (and (taut (b #t)) (taut (b #f)))))))
+          (cond
+            [(,T? b) #t]
+            [(,F? b) #f]
+            [else (and (taut (b #t)) (taut (b #f)))])))
       (taut ,p))))
 (check-equal? (eval-cek (prog-taut #t)) {set #t})
 (check-equal? (eval-cek (prog-taut 'not)) {set #f})
@@ -301,9 +303,10 @@
 (define (prog-member x l)
   `((module member (,c/any ,c/list ↦ ,c/list)
       (λ (x l)
-        (if (nil? l) nil
-            (if (equal? x (car l)) l
-                (member x (cdr l))))))
+        (cond
+          [(nil? l) nil]
+          [(equal? x (car l)) l]
+          [else (member x (cdr l))])))
     (member ,x ,l)))
 (check-equal? (eval-cek (prog-member 3 '(cons 2 (cons 3 (cons 5 nil)))))
               {set '(cons 3 (cons 5 nil))})
@@ -329,10 +332,11 @@
 (define (prog-subst* new old t)
   `((module subst* (,c/any ,c/any ,c/any ↦ ,c/any)
       (λ (new old t)
-        (if (equal? old t) new
-            (if (cons? t) (cons (subst* new old (car t))
-                                (subst* new old (cdr t)))
-                t))))
+        (cond
+          [(equal? old t) new]
+          [(cons? t) (cons (subst* new old (car t))
+                           (subst* new old (cdr t)))]
+          [else t])))
     (subst* ,new ,old ,t)))
 (check-equal? (eval-cek (prog-subst* '42 '(cons 2 nil) '(cons 1 (cons (cons 2 nil) (cons 2 nil)))))
               {set '(cons 1 (cons 42 42))})
