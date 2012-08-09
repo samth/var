@@ -1,5 +1,5 @@
 TODO:
-* [mostly done] support multiple-argument functions
+* [done] support multiple-argument functions
 ** [done] properly check function against contract
 ** [done] var-args
 * [part, see 'journal'] expressions that won't terminate

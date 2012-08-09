@@ -355,8 +355,6 @@
              [even? odd? → odd?]
              [odd? even? → odd?]
              [int? int? → int?]
-             [pos? pos? → pos?]
-             [neg? neg? → neg?]
              [pos? non-neg? → pos?]
              [non-neg? pos? → pos?]
              [neg? non-pos? → neg?]
@@ -390,6 +388,55 @@
                 [non-neg? → non-neg?])
                ,sqrt]
          [gcd ([int? int? → int?]) ,gcd]
+         [add1 ([num? → num?]
+                [nat? → nat?]
+                [int? → int?]
+                [odd? → even?]
+                [even? → odd?]
+                [zero? → pos?])
+               ,add1]
+         [sub1 ([num? → num?]
+                [int? → int?]
+                [odd? → even?]
+                [even? → odd?]
+                [zero? → neg?])
+               ,sub1]
+         [round ([num? → int?]
+                 [non-neg? → non-neg?]
+                 [non-pos? → non-pos?]
+                 [zero? → zero?])
+                 ,round]
+         [ceiling ([num? → int?]) ,ceiling]
+         [truncate ([num? → int?]) ,truncate]
+         
+         [expt ([num? num? → num?]) ,expt]
+         [exp ([num? → num?]) ,exp]
+         [log ([non-zero? → num?]
+               [pos? → real?])
+              ,log]
+         [sin ([num? → num?]
+               [real? → real?])
+              ,sin]
+         [cos ([num? → num?]
+               [real? → real?])
+              ,cos]
+         [real-part ([num? → real?]) ,real-part]
+         [imag-part ([num? → real?]
+                     [real? → zero?])
+                    ,imag-part]
+         [make-polar ([real? real? → num?]) ,make-polar]
+         [make-rect ([real? real? → num?]) ,make-rectangular]
+         [magnitude ([num? → non-neg?]) ,magnitude]
+         [angle ([num? → real?]) ,angle]
+         
+         [num->string ([num? → string?]) ,number->string]
+         [string->number ([string? → num?]) ,string->number]
+         
+         [string-upcase ([string? → string?]) ,string-upcase]
+         [string-downcase ([string? → string?]) ,string-downcase]
+         [string-titlecase ([string? → string?]) ,string-titlecase]
+         [string-foldcase ([string? → string?]) ,string-foldcase]
+         [string-trim ([string? → string?]) ,string-trim]
          
          ;; TODO: maybe improve precision?
          [= ([num? num? → bool?]) ,=]
