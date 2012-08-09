@@ -35,7 +35,7 @@
   `(module fac ((flat int?) ↦ (flat int?))
      (λ (n) (if (zero? n) 1 (* n (fac (- n 1)))))))
 (define modl-factorial-acc
-  `(module fac ((flat num? #|TODO|#) ↦ (flat num? #|TODO|#))
+  `(module fac ((flat int?) ↦ (flat int?))
      (let ([fac1 (μ (go)
                     (λ (n acc)
                       (if (zero? n) acc
@@ -122,7 +122,7 @@
 ;; insertion sort example from section 1
 (define prog-ins-sort
   `(,modl-sorted?
-    (module insert ((flat num?) (and/c ,c/real-list (flat sorted?)) ↦ (and/c ,c/real-list (flat sorted?))) •)
+    (module insert ((flat real?) (and/c ,c/real-list (flat sorted?)) ↦ (and/c ,c/real-list (flat sorted?))) •)
     (module nums ,c/real-list •)
     ,modl-foldl
     (module sort (,c/real-list ↦ (and/c ,c/real-list (flat sorted?)))
@@ -317,7 +317,7 @@
 (define (prog-lastpair s)
   `((module lastpair ((cons/c ,c/any ,c/list) ↦ (cons/c ,c/any (flat nil?)))
       (λ (s)
-        (if (cons? (cdr s))
+        (if (cons? (cdr s)) ; TODO: this test is not remembered
             (lastpair (cdr s))
             s)))
     (lastpair ,s)))
@@ -336,12 +336,11 @@
     (subst* ,new ,old ,t)))
 (check-equal? (eval-cek (prog-subst* '42 '(cons 2 nil) '(cons 1 (cons (cons 2 nil) (cons 2 nil)))))
               {set '(cons 1 (cons 42 42))})
-;; FIXME: stop terminating after I approximate all args
-#;(check-equal? (eval-cek (prog-subst* '• '• '(cons 1 (cons 2 nil))))
-                ; all possible substitutions, b/c (equal? old t) is not remembered
-                {set '(cons • (cons 2 nil)) '(cons 1 •) '(cons 1 (cons 2 •))
-                     '• '(cons 1 (cons • •)) '(cons • (cons 2 •))
-                     '(cons • (cons • •)) '(cons 1 (cons 2 nil))})
+(check-equal? (eval-cek (prog-subst* '• '• '(cons 1 (cons 2 nil))))
+              ; all possible substitutions, b/c (equal? old t) is not remembered
+              {set '(cons • (cons 2 nil)) '(cons 1 •) '(cons 1 (cons 2 •))
+                   '• '(cons 1 (cons • •)) '(cons • (cons 2 •))
+                   '(cons • (cons • •)) '(cons 1 (cons 2 nil))})
 
 ;; 'Y' + 'last' from Wright paper Appendix
 (define (prog-last xs)
