@@ -1,20 +1,15 @@
 TODO:
-* [done] support multiple-argument functions
-** [done] properly check function against contract
-** [done] var-args
 * [part, see 'journal'] expressions that won't terminate
 ** approximate arguments more judiciously
 ** more sensible approximation of 'dejavu' expressions instead of throwing in a •
-* [done] precision improvement mentioned in 4.4
+** currently way of dealing with mutual tail calls from different modules can blame wrong parties
 * [part] more tests
-** [done] length, factorial, insertion sort
-** [done] rsa, sat-brute, worst-case, even-worse
-** [done] tak, takl, cpstak
-** [done] from Wright paper: flatten, taut, member, lastpair, subst*, last
+** medium sized ones from Wright paper
 * [part] rewrite eval's loop using mutable hashtables + benchmark
 * [part] improve contract checking/proving to get rid of false blames
 ** [part] remember passed tests in if clauses
 *** [done] of form (if (pred? x) e1 e2)
 *** [done] of form (if (pred? (mod-ref m l) e1 e2)
+* support real modules
 * (serious) clean up
 

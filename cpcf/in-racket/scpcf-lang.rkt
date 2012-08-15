@@ -8,8 +8,8 @@
 (provide
  
  (contract-out
-  [struct prog ([modules (listof modl?)] [main exp?])]
-  [struct modl ([f label?] [c contract/?] [v exp?])]
+  [struct prog ([modules modls?] [main exp?])]
+  [struct modl ([vals hash?] [contracts hash?])]
   
   [struct ref ([distance natural?])]
   [struct val ([pre pre-val?] [refinements (set/c contract-cl?)])]
@@ -21,7 +21,7 @@
   [struct mon ([orig label?] [pos label?] [neg label?]
                              [con contract/?] [exp exp?])]
   [struct blame/ ([violator label?] [violatee label?])]
-  [struct mod-ref ([f label?] [l label?])]
+  [struct mod-ref ([l label?] [f label?] [m label?])]
   
   [struct flat-c ([exp exp?])]
   [struct func-c ([dom (listof contract/?)] [rng contract/?] [varargs? boolean?])]
@@ -51,14 +51,14 @@
   [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
   [read-prog (s-exp? . -> . prog?)]
-  [show-prog (prog? . -> . s-exp?)]
+  #;[show-prog (prog? . -> . s-exp?)]
   [read-exp (s-exp? . -> . exp?)]
   ; for use by havoc
-  [read-exp-with ((listof symbol?) symbol? s-exp? . -> . s-exp?)]
-  [show-exp (exp? . -> . s-exp?)]
+  [read-exp-with (modls? (listof label?) (listof symbol?) symbol? s-exp? . -> . s-exp?)]
+  #;[show-exp (exp? . -> . s-exp?)]
   
-  [mod-by-name (label? [listof modl?] . -> . modl?)]
-  [upd-mod-by-name (label? (val? . -> . val?) [listof modl?] . -> . [listof modl?])]
+  [mod-by-name (modls? label? . -> . modl?)]
+  [upd-mod-by-name (modls? label? label? (val? . -> . val?) . -> . modls?)]
   
   [proc-with-arity? (val-cl? natural? . -> . (set/c boolean?))]
   
@@ -75,7 +75,8 @@
   [pre-val? (any/c . -> . boolean?)]
   [label? (any/c . -> . boolean?)]
   [prim? (any/c . -> . boolean?)]
-  [s-exp? (any/c . -> . boolean?)])
+  [s-exp? (any/c . -> . boolean?)]
+  [modls? (any/c . -> . boolean?)])
  
  c/any c/bool c/list c/num-list c/real-list c/even-list c/bool-list
  
@@ -86,6 +87,57 @@
  non-det
  ∅)
 
+;; Module := (modl [Hashtable Label Exp] [Hashtable Label Contract])
+(struct modl (vals contracts) #:transparent)
+(define modl-mt (modl (hash) (hash)))
+
+;; modl-add-defn : Module Label Exp -> Module
+(define (modl-add-defn m x v)
+  (match-let ([(modl vals contracts) m])
+    (modl (hash-set vals x v) contracts)))
+
+;; modl-add-contract : Module Label Contract -> Module
+(define (modl-add-contract m x c)
+  (match-let ([(modl vals contracts) m])
+    (modl vals (hash-set contracts x c))))
+
+;; modl-get-defn : Module Label -> Module
+(define (modl-get-defn m x)
+  (hash-ref (modl-vals m) x))
+
+;; modl-get-contract : Module Label -> Module
+(define (modl-get-contract m x)
+  (hash-ref (modl-contracts m) x))
+
+;; modl-exports? : Module Label -> Bool
+(define (modl-exports? m x)
+  (hash-has-key? (modl-contracts m) x))
+
+;; Modules = HashTable Label Module
+(define modls? hash?)
+
+;; mod-by-name :: Modules Label -> Module
+(define (mod-by-name modls name)
+  (hash-ref modls name modl-mt))
+
+;; upd-mod-by-name : Modules Label Label [Value -> Value] -> Module
+(define (upd-mod-by-name ms m-name x-name f)
+  (let ([m (mod-by-name ms m-name)])
+    (if (modl-exports? m x-name)
+        (hash-set (modl-add-defn m x-name (f (modl-get-defn m x-name))))
+        ms)))
+
+;; modls-add-defn : Modules Label Label Exp -> Modules
+(define (modls-add-defn modls mod-name x v)
+  (hash-set modls mod-name
+            (modl-add-defn (mod-by-name modls mod-name) x v)))
+
+;; modls-add-contract : Modules Label Label Contract -> Modules
+(define (modls-add-contract modls mod-name x c)
+  (hash-set modls mod-name
+            (modl-add-contract (mod-by-name modls mod-name) x c)))
+
+
 ;; ∅ : Setof x
 ;; (eq? (set) (set)) = #f, and we have a lot of empty sets around,
 ;; so I guess this might be useful. It looks nicer anyway.
@@ -94,10 +146,8 @@
 ;; s-exp? : Any -> Boolean
 (define s-exp? any/c) ; TODO
 
-;; Prog := (prog [Listof Module] Exp)
+;; Prog := (prog Modules Exp)
 (struct prog (modules main) #:transparent)
-;; Module := (modl Label Contract Value)
-(struct modl (f c v) #:transparent)
 
 (struct exp () #:transparent)
 (struct answer exp () #:transparent)
@@ -113,8 +163,8 @@
 (struct if/ exp (test then else) #:transparent)
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon exp (orig pos neg con exp) #:transparent)
-;; ModRef := (mod-ref Label Label)
-(struct mod-ref exp (f l) #:transparent) ; reference to f from l
+;; ModRef := (mod-ref Label Label Label)
+(struct mod-ref exp (l f m) #:transparent) ; reference to f in l from m
 
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
@@ -405,7 +455,7 @@
                  [non-neg? → non-neg?]
                  [non-pos? → non-pos?]
                  [zero? → zero?])
-                 ,round]
+                ,round]
          [ceiling ([num? → int?]) ,ceiling]
          [truncate ([num? → int?]) ,truncate]
          
@@ -795,7 +845,7 @@
     [(rec b) (vars≥ (+ 1 d) b)]
     [(if/ e1 e2 e3) (set-union (vars≥ d e1) (vars≥ d e2) (vars≥ d e3))]
     [(mon h f g c e) (set-union (con-vars≥ d c) (vars≥ d e))]
-    [(mod-ref f l) ∅]))
+    [(mod-ref f l m) ∅]))
 ;; con-free-vars : Contract -> [Setof Natural]
 (define (con-free-vars c)
   (con-vars≥ 0 c))
@@ -814,56 +864,96 @@
 ;; read-prog : S-exp -> Prog
 (define read-prog
   (match-lambda
-    [`(,m ... ,e) (prog (map read-modl m) (read-exp e))]
-    [x (error "invalid program form: " x)]))
+    [`(,m ... ,r ,e)
+     (match-let
+         ([modls (read-modls m)]
+          [`(,require ,r ...) r])
+       (prog modls (read-exp-with modls r '() '† e)))]
+    [p (error "invalid program form: " p)]))
 
-;; read-modl : S-exp -> Module
-(define read-modl
-  (match-lambda
-    [`(module ,f ,c ,v) (modl f (read-con-with '() f c) (read-exp-with '() f v))]
-    [x (error "invlaid module form: " x)]))
+;; read-modls : [Listof S-exp] -> Modules
+(define (read-modls ms)
+  ;; acc-contracts : S-exp Modules -> Modules
+  (define (acc-provides m modls)
+    (match m
+      [`(module ,name
+          (provide ,decl ...)
+          (require ,req ...)
+          ,def ...)
+       (let ([acc-decl
+              (λ (dec modls)
+                (match-let ([`(,x ,c) dec])
+                  (modls-add-contract modls name x
+                                      (read-con-with modls req '() name c))))])
+         (foldl acc-decl modls decl))]
+      [`(module ,name
+          (provide ,decl ...)
+          ,def ...)
+       (acc-provides `(module ,name (provide ,@ decl) (require) ,@ def) modls)]))
+  
+  ;; acc-defns : S-exp Modules -> Modules
+  (define (acc-defns m modls)
+    (match m
+      [`(module ,name
+          (provide ,decl ...)
+          (require ,req ...)
+          ,defn ...)
+       (letrec ([acc-defn
+                 (λ (def modls)
+                   (match def
+                     [`(define (,f ,x ...) ,e) (acc-defn `(define ,f (λ ,x ,e)) modls)]
+                     [`(define ,x ,e)
+                      (modls-add-defn modls name x
+                                      (read-exp-with modls req '() name e))]))])
+         (foldl acc-defn modls defn))]
+      [`(module ,name
+          (provide ,decl ...)
+          ,defn ...)
+       (acc-defns `(module ,name (provide ,@ decl) (require) ,@ defn) modls)]))
+  
+  (foldl acc-defns (foldl acc-provides (hash) ms) ms))
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
-  (read-exp-with '() '† s))
+  (read-exp-with (hash) '() '() '† s))
 
 ;; read-con : S-exp -> Contract
 (define (read-con s)
-  (read-con-with '() '† s))
+  (read-con-with (hash) '() '() '† s))
 
-;; read-con-with : [Listof Symbol] Label S-exp -> Contract
-(define (read-con-with names mod s)
+;; read-con-with : Modules [Listof Symbol] [Listof Symbol] Label S-exp -> Contract
+(define (read-con-with modls reqs names mod s)
   (match s
-    [`(flat ,e) (flat-c (read-exp-with names mod e))]
+    [`(flat ,e) (flat-c (read-exp-with modls reqs names mod e))]
     [`(,cs ... ,c .. ↦ (λ (,xs ...) ,d))
      (cond
        [(not (= (length xs) (+ 1 (length cs)))) (error "arity mismatch" cs xs)]
        [(not (andmap symbol? xs))
         (error "function* contract: expect symbols, given: " xs)]
        [else
-        (func-c (map (curry read-con-with names mod) (append cs `(,c)))
-                (read-con-with (extend-names xs names) mod d)
+        (func-c (map (curry read-con-with modls reqs names mod) (append cs `(,c)))
+                (read-con-with modls reqs (extend-names xs names) mod d)
                 #t)])]
     [`(,cs ... ,c .. ↦ ,d)
      (let ([xs (variables-not-in d (map (const 'z) (append cs `(,c))))])
-       (read-con-with names mod (append cs `(,c) `(.. ↦ (λ ,xs ,d)))))]
+       (read-con-with modls reqs names mod (append cs `(,c) `(.. ↦ (λ ,xs ,d)))))]
     [`(,cs ... ↦ (λ (,xs ...) ,d))
      (cond
        [(not (= (length xs) (length cs))) (error "arity mismatch" cs xs)]
        [(not (andmap symbol? xs))
         (error "function contract: expect symbols, given: " xs)]
        [else
-        (func-c (map (curry read-con-with names mod) cs)
-                (read-con-with (extend-names xs names) mod d)
+        (func-c (map (curry read-con-with modls reqs names mod) cs)
+                (read-con-with modls reqs (extend-names xs names) mod d)
                 #f)])]
     [`(,cs ... ↦ ,d)
      (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
-       (read-con-with names mod (append cs `(↦ (λ ,xs ,d)))))]
+       (read-con-with modls reqs names mod (append cs `(↦ (λ ,xs ,d)))))]
     [`(cons/c ,c ,d)
-     (cons-c (read-con-with names mod c) (read-con-with names mod d))]
-    [`(or/c ,c ,d) (or-c (read-con-with names mod c) (read-con-with names mod d))]
-    [`(and/c ,c ,d) (and-c (read-con-with names mod c) (read-con-with names mod d))]
-    [`(μ (,x) ,c) (rec-c (read-con-with (cons x names) mod c))]
+     (cons-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
+    [`(or/c ,c ,d) (or-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
+    [`(and/c ,c ,d) (and-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
+    [`(μ (,x) ,c) (rec-c (read-con-with modls reqs (cons x names) mod c))]
     [x (if (symbol? x)
            (let ([d (name-distance x names)])
              (if (<= 0 d)
@@ -871,25 +961,25 @@
                  (error "unbound: " x)))
            (error "invalid contract form: " x))]))
 
-;; read-exp-with : [Listof Symbol] Label S-exp -> Exp
-(define (read-exp-with names mod s)
+;; read-exp-with : Modules [Listof Symbol] [Listof Symbol] Label S-exp -> Exp
+(define (read-exp-with modls reqs names mod s)
   
   ;; read-and : [Listof S-exp] -> Exp
   (define (read-and terms)
     (match terms
-      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names mod t1)
+      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with modls reqs names mod t1)
                                (read-and (rest terms))
                                FALSE)]
-      [`(,t) (read-exp-with names mod t)]
+      [`(,t) (read-exp-with modls reqs names mod t)]
       [`() TRUE]))
   
   ;; read-or : [Listof S-exp] -> Exp
   (define (read-or terms)
     (match terms
-      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with names mod t1)
+      [`(,t1 ,t2 ,ts ...) (if/ (read-exp-with modls reqs names mod t1)
                                TRUE
                                (read-or (rest terms)))]
-      [`(,t) (read-exp-with names mod t)]
+      [`(,t) (read-exp-with modls reqs names mod t)]
       [`() FALSE]))
   
   (match s
@@ -898,42 +988,51 @@
      (if (and (symbol? z) ((listof symbol?) xs))
          (val (lam (+ 1 (length xs))
                    (read-exp-with
+                    modls reqs 
                     (extend-names `(,z) (extend-names xs names)) mod s) #t) ∅)
          (error "λ: expect symbols, given: " xs z))]
     [`(λ (,xs ...) ,s)
      (if ((listof symbol?) xs)
-         (val (lam (length xs) (read-exp-with (extend-names xs names) mod s) #f) ∅)
+         (val (lam (length xs) (read-exp-with modls reqs (extend-names xs names) mod s) #f) ∅)
          (error "λ: expect symbols, given: " xs))]
     [`(μ (,f) ,s) (if (symbol? f)
-                      (rec (read-exp-with (cons f names) mod s))
+                      (rec (read-exp-with modls reqs (cons f names) mod s))
                       (error "μ: expect symbol, given: " f))]
-    [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with names mod s1)
-                            (read-exp-with names mod s2)
-                            (read-exp-with names mod s3))]
+    [`(if ,s1 ,s2 ,s3) (if/ (read-exp-with modls reqs names mod s1)
+                            (read-exp-with modls reqs names mod s2)
+                            (read-exp-with modls reqs names mod s3))]
     ; currently ignore variable/module named 'else'
-    [`(cond [else ,e] ,e1 ...) (read-exp-with names mod e)]
-    [`(cond [,e1 ,e2] ,e3 ...) (if/ (read-exp-with names mod e1)
-                                    (read-exp-with names mod e2)
-                                    (read-exp-with names mod (cons 'cond e3)))]
+    [`(cond [else ,e] ,e1 ...) (read-exp-with modls reqs names mod e)]
+    [`(cond [,e1 ,e2] ,e3 ...) (if/ (read-exp-with modls reqs names mod e1)
+                                    (read-exp-with modls reqs names mod e2)
+                                    (read-exp-with modls reqs names mod (cons 'cond e3)))]
     [`(cond) (blame/ mod mod)]
     [`(and ,terms ...) (read-and terms)]
     [`(or ,terms ...) (read-or terms)]
-    [`(let ([,x ,e] ...) ,b) (read-exp-with names mod `((λ ,x ,b) ,@e))]
+    [`(let ([,x ,e] ...) ,b) (read-exp-with modls reqs names mod `((λ ,x ,b) ,@e))]
     [`(let* ([,x1 ,e1] ,p ...) ,b)
-     (read-exp-with names mod `(let ([,x1 ,e1]) (let* ,p ,b)))]
-    [`(let* () ,b) (read-exp-with names mod `(let () ,b))]
-    [`(,f ,xs ...) (app (read-exp-with names mod f)
-                        (map (curry read-exp-with names mod) xs) mod)]
+     (read-exp-with modls reqs names mod `(let ([,x1 ,e1]) (let* ,p ,b)))]
+    [`(let* () ,b) (read-exp-with modls reqs names mod `(let () ,b))]
+    [`(,f ,xs ...) (app (read-exp-with modls reqs names mod f)
+                        (map (curry read-exp-with modls reqs names mod) xs) mod)]
     [x (cond
          [(boolean? x) (if x TRUE FALSE)]
-         [(symbol? x) (let ([d (name-distance x names)])
-                        (if (<= 0 d)
-                            (ref d)
-                            (if (prim? x)
-                                (val x ∅) ; TODO clean up
-                                (if (not (pre-val? x))
-                                    (mod-ref x mod)
-                                    (val x ∅)))))]
+         [(symbol? x)
+          (let ([d (name-distance x names)])
+            (cond
+              [(<= 0 d) (ref d)]
+              [else
+               (let ([mod-name
+                      (ormap (λ (r)
+                               (let ([m (mod-by-name modls r)])
+                                 (if (modl-exports? m x) r #f)))
+                             reqs)])
+                 (if mod-name
+                     (mod-ref mod-name x mod)
+                     (cond
+                       [(prim? x) (val x ∅)]
+                       [(not (pre-val? x)) (mod-ref mod x mod)]
+                       [else (val x ∅)])))]))]
          [(pre-val? x) (val x ∅)]
          [else (error "invalid expression form: " x)])]))
 
@@ -941,7 +1040,7 @@
 (define (extend-names new-names old-names)
   (foldl cons old-names new-names))
 
-;; show-prog : Prog -> S-exp
+#|;; show-prog : Prog -> S-exp
 (define show-prog
   (match-lambda
     [(prog modules main) (append (map show-modl modules) (list (show-exp main)))]))
@@ -997,7 +1096,7 @@
     [(rec-c c) (let ([x (new-var-name names)])
                  `(μ (,x) ,(show-con-with (cons x names) c)))]
     [(ref-c d) (list-ref names d)]))
-
+|#
 ;; new-var-names : Natural [Listof Symbol] -> Symbol
 (define (new-var-names n used-names)
   (if (zero? n) '()
@@ -1037,7 +1136,7 @@
     [(if/ e1 e2 e3)
      (if/ (shift-at ∆ depth e1) (shift-at ∆ depth e2) (shift-at ∆ depth e3))]
     [(mon h f g c e) (mon h f g (shift-con-at ∆ depth c) (shift-at ∆ depth e))]
-    [(mod-ref f l) e]))
+    [(mod-ref f l m) e]))
 
 ;; shift-con : Natural Contract -> Contract
 (define (shift-con ∆ c)
@@ -1056,23 +1155,6 @@
     [(and-c c1 c2) (and-c (shift-con-at ∆ depth c1) (shift-con-at ∆ depth c2))]
     [(rec-c c1) (rec-c (shift-con-at ∆ (+ 1 depth) c1))]
     [(ref-c x) (if (>= x depth) (ref-c (+ x ∆)) c)]))
-
-;; mod-by-name : Label [Listof Module] -> Module
-(define (mod-by-name l ms)
-  (match ms
-    [(cons m ms1) (if (equal? (modl-f m) l) m
-                      (mod-by-name l ms1))]
-    [_ (error "unbound module name: " l)]))
-
-;; upd-mod-by-name : Label [Value -> Value] [Listof Module] -> Module
-(define (upd-mod-by-name l f ms)
-  (match ms
-    [(cons m ms1)
-     (match-let ([(modl n c v) m])
-       (if (equal? n l)
-           (cons (modl n c (f v)) ms1)
-           (cons m (upd-mod-by-name l f ms1))))]
-    [_ (error "unbound module name: " l)]))
 
 
 ;; proc-with-arity? : ValClosure Natural -> [Setof Boolean]
