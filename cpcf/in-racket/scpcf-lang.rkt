@@ -864,11 +864,10 @@
 ;; read-prog : S-exp -> Prog
 (define read-prog
   (match-lambda
-    [`(,m ... ,r ,e)
-     (match-let
-         ([modls (read-modls m)]
-          [`(,require ,r ...) r])
+    [`(,m ... (require ,r ...) ,e)
+     (match-let ([modls (read-modls m)])
        (prog modls (read-exp-with modls r '() '† e)))]
+    [`(,m ... ,e) (read-prog `(,@ m (require) ,e))]
     [p (error "invalid program form: " p)]))
 
 ;; read-modls : [Listof S-exp] -> Modules
