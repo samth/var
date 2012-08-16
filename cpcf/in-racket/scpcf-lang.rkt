@@ -57,6 +57,8 @@
   [read-exp-with (modls? (listof label?) (listof symbol?) symbol? s-exp? . -> . s-exp?)]
   #;[show-exp (exp? . -> . s-exp?)]
   
+  [modl-get-defn (modl? label? . -> . exp?)]
+  [modl-get-contract (modl? label? . -> . contract?)]
   [mod-by-name (modls? label? . -> . modl?)]
   [upd-mod-by-name (modls? label? label? (val? . -> . val?) . -> . modls?)]
   
@@ -78,7 +80,7 @@
   [s-exp? (any/c . -> . boolean?)]
   [modls? (any/c . -> . boolean?)])
  
- c/any c/bool c/list c/num-list c/real-list c/even-list c/bool-list
+ c/any c/bool c/list c/num-list c/real-list c/even-list c/bool-list c/int-list
  
  ;; s-map : [x -> y] [Setof x] -> [Setof y]
  s-map
@@ -236,6 +238,7 @@
 (define c/bool `(flat bool?))
 (define c/list (c/list-of '(λ (x) #t)))
 (define c/num-list (c/list-of 'num?))
+(define c/int-list (c/list-of 'int?))
 (define c/real-list (c/list-of 'real?))
 (define c/even-list (c/list-of 'even?))
 (define c/bool-list (c/list-of 'bool?))
@@ -909,7 +912,7 @@
           (provide ,decl ...)
           ,defn ...)
        (acc-defns `(module ,name (provide ,@ decl) (require) ,@ defn) modls)]))
-  
+  ;; FIXME: contracts do not have access to required modules. Another pass?
   (foldl acc-defns (foldl acc-provides (hash) ms) ms))
 
 ;; read-exp : S-exp -> Exp

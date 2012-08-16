@@ -22,7 +22,7 @@
 ;; Kont = Mt
 ;;      | Ap [Listof ValClosure] [Listof Closure] Label Kont
 ;;      Abuse kont frame to remember passed tests
-;;      | If [(List Label ContractClosure)|'()] Closure Closure Kont
+;;      | If [(List Label Label ContractClosure)|'()] Closure Closure Kont
 ;;      | Mon Lab Lab Lab ContractClosure Kont
 ;;      | ChkCdr Lab Lab Lab ContractClosure Closure Kont
 ;;      | ChkOr Closure ContractClosure Lab Lab Lab ContractClosure Kont
@@ -157,28 +157,30 @@
                                                cl-else κ)))
                                   (refine-cl cl (close-contract (flat-c (val u cs)) ρ))))]
                 ;; if it's a module reference, abuse kont frame to modify module later
-                [(mod-ref a _)
-                 {set (cek hist ms cl-test (if-k `(,a ,(close-contract (flat-c (val u cs)) ρ))
+                [(mod-ref m x _)
+                 {set (cek hist ms cl-test (if-k `(,m ,x ,(close-contract (flat-c (val u cs)) ρ))
                                                  cl-then cl-else κ))}]
                 [_ {set (cek hist ms cl-test (if-k '() cl-then cl-else κ))}])]
              [_ {set (cek hist ms cl-test (if-k '() cl-then cl-else κ))}]))]
         [(mon h f g c e1)
          {set (cek hist ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
-        [(mod-ref f g) (match-let ([(modl f c v) (mod-by-name f ms)])
-                         (if (equal? f g)
-                             {set (cek hist ms (close v ρ0) κ)}
-                             (match v
-                               ; TODO: page 8: isn't (mon f f g C (• · C)) the same as (• · C) ?
-                               [(val '• cs)
-                                (let* ([C (close-contract c ρ)]
-                                       [κ1 (mon-k f f g C κ)])
-                                  (s-map (λ (v) (cek hist
-                                                     (upd-mod-by-name f (const v) ms)
-                                                     (close v ρ)
-                                                     κ1))
-                                         (refine-val v C)))]
-                               [_ {set (cek hist ms (close v ρ)
-                                            (mon-k f f g (close-contract c ρ) κ))}])))])))
+        [(mod-ref m f l)
+         (let* ([mod (mod-by-name ms m)]
+                [v (modl-get-defn mod m)])
+           (if (equal? m l)
+               {set (cek hist ms (close v ρ0) κ)}
+               (let ([c (modl-get-contract m f)])
+                 (match v
+                   [(val '• cs)
+                    (let* ([C (close-contract c ρ)]
+                           [κ1 (mon-k m m l C κ)])
+                      (s-map (λ (v) (cek hist
+                                         (upd-mod-by-name m f (const v) ms)
+                                         (close v ρ)
+                                         κ1))
+                             (refine-val v C)))]
+                   [_ {set (cek hist ms (close v ρ)
+                                (mon-k m m l (close-contract c ρ) κ))}]))))])))
   
   ;; on-val : -> [Setof CEK]
   ;; determines machine's next state, dispatching on kont
@@ -250,11 +252,12 @@
        (non-det (match-lambda
                   [(exp-cl (val #t cs) ρv)
                    (match passed
-                     [`(,l ,ccl) (match-let* ([(modl l c v) (mod-by-name l ms)])
-                                   (s-map (λ (v1)
-                                            (cek hist (upd-mod-by-name l (const v1) ms)
-                                                 clo1 κ))
-                                          (refine-val v ccl)))]
+                     [`(,l ,x ,ccl)
+                      (let ([v (modl-get-defn (mod-by-name ms l) x)])
+                        (s-map (λ (v1)
+                                 (cek hist (upd-mod-by-name ms l x (const v1))
+                                      clo1 κ))
+                               (refine-val v ccl)))]
                      ['() {set (cek hist ms clo1 κ)}])]
                   [(exp-cl (val #f cs) ρv)
                    {set (cek hist ms clo2 κ)}])
