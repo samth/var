@@ -937,12 +937,12 @@
        [(not (andmap symbol? xs))
         (error "function* contract: expect symbols, given: " xs)]
        [else
-        (func-c (map (curry read-con-with modls reqs names mod) (append cs `(,c)))
+        (func-c (map (curry read-con-with modls reqs names mod) `(,@ cs ,c))
                 (read-con-with modls reqs (extend-names xs names) mod d)
                 #t)])]
     [`(,cs ... ,c .. ↦ ,d)
-     (let ([xs (variables-not-in d (map (const 'z) (append cs `(,c))))])
-       (read-con-with modls reqs names mod (append cs `(,c) `(.. ↦ (λ ,xs ,d)))))]
+     (let ([xs (variables-not-in d (map (const 'z) `(,@ cs ,c)))])
+       (read-con-with modls reqs names mod `(,@ cs ,c .. ↦ (λ ,xs ,d))))]
     [`(,cs ... ↦ (λ (,xs ...) ,d))
      (cond
        [(not (= (length xs) (length cs))) (error "arity mismatch" cs xs)]
@@ -954,7 +954,7 @@
                 #f)])]
     [`(,cs ... ↦ ,d)
      (let ([xs (variables-not-in d (map (const 'z) cs))]) ; desugar independent contract
-       (read-con-with modls reqs names mod (append cs `(↦ (λ ,xs ,d)))))]
+       (read-con-with modls reqs names mod `(,@ cs ↦ (λ ,xs ,d))))]
     [`(cons/c ,c ,d)
      (cons-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
     [`(or/c ,c ,d) (or-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
