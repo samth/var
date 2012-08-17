@@ -84,7 +84,7 @@
   
   ;; havoc : Label -> Exp
   (define (havoc from)
-    (read-exp-with '() from
+    (read-exp-with (hash) '() '() from
                    `(μ (y)
                        (λ (x)
                          ,(AMB `((y (x •)) (y (car x)) (y (cdr x))))))))
@@ -166,16 +166,16 @@
          {set (cek hist ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
         [(mod-ref m f l)
          (let* ([mod (mod-by-name ms m)]
-                [v (modl-get-defn mod m)])
+                [v (modl-get-defn mod f)])
            (if (equal? m l)
                {set (cek hist ms (close v ρ0) κ)}
-               (let ([c (modl-get-contract m f)])
+               (let ([c (modl-get-contract mod f)])
                  (match v
                    [(val '• cs)
                     (let* ([C (close-contract c ρ)]
                            [κ1 (mon-k m m l C κ)])
                       (s-map (λ (v) (cek hist
-                                         (upd-mod-by-name m f (const v) ms)
+                                         (upd-mod-by-name ms m f (const v))
                                          (close v ρ)
                                          κ1))
                              (refine-val v C)))]

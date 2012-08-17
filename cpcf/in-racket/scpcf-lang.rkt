@@ -58,7 +58,7 @@
   #;[show-exp (exp? . -> . s-exp?)]
   
   [modl-get-defn (modl? label? . -> . exp?)]
-  [modl-get-contract (modl? label? . -> . contract?)]
+  [modl-get-contract (modl? label? . -> . contract/?)]
   [mod-by-name (modls? label? . -> . modl?)]
   [upd-mod-by-name (modls? label? label? (val? . -> . val?) . -> . modls?)]
   
@@ -103,13 +103,17 @@
   (match-let ([(modl vals contracts) m])
     (modl vals (hash-set contracts x c))))
 
-;; modl-get-defn : Module Label -> Module
+;; modl-get-defn : Module Label -> Exp
 (define (modl-get-defn m x)
-  (hash-ref (modl-vals m) x))
-
-;; modl-get-contract : Module Label -> Module
+  (match (hash-ref (modl-vals m) x '☹)
+    ['☹ (error "no definition for" x)]
+    [v v]))
+  
+;; modl-get-contract : Module Label -> Contract
 (define (modl-get-contract m x)
-  (hash-ref (modl-contracts m) x))
+  (match (hash-ref (modl-contracts m) x '☹)
+    ['☹ (error "module does not export" x)]
+    [c c]))
 
 ;; modl-exports? : Module Label -> Bool
 (define (modl-exports? m x)
@@ -126,7 +130,7 @@
 (define (upd-mod-by-name ms m-name x-name f)
   (let ([m (mod-by-name ms m-name)])
     (if (modl-exports? m x-name)
-        (hash-set (modl-add-defn m x-name (f (modl-get-defn m x-name))))
+        (hash-set ms m-name (modl-add-defn m x-name (f (modl-get-defn m x-name))))
         ms)))
 
 ;; modls-add-defn : Modules Label Label Exp -> Modules

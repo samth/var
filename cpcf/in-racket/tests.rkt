@@ -9,9 +9,9 @@
   `((module db
       (provide
        [db (((flat even?) ↦ (flat even?)) ↦ ((flat even?) ↦ (flat even?)))])
-      (define db ,db)
-      (require db)
-      ((db ,f) ,x))))
+      (define db ,db))
+    (require db)
+    ((db ,f) ,x)))
 (define db-right '(λ (f) (λ (x) (f (f x)))))
 (define db-wrong '(λ (f) (λ (x) 7)))
 (check-equal? (eval-cek (prog-db db-right '(λ (x) 2) 42)) {set 2})
@@ -123,7 +123,7 @@
        [else (let ([zs (cdr xs)])
                (cond
                  [(nil? zs) #t]
-                 [(and (≤ (car xs) (car zs)) (sorted? zs))]))])))
+                 [else (and (≤ (car xs) (car zs)) (sorted? zs))]))])))
 
 ;; insertion sort example from section 1
 #;(define prog-ins-sort
@@ -228,15 +228,18 @@
 (check-equal? (eval-cek prog-flatten-•) {set '•})
 (define prog-flatten-ok2 `(,modl-list
                            ,modl-flatten
+                           (require flatten)
                            (car b)))
 (check-equal? (eval-cek prog-flatten-ok2) {set 1})
 (define prog-flatten-err1 `(,modl-list
                             ,modl-flatten
+                            (require flatten list)
                             (map (λ (x) (+ 1 x)) a)))
 (check-equal? (eval-cek prog-flatten-err1) {set '(blame † +)})
 (define prog-flatten-err2
   `(,modl-list
     ,modl-flatten
+    (require flatten list)
     (map (λ (x) (- x 1))
          (flatten (cons "this" (cons (cons "that" nil) nil))))))
 (check-equal? (eval-cek prog-flatten-err2) {set '(blame † -)})
@@ -354,7 +357,8 @@
 (define takl ; translated from http://www.larcenists.org/R6src/takl.sch
   `((module takl
       (provide
-       [mas (,c/num-list ,c/num-list ,c/num-list ↦ ,c/num-list)])
+       [mas (,c/num-list ,c/num-list ,c/num-list ↦ ,c/num-list)]
+       [listn ((flat nat?) ↦ ,c/num-list)])
       
       (define (listn n)
         (if (zero? n) nil (cons n (listn (- n 1)))))
@@ -553,6 +557,8 @@
       (define n •))
     (require ev n)
     (ev? n)))
+; TODO: system also thinks (blame ev od) and (blame od ev) b/c
+;; it doesn't know that (NonzeroNat - 1) is also a Nat
 (check-equal? (eval-cek prog-even?) {set #t #f})
 
 ;; test var-args function
