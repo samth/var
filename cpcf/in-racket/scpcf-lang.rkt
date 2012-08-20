@@ -988,6 +988,12 @@
       [`(,t) (read-exp-with modls reqs names mod t)]
       [`() FALSE]))
   
+  ;; desugar-begin : [Listof S-exp] -> S-Exp
+  (define desugar-begin
+    (match-lambda
+      [`(,e) e]
+      [`(,e1 ,e ...) `((λ (_) ,(desugar-begin e)) ,e1)]))
+  
   (match s
     [`• BULLET]
     [`(λ (,xs ... ,z ..) ,s)
@@ -1019,6 +1025,7 @@
     [`(let* ([,x1 ,e1] ,p ...) ,b)
      (read-exp-with modls reqs names mod `(let ([,x1 ,e1]) (let* ,p ,b)))]
     [`(let* () ,b) (read-exp-with modls reqs names mod `(let () ,b))]
+    [`(begin ,e1 ,e ...) (read-exp-with modls reqs names mod (desugar-begin `(,e1 ,@ e)))]
     [`(,f ,xs ...) (app (read-exp-with modls reqs names mod f)
                         (map (curry read-exp-with modls reqs names mod) xs) mod)]
     [x (cond
