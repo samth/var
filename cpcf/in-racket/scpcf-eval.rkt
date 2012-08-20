@@ -103,14 +103,13 @@
   
   ;; maybe-mon-k : Label Label Label ContractClosure Kont -> Kont
   (define (maybe-mon-k h f g c κ)
-    ;; already? : Kont -> Bool
-    (define (already? κ)
+    ;; compact : Kont -> Kont
+    (define (compact κ)
       (match κ
-        [(mon-k h f g c1 κ1) (if (equal? c c1) #t (already? κ1))]
-        [_ #f]))
+        [(mon-k h f g c1 κ1) (if (equal? c c1) κ1 (mon-k h f g c1 (compact κ1)))]
+        [_ κ]))
     
-    (if (already? κ) κ
-        (mon-k h f g c κ)))
+    (mon-k h f g c (compact κ)))
   
   ;; short-cut : Closure -> {Setof CEK}
   (define (short-cut cl)
@@ -358,7 +357,7 @@
   (match x
     [`(blame ,l1 ,l2) (and (symbol? l1) (symbol? l2))]
     [`(cons ,x ,xs) (and (eval-answer? x) (eval-answer? xs))]
-    [else (or (number? x) (boolean? x) (eq? 'nil x)
+    [else (or (number? x) (boolean? x) (eq? 'nil x) (string? x)
               (member x `(function •)))]))
 
 ;; eval-cek : S-Exp -> [Setof EvalAnswer]
