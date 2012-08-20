@@ -79,7 +79,8 @@
   [prim? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)]
   [modls? (any/c . -> . boolean?)])
- 
+
+ c/list-of c/non-empty-list-of
  c/any c/bool c/list c/num-list c/real-list c/even-list c/bool-list c/int-list
  
  ;; s-map : [x -> y] [Setof x] -> [Setof y]
@@ -236,16 +237,18 @@
 (define CL-BULLET (exp-cl BULLET ρ0))
 
 ;; contracts
-(define (c/list-of p)
-  `(μ (pred) (or/c (flat nil?) (cons/c (flat ,p) pred))))
+(define (c/list-of c)
+  `(μ (pred) (or/c (flat nil?) (cons/c ,c pred))))
+(define (c/non-empty-list-of c)
+  `(cons/c ,c ,(c/list-of c)))
 (define c/any `(flat (λ (x) #t)))
 (define c/bool `(flat bool?))
-(define c/list (c/list-of '(λ (x) #t)))
-(define c/num-list (c/list-of 'num?))
-(define c/int-list (c/list-of 'int?))
-(define c/real-list (c/list-of 'real?))
-(define c/even-list (c/list-of 'even?))
-(define c/bool-list (c/list-of 'bool?))
+(define c/list (c/list-of '(flat (λ (x) #t))))
+(define c/num-list (c/list-of '(flat num?)))
+(define c/int-list (c/list-of '(flat int?)))
+(define c/real-list (c/list-of '(flat real?)))
+(define c/even-list (c/list-of '(flat even?)))
+(define c/bool-list (c/list-of '(flat bool?)))
 
 ;; mk-contract-cl : Pred -> ContractClosure
 ;; makes contract out of primitive predicate
