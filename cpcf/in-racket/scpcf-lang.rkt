@@ -927,6 +927,12 @@
 (define (read-con s)
   (read-con-with (hash) '() '() '† s))
 
+;; desugar-one-of : [Listof S-exp] -> S-Exp
+  (define desugar-one-of
+    (match-lambda
+      [`(,v) `(flat (λ (x) (equal? x ,v)))]
+      [`(,v1 ,v ...) `(or/c (flat (λ (x) (equal? x ,v1))) ,(desugar-one-of v))]))
+
 ;; read-con-with : Modules [Listof Symbol] [Listof Symbol] Label S-exp -> Contract
 (define (read-con-with modls reqs names mod s)
   (match s
@@ -959,6 +965,7 @@
      (cons-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
     [`(or/c ,c ,d) (or-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
     [`(and/c ,c ,d) (and-c (read-con-with modls reqs names mod c) (read-con-with modls reqs names mod d))]
+    [`(one-of/c ,v1 ,v ...) (read-con-with modls reqs names mod (desugar-one-of `(,v1 ,@ v)))]
     [`(μ (,x) ,c) (rec-c (read-con-with modls reqs (cons x names) mod c))]
     [x (if (symbol? x)
            (let ([d (name-distance x names)])
@@ -1144,7 +1151,7 @@
        [(lam n b v?) (val (lam n (shift-at ∆ (+ n depth) b) v?) cs)]
        [_ e])]
     [(blame/ l1 l2) e]
-    [(app f xs l) (app (shift-at ∆ depth f) (map (curry shift-at depth) xs) l)]
+    [(app f xs l) (app (shift-at ∆ depth f) (map (curry shift-at ∆ depth) xs) l)]
     [(rec b) (rec (shift-at ∆ (+ 1 depth) b))]
     [(if/ e1 e2 e3)
      (if/ (shift-at ∆ depth e1) (shift-at ∆ depth e2) (shift-at ∆ depth e3))]
