@@ -79,7 +79,7 @@
   [prim? (any/c . -> . boolean?)]
   [s-exp? (any/c . -> . boolean?)]
   [modls? (any/c . -> . boolean?)])
-
+ 
  c/list-of c/non-empty-list-of
  c/any c/bool c/list c/num-list c/real-list c/even-list c/bool-list c/int-list
  
@@ -109,7 +109,7 @@
   (match (hash-ref (modl-vals m) x '☹)
     ['☹ (error "no definition for" x)]
     [v v]))
-  
+
 ;; modl-get-contract : Module Label -> Contract
 (define (modl-get-contract m x)
   (match (hash-ref (modl-contracts m) x '☹)
@@ -863,7 +863,7 @@
 (define (con-vars≥ d c)
   (match c
     [(flat-c e) (vars≥ d e)]
-    [(func-c cs1 c2 _) (set-union (apply set-union (map (curry con-vars≥ d) cs1))
+    [(func-c cs1 c2 _) (set-union (apply set-union (cons ∅ (map (curry con-vars≥ d) cs1)))
                                   (con-vars≥ (+ (length cs1) d) c2))]
     [(cons-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
     [(or-c c1 c2) (set-union (con-vars≥ d c1) (con-vars≥ d c2))]
@@ -931,10 +931,10 @@
   (read-con-with (hash) '() '() '† s))
 
 ;; desugar-one-of : [Listof S-exp] -> S-Exp
-  (define desugar-one-of
-    (match-lambda
-      [`(,v) `(flat (λ (x) (equal? x ,v)))]
-      [`(,v1 ,v ...) `(or/c (flat (λ (x) (equal? x ,v1))) ,(desugar-one-of v))]))
+(define desugar-one-of
+  (match-lambda
+    [`(,v) `(flat (λ (x) (equal? x ,v)))]
+    [`(,v1 ,v ...) `(or/c (flat (λ (x) (equal? x ,v1))) ,(desugar-one-of v))]))
 
 ;; read-con-with : Modules [Listof Symbol] [Listof Symbol] Label S-exp -> Contract
 (define (read-con-with modls reqs names mod s)
