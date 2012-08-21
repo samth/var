@@ -67,7 +67,17 @@
   (define (refine-val v c)
     (match-let ([(val u cs) v])
       (match u
-        ['• (s-map (λ (cs1) (val u cs1)) (refine cs c))]
+        ['•
+         (s-map
+          (λ (cs1)
+            (if (= 1 (set-count cs1))
+                (match (first (set->list cs1))
+                  [(or (contract-cl (flat-c (val (lam 1 (app (val 'equal? ∅) (list (ref 0) v) _) #f) cs)) ρc)
+                       (contract-cl (flat-c (val (lam 1 (app (val 'equal? ∅) (list v (ref 0)) _) #f) cs)) ρc))
+                   v] ; FIXME: v needs to be closed by ρc
+                  [x (val u cs1)])
+                (val u cs1)))
+          (refine cs c))]
         [_ {set v}])))
   
   ;; refine-cl : ValClosure ContractClosure -> (Setof ValClosure)

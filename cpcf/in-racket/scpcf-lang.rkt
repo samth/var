@@ -1220,7 +1220,6 @@
 ;; refine : (SetOf ContractClosure) ContractClosure -> (Setof (Setof ContractClosure))
 (define (refine cs c)
   (match c
-    [(contract-cl (flat-c (val (lam 1 (val #t ∅) #f) ∅)) ρ0) {set cs}] ; ignore 'any'
     [(contract-cl (or-c c1 c2) ρc) ; split disjunction
      (set-union (refine cs (close-contract c1 ρc))
                 (refine cs (close-contract c2 ρc)))]
@@ -1232,6 +1231,11 @@
                 (refine cs c1′)))]
     [(contract-cl (rec-c c1) ρc) ; unroll recursive contract
      (refine cs (close-contract c1 (env-extend c ρc)))]
+    [(contract-cl (flat-c (val (lam 1 (val #t ∅) #f) ∅)) ρ0) {set cs}] ; ignore 'any'
+    [(or ; refine with exact value
+      (contract-cl (flat-c (val (lam 1 (app (val 'equal? ∅) (list (ref 0) v) _) #f) cs)) ρc)
+      (contract-cl (flat-c (val (lam 1 (app (val 'equal? ∅) (list v (ref 0)) _) #f) cs)) ρc))
+     {set {set c}}]
     [(contract-cl (flat-c (val p _)) ρc)
      (if (prim? p)
          (match (contracts-imply? cs p)
