@@ -1,10 +1,14 @@
 TODO:
+* add features:
+** struct
+** symbols??
 * [part, see 'journal'] expressions that won't terminate
 ** approximate arguments more judiciously
 ** more sensible approximation of 'dejavu' expressions instead of throwing in a •
 ** currently way of dealing with mutual tail calls from different modules can blame wrong parties
 * [part] more tests
 ** medium sized ones from Wright paper
+** tetris
 * [part] rewrite eval's loop using mutable hashtables + benchmark
 * [part] improve contract checking/proving to get rid of false blames
 ** [part] remember passed tests in if clauses
