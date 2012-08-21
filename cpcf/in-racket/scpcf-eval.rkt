@@ -220,24 +220,21 @@
               ['•
                {non-det
                 (match-lambda
-                  [#t {set-add
+                  [#t {set-union
                        (list->set
                         (map (λ (x)
                                (cek hist0 ms (close (havoc l) ρ0)
                                     (ap-k '() `(,x) l (mt))))
                              xs))
-                       (cek ; value refined by function's contract's range
-                        hist1
-                        ms
-                        (close
-                         (val '•
-                              (for/fold ([acc ∅]) ([c cs])
-                                (match c
-                                  [(contract-cl (func-c cs1 c2 _) ρc)
-                                   (set-add acc (close-contract c2 (env-extend xs ρc)))]
-                                  [_ acc])))
-                         ρ0)
-                        κ)}]
+                       ; value(s) refined by function's contract's range
+                       (s-map
+                        (λ (v) (cek hist1 ms (close v ρ0) κ))
+                        (for/fold ([vs {set (val '• ∅)}]) ([c cs])
+                          (match c
+                            [(contract-cl (func-c cs1 c2 _) ρc)
+                             (let ([c2-cl (close-contract c2 (env-extend xs ρc))])
+                               (non-det (λ (v) (refine-val v c2-cl)) vs))]
+                            [_ vs])))}]
                   [#f {set (cek hist0 ms (close (blame/ l '∆) ρ0) (mt))}])
                 (proc-with-arity? f (length xs))}]
               [_ (if (prim? u) ; primitive op handles arity check on its own
