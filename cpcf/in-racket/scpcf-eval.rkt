@@ -391,7 +391,7 @@
         [else
          (define known1 (set-union known unknown))
          (define-values (final1 unknown1)
-           (for/fold ([final1 final] [unknown1 ∅]) ([next (non-det step unknown)])
+           (for*/fold ([final1 final] [unknown1 ∅]) ([u (in-set unknown)] [next (in-set (step u))])
              (cond
                [(final? next) (values (set-add final1 next) unknown1)]
                [(set-member? known1 next) (values final1 unknown1)]
