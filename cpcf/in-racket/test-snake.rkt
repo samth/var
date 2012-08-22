@@ -99,7 +99,7 @@
      (define (BOARD-HEIGHT-PIXELS) (* GRID-SIZE BOARD-HEIGHT))
      (define (BOARD-WIDTH-PIXELS) (* GRID-SIZE BOARD-WIDTH))
      (define (BACKGROUND) (empty-scene (BOARD-WIDTH-PIXELS) (BOARD-HEIGHT-PIXELS)))
-     (define (SEGMENT-RADIUS) (quotient GRID-SIZE 2))
+     (define (SEGMENT-RADIUS) (quot GRID-SIZE 2))
      (define (SEGMENT-IMAGE)  (circle (SEGMENT-RADIUS) "solid" "red"))
      (define (FOOD-RADIUS) (SEGMENT-RADIUS))
      (define (FOOD-IMAGE)  (circle (FOOD-RADIUS) "solid" "green"))
@@ -445,6 +445,7 @@
      ,module-data
      ,module-const
      ,module-cut-tail•
+     ,module-motion-help
      ,module-motion
      (module hole
        (provide
@@ -534,7 +535,9 @@
        (define L2 •))
      (require S motion-help)
      (begin [snake-slither S]
-            [reverse L2 L2]
-            [cut-tail/acc L L2]))))
+            #;[reverse L2 L2]
+            #;[cut-tail/acc L L2]))))
 
-(map (λ (t) (time (eval-cek t))) tests)
+(for-each
+ (λ (t) (print (time (eval-cek t))) (display "\n\n"))
+ tests)
