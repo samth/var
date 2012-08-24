@@ -158,13 +158,15 @@
              [(app (val u cs) `(,ar) _)
               (match ar
                 ;; if it's a local variable, remember passed test in 'then' closure
-                [(ref x) (let ([cl (env-get x ρ)])
-                           (s-map (λ (cl1)
-                                    (cek hist ms cl-test
-                                         (if-k '()
-                                               (close e2 (env-set x cl1 ρ))
-                                               cl-else κ)))
-                                  (refine-cl cl (close-contract (flat-c (val u cs)) ρ))))]
+                [(ref x) (let* ([cl (env-get x ρ)]
+                                [cl1s (refine-cl cl (close-contract (flat-c (val u cs)) ρ))])
+                           (if (set-empty? cl1s) ; test is gonna fail
+                               {set (cek hist ms cl-else κ)}
+                               (s-map (λ (cl1) (cek hist ms cl-test
+                                                    (if-k '()
+                                                          (close e2 (env-set x cl1 ρ))
+                                                          cl-else κ)))
+                                      cl1s)))]
                 ;; if it's a module reference, abuse kont frame to modify module later
                 [(mod-ref m x _)
                  {set (cek hist ms cl-test (if-k `(,m ,x ,(close-contract (flat-c (val u cs)) ρ))

@@ -1239,16 +1239,17 @@
     [(contract-cl (flat-c (val p _)) ρc)
      (if (prim? p)
          (match (contracts-imply? cs p)
-           ['Neither {set (set-add cs c)}]
-           [_ {set cs}])
+           ['Refuted ∅]
+           ['Proved {set cs}]
+           ['Neither {set (set-add cs c)}])
          {set (set-add cs c)})]
     [(contract-cl (cons-c c1 c2) ρc)
      (match (contracts-imply? cs 'cons?)
-       ['Refuted {set cs}]
+       ['Refuted ∅]
        [(or 'Proved 'Neither) {set (set-add cs c)}])]
     [(contract-cl (func-c c1s c2 _) ρc)
      (match (contracts-imply? cs 'proc?)
-       ['Refuted {set cs}]
+       ['Refuted ∅]
        [(or 'Proved 'Neither) {set (set-add cs c)}])]
     [(contract-cl (ref-c x) ρc) (refine cs (env-get x ρc))]
     [_ {set (set-add cs c)}]))
