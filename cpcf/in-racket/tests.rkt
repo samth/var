@@ -298,7 +298,7 @@
       (define (lastpair s)
         ; i cheat a bit?
         (let ([zs (cdr s)])
-          (if (cons? zs) (lastpair zs) zs))
+          (if (cons? zs) (lastpair zs) s))
         ; TODO: this test is not remembered
         #;(if (cons? (cdr s)) 
             (lastpair (cdr s))
