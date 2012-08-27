@@ -163,7 +163,20 @@
 ;; Ref := (ref Natural)
 (struct ref exp (distance) #:transparent)
 ;; App := (app Exp [Listof Exp] Label)
-(struct app exp (func args lab) #:transparent)
+(struct app exp (func args lab)
+  ;; FIXME: this is a temporary hack, until contract becomes first class
+  #:methods gen:equal+hash
+  [(define (equal-proc a b equal?/rec)
+     (and (equal?/rec (app-func a) (app-func b))
+          (= (length (app-args a)) (length (app-args b)))
+          (andmap equal?/rec (app-args a) (app-args b))))
+   (define (hash-proc x hash/rec)
+     (+ (* 41 (hash/rec (app-func x)))
+        (hash/rec (app-args x))))
+   (define (hash2-proc x hash/rec)
+     (+ (hash/rec (app-func x))
+        (* 41 (hash/rec (app-args x)))))]
+  #:transparent)
 ;; Rec := (rec Exp)
 (struct rec exp (body) #:transparent)
 ;; If := (if/ Exp Exp Exp)
