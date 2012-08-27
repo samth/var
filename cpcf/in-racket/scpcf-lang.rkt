@@ -827,6 +827,17 @@
     (for/fold ([acc ∅]) ([c (in-set cs)])
       (on-contract acc c)))
   
+  ;; TODO refactor
+  ;; abs-val : [Setof ContractClosure] -> Closure
+  (define (abs-val cs)
+    (if (= 1 (set-count cs))
+        (match (first (set->list cs))
+          [(or (contract-cl (flat-c (val (lam 1 (app (val 'equal? ∅) (list (ref 0) v) _) #f) cs)) ρc)
+               (contract-cl (flat-c (val (lam 1 (app (val 'equal? ∅) (list v (ref 0)) _) #f) cs)) ρc))
+           (close v ρc)]
+          [_ (close (val '• cs) ρ0)])
+        (close (val '• cs) ρ0)))
+  
   
   (match cl
     [(cons-cl c1 c2) {set `(,c1 ,c2)}] ; concrete pair
@@ -838,7 +849,7 @@
               {set '() `(,CL-BULLET ,CL-BULLET)}
               ; proved abstract pair
               (s-map (match-lambda
-                       [`(,cs1 ,cs2) `(,(close (val '• cs1) ρ0) ,(close (val '• cs2) ρ0))]
+                       [`(,cs1 ,cs2) `(,(abs-val cs1) ,(abs-val cs2))]
                        ['() '()])
                      s))])]
     [_ {set '()}])) ; known not a pair

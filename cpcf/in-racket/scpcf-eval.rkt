@@ -67,7 +67,7 @@
   (define (refine-val v c)
     (match-let ([(val u cs) v])
       (match u
-        ['•
+        ['• ; TODO refactor
          (s-map
           (λ (cs1)
             (if (= 1 (set-count cs1))
