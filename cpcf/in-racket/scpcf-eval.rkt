@@ -103,7 +103,7 @@
   ;; decides whether to add another application kont frame or approximate it
   (define (maybe-ap-k f vs xs l)
     ; FIXME: turned out i forgot to remember the function
-    (let ([next-frame-sig (ap-k vs xs l (mt))])
+    (let ([next-frame-sig (ap-k vs (cons f xs) l (mt))])
       (if (bi-map-has-val? hist next-frame-sig) ; dejavu
           (short-cut clo)
           {set (cek (bi-map-set hist κ next-frame-sig)
