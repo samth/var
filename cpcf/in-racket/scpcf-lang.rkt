@@ -48,6 +48,7 @@
   [shift (natural? exp? . -> . exp?)]
   
   [δ (prim? (listof val-cl?) label? . -> . (set/c clo?))]
+  [δ′ (prim? (listof val-cl?) label? . -> . (set/c clo?))]
   [split-cons (val-cl? . -> . (set/c (or/c empty? (list/c val-cl? val-cl?))))]
   
   [read-prog (s-exp? . -> . prog?)]
@@ -387,9 +388,12 @@
 (define approx-contracts
   (let ([satisfying-contracts
          (λ (u)
-           (foldl (λ (pred acc)
-                    (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
-                  ∅ prim-preds))])
+           (set-add
+            (foldl (λ (pred acc)
+                     (if (prim-check pred u) (set-add acc (mk-contract-cl pred)) acc))
+                   ∅ prim-preds)
+            ; treat true? separately
+            (mk-contract-cl (if (false? u) 'false? 'true?))))])
     (match-lambda
       [(exp-cl (val (lam n e _) cs) ρ) (set-union cs (mk-contract-cl 'proc?))]
       [(exp-cl (val '• cs) ρ) cs]
@@ -397,13 +401,80 @@
 
 ;; approx : ValClosure -> ValClosure
 (define (approx x)
+  
+  ;; mk-func-c : Natural Boolean -> FuncContractClosure
+  ;; returns contract for function of given arity
+  (define (mk-func-c n var?)
+    (define C/ANY (read-con c/any))
+    (close-contract (func-c (make-list n C/ANY) C/ANY var?) ρ0))
+  
+  ;; abs-cons : ValClosure ValClosure -> ValClosure
+  (define (abs-cons c1 c2)
+    (define C/NIL (flat-c (val 'nil? ∅)))
+    (define C/ANY (read-con c/any))
+    (define (mk-c/non-empty-list-of c ρc)
+      (close-contract
+       (cons-c c
+               (rec-c (or-c C/NIL
+                            (cons-c (shift-con 1 c) (ref-c 0)))))
+       ρc))
+    (define C/NON-MT-LIST (mk-c/non-empty-list-of C/ANY ρ0))
+    (define CONS-•-• (cons-cl (close BULLET ρ0) (close BULLET ρ0)))
+    (match `(,c1 ,c2)
+      [`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
+       (cond
+         ; cdr is nil, approx (cons X nil) to (non-empty-list-of X)
+         [(set-member? cs2 (mk-contract-cl 'nil?))
+          (close
+           (val '•
+                (set-add
+                 (s-map (match-lambda
+                          [(contract-cl c ρc) (mk-c/non-empty-list-of c ρc)])
+                        cs1)
+                 C/NON-MT-LIST))
+           ρ0)]
+         ; if cdr is (non-empty-list-of Y)ch 
+         ; approx (cons X (non-empty-list-of Y)) to (non-empty-list-of (X ∩ Y))
+         [else
+          (let* ([cdr-is-list? #f]
+                 [IGNORE (void)]
+                 [list-contracts
+                  (set-remove
+                   (for/set
+                    ([c cs2])
+                    (match c
+                      [(contract-cl (cons-c c1
+                                            (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                         (cons-c c2 (ref-c 0)))))
+                                    ρc)
+                       (when (equal? c2 (shift-con 1 c1))
+                         [set! cdr-is-list? #t]
+                         [when (set-member? cs1 (close-contract c1 ρc)) c])]
+                      [(contract-cl (cons-c c1 (ref-c x)) ρc)
+                       (match (env-get x ρc)
+                         [(contract-cl (rec-c (or-c (flat-c (val 'nil? ∅))
+                                                    (cons-c c2 (ref-c 0))))
+                                       ρc2)
+                          (when (equal? c2 (shift-con 1 c1))
+                            [set! cdr-is-list? #t]
+                            [when (set-member? cs1 (close-contract c1 ρc)) c])]
+                         [_ IGNORE])]
+                      [_ IGNORE]))
+                   IGNORE)])
+            (if cdr-is-list?
+                (close (val '• (set-add list-contracts C/NON-MT-LIST)) ρ0)
+                CONS-•-•))])]
+      [_ CONS-•-•])
+    
+    )
+  
   (match x
-    [(exp-cl (val (lam n e vargs?) _) ρ) x]
+    [(exp-cl (val (lam n e vargs?) cs) ρ)
+     (close (val '• (set-add cs (mk-func-c n vargs?))) ρ0)]
     [(exp-cl _ ρ) (close (val '• (approx-contracts x)) ρ0)]
     [(mon-fn-cl h f g c v) (mon-fn-cl h f g c (approx v))]
     [(cons-cl c1 c2)
-     ; TODO drop too much
-     (close (val '• {set (mk-contract-cl 'cons?)}) ρ0)]))
+     (abs-cons (approx c1) (approx c2))]))
 
 ;; ops : Symbol -> OpImpl
 (define ops
@@ -671,82 +742,13 @@
                            
                            {set (close (blame/ l 'substring) ρ0)})])]))
       
-      ;; primitive ops on compound data, too complicated to fit into framework
+      ;; primitive ops on compound data, too complicated to fit into 'framework'
       (hash-set! tb 'cons
                  (op
                   2
-                  [λ (l xs)
-                    {set 
-                     (match-let ([`(,cl1 ,cl2) xs])
-                       (if (andmap concrete? xs)
-                           (cons-cl cl1 cl2)
-                           (match-let ([`(,(exp-cl (val '• cs1) ρ1) ,(exp-cl (val '• cs2) ρ2))
-                                        `(,(approx cl1) ,(approx cl2))]
-                                       [C/ANY (read-con c/any)])
-                             (cond
-                               ; promote (cons/c (•/{...c...}) nil) to (• {...(listof c)...})
-                               [(set-member? cs2 (mk-contract-cl 'nil?))
-                                (close
-                                 (val '•
-                                      (set-add
-                                       (s-map (match-lambda
-                                                [(contract-cl c ρc)
-                                                 (close-contract
-                                                  (cons-c c
-                                                          (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                       (cons-c (shift-con 1 c)
-                                                                               (ref-c 0)))))
-                                                  ρc)])
-                                              cs1)
-                                       (let ([C/ANY (read-con c/any)])
-                                         (close-contract
-                                          (cons-c C/ANY
-                                                  (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                               (cons-c C/ANY (ref-c 0)))))
-                                          ρ0)))) ρ0)]
-                               [else
-                                ; promote (cons/c (•/{...c...}) (•/{...(cons/c c (listof c))...}) to
-                                ; (•/{...(cons/c c (listof c)...}
-                                (let* ([cdr-is-list? #f]
-                                       [list-contracts
-                                        (set-remove
-                                         (for/set ([c cs2] #|TODO is there any way to pattern match in here?|#)
-                                                  (match c
-                                                    [(contract-cl (cons-c c1
-                                                                          (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                                       (cons-c c2 (ref-c 0)))))
-                                                                  ρc)
-                                                     (if (equal? c2 (shift-con 1 c1))
-                                                         (begin
-                                                           (set! cdr-is-list? #t)
-                                                           (if (set-member? cs1 (close-contract c1 ρc))
-                                                               c
-                                                               'ignore))
-                                                         'ignore)]
-                                                    [(contract-cl (cons-c c1 (ref-c x)) ρc)
-                                                     (match (env-get x ρc)
-                                                       [(contract-cl (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                                  (cons-c c2 (ref-c 0))))
-                                                                     ρc2)
-                                                        (if (equal? c2 (shift-con 1 c1))
-                                                            (begin
-                                                              (set! cdr-is-list? #t)
-                                                              (if (set-member? cs1 (close-contract c1 ρc))
-                                                                  c
-                                                                  'ignore))
-                                                            'ignore)]
-                                                       [_ 'ignore])]
-                                                    [_ 'ignore]))
-                                         'ignore)])
-                                  (if cdr-is-list?
-                                      (close (val '• (set-add list-contracts
-                                                              (close-contract
-                                                               (cons-c C/ANY
-                                                                       (rec-c (or-c (flat-c (val 'nil? ∅))
-                                                                                    (cons-c C/ANY (ref-c 0)))))
-                                                               ρ0)))
-                                             ρ0)
-                                      (cons-cl cl1 cl2)))]))))}]))
+                  (λ (l xs)
+                    {set (match-let ([`(,c1 ,c2) xs])
+                           (cons-cl c1 c2))})))
       
       (hash-set! tb 'car
                  (op
@@ -854,12 +856,21 @@
                      s))])]
     [_ {set '()}])) ; known not a pair
 
-;; δ : Op [Listof ValClosure] Lab -> [Setof Answer]
+;; δ, δ′ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
   (let ([o (hash-ref ops op)])
     (if (= (op-arity o) (length xs))
         ((op-proc o) l xs)
         {set (close (blame/ l op) ρ0)})))
+(define (δ′ op xs l)
+  (match op
+    [(or 'false? 'true?) (δ op xs l)]
+    [_  (s-map
+         (λ (a)
+           (match a
+             [(exp-cl (blame/ f g) _) a]
+             [v (approx v)]))
+         (δ op xs l))]))
 
 ;; free-vars : Exp -> [Setof Natural]
 (define (free-vars e)
