@@ -126,6 +126,8 @@
            (≥ (posn-y p) BOARD-HEIGHT)))
      
      ;; snake-self-collide? : Snake -> Boolean
+     ;; FIXME: this function cannot be verified b/c its helper segs-self-collide?
+     ;;        doesn't have a contract
      (define (snake-self-collide? snk)
        (segs-self-collide? (car (snake-segs snk))
                            (cdr (snake-segs snk))))
@@ -189,7 +191,6 @@
      ;; Grow the snake one segment.
      (define (snake-grow snk)
        (let ([d (snake-dir snk)])
-         ; FIXME: blame here b/c of cons's imprecision
          (snake d
                 (cons (next-head (car (snake-segs snk))
                                  d)
@@ -263,7 +264,6 @@
             [f BOARD-HEIGHT]))
     
     ; https://github.com/samth/var/blob/master/examples/snake-modules/cut-tail.rkt
-    ; FIXME: fail to verify cut-tail b/c of • being thrown in
     (,module-data
      ,module-cut-tail
      (module H

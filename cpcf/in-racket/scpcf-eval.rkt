@@ -204,7 +204,14 @@
                       [_ defn])]
                    [_ defn])])
            (if (equal? m l)
-               {set (cek ms (close v ρ0) κ)}
+               (if (modl-provides? mod f)
+                   (match v
+                     [(val '• cs)
+                      (s-map
+                       (λ (v) (cek ms (close v ρ0) κ))
+                       (refine-val v (close-contract (modl-get-contract mod f) ρ0)))]
+                     [_ {set (cek ms (close v ρ0) κ)}])
+                   {set (cek ms (close v ρ0) κ)})
                (let ([c (modl-get-contract mod f)])
                  (match v
                    [(val '• cs)

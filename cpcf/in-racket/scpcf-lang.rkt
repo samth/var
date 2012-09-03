@@ -190,7 +190,19 @@
 ;; Mon := (mon Label Label label Contract Exp)
 (struct mon exp (orig pos neg con exp) #:transparent)
 ;; ModRef := (mod-ref Label Label Label)
-(struct mod-ref exp (l f m) #:transparent) ; reference to f in l from m
+(struct mod-ref exp (l f m)
+  ;; FIXME: temporary hack??
+  #:methods gen:equal+hash
+  [(define (equal-proc a b equal?/rec)
+     (and (equal?/rec (mod-ref-l a) (mod-ref-l b))
+          (equal?/rec (mod-ref-f a) (mod-ref-f b))))
+   (define (hash-proc x hash/rec)
+     (+ (* 41 (hash/rec (mod-ref-l x)))
+        (hash/rec (mod-ref-f x))))
+   (define (hash2-proc x hash/rec)
+     (+ (hash/rec (mod-ref-l x))
+        (* 41 (hash/rec (mod-ref-f x)))))]
+  #:transparent) ; reference to f in l from m
 
 ;; Blame := (blame/ Label Label)
 (struct blame/ answer (violator violatee) #:transparent)
@@ -496,6 +508,7 @@
      ;; * try to make range as specific as possible, while domains as general as possible
      (define entries-prim-op
        `([+ ([num? num? → num?]
+             [real? real? → real?]
              [zero? zero? → zero?]
              [nat? nat? → nat?]
              ; the even/odd things are just for fun, not sure if these are practical
@@ -512,6 +525,7 @@
              [non-neg? non-neg? → non-neg?])
             ,+]
          [- ([num? num? → num?]
+             [real? real? → real?]
              [zero? zero? → zero?]
              [even? even? → even?]
              [odd? odd? → even?]
@@ -520,6 +534,7 @@
              [int? int? → int?])
             ,-]
          [* ([num? num? → num?]
+             [real? real? → real?]
              [zero? num? → zero?]
              [num? zero? → zero?]
              [nat? nat? → nat?]
@@ -528,7 +543,8 @@
              [odd? odd? → odd?]
              [int? int? → int?])
             ,*]
-         [/ ([num? non-zero? → num?]) ,/]
+         [/ ([num? non-zero? → num?]
+             [real? (non-zero? real?) → real?]) ,/]
          [mod ([int? (int? non-zero?) → int?]) ,modulo]
          [quot ([int? (int? non-zero?) → int?]) ,quotient]
          [sqrt ([num? → num?]
@@ -540,12 +556,14 @@
          [add1 ([num? → num?]
                 [nat? → nat?]
                 [int? → int?]
+                [real? → real?]
                 [odd? → even?]
                 [even? → odd?]
                 [zero? → pos?])
                ,add1]
          [sub1 ([num? → num?]
                 [int? → int?]
+                [real? → real?]
                 [odd? → even?]
                 [even? → odd?]
                 [zero? → neg?])
