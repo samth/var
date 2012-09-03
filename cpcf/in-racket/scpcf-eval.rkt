@@ -105,24 +105,57 @@
     
     (mon-k h f g c (compact κ)))
   
-  ;; short-cut : Closure -> {Setof CEK}
-  (define (short-cut cl)
-    (match cl
-      [(exp-cl v ρ)
-       (match v
-         [(val u cs) {set (cek ms cl κ)}]
-         [(app f xs l) {set (cek ms (close (val '• ∅) ρ0) κ)}]
-         [(mon h f g c e) (set-add
-                           (s-map (λ (cs) (cek ms (close (val '• cs) ρ0) κ))
-                                  (refine ∅ (close-contract c ρ)))
-                           (cek ms (close (blame/ f h) ρ0) κ))])]
-      [_ {set (cek ms cl κ)}]))
-  
   ;; bind-var-args : Natural [Listof ValClosure] -> [Listof ValClosure] ValClosure
   (define (bind-var-args n xs)
     (let-values ([(xs1 xs2) (split-at xs n)])
       (values xs1
               (foldr cons-cl (close (val 'nil ∅) ρ0) xs2))))
+  
+  ;; symbolic? : Closure -> Boolean
+  (define symbolic?
+    (match-lambda
+      [(exp-cl e ρ) (symbolic-exp? e ρ)]
+      [(cons-cl c1 c2) (or (symbolic? c1) (symbolic? c2))]
+      [(mon-fn-cl h f g con c′) (symbolic? c′)]))
+  
+  ;; symbolic-exp? : Exp Env -> Boolean
+  (define (symbolic-exp? e ρ)
+    (match e
+      [(ref x) (symbolic? (env-get x ρ))]
+      [(val u cs) (equal? u '•)] ; TODO: handle false? nil? zero? cases better
+      [(blame/ _1 _2) #f]
+      [(app f xs _) (or (symbolic-exp? f ρ) (ormap (λ (x) (symbolic-exp? x ρ)) xs))]
+      [(rec e) (symbolic-exp? e ρ)]
+      [(if/ e1 e2 e3) (or (symbolic-exp? e1 ρ)
+                          (symbolic-exp? e2 ρ)
+                          (symbolic-exp? e3 ρ))]
+      [(mon h f g c e) (symbolic-exp? e ρ)]
+      [(mod-ref _f _l _m) #f]))
+  
+  ;; subst-mod-ref : Exp Label Label -> Exp
+  (define (subst-mod-ref e1 m f e2)
+    (define (subst e)
+      (subst-mod-ref e m f e2))
+    (match e1
+      [(val (lam n body var?) cs) (val (lam n (subst body) var?) cs)]
+      [(app f xs l) (app (subst f) (map subst xs) l)]
+      [(rec b) (rec (subst b))]
+      [(if/ e1 e2 e3) (if/ (subst e1) (subst e2) (subst e3))]
+      [(mon h f g c e) (mon h f g c (subst e))]
+      [(mod-ref m′ f′ l) (if (and (equal? m m′) (equal? f f′)) e2 e1)]
+      [_ e1]))
+  
+  ;; abstr-func : Label Label Label FuncContract -> FuncExp
+  (define (abstr-func h f g c)
+    (match c ; PARTIAL
+      [(func-c cs1 c2 var?)
+       (mon h f g (func-c cs1 c2 var?)
+            (val (lam (length cs1) (val '• {set (close-contract c2 ρ0)}) var?) ∅))]))
+  
+  ;; mk-func-• : Natural Boolean -> FuncExp
+  (define (mk-func-• n var?)
+    (val (lam n (val '• ∅) var?) ∅))
+  
   
   ;; on-nonval : -> [Setof CEK]
   ;; determines machine's next state, dispatching on expression
@@ -156,20 +189,33 @@
          {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
         [(mod-ref m f l)
          (let* ([mod (mod-by-name ms m)]
-                [v (modl-get-defn mod f)]
-                [c (modl-get-contract mod f)])
+                [defn (modl-get-defn mod f)]
+                [v
+                 (match defn
+                   [(val (lam n body var?) cs)
+                    (match κ
+                      [(ap-k '() xs _ κ1)
+                       (if (ormap symbolic? xs)
+                           (subst-mod-ref defn m f
+                                          (if (modl-provides? mod f)
+                                              (abstr-func m m l (modl-get-contract mod f))
+                                              (mk-func-• n var?)))
+                           defn)]
+                      [_ defn])]
+                   [_ defn])])
            (if (equal? m l)
                {set (cek ms (close v ρ0) κ)}
-               (match v
-                 [(val '• cs)
-                  (let* ([C (close-contract c ρ)]
-                         [κ1 (mon-k m m l C κ)])
-                    (s-map (λ (v) (cek (upd-mod-by-name ms m f (const v))
-                                       (close v ρ)
-                                       κ1))
-                           (refine-val v C)))]
-                 [_ {set (cek ms (close v ρ)
-                              (mon-k m m l (close-contract c ρ) κ))}])))])))
+               (let ([c (modl-get-contract mod f)])
+                 (match v
+                   [(val '• cs)
+                    (let* ([C (close-contract c ρ0)]
+                           [κ1 (mon-k m m l C κ)])
+                      (s-map (λ (v) (cek (upd-mod-by-name ms m f (const v))
+                                         (close v ρ0)
+                                         κ1))
+                             (refine-val v C)))]
+                   [_ {set (cek ms (close v ρ0)
+                                (mon-k m m l (close-contract c ρ) κ))}]))))])))
   
   ;; on-val : -> [Setof CEK]
   ;; determines machine's next state, dispatching on kont
@@ -276,7 +322,7 @@
                 (match-lambda
                   [`(,cl1 ,cl2)
                    (cek ms cl1 (mon-k h f g (close-contract c1 ρc)
-                                           (cdr-k h f g (close-contract c2 ρc) cl2 κ)))]
+                                      (cdr-k h f g (close-contract c2 ρc) cl2 κ)))]
                   ['() (cek ms (exp-cl (blame/ f h) ρ0) (mt))])
                 (split-cons clo))]
               [(or-c c1 c2)
@@ -317,11 +363,11 @@
       [(mon-ap-k vs (cons x xs) (cons c cs) h g f κ)
        {set
         (cek ms x (mon-k
-                        h g f c
-                        (mon-ap-k (cons clo vs)
-                                  xs
-                                  (if (empty? cs) (cons c cs) cs #|support var-args|#)
-                                  h g f κ)))}]
+                   h g f c
+                   (mon-ap-k (cons clo vs)
+                             xs
+                             (if (empty? cs) (cons c cs) cs #|support var-args|#)
+                             h g f κ)))}]
       [(mon-ap-k vs '() _ h g f κ)
        {set (cek ms clo (ap-k vs '() f κ))}]))
   

@@ -60,6 +60,7 @@
   
   [modl-get-defn (modl? label? . -> . exp?)]
   [modl-get-contract (modl? label? . -> . contract/?)]
+  [modl-provides? (modl? label? . -> . boolean?)]
   [mod-by-name (modls? label? . -> . modl?)]
   [upd-mod-by-name (modls? label? label? (val? . -> . val?) . -> . modls?)]
   
@@ -116,6 +117,10 @@
   (match (hash-ref (modl-contracts m) x '☹)
     ['☹ (error "module does not export" x)]
     [c c]))
+
+;; modl-provides? : Module Label -> Boolean
+(define (modl-provides? m x)
+  (hash-has-key? (modl-contracts m) x))
 
 ;; modl-exports? : Module Label -> Bool
 (define (modl-exports? m x)
