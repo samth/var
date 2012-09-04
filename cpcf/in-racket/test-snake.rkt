@@ -155,7 +155,7 @@
                 (cons (car segs)
                       (cut-tail r))])))))
 
-(define module-cut-tail• (opaque modl-cut-tail))
+(define module-cut-tail• (opaque module-cut-tail))
 
 (define module-motion-help
   `(module motion-help
