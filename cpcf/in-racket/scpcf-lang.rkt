@@ -940,7 +940,7 @@
 
 ;; read-modls : [Listof S-exp] -> Modules
 (define (read-modls ms)
-  ;; acc-contracts : S-exp Modules -> Modules
+  ;; acc-provides : S-exp Modules -> Modules
   (define (acc-provides m modls)
     (match m
       [`(module ,name
@@ -949,14 +949,31 @@
           ,def ...)
        (let ([acc-decl
               (λ (dec modls)
-                (match-let ([`(,x ,c) dec])
-                  (modls-add-contract modls name x
-                                      (read-con-with modls req '() name c))))])
+                (match-let ([`(,x ,_) dec])
+                  (modls-add-contract modls name x 'dummy)))])
          (foldl acc-decl modls decl))]
       [`(module ,name
           (provide ,decl ...)
           ,def ...)
        (acc-provides `(module ,name (provide ,@ decl) (require) ,@ def) modls)]))
+  
+  ;; acc-contracts : S-exp Modules -> Modules
+  (define (acc-contracts m modls)
+    (match m
+      [`(module ,name
+          (provide ,decl ...)
+          (require ,req ...)
+          ,def ...)
+       (let ([acc-contract
+              (λ (dec modls)
+                (match-let ([`(,x ,c) dec])
+                  ; Modules [Listof Symbol] [Listof Symbol] Label S-exp -> Contract
+                  (modls-add-contract modls name x (read-con-with modls req '() name c))))])
+         (foldl acc-contract modls decl))]
+      [`(module ,name
+          (provide ,decl ...)
+          ,def ...)
+       (acc-contracts `(module ,name (provide ,@ decl) (require) ,@ def) modls)]))
   
   ;; acc-defns : S-exp Modules -> Modules
   (define (acc-defns m modls)
@@ -978,7 +995,7 @@
           ,defn ...)
        (acc-defns `(module ,name (provide ,@ decl) (require) ,@ defn) modls)]))
   ;; FIXME: contracts do not have access to required modules. Another pass?
-  (foldl acc-defns (foldl acc-provides (hash) ms) ms))
+  (foldl acc-defns (foldl acc-contracts (foldl acc-provides (hash) ms) ms) ms))
 
 ;; read-exp : S-exp -> Exp
 (define (read-exp s)
