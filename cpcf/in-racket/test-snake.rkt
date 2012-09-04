@@ -2,6 +2,7 @@
 
 (require "scpcf-lang.rkt")
 (require "scpcf-eval.rkt")
+(require "helper.rkt")
 
 (define DIRS '("up" "down" "left" "right"))
 
@@ -11,16 +12,13 @@
 (define c/world `(cons/c ,c/snake ,c/posn))
 
 (define module-image
-  `(module image
-     (provide
-      [image? (,c/any ↦ (flat bool?))]
-      [circle ((flat real?) (flat string?) (flat string?) ↦ (flat image?))]
-      [empty-scene ((flat real?) (flat real?) ↦ (flat image?))]
-      [place-image ((flat image?) (flat real?) (flat real?) (flat image?) ↦ (flat image?))])
-     (define image? •)
-     (define circle •)
-     (define empty-scene •)
-     (define place-image •)))
+  (opaque
+   `(module image
+      (provide
+       [image? (,c/any ↦ (flat bool?))]
+       [circle ((flat real?) (flat string?) (flat string?) ↦ (flat image?))]
+       [empty-scene ((flat real?) (flat real?) ↦ (flat image?))]
+       [place-image ((flat image?) (flat real?) (flat real?) (flat image?) ↦ (flat image?))]))))
 
 (define module-data
   `(module data
@@ -157,12 +155,7 @@
                 (cons (car segs)
                       (cut-tail r))])))))
 
-(define module-cut-tail•
-  `(module cut-tail
-     (provide
-      [cut-tail (,(c/non-empty-list-of c/posn) ↦ ,(c/list-of c/posn))])
-     (require data)
-     (define cut-tail •)))
+(define module-cut-tail• (opaque modl-cut-tail))
 
 (define module-motion-help
   `(module motion-help
@@ -250,9 +243,9 @@
     (,module-image
      ,module-data
      ,module-const
-     (module hole
-       (provide [f (,c/any ↦ ,c/any)])
-       (define f •))
+     ,(opaque
+       `(module hole
+          (provide [f (,c/any ↦ ,c/any)])))
      (require const hole)
      (begin [f WORLD]
             [f BACKGROUND]
@@ -266,45 +259,33 @@
     ; https://github.com/samth/var/blob/master/examples/snake-modules/cut-tail.rkt
     (,module-data
      ,module-cut-tail
-     (module H
-       (provide
-        [f ((,(c/non-empty-list-of c/posn) ↦ ,(c/list-of c/posn)) ↦ ,c/any)])
-       (require data)
-       (define f •))
+     ,(opaque
+       `(module H
+          (provide
+           [f ((,(c/non-empty-list-of c/posn) ↦ ,(c/list-of c/posn)) ↦ ,c/any)])
+          (require data)))
      (require cut-tail H)
      (f cut-tail))
     
     ; https://github.com/samth/var/blob/master/examples/snake-modules/data.rkt
     (,module-data
-     (module D
-       (provide
-        [f-posn (((flat real?) (flat real?) ↦ ,c/posn) ↦ ,c/any)]
-        [f-posn? ((,c/any ↦ (flat bool?)) ↦ ,c/any)]
-        [f-posn-x ((,c/posn ↦ (flat real?)) ↦ ,c/any)]
-        [f-posn-y ((,c/posn ↦ (flat real?)) ↦ ,c/any)]
-        [f-posn=? ((,c/posn ,c/posn ↦ (flat bool?)) ↦ ,c/any)]
-        [f-snake ((,c/dir (cons/c ,c/posn ,(c/list-of c/posn)) ↦ ,c/snake) ↦ ,c/any)]
-        [f-snake? ((,c/any ↦ (flat bool?)) ↦ ,c/any)]
-        [f-snake-dir ((,c/snake ↦ ,c/dir) ↦ ,c/any)]
-        [f-snake-segs ((,c/snake ↦ ,(c/non-empty-list-of c/posn)) ↦ ,c/any)]
-        [f-world ((,c/snake ,c/posn ↦ ,c/world) ↦ ,c/any)]
-        [f-world? ((,c/any ↦ (flat bool?)) ↦ ,c/any)]
-        [f-world-snake ((,c/world ↦ ,c/snake) ↦ ,c/any)]
-        [f-world-food ((,c/world ↦ ,c/posn) ↦ ,c/any)])
-       (require data)
-       (define f-posn •)
-       (define f-posn? •)
-       (define f-posn-x •)
-       (define f-posn-y •)
-       (define f-posn=? •)
-       (define f-snake •)
-       (define f-snake? •)
-       (define f-snake-dir •)
-       (define f-snake-segs •)
-       (define f-world •)
-       (define f-world? •)
-       (define f-world-snake •)
-       (define f-world-food •))
+     ,(opaque
+       `(module D
+          (provide
+           [f-posn (((flat real?) (flat real?) ↦ ,c/posn) ↦ ,c/any)]
+           [f-posn? ((,c/any ↦ (flat bool?)) ↦ ,c/any)]
+           [f-posn-x ((,c/posn ↦ (flat real?)) ↦ ,c/any)]
+           [f-posn-y ((,c/posn ↦ (flat real?)) ↦ ,c/any)]
+           [f-posn=? ((,c/posn ,c/posn ↦ (flat bool?)) ↦ ,c/any)]
+           [f-snake ((,c/dir (cons/c ,c/posn ,(c/list-of c/posn)) ↦ ,c/snake) ↦ ,c/any)]
+           [f-snake? ((,c/any ↦ (flat bool?)) ↦ ,c/any)]
+           [f-snake-dir ((,c/snake ↦ ,c/dir) ↦ ,c/any)]
+           [f-snake-segs ((,c/snake ↦ ,(c/non-empty-list-of c/posn)) ↦ ,c/any)]
+           [f-world ((,c/snake ,c/posn ↦ ,c/world) ↦ ,c/any)]
+           [f-world? ((,c/any ↦ (flat bool?)) ↦ ,c/any)]
+           [f-world-snake ((,c/world ↦ ,c/snake) ↦ ,c/any)]
+           [f-world-food ((,c/world ↦ ,c/posn) ↦ ,c/any)])
+          (require data)))
      (require D data)
      (begin [f-posn posn]
             [f-posn? posn?]
@@ -324,22 +305,19 @@
     (,module-image
      ,module-data
      
-     (module collide
-       (provide
-        [snake-wall-collide? (,c/snake ↦ (flat bool?))]
-        [snake-self-collide? (,c/snake ↦ (flat bool?))])
-       (require data)
-       (define snake-wall-collide? •)
-       (define snake-self-collide? •))
+     ,(opaque
+       `(module collide
+          (provide
+           [snake-wall-collide? (,c/snake ↦ (flat bool?))]
+           [snake-self-collide? (,c/snake ↦ (flat bool?))])
+          (require data)))
      
-     (module motion
-       ;; motion left opaque
-       (provide
-        [world-change-dir (,c/world ,c/dir ↦ ,c/world)]
-        [world->world (,c/world ↦ ,c/world)])
-       (require data)
-       (define world-change-dir •)
-       (define world->world •))
+     ,(opaque
+       `(module motion
+          (provide
+           [world-change-dir (,c/world ,c/dir ↦ ,c/world)]
+           [world->world (,c/world ↦ ,c/world)])
+          (require data)))
      
      (module handlers
        ;; Movie handlers
@@ -362,13 +340,12 @@
          (or (snake-wall-collide? (world-snake w))
              (snake-self-collide? (world-snake w)))))
      
-     (module H
-       (provide
-        [D1 ((,c/world ↦ (flat bool?)) ↦ ,c/any)]
-        [D2 ((,c/world (flat string?) ↦ ,c/world) ↦ ,c/any)])
-       (require data)
-       (define D1 •)
-       (define D2 •))
+     ,(opaque
+       `(module H
+          (provide
+           [D1 ((,c/world ↦ (flat bool?)) ↦ ,c/any)]
+           [D2 ((,c/world (flat string?) ↦ ,c/world) ↦ ,c/any)])
+          (require data)))
      
      (require handlers H)
      (begin [D1 game-over?]
@@ -380,11 +357,11 @@
      ,module-cut-tail•
      ,module-motion-help
      
-     (module H
-       (provide
-        [f ((,c/snake ↦ ,c/snake) ↦ ,c/any)])
-       (require data)
-       (define f •))
+     ,(opaque
+       `(module H
+          (provide
+           [f ((,c/snake ↦ ,c/snake) ↦ ,c/any)])
+          (require data)))
      (require motion-help H)
      (begin [f snake-slither]
             [f snake-grow]))
@@ -394,21 +371,19 @@
      ,module-data
      ,module-const
      ,module-cut-tail•
-     (module motion-help
-       (provide
-        [snake-slither (,c/snake ↦ ,c/snake)]
-        [snake-grow (,c/snake ↦ ,c/snake)])
-       (require data cut-tail)
-       (define snake-slither •)
-       (define snake-grow •))
+     ,(opaque
+       `(module motion-help
+          (provide
+           [snake-slither (,c/snake ↦ ,c/snake)]
+           [snake-grow (,c/snake ↦ ,c/snake)])
+          (require data cut-tail)))
      ,module-motion
-     (module H
-       (provide
-        [f1 ((,c/world ↦ ,c/world) ↦ ,c/any)]
-        [f2 ((,c/world ,c/dir ↦ ,c/world) ↦ ,c/any)])
-       (require data)
-       (define f1 •)
-       (define f2 •))
+     ,(opaque
+       `(module H
+          (provide
+           [f1 ((,c/world ↦ ,c/world) ↦ ,c/any)]
+           [f2 ((,c/world ,c/dir ↦ ,c/world) ↦ ,c/any)])
+          (require data)))
      (require motion H)
      (begin [f1 world->world]
             [f2 world-change-dir]))
@@ -420,25 +395,18 @@
      ,module-cut-tail•
      ,module-motion-help
      ,module-motion
-     (module H
-       (provide
-        [f1 ((,c/world ,c/dir ↦ ,c/world) ↦ ,c/any)]
-        [f2 ((,c/world ↦ ,c/world) ↦ ,c/any)]
-        [f3 ((,c/snake ↦ ,c/snake) ↦ ,c/any)]
-        [d ,c/dir]
-        [p ,c/posn]
-        [lop ,(c/non-empty-list-of c/posn)]
-        [w ,c/world]
-        [s ,c/snake])
-       (require data)
-       (define f1 •)
-       (define f2 •)
-       (define f3 •)
-       (define d •)
-       (define p •)
-       (define lop •)
-       (define w •)
-       (define s •))
+     ,(opaque
+       `(module H
+          (provide
+           [f1 ((,c/world ,c/dir ↦ ,c/world) ↦ ,c/any)]
+           [f2 ((,c/world ↦ ,c/world) ↦ ,c/any)]
+           [f3 ((,c/snake ↦ ,c/snake) ↦ ,c/any)]
+           [d ,c/dir]
+           [p ,c/posn]
+           [lop ,(c/non-empty-list-of c/posn)]
+           [w ,c/world]
+           [s ,c/snake])
+          (require data)))
      (require motion H slither grow) ; ??
      (begin [world-change-dir w d]))
     
@@ -449,15 +417,13 @@
      ,module-cut-tail•
      ,module-motion-help
      ,module-motion
-     (module hole
-       (provide
-        [f1 ((,c/world ,c/dir ↦ ,c/world) ↦ ,c/any)]
-        [f2 ((,c/world ↦ ,c/world) ↦ ,c/any)]
-        [f3 ((,c/snake ↦ ,c/snake) ↦ ,c/any)])
-       (require data)
-       (define f1 •)
-       (define f2 •)
-       (define f3 •))
+     ,(opaque
+       `(module hole
+          (provide
+           [f1 ((,c/world ,c/dir ↦ ,c/world) ↦ ,c/any)]
+           [f2 ((,c/world ↦ ,c/world) ↦ ,c/any)]
+           [f3 ((,c/snake ↦ ,c/snake) ↦ ,c/any)])
+          (require data)))
      (require motion hole slither)
      (begin [f1 world-change-dir]
             [f2 world->world]))
@@ -514,11 +480,11 @@
        (define (segment+scene seg scn)
          (place-image-on-grid (SEGMENT-IMAGE) (posn-x seg) (posn-y seg) scn)))
      
-     (module hole
-       (provide
-        [f ((,c/world ↦ (flat image?)) ↦ ,c/any)])
-       (require data image)
-       (define f •))
+     ,(opaque
+       `(module hole
+          (provide
+           [f ((,c/world ↦ (flat image?)) ↦ ,c/any)])
+          (require data image)))
      (require scenes hole)
      (f world->scene))
     
@@ -526,15 +492,13 @@
     (,module-data
      ,module-cut-tail
      ,module-motion-help
-     (module S
-       (provide
-        [S ,c/snake]
-        [L ,(c/non-empty-list-of c/posn)]
-        [L2 ,(c/list-of c/posn)])
-       (require data)
-       (define S •)
-       (define L •)
-       (define L2 •))
+     ,(opaque
+       `(module S
+          (provide
+           [S ,c/snake]
+           [L ,(c/non-empty-list-of c/posn)]
+           [L2 ,(c/list-of c/posn)])
+          (require data)))
      (require S motion-help)
      (begin [snake-slither S]
             #;[reverse L2 L2]
