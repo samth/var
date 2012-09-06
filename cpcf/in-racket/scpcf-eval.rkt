@@ -402,34 +402,31 @@
   
   ;; run : CEK -> [Setof CEK]
   (define (run conf)
-    ;; INVARIANT:
-    ;; -- known: states whose next states are explored
-    ;; -- unknown: non-final states whose next states are unexplored
-    ;; -- final: final states (~ answers)
-    #;(define i 0)
-    (let loop ([known ∅] [unknown {set conf}] [final ∅])
-      (cond
-        [(set-empty? unknown) #;(begin (print i) (display "\n\n")) final]
-        [else
-         #;(set! i (add1 i))
-         (define known1 (set-union known unknown))
-         (define-values (final1 unknown1)
-           (for/fold ([final1 final] [unknown1 ∅]) ([u (in-set unknown)])
-             (let ([next (step u)])
-               (cond
-                 [(set? next)
-                  (for/fold ([final2 final1] [unknown2 unknown1]) ([n (in-set next)])
-                    (cond
-                      [(final? n) (values (set-add final2 n) unknown2)]
-                      [(set-member? known1 n) (values final2 unknown2)]
-                      [else (values final2 (set-add unknown2 n))]))]
-                 [else
-                  (cond
-                    [(final? next) (values (set-add final1 next) unknown1)]
-                    [(set-member? known1 next) (values final1 unknown1)]
-                    [else (values final1 (set-add unknown1 next))])]))))
-         
-         (loop known1 unknown1 final1)])))
+    
+      ;; INVARIANT:
+      ;; -- known: states whose next states are explored
+      ;; -- unknown: non-final states whose next states are unexplored
+      ;; -- final: final states (~ answers)
+      (let loop ([known ∅] [unknown {set conf}] [final ∅])
+        (cond
+          [(set-empty? unknown) final]
+          [else
+           (define known1 (set-union known unknown))
+           (define (on-new-state unknowns finals s)
+             (cond
+               [(final? s) (values unknowns (set-add finals s))]
+               [(set-member? known1 s) (values unknowns finals)]
+               [else (values (set-add unknowns s) finals)]))
+           (define-values (unknown1 final1)
+             (for/fold ([unknown1 ∅] [final1 final]) ([u (in-set unknown)])
+               (let ([next (step u)])
+                 (cond
+                   [(set? next)
+                    (for/fold ([unknown2 unknown1] [final2 final1]) ([n (in-set next)])
+                      (on-new-state unknown2 final2 n))]
+                   [else (on-new-state unknown1 final1 next)]))))
+           
+           (loop known1 unknown1 final1)])))
   
   ;; get-answer : Closure -> [Setof EvalAnswer]
   (define (get-answer clo)
