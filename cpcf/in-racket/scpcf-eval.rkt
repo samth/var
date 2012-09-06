@@ -51,7 +51,7 @@
     [(or-k cl c h f g c2 k) (+ 1 (kont-len k))]
     [(mon-ap-k v x c h f g k) (+ 1 (kont-len k))]))
 
-;; step : CEK -> [Setof CEK]
+;; step : CEK -> CEK | [Setof CEK]
 (define (step conf)
   (match-define (cek ms clo κ) conf)
   
@@ -162,11 +162,11 @@
   (define (on-nonval)
     (match-let ([(exp-cl e ρ) clo])
       (match e
-        [(ref x) {set (cek ms (env-get x ρ) κ)}]
-        [(blame/ f h) {set (cek ms clo (mt))}]
+        [(ref x) (cek ms (env-get x ρ) κ)]
+        [(blame/ f h) (cek ms clo (mt))]
         [(app f xs l)
-         {set (cek ms (close f ρ) (ap-k '() (map (λ (x) (close x ρ)) xs) l κ))}]
-        [(rec b) {set (cek ms (close b (env-extend clo ρ)) κ)}]
+         (cek ms (close f ρ) (ap-k '() (map (λ (x) (close x ρ)) xs) l κ))]
+        [(rec b) (cek ms (close b (env-extend clo ρ)) κ)]
         [(if/ e1 e2 e3)
          (let ([cl-test (close e1 ρ)]
                [cl-then (close e2 ρ)]
@@ -178,15 +178,15 @@
                 [(ref x) (let* ([cl (env-get x ρ)]
                                 [cl1s (refine-cl cl (close-contract (flat-c (val u cs)) ρ))])
                            (if (set-empty? cl1s) ; test is gonna fail
-                               {set (cek ms cl-else κ)}
+                               (cek ms cl-else κ)
                                (s-map (λ (cl1) (cek ms cl-test
                                                     (if-k (close e2 (env-set x cl1 ρ))
                                                           cl-else κ)))
                                       cl1s)))]
-                [_ {set (cek ms cl-test (if-k cl-then cl-else κ))}])]
-             [_ {set (cek ms cl-test (if-k cl-then cl-else κ))}]))]
+                [_ (cek ms cl-test (if-k cl-then cl-else κ))])]
+             [_ (cek ms cl-test (if-k cl-then cl-else κ))]))]
         [(mon h f g c e1)
-         {set (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))}]
+         (cek ms (close e1 ρ) (mon-k h f g (close-contract c ρ) κ))]
         [(mod-ref m f l)
          (let* ([mod (mod-by-name ms m)]
                 [defn (modl-get-defn mod f)]
@@ -210,8 +210,8 @@
                       (s-map
                        (λ (v) (cek ms (close v ρ0) κ))
                        (refine-val v (close-contract (modl-get-contract mod f) ρ0)))]
-                     [_ {set (cek ms (close v ρ0) κ)}])
-                   {set (cek ms (close v ρ0) κ)})
+                     [_ (cek ms (close v ρ0) κ)])
+                   (cek ms (close v ρ0) κ))
                (let ([c (modl-get-contract mod f)])
                  (match v
                    [(val '• cs)
@@ -221,34 +221,34 @@
                                          (close v ρ0)
                                          κ1))
                              (refine-val v C)))]
-                   [_ {set (cek ms (close v ρ0)
-                                (mon-k m m l (close-contract c ρ) κ))}]))))])))
+                   [_ (cek ms (close v ρ0)
+                           (mon-k m m l (close-contract c ρ) κ))]))))])))
   
   ;; on-val : -> [Setof CEK]
   ;; determines machine's next state, dispatching on kont
   (define (on-val)
     (match κ
-      [(mt) {set conf}]
+      [(mt) conf]
       [(ap-k vs (cons x xs) l κ) ; eval next arg
-       {set (cek ms x (ap-k (cons clo vs) xs l κ))}]
+       (cek ms x (ap-k (cons clo vs) xs l κ))]
       [(ap-k vals '() l κ) ; apply function/prim-op
        (match-let ([(cons f xs) (reverse (cons clo vals))])
          (match f
            [(exp-cl (val u cs) ρv)
             (match u
               [(lam n e var-args?)
-               {set (if (or (and var-args? (<= (- n 1) (length xs)))
-                            (= n (length xs))) ; arity check
-                        ; delay approximating arguments until this point
-                        ; to avoid false blames in earlier stages
-                        ; FIXME: disable approximating for now
-                        #;(let ([zs (if (andmap concrete? xs) xs (map approx xs))])
-                            (cek ms (close e (env-extendl zs ρv)) κ))
-                        (if var-args?
-                            (let-values ([(zs z) (bind-var-args (- n 1) xs)])
-                              (cek ms (close e (env-extend z (env-extendl zs ρv))) κ))
-                            (cek ms (close e (env-extendl xs ρv)) κ))
-                        (cek ms (close (blame/ l '∆) ρ0) (mt)))}]
+               (if (or (and var-args? (<= (- n 1) (length xs)))
+                       (= n (length xs))) ; arity check
+                   ; delay approximating arguments until this point
+                   ; to avoid false blames in earlier stages
+                   ; FIXME: disable approximating for now
+                   #;(let ([zs (if (andmap concrete? xs) xs (map approx xs))])
+                       (cek ms (close e (env-extendl zs ρv)) κ))
+                   (if var-args?
+                       (let-values ([(zs z) (bind-var-args (- n 1) xs)])
+                         (cek ms (close e (env-extend z (env-extendl zs ρv))) κ))
+                       (cek ms (close e (env-extendl xs ρv)) κ))
+                   (cek ms (close (blame/ l '∆) ρ0) (mt)))]
               ['•
                {non-det
                 (match-lambda
@@ -271,7 +271,7 @@
                 (proc-with-arity? f (length xs))}]
               [_ (if (prim? u) ; primitive op handles arity check on its own
                      (s-map (λ (cl) (cek ms cl κ)) (δ u xs l))
-                     {set (cek ms (close (blame/ l '∆) ρ0) (mt))})])]
+                     (cek ms (close (blame/ l '∆) ρ0) (mt)))])]
            [(mon-fn-cl h f g (contract-cl (func-c cs1 c2 var-args?) ρc) clo1)
             (if (or (and var-args? (<= (- (length cs1) 1) (length xs)))
                     (= (length cs1) (length xs)))
@@ -284,8 +284,8 @@
                               h f g (close-contract c2 (env-extendl xs ρc)) κ)))]
                    [#f (cek ms (close (blame/ f h) ρ0) (mt))])
                  (proc-with-arity? clo1 (length xs)))
-                {set (cek ms (close (blame/ l h) ρ0) (mt))})]
-           [_ {set (cek ms (close (blame/ l '∆) ρ0) (mt))}]))]
+                (cek ms (close (blame/ l h) ρ0) (mt)))]
+           [_ (cek ms (close (blame/ l '∆) ρ0) (mt))]))]
       [(if-k clo1 clo2 κ)
        (non-det (match-lambda
                   [(exp-cl (val #t cs) ρv) {set (cek ms clo1 κ)}]
@@ -297,10 +297,10 @@
            [`(,(ref x))
             (let ([pred-or-contract (env-get x ρc)])
               (if (contract-cl? pred-or-contract)
-                  {set (cek ms clo (mon-k h f g pred-or-contract κ))}
+                  (cek ms clo (mon-k h f g pred-or-contract κ))
                   (match (verify clo con-cl) ; TODO: code duplication, temp
-                    ['Proved {set (cek ms clo κ)}]
-                    ['Refuted {set (cek ms (close (blame/ f h) ρ0) (mt))}]
+                    ['Proved (cek ms clo κ)]
+                    ['Refuted (cek ms (close (blame/ f h) ρ0) (mt))]
                     ['Neither
                      (s-map (λ (v)
                               (cek ms pred-or-contract
@@ -309,8 +309,8 @@
                             (refine-cl clo con-cl))])))]
            [`(,pred)
             (match (verify clo con-cl)
-              ['Proved {set (cek ms clo κ)}]
-              ['Refuted {set (cek ms (close (blame/ f h) ρ0) (mt))}]
+              ['Proved (cek ms clo κ)]
+              ['Refuted (cek ms (close (blame/ f h) ρ0) (mt))]
               ['Neither
                (s-map (λ (v)
                         (cek ms (close pred ρc)
@@ -333,33 +333,32 @@
                   ['() (cek ms (exp-cl (blame/ f h) ρ0) (mt))])
                 (split-cons clo))]
               [(or-c c1 c2)
-               {set
-                (match (verify clo (close-contract c1 ρc))
-                  ['Proved (cek ms clo κ)]
-                  ['Refuted (cek ms clo (mon-k h f g (close-contract c2 ρc) κ))]
-                  ['Neither
-                   (match (maybe-FC `(,0) c1)
-                     [`(,pred)
-                      (cek ms (close pred ρc)
-                           (ap-k '() `(,clo) h #|TODO: is h the right label?|#
-                                 (or-k clo (close-contract c1 ρc)
-                                       h f g (close-contract c2 ρc) κ)))]
-                     [`() (error "left disjunction is not flat: " c1)])])}]
+               (match (verify clo (close-contract c1 ρc))
+                 ['Proved (cek ms clo κ)]
+                 ['Refuted (cek ms clo (mon-k h f g (close-contract c2 ρc) κ))]
+                 ['Neither
+                  (match (maybe-FC `(,0) c1)
+                    [`(,pred)
+                     (cek ms (close pred ρc)
+                          (ap-k '() `(,clo) h #|TODO: is h the right label?|#
+                                (or-k clo (close-contract c1 ρc)
+                                      h f g (close-contract c2 ρc) κ)))]
+                    [`() (error "left disjunction is not flat: " c1)])])]
               [(and-c c1 c2)
-               {set (cek ms clo
-                         (mon-k h f g (close-contract c1 ρc)
-                                (mon-k h f g (close-contract c2 ρc) κ)))}]
+               (cek ms clo
+                    (mon-k h f g (close-contract c1 ρc)
+                           (mon-k h f g (close-contract c2 ρc) κ)))]
               [(rec-c c1)
-               {set (cek ms clo 
-                         (mon-k h f g
-                                (close-contract c1 (env-extend con-cl ρc)) κ))}]
+               (cek ms clo 
+                    (mon-k h f g
+                           (close-contract c1 (env-extend con-cl ρc)) κ))]
               [(ref-c x)
-               {set (cek ms clo (mon-k h f g (env-get x ρc) κ))}])]))]
+               (cek ms clo (mon-k h f g (env-get x ρc) κ))])]))]
       [(cdr-k h f g c clo1 κ)
-       {set (cek ms clo1
-                 (mon-k h f g c
-                        (ap-k `(,clo ,(close (val 'cons ∅) ρ0)) '()
-                              h #|TODO: h, right label?|# κ)))}]
+       (cek ms clo1
+            (mon-k h f g c
+                   (ap-k `(,clo ,(close (val 'cons ∅) ρ0)) '()
+                         h #|TODO: h, right label?|# κ)))]
       [(or-k clo1 c1 h f g c2 κ)
        (non-det (λ (r)
                   (match (val-pre (exp-cl-exp r))
@@ -368,15 +367,14 @@
                     [#f {set (cek ms clo1 (mon-k h f g c2 κ))}]))
                 (δ 'true? `(,clo) h))]
       [(mon-ap-k vs (cons x xs) (cons c cs) h g f κ)
-       {set
-        (cek ms x (mon-k
-                   h g f c
-                   (mon-ap-k (cons clo vs)
-                             xs
-                             (if (empty? cs) (cons c cs) cs #|support var-args|#)
-                             h g f κ)))}]
+       (cek ms x (mon-k
+                  h g f c
+                  (mon-ap-k (cons clo vs)
+                            xs
+                            (if (empty? cs) (cons c cs) cs #|support var-args|#)
+                            h g f κ)))]
       [(mon-ap-k vs '() _ h g f κ)
-       {set (cek ms clo (ap-k vs '() f κ))}]))
+       (cek ms clo (ap-k vs '() f κ))]))
   
   (if (val-cl? clo) (on-val) (on-nonval)))
 
@@ -408,17 +406,28 @@
     ;; -- known: states whose next states are explored
     ;; -- unknown: non-final states whose next states are unexplored
     ;; -- final: final states (~ answers)
+    #;(define i 0)
     (let loop ([known ∅] [unknown {set conf}] [final ∅])
       (cond
-        [(set-empty? unknown) final]
+        [(set-empty? unknown) #;(begin (print i) (display "\n\n")) final]
         [else
+         #;(set! i (add1 i))
          (define known1 (set-union known unknown))
          (define-values (final1 unknown1)
-           (for*/fold ([final1 final] [unknown1 ∅]) ([u (in-set unknown)] [next (in-set (step u))])
-             (cond
-               [(final? next) (values (set-add final1 next) unknown1)]
-               [(set-member? known1 next) (values final1 unknown1)]
-               [else (values final1 (set-add unknown1 next))])))
+           (for/fold ([final1 final] [unknown1 ∅]) ([u (in-set unknown)])
+             (let ([next (step u)])
+               (cond
+                 [(set? next)
+                  (for/fold ([final2 final1] [unknown2 unknown1]) ([n (in-set next)])
+                    (cond
+                      [(final? n) (values (set-add final2 n) unknown2)]
+                      [(set-member? known1 n) (values final2 unknown2)]
+                      [else (values final2 (set-add unknown2 n))]))]
+                 [else
+                  (cond
+                    [(final? next) (values (set-add final1 next) unknown1)]
+                    [(set-member? known1 next) (values final1 unknown1)]
+                    [else (values final1 (set-add unknown1 next))])]))))
          
          (loop known1 unknown1 final1)])))
   
