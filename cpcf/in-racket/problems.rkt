@@ -56,7 +56,7 @@
    (require list sum)
    (sum nums)))
 
-'(foldl is slightly better - it can′t prove the final result is always a number though)
+'(result of foldl is approximated with •)
 (eval-cek
  `(,modl-list
    (module sum

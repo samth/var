@@ -1,19 +1,31 @@
+* test-snake.rkt, test-tetris.rkt contain examples
+* problems.rkt contains small examples summarizing current problems
+
+* profiles/ contains profiling results:
+** sat-7-bullet.txt and snake-motion-split.txt contain evaluation 'shapes' (e.g.: "known=5, unknown=1 1 2" means there are 5 known states, 3 unknown states, resulting in 1, 1, 2 next states, respectively)
+** try 1:
+*** I eliminate a lot of singletons by changing the 'step' function's signature from (CEK -> [Setof CEK]) to (CEK -> CEK | [Setof CEK]) and handle the singleton case separately
+*** This improves performance by ~20-30%
+*** resulting profiles are sat-7-bullet-breadth-first.txt and snake-motion-split-breadth-first.txt
+** try 2: 
+*** i try changing the evaluation from breadth-first search to depth-first search to avoid maintaining the set of states to explore (most of the time it's a singleton).
+*** the set of known states is now a mutable hashtable, updated as a side effect by each visit
+*** resulting profiles are sat-7-bullet-depth-first-mutable-hashtable.txt and snake-motion-split-depth-first-mutable-hashtable.txt
+*** this makes it slower
+** try 3:
+*** instead of mutable hashtable updated by hash-set!, i use the immutable set again, updated using set!
+*** resulting profiles are sat-7-bullet-depth-first-immutable-set.txt and snake-motion-split-depth-first-immutable-set.txt
+*** this is the fastest so far
+
 TODO:
 * add features:
-** struct
+** structs
 ** symbols??
-* [part, see 'journal'] expressions that won't terminate
-** approximate arguments more judiciously
-** more sensible approximation of 'dejavu' expressions instead of throwing in a •
-** currently way of dealing with mutual tail calls from different modules can blame wrong parties
 * [part] more tests
 ** medium sized ones from Wright paper
-** tetris
-* [part] rewrite eval's loop using mutable hashtables + benchmark
-* [part] improve contract checking/proving to get rid of false blames
-** [part] remember passed tests in if clauses
-*** [done] of form (if (pred? x) e1 e2)
-*** [done] of form (if (pred? (mod-ref m l) e1 e2)
-* support real modules
-* (serious) clean up
+** [done] snake
+** [done] tetris
+* improve precision for recursive functions without contracts (local 'helpers', typically)
+* profile
+* clean up
 

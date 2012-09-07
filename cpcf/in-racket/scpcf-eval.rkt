@@ -401,32 +401,61 @@
                (answer? (exp-cl-exp clo))))))
   
   ;; run : CEK -> [Setof CEK]
+  #;(define (run conf)
+    #;(define i 0)
+    ;; INVARIANT:
+    ;; -- known: states whose next states are explored
+    ;; -- unknown: non-final states whose next states are unexplored
+    ;; -- final: final states (~ answers)
+    (let loop ([known ∅] [unknown {set conf}] [final ∅])
+      (cond
+        [(set-empty? unknown)
+         #;(begin (print i) (display "\n\n"))
+         final]
+        [else
+         #;(set! i (add1 i))
+         (define known1 (set-union known unknown))
+         (define (on-new-state unknowns finals s)
+           (cond
+             [(final? s) (values unknowns (set-add finals s))]
+             [(set-member? known1 s) (values unknowns finals)]
+             [else (values (set-add unknowns s) finals)]))
+         #;(begin
+           [display "\nknown="]
+           [print (set-count known)]
+           [display ", unknown="]
+           [set-for-each unknown
+                         (λ (s)
+                           (print (let ([next (step s)])
+                                    (cond
+                                      [(set? s) (set-count s)]
+                                      [else 1])))
+                           (display " "))])
+         (define-values (unknown1 final1)
+           (for/fold ([unknown1 ∅] [final1 final]) ([u (in-set unknown)])
+             (let ([next (step u)])
+               (cond
+                 [(set? next)
+                  (for/fold ([unknown2 unknown1] [final2 final1]) ([n (in-set next)])
+                    (on-new-state unknown2 final2 n))]
+                 [else (on-new-state unknown1 final1 next)]))))
+         
+         (loop known1 unknown1 final1)])))
+  
   (define (run conf)
-    
-      ;; INVARIANT:
-      ;; -- known: states whose next states are explored
-      ;; -- unknown: non-final states whose next states are unexplored
-      ;; -- final: final states (~ answers)
-      (let loop ([known ∅] [unknown {set conf}] [final ∅])
-        (cond
-          [(set-empty? unknown) final]
-          [else
-           (define known1 (set-union known unknown))
-           (define (on-new-state unknowns finals s)
-             (cond
-               [(final? s) (values unknowns (set-add finals s))]
-               [(set-member? known1 s) (values unknowns finals)]
-               [else (values (set-add unknowns s) finals)]))
-           (define-values (unknown1 final1)
-             (for/fold ([unknown1 ∅] [final1 final]) ([u (in-set unknown)])
-               (let ([next (step u)])
-                 (cond
-                   [(set? next)
-                    (for/fold ([unknown2 unknown1] [final2 final1]) ([n (in-set next)])
-                      (on-new-state unknown2 final2 n))]
-                   [else (on-new-state unknown1 final1 next)]))))
-           
-           (loop known1 unknown1 final1)])))
+    (define known (set))
+    (define finals (set))
+    (define (visit state)
+      (when (not (set-member? known state))
+        [set! known (set-add known state)]
+        [if (final? state)
+            (set! finals (set-add finals state))
+            (let ([next (step state)])
+              (cond
+                [(set? next) (set-for-each next visit)]
+                [else (visit next)]))]))
+    (visit conf)
+    finals)
   
   ;; get-answer : Closure -> [Setof EvalAnswer]
   (define (get-answer clo)
@@ -461,13 +490,40 @@
 (define (verify clo conclo)
   (match clo
     [(exp-cl (val u cs) ρ)
-     (match conclo
-       [(contract-cl (val p _) ρc)
-        (cond
-          [(prim? p) (contracts-imply? cs p)]
-          [(set-member? cs conclo) 'Proved]
-          [else 'Neither])]
-       [_ (if (set-member? cs conclo) 'Proved 'Neither)])]
+     (cond ; TODO: code duplicate
+       [(set-member? cs conclo) 'Proved]
+       [else (match conclo
+               [(contract-cl (flat-c (val p _)) ρc)
+                (cond
+                  [(prim? p) (contracts-imply? cs p)]
+                  [(set-member? cs conclo) 'Proved]
+                  [else 'Neither])]
+               [(contract-cl (func-c cs1 c2 _) ρc)
+                (match (contracts-imply? cs 'proc?)
+                  ['Refuted 'Refuted]
+                  [_ (if (set-member? cs conclo) 'Proved 'Neither)])]
+               [(contract-cl (cons-c c1 c2) ρc)
+                (match (contracts-imply? cs 'cons?)
+                  ['Refuted 'Refuted]
+                  [_ (if (set-member? cs conclo) 'Proved 'Neither)])]
+               [(contract-cl (or-c c1 c2) ρc)
+                (match (verify clo (close-contract c1 ρc))
+                  ['Proved 'Proved]
+                  ['Refuted (verify clo (close-contract c2 ρc))]
+                  ['Neither (match (verify clo (close-contract c2 ρc))
+                              ['Refuted 'Neither]
+                              [x x])])]
+               [(contract-cl (and-c c1 c2) ρc)
+                (match (verify clo (close-contract c1 ρc))
+                  ['Refuted 'Refuted]
+                  ['Proved (verify clo (close-contract c2 ρc))]
+                  ['Neither (match (verify clo (close-contract c2 ρc))
+                              ['Refuted 'Refuted]
+                              [_ 'Neither])])]
+               [(contract-cl (rec-c c′) ρc)
+                (verify clo (close-contract c′ (env-extend c′ ρc)))]
+               [(contract-cl (ref-c x) ρc)
+                (verify clo (env-get x ρc))])])]
     [else 'Neither #|TODO|#]))
 
 ;; maybe-FC : [Listof Natural] Contract -> [List Exp] or Empty
@@ -541,5 +597,8 @@
 
 ;; for debugging only
 (define (pow f n) (apply compose (make-list n f)))
-(define f (curry non-det step))
+(define (f confs)
+  (for/fold ([acc ∅]) ([x confs])
+    (let ([next (step x)])
+      (if (set? x) (set-union acc x) (set-add acc x)))))
 (define (s n) (pow f n))

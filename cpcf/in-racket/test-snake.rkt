@@ -226,6 +226,8 @@
 (define tests
   `(
     ; https://github.com/samth/var/blob/master/examples/snake-modules/collide.rkt
+    ; FIXME: can't verify 'collide' module b/c 'snake-self-collide?' uses
+    ;        'segs-self-collide?', which has no contract
     (,module-image
      ,module-data
      ,module-const
