@@ -22,6 +22,9 @@
                              [con contract/?] [exp exp?])]
   [struct blame/ ([violator label?] [violatee label?])]
   [struct mod-ref ([l label?] [f label?] [m label?])]
+  [struct constr ([tag label?] [arity natural?])]
+  [struct acc ([tag label?] [idx natural?])]
+  [struct constr-check ([tag label?])]
   
   [struct flat-c ([exp exp?])]
   [struct func-c ([dom (listof contract/?)] [rng contract/?] [varargs? boolean?])]
@@ -37,8 +40,10 @@
   [struct exp-cl ([exp exp?] [env env?])]
   [struct mon-fn-cl ([orig label?] [pos label?] [neg label?]
                                    [con (struct/c contract-cl func-c? env?)]
-                                   [exp clo?])]
-  [struct cons-cl ([car clo?] [cdr clo?])]
+                                   [exp val-cl?])]
+  [struct cons-cl ([car val-cl?] [cdr val-cl?])]
+  [struct struct-cl ([tag label?] [fields (listof val-cl?)])]
+  
   [struct contract-cl ([con contract/?] [env env?])]
   [clo? (any/c . -> . boolean?)]
   [close (exp? env? . -> . clo?)]
@@ -209,7 +214,14 @@
 
 ;; PreVal := • | Number | Boolean | String | Lambda | Nil
 (define (pre-val? x)
-  (or (eq? x '•) (number? x) (boolean? x) (string? x) (lam? x) (eq? 'nil x) (prim? x)))
+  (or (eq? x '•) (number? x) (boolean? x) (string? x) (lam? x) (eq? 'nil x) (prim? x)
+      (constr? x) (acc? x) (constr-check? x)))
+;; Constructor := (constr Label Nat)
+(struct constr (tag arity) #:transparent)
+;; Accessor := (acc Label Nat)
+(struct acc (tag idx) #:transparent)
+;; Type-Pred := (constr-check Label)
+(struct constr-check (tag) #:transparent)
 ;; Lambda := (lam Natural Exp Boolean)
 (struct lam (arity body varargs?) #:transparent)
 
@@ -221,6 +233,8 @@
 (struct mon-fn-cl clo (orig pos neg con exp) #:transparent)
 ;; ConsClosure := (cons-cl Closure Closure)
 (struct cons-cl clo (car cdr) #:transparent)
+;; StructClosure := (struct-cl Label [Listof Closure])
+(struct struct-cl clo (tag fields) #:transparent)
 
 ;; close : Exp Env -> Closure
 ;; closes expression with given environment, dropping all unused closures
@@ -232,7 +246,8 @@
 (define (val-cl? clo)
   (or (and (exp-cl? clo) (val? (exp-cl-exp clo)))
       (mon-fn-cl? clo)
-      (cons-cl? clo)))
+      (cons-cl? clo)
+      (struct-cl? clo)))
 
 ;; checks whether symbol names a primitive op
 (define (prim? o)
@@ -354,7 +369,9 @@
 (define proc?
   (match-lambda
     [(exp-cl (val '• cs) ρ) (contracts-imply? cs 'proc?)]
-    [(exp-cl (val u cs) ρ) (if (or (lam? u) (prim? u)) 'Proved 'Refuted)]
+    [(exp-cl (val u cs) ρ)
+     (if (or [lam? u] [constr? u] [acc? u] [constr-check? u] [prim? u])
+         'Proved 'Refuted)]
     [(mon-fn-cl h f g c cl) 'Proved]
     [_ 'Refuted]))
 
@@ -364,7 +381,8 @@
   (match cl
     [(exp-cl (val u cs) ρ) (not (equal? u '•))]
     [(mon-fn-cl h f g c v) (concrete? v)]
-    [(cons-cl c1 c2) #t] #|TODO|#))
+    [(cons-cl c1 c2) (and (concrete? c1) (concrete? c2))]
+    [(struct-cl _ xs) (andmap concrete? xs)]))
 
 ;; entries-prim-pred : Listof (List Symbol (PreVal -> Boolean))
 ;; predicates on primitive data
@@ -488,10 +506,17 @@
   (match x
     [(exp-cl (val (lam n e vargs?) cs) ρ)
      (close (val '• (set-add cs (mk-func-c n vargs?))) ρ0)]
+    [(exp-cl (val (constr tag n) cs) ρ)
+     (close (val '• (set-add cs (mk-func-c n #f))) ρ0)]
+    [(exp-cl (val (acc tag i) cs) ρ)
+     (close (val '• (set-add cs (mk-func-c 1 #f))) ρ0)]
+    [(exp-cl (val (constr-check tag) cs) ρ)
+     (close (val '• (set-add cs (mk-func-c 1 #f))) ρ0)]
     [(exp-cl _ ρ) (close (val '• (approx-contracts x)) ρ0)]
     [(mon-fn-cl h f g c v) (mon-fn-cl h f g c (approx v))]
     [(cons-cl c1 c2)
-     (abs-cons (approx c1) (approx c2))]))
+     (abs-cons (approx c1) (approx c2))]
+    [(struct-cl tag xs) (error "TODO")]))
 
 ;; ops : Symbol -> OpImpl
 (define ops
@@ -647,7 +672,14 @@
           (if (or (equal? '• u1) (equal? '• u2))
               {set #t #f}
               {set (equal? u1 u2)})]
-         [_ {set #f}])])
+         [_ {set #f}]
+         [`(,(struct-cl t1 xs) ,(struct-cl t2 ys))
+          (if (not (equal? t1 t2))
+              {set #f}
+              (let ([rs (map cl=? xs ys)])
+                (set-union
+                 (if (ormap (λ (s) (set-member? #f s)) rs) {set #f} ∅)
+                 (if (andmap (λ (s) (set-member? #t s)) rs) {set #t} ∅))))])])
     
     (begin
       ;; INITIALIZING
@@ -881,10 +913,23 @@
 
 ;; δ, δ′ : Op [Listof ValClosure] Lab -> [Setof Answer]
 (define (δ op xs l)
-  (let ([o (hash-ref ops op)])
-    (if (= (op-arity o) (length xs))
-        ((op-proc o) l xs)
-        {set (close (blame/ l op) ρ0)})))
+  (match op
+    [(constr tag n)
+     {set (if (= n  (length xs))
+              (struct-cl tag xs)
+              (close (blame/ l tag #|TODO|#) ρ0))}]
+    [(acc tag i)
+     (match xs
+       [`(,x) (error "TODO")]
+       [_ {set (close (blame/ l tag #|TODO|#) ρ0)}])]
+    [(constr-check tag)
+     (match xs
+       [`(,x) (error "TODO")]
+       [_ {set (close (blame/ l tag #|TODO|#) ρ0)}])]
+    [_ (let ([o (hash-ref ops op)])
+         (if (= (op-arity o) (length xs))
+             ((op-proc o) l xs)
+             {set (close (blame/ l op) ρ0)}))]))
 (define (δ′ op xs l)
   (match op
     [(or 'false? 'true?) (δ op xs l)]
@@ -940,6 +985,12 @@
 
 ;; read-modls : [Listof S-exp] -> Modules
 (define (read-modls ms)
+  
+  (define (accessor-name tag field)
+    (string->symbol (string-append (symbol->string tag) "-" (symbol->string field))))
+  (define (predicate-name tag)
+    (string->symbol (string-append (symbol->string tag) "?")))
+  
   ;; acc-provides : S-exp Modules -> Modules
   (define (acc-provides m modls)
     (match m
@@ -988,7 +1039,24 @@
                      [`(define (,f ,x ...) ,e) (acc-defn `(define ,f (λ ,x ,e)) modls)]
                      [`(define ,x ,e)
                       (modls-add-defn modls name x
-                                      (read-exp-with modls req '() name e))]))])
+                                      (read-exp-with modls req '() name e))]
+                     [`(struct ,tag ,fields)
+                      (let* ([ms1
+                              ; add constructor
+                              (modls-add-defn modls name tag
+                                              (val (constr tag (length fields)) ∅))]
+                             [ms2
+                              ; add accessors
+                              (for/fold ([ms ms1]) ([field fields]
+                                                    [idx (build-list (length fields) identity)])
+                                (modls-add-defn ms name (accessor-name tag field)
+                                                (val (acc tag idx) ∅)))]
+                             [ms3
+                              ; add predicate
+                              (modls-add-defn ms2 name (predicate-name tag)
+                                              (val (constr-check tag) ∅))])
+                        ms3)]
+                     ))])
          (foldl acc-defn modls defn))]
       [`(module ,name
           (provide ,decl ...)
@@ -1262,6 +1330,9 @@
     [(exp-cl (val u cs) ρ)
      (match u
        [(lam m e v?) {set (if v? (<= (- m 1) n) (= m n))}]
+       [(constr tag m) {set (= m n)}]
+       [(acc tag i) {set (= n 1)}]
+       [(constr-check tag) {set (= n 1)}]
        ['• (letrec ([xcludes (exclude 'proc?)]
                     [check-with
                      (match-lambda

@@ -269,7 +269,8 @@
                             [_ vs])))}]
                   [#f {set (cek ms (close (blame/ l '∆) ρ0) (mt))}])
                 (proc-with-arity? f (length xs))}]
-              [_ (if (prim? u) ; primitive op handles arity check on its own
+              [_ (if (or (prim? u) (constr? u) (acc? u) (constr-check? u))
+                     ; primitive op handles arity check on its own
                      (s-map (λ (cl) (cek ms cl κ)) (δ u xs l))
                      (cek ms (close (blame/ l '∆) ρ0) (mt)))])]
            [(mon-fn-cl h f g (contract-cl (func-c cs1 c2 var-args?) ρc) clo1)
@@ -402,45 +403,45 @@
   
   ;; run : CEK -> [Setof CEK]
   #;(define (run conf)
-    #;(define i 0)
-    ;; INVARIANT:
-    ;; -- known: states whose next states are explored
-    ;; -- unknown: non-final states whose next states are unexplored
-    ;; -- final: final states (~ answers)
-    (let loop ([known ∅] [unknown {set conf}] [final ∅])
-      (cond
-        [(set-empty? unknown)
-         #;(begin (print i) (display "\n\n"))
-         final]
-        [else
-         #;(set! i (add1 i))
-         (define known1 (set-union known unknown))
-         (define (on-new-state unknowns finals s)
-           (cond
-             [(final? s) (values unknowns (set-add finals s))]
-             [(set-member? known1 s) (values unknowns finals)]
-             [else (values (set-add unknowns s) finals)]))
-         #;(begin
-           [display "\nknown="]
-           [print (set-count known)]
-           [display ", unknown="]
-           [set-for-each unknown
-                         (λ (s)
-                           (print (let ([next (step s)])
-                                    (cond
-                                      [(set? s) (set-count s)]
-                                      [else 1])))
-                           (display " "))])
-         (define-values (unknown1 final1)
-           (for/fold ([unknown1 ∅] [final1 final]) ([u (in-set unknown)])
-             (let ([next (step u)])
-               (cond
-                 [(set? next)
-                  (for/fold ([unknown2 unknown1] [final2 final1]) ([n (in-set next)])
-                    (on-new-state unknown2 final2 n))]
-                 [else (on-new-state unknown1 final1 next)]))))
-         
-         (loop known1 unknown1 final1)])))
+      #;(define i 0)
+      ;; INVARIANT:
+      ;; -- known: states whose next states are explored
+      ;; -- unknown: non-final states whose next states are unexplored
+      ;; -- final: final states (~ answers)
+      (let loop ([known ∅] [unknown {set conf}] [final ∅])
+        (cond
+          [(set-empty? unknown)
+           #;(begin (print i) (display "\n\n"))
+           final]
+          [else
+           #;(set! i (add1 i))
+           (define known1 (set-union known unknown))
+           (define (on-new-state unknowns finals s)
+             (cond
+               [(final? s) (values unknowns (set-add finals s))]
+               [(set-member? known1 s) (values unknowns finals)]
+               [else (values (set-add unknowns s) finals)]))
+           #;(begin
+               [display "\nknown="]
+               [print (set-count known)]
+               [display ", unknown="]
+               [set-for-each unknown
+                             (λ (s)
+                               (print (let ([next (step s)])
+                                        (cond
+                                          [(set? s) (set-count s)]
+                                          [else 1])))
+                               (display " "))])
+           (define-values (unknown1 final1)
+             (for/fold ([unknown1 ∅] [final1 final]) ([u (in-set unknown)])
+               (let ([next (step u)])
+                 (cond
+                   [(set? next)
+                    (for/fold ([unknown2 unknown1] [final2 final1]) ([n (in-set next)])
+                      (on-new-state unknown2 final2 n))]
+                   [else (on-new-state unknown1 final1 next)]))))
+           
+           (loop known1 unknown1 final1)])))
   
   (define (run conf)
     (define known (set))
