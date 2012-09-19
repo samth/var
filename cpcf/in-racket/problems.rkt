@@ -80,3 +80,38 @@
          [else (+ (car xs) (sum (cdr xs)))])))
    (require sum list)
    (sum nums)))
+
+;; insensitivity to control flow
+(eval-cek
+ `((module m1
+     (provide
+      ; system is falsely blamed for misuse of car and cdr when expanding cons/c
+      [f ((cons/c ,c/any ,c/any) ↦ ,c/any)]
+      [g (,c/any ↦ ,c/any)])
+     (define f car)
+     (define (g x)
+       (cond ; m1 is also blamed for using car here
+         [(cons? x) (car x)]
+         [else x])))
+   (module m2
+     (provide
+      [x ,c/any])
+     (define x •))
+   (require m1 m2)
+   (g x)))
+
+;; last-pair program from Wright paper
+(eval-cek
+ `((module lastpair
+     (provide
+      [lastpair ((cons/c ,c/any ,c/list) ↦ (cons/c ,c/any (flat nil?)))])
+     (define (lastpair s)
+       (if (cons? (cdr s))
+           (lastpair (cdr s)) ; it's not remembered that (cdr s) is a pair
+           s)))
+   (module x
+     (provide
+      [x (cons/c ,c/any ,(c/list-of c/any))])
+     (define x •))
+   (require lastpair x)
+   (lastpair x)))

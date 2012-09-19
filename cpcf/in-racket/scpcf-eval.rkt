@@ -168,7 +168,8 @@
          (cek ms (close f ρ) (ap-k '() (map (λ (x) (close x ρ)) xs) l κ))]
         [(rec b) (cek ms (close b (env-extend clo ρ)) κ)]
         [(if/ e1 e2 e3)
-         (let ([cl-test (close e1 ρ)]
+         (cek ms (close e1 ρ) (if-k (close e2 ρ) (close e3 ρ) κ))
+         #;(let ([cl-test (close e1 ρ)]
                [cl-then (close e2 ρ)]
                [cl-else (close e3 ρ)])
            (match e1
