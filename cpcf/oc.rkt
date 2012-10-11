@@ -306,7 +306,7 @@
                                      (if tmp tmp (or e_2 ...))))]
   [(desug (begin e)) (desug e)]
   [(desug (begin e_1 e_2 ...)) (desug (let [_ e_1] (begin e_2 ...)))]
-  [(desug (let [x e_1] e)) ((λ (x) (desug e)) e_1)]
+  [(desug (let [x e_1] e)) ((λ (x) (desug e)) (desug e_1))]
   [(desug (let ([x e_1] ...) e)) (desug ((λ (x ...) e) e_1 ...))]
   [(desug (cond [else e])) (desug e)]
   [(desug (cond (e_1 e_2) any ...)) (if (desug e_1)
