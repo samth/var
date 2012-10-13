@@ -21,6 +21,7 @@
   ; value
   [v c
      (λ (x x ...) e)
+     •
      (• p? ...) #|value refined by predicates|#]
   
   ; path
@@ -34,10 +35,11 @@
   ; environments
   [E ([x ↦ V] ...)]
   [O ([x ↦ o′] ...)]
-  [Γ ([o′ ↦ ψ] ...)]
+  [Γ ([o′ ↦ ψs ...] ...)]
   
   ; predicate
   [ψ p? (¬ p?)]
+  [ψs (ψ ...)]
   
   ; evaluation answer
   [A (V Γ o)
@@ -92,7 +94,14 @@
         (non-det
          (match-lambda
            [`(,V ,Γ2 ,o2)
-            (term (⇓ (:: [,x ↦ ,V] ,Eλ) (:: [,x ↦ (default-o ,x ,o2)] ,Oλ) ,Γ2 ,e′))]
+            (s-map
+             (match-lambda
+               [`(,V3 ,Γ3 ,o3) (term (,V3 (Γ-pop-var ,x ,Γ3) ,o3))]
+               ['ERROR 'ERROR])
+             (term (⇓ (:: [,x ↦ ,V] ,Eλ)
+                      (:: [,x ↦ (default-o ,x ,o2)] ,Oλ)
+                      (Γ-push-var ,x ,Γ2)
+                      ,e′)))]
            ['ERROR (term {ERROR})])
          (term (⇓ E O ,Γ1 e)))]
        [`(((• ,p? ...) ,Eλ ,Oλ) ,Γ1 ,o1)
@@ -147,7 +156,7 @@
    ,(match (term (Γ⊢? nat? (p? ...) Γ o))
       ['Proved (term {(((• nat?) [] []) Γ ∅)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• nat?) [] []) (:: (o ↦ nat?) Γ) ∅)
+      ['Neither (term {(((• nat?) [] []) (Γ:: nat? o Γ) ∅)
                        ERROR})])]
   [(δ add1 V Γ o) {ERROR}]
   
@@ -157,7 +166,7 @@
    ,(match (term (Γ⊢? str? (p? ...) Γ o))
       ['Proved (term {(((• nat?) [] []) Γ o)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• nat?) [] []) (:: (o ↦ str?) Γ) ∅)
+      ['Neither (term {(((• nat?) [] []) (Γ:: str? o Γ) ∅)
                        ERROR})])]
   [(δ str-len V Γ o) {ERROR}]
   
@@ -165,13 +174,13 @@
   [(δ car V Γ o)
    ,(s-map
      (match-lambda
-       [`(,V1 ,V2) (term (,V1 (:: (o ↦ cons?) Γ) (car-o o)))]
+       [`(,V1 ,V2) (term (,V1 (Γ:: cons? o Γ) (car-o o)))]
        [`() (term ERROR)])
      (term (split-cons V Γ o)))]
   [(δ cdr V Γ o)
    ,(s-map
      (match-lambda
-       [`(,V1 ,V2) (term (,V2 (:: (o ↦ cons?) Γ) (cdr-o o)))]
+       [`(,V1 ,V2) (term (,V2 (Γ:: cons? o Γ) (cdr-o o)))]
        [`() (term ERROR)])
      (term (split-cons V Γ o)))]
   
@@ -194,27 +203,27 @@
   ; predicates
   [(δ p? ((• p?_1 ...) E O) Γ o)
    ,(match (term (Γ⊢? p? (p?_1 ...) Γ o))
-      ['Proved (term {((#t [] []) (:: (o ↦ p?) Γ) ∅)})]
-      ['Refuted (term {((#f [] []) (:: (o ↦ (¬ p?)) Γ) ∅)})]
-      ['Neither (term {((#t [] []) (:: (o ↦ p?) Γ) ∅)
-                       ((#f [] []) (:: (o ↦ (¬ p?)) Γ) ∅)})])]
+      ['Proved (term {((#t [] []) (Γ:: p? o Γ) ∅)})]
+      ['Refuted (term {((#f [] []) (Γ:: (¬ p?) o Γ) ∅)})]
+      ['Neither (term {((#t [] []) (Γ:: p? o Γ) ∅)
+                       ((#f [] []) (Γ:: (¬ p?) o Γ) ∅)})])]
   [(δ p? V Γ o)
    ,(match (term (concrete-check p? V))
-      [#t (term {((#t [] []) (:: (o ↦ p?) Γ) ∅)})]
-      [#f (term {((#f [] []) (:: (o ↦ (¬ p?)) Γ) ∅)})])])
+      [#t (term {((#t [] []) (Γ:: p? o Γ) ∅)})]
+      [#f (term {((#f [] []) (Γ:: (¬ p?) o Γ) ∅)})])])
 
 ;; uses existing information to check whether the predicate holds for given value
 (define-metafunction oc
   Γ⊢? : p? (p? ...) Γ o -> Verified?
   [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Proved
      (where #t (implies? p?_1 p?))]
-  [(Γ⊢? p? any (any_1 ... [o′ ↦ p?_1] any_2 ...) o′) Proved
+  [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Proved
      (where #t (implies? p?_1 p?))]
   [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Refuted
      (where #t (excludes? p? p?_1))]
-  [(Γ⊢? p? any (any_1 ... [o′ ↦ p?_1] any_2 ...) o′) Refuted
+  [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Refuted
      (where #t (excludes? p? p?_1))]
-  [(Γ⊢? p? any (any_1 ... [o′ ↦ (¬ p?)] any_2 ...) o′) Refuted]
+  [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... (¬ p?) any_4 ...) ψs ...] any_2 ...) o′) Refuted]
   [(Γ⊢? p? any Γ o) Neither])
 
 ;; checks whether given set of predicates prevents the new one to hold
@@ -312,6 +321,7 @@
   [(desug (cond (e_1 e_2) any ...)) (if (desug e_1)
                                         (desug e_2)
                                         (desug (cond any ...)))]
+  [(desug •) (•)]
   [(desug any) any])
 
 ;; defuglifies answer
@@ -322,6 +332,28 @@
   [(simplify (((• p? ...) E O) Γ o)) (• p? ...)]
   [(simplify (((λ (x ...) e) E O) Γ o)) function]
   [(simplify ERROR) ERROR])
+
+;; adds new (empty) set of predicates for variable x that shadows old assumptions
+(define-metafunction oc
+  Γ-push-var : x Γ -> Γ
+  [(Γ-push-var x [any_1 ... (x ↦ ψs ...) any_2 ...])
+   (any_1 ... (x ↦ () ψs ...) any_2 ...)]
+  [(Γ-push-var x [any ...]) [(x ↦ ()) any ...]])
+
+;; invalidates the top assumptions for given variable
+(define-metafunction oc
+  Γ-pop-var : x Γ -> Γ
+  [(Γ-pop-var x [any_1 ... (x ↦ ψs) any_2 ...]) (any_1 ... any_2 ...)] ; to make it nicer
+  [(Γ-pop-var x [any_1 ... (x ↦ ψs_1 ψs_2 ...) any_2 ...]) [any_1 ... (x ↦ ψs_2 ...) any_2 ...]]
+  [(Γ-pop-var x any) ,(error "WRONG:" (term any) (term x))])
+
+;; updates Γ with new assumption
+(define-metafunction oc
+  Γ:: : ψ o Γ -> Γ
+  [(Γ:: ψ ∅ Γ) Γ]
+  [(Γ:: ψ o [any_1 ... (o ↦ (ψ_1 ...) ψs ...) any_2 ...])
+   (any_1 ... (o ↦ (ψ ψ_1 ...) ψs ...) any_2 ...)]
+  [(Γ:: ψ o (any ...)) ((o ↦ (ψ)) any ...)])
 
 ;; remdup : [Listof X] -> [Listof X]
 ;; remove duplicates
@@ -367,7 +399,7 @@
  
  (term
   (; example 1
-   (let [x (•)]
+   (let [x •]
      (if (nat? x) (add1 x) 0))
    
    ; example 2
@@ -377,64 +409,83 @@
    ; example 3: language not enough, yet
    
    ; example 4
-   (let [z (•)]
+   (let [z •]
      (if (or (nat? z) (str? z)) (,f2 z) 0))
    
    ; example 5
-   (let ([z (•)]
-         [y (•)])
+   (let ([z •]
+         [y •])
      (if (and (nat? z) (str? y))
          (+ z (str-len y))
          0))
    
    ; example 6 (unsafe)
-   (let ([z (•)]
-         [y (•)])
+   (let ([z •]
+         [y •])
      (if (and (nat? z) (str? y))
          (add1 (str-len y))
          (str-len z)))
    
    ; example 7
-   (let ([z (•)]
-         [y (•)])
+   (let ([z •]
+         [y •])
      (if (if (nat? z) (str? y) #f)
          (+ z (str-len y))
          0))
    
    ; example 8
-   (,strnum? (•))
+   (,strnum? •)
    (,strnum? (• nat?))
    (,strnum? (• str?))
    
    ; example 9
-   (let [z (•)]
+   (let [z •]
      (if (let [tmp (nat? z)]
            (if tmp tmp (str? z)))
          (,f2 z)
          0))
    
    ; example 10
-   (let [p (cons (•) (•))] ; i swear i didn't intend to make it look like this
+   (let [p (cons • •)]
      (if (nat? (car p))
          (add1 (car p))
          7))
    
    ; example 11
-   (,f11 (cons (•) (•)))
+   (,f11 (cons • •))
    
    ; example 12
-   (,carnum? (cons (•) (•)))
-   (,carnum? (cons (• nat?) (•)))
+   (,carnum? (cons • •))
+   (,carnum? (cons (• nat?) •))
    
    ; example 13
-   (let ([z (•)]
-         [y (•)])
+   (let ([z •]
+         [y •])
      (cond
        [(and (nat? z) (str? y)) 1]
        [(nat? z) 2]
        [else 3]))
    
    ; example 14 PUTTING IT ALL TOGETHER
-   (,f14 (• nat?) (cons (•) (•)))
-   (,f14 (• str?) (cons (•) (•))))))
+   (,f14 (• nat?) (cons • •))
+   (,f14 (• str?) (cons • •))
+   
+   ; information is represented in terms of farthest possible variable so it can
+   ; be retained
+   (let (l (cons • •))
+     (begin
+       (let (x (car l))
+         (if (nat? x) "ignore" (add1 "raise error")))
+       ; if reach here, (car l) has to be nat
+       (nat? (car l))))
+   
+   ; example that illustrates previous problem when having 2 different variables
+   ; of the same name
+   (let (x •)
+     (if (nat? x)
+         (let (x •)
+           (if (str? x)
+               "x is a string" ; would be wrongly eliminated by previous bug
+               "x is not a string"))
+         "x is not a nat")))))
 
