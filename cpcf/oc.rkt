@@ -62,7 +62,7 @@
 (define-metafunction oc
   eval : e -> any
   [(eval e) ,(remdup (term ((simplify A) ...)))
-            (where (A ...) (eval′ e))])
+    (where (A ...) (eval′ e))])
 
 ;; evaluates, returning full state with Γ containing assumptions
 (define-metafunction oc
@@ -222,13 +222,13 @@
 (define-metafunction oc
   Γ⊢? : p? (p? ...) Γ o -> Verified?
   [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Proved
-                                           (where #t (implies? p?_1 p?))]
+    (where #t (implies? p?_1 p?))]
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Proved
-                                                                                  (where #t (implies? p?_1 p?))]
+    (where #t (implies? p?_1 p?))]
   [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Refuted
-                                           (where #t (excludes? p? p?_1))]
+    (where #t (excludes? p? p?_1))]
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Refuted
-                                                                                  (where #t (excludes? p? p?_1))]
+    (where #t (excludes? p? p?_1))]
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... (¬ p?) any_4 ...) ψs ...] any_2 ...) o′) Refuted]
   [(Γ⊢? p? any Γ o) Neither])
 
