@@ -62,7 +62,7 @@
 (define-metafunction oc
   eval : e -> any
   [(eval e) ,(remdup (term ((simplify A) ...)))
-     (where (A ...) (eval′ e))])
+            (where (A ...) (eval′ e))])
 
 ;; evaluates, returning full state with Γ containing assumptions
 (define-metafunction oc
@@ -94,14 +94,20 @@
         (non-det
          (match-lambda
            [`(,V ,Γ2 ,o2)
-            (s-map
-             (match-lambda
-               [`(,V3 ,Γ3 ,o3) (term (,V3 (Γ-pop-var ,x ,Γ3) ,o3))]
-               ['ERROR 'ERROR])
-             (term (⇓ (:: [,x ↦ ,V] ,Eλ)
-                      (:: [,x ↦ (default-o ,x ,o2)] ,Oλ)
-                      (Γ-push-var ,x ,Γ2)
-                      ,e′)))]
+            (if (equal? x o2)
+                (term (⇓ (:: [,x ↦ ,V] ,Eλ)
+                         (:: [,x ↦ ,x] ,Oλ)
+                         #|inner x is alias for outer x, so avoid shadowing the outer one|#
+                         ,Γ2
+                         ,e′))
+                (s-map
+                 (match-lambda
+                   [`(,V3 ,Γ3 ,o3) (term (,V3 (Γ-pop-var ,x ,Γ3) ,o3))]
+                   ['ERROR 'ERROR])
+                 (term (⇓ (:: [,x ↦ ,V] ,Eλ)
+                          (:: [,x ↦ (default-o ,x ,o2)] ,Oλ)
+                          (Γ-push-var ,x ,Γ2)
+                          ,e′))))]
            ['ERROR (term {ERROR})])
          (term (⇓ E O ,Γ1 e)))]
        [`(((• ,p? ...) ,Eλ ,Oλ) ,Γ1 ,o1)
@@ -216,13 +222,13 @@
 (define-metafunction oc
   Γ⊢? : p? (p? ...) Γ o -> Verified?
   [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Proved
-     (where #t (implies? p?_1 p?))]
+                                           (where #t (implies? p?_1 p?))]
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Proved
-     (where #t (implies? p?_1 p?))]
+                                                                                  (where #t (implies? p?_1 p?))]
   [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Refuted
-     (where #t (excludes? p? p?_1))]
+                                           (where #t (excludes? p? p?_1))]
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Refuted
-     (where #t (excludes? p? p?_1))]
+                                                                                  (where #t (excludes? p? p?_1))]
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... (¬ p?) any_4 ...) ψs ...] any_2 ...) o′) Refuted]
   [(Γ⊢? p? any Γ o) Neither])
 
@@ -391,101 +397,150 @@
 
 ;; example 1
 (for-each
- (λ (t) ; i don't know anything about formatting
-   (print t)
-   (display "\n → ")
-   (print (term (eval ,t)))
-   (display "\n\n"))
+ (match-lambda
+   [`(,prog → ,expected)
+    (test-predicate
+     (λ (answer)
+       (equal? (list->set answer) (list->set expected)))
+     (term (eval ,prog)))])
  
  (term
   (; example 1
-   (let [x •]
-     (if (nat? x) (add1 x) 0))
+   [(let [x •]
+      (if (nat? x) (add1 x) 0))
+    → {0 (• nat?)}]
    
    ; example 2
-   (,f2 (• nat?))
-   (,f2 (• str?))
+   [(,f2 (• nat?))
+    → {(• nat?)}]
+   
+   [(,f2 (• str?))
+    → {(• nat?)}]
    
    ; example 3: language not enough, yet
    
    ; example 4
-   (let [z •]
-     (if (or (nat? z) (str? z)) (,f2 z) 0))
+   [(let [z •]
+      (if (or (nat? z) (str? z)) (,f2 z) 0))
+    → {0 (• nat?)}]
+   
    
    ; example 5
-   (let ([z •]
-         [y •])
-     (if (and (nat? z) (str? y))
-         (+ z (str-len y))
-         0))
+   [(let ([z •]
+          [y •])
+      (if (and (nat? z) (str? y))
+          (+ z (str-len y))
+          0))
+    → {0 (• nat?)}]
    
    ; example 6 (unsafe)
-   (let ([z •]
-         [y •])
-     (if (and (nat? z) (str? y))
-         (add1 (str-len y))
-         (str-len z)))
+   {(let ([z •]
+          [y •])
+      (if (and (nat? z) (str? y))
+          (add1 (str-len y))
+          (str-len z)))
+    → {(• nat?) ERROR}}
    
    ; example 7
-   (let ([z •]
-         [y •])
-     (if (if (nat? z) (str? y) #f)
-         (+ z (str-len y))
-         0))
+   [(let ([z •]
+          [y •])
+      (if (if (nat? z) (str? y) #f)
+          (+ z (str-len y))
+          0))
+    → {0 (• nat?)}]
    
    ; example 8
-   (,strnum? •)
-   (,strnum? (• nat?))
-   (,strnum? (• str?))
+   [(,strnum? •)
+    → {#t #f}]
+   
+   [(,strnum? (• nat?))
+    → {#t}]
+   
+   [(,strnum? (• str?))
+    → {#t}]
    
    ; example 9
-   (let [z •]
-     (if (let [tmp (nat? z)]
-           (if tmp tmp (str? z)))
-         (,f2 z)
-         0))
+   [(let [z •]
+      (if (let [tmp (nat? z)]
+            (if tmp tmp (str? z)))
+          (,f2 z)
+          0))
+    → {0 (• nat?)}]
    
    ; example 10
-   (let [p (cons • •)]
-     (if (nat? (car p))
-         (add1 (car p))
-         7))
+   [(let [p (cons • •)]
+      (if (nat? (car p))
+          (add1 (car p))
+          7))
+    → {7 (• nat?)}]
    
    ; example 11
-   (,f11 (cons • •))
+   [(,f11 (cons • •))
+    → {13 42}]
    
    ; example 12
-   (,carnum? (cons • •))
-   (,carnum? (cons (• nat?) •))
+   [(,carnum? (cons • •))
+    → {#t #f}]
+   
+   [(,carnum? (cons (• nat?) •))
+    → {#t}]
    
    ; example 13
-   (let ([z •]
-         [y •])
-     (cond
-       [(and (nat? z) (str? y)) 1]
-       [(nat? z) 2]
-       [else 3]))
+   [(let ([z •]
+          [y •])
+      (cond
+        [(and (nat? z) (str? y)) 1]
+        [(nat? z) 2]
+        [else 3]))
+    → {1 2 3}]
    
    ; example 14 PUTTING IT ALL TOGETHER
-   (,f14 (• nat?) (cons • •))
-   (,f14 (• str?) (cons • •))
+   [(,f14 (• nat?) (cons • •))
+    → {0 (• nat?)}]
+   
+   [(,f14 (• str?) (cons • •))
+    → {0 (• nat?)}]
    
    ; information is represented in terms of farthest possible variable so it can
    ; be retained
-   (let (l (cons • •))
-     (begin
-       (let (x (car l))
-         (if (nat? x) "ignore" (add1 "raise error")))
-       ; if reach here, (car l) has to be nat
-       (nat? (car l))))
+   [(let (l (cons • •))
+      (begin
+        (let (x (car l))
+          (if (nat? x) "ignore" (add1 "raise error")))
+        ; if reach here, (car l) has to be nat
+        (nat? (car l))))
+    → {#t ERROR}]
    
    ; example that illustrates previous problem when having 2 different variables
    ; of the same name
-   (let (x •)
-     (if (nat? x)
-         (let (x •)
-           (if (str? x)
-               "x is a string" ; would be wrongly eliminated by previous bug
-               "x is not a string"))
-         "x is not a nat")))))
+   [(let (x •)
+      (if (nat? x)
+          (let (x •)
+            (if (str? x)
+                "x is a string" ; would be wrongly eliminated by previous bug
+                "x is not a string"))
+          "x is not a nat"))
+    → {"x is a string" "x is not a string" "x is not a nat"}]
+   
+   ; blindly adding a new frame for variable can lead to imprecision (loss of info)
+   ; when inner variable refers to outer one with the same name (and inner one
+   ; gets updated while we could do so with outer one)
+   [(let (x •)
+      (if (nat? x)
+          (let (x x)
+            (if (nat? x) ; inner one uses outer one's info
+                "inner x is nat"
+                "this cannot happen"))
+          "x is not nat"))
+    → {"inner x is nat" "x is not nat"}]
+   
+   [(let (x •)
+      (begin
+        (let (x x)
+          (if (nat? x)
+              "x is nat"
+              (add1 "raise error")))
+        (nat? x))) ; outer one uses info from eval-ing inner one
+    → {#t ERROR}])))
 
+(test-results)
