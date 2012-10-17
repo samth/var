@@ -85,12 +85,7 @@
 ;; evaluates, returning full state with Γ containing assumptions
 (define-metafunction oc
   eval′ : e -> {A ...}
-  [(eval′ e) (⇓′ [] [] [] e)])
-
-;; applies big-step semantics on a state of (E O Γ e), useful for debugging
-(define-metafunction oc
-  ⇓′ : E O Γ e -> {A ...}
-  [(⇓′ E O Γ e) (⇓ E O Γ (desug e))])
+  [(eval′ e) (⇓ [] [] [] e)])
 
 ;; big-step semantics
 (define-metafunction oc
@@ -172,7 +167,25 @@
    ,(non-det:
      [V1 Γ1 o1 ← (term (⇓ E O Γ e_1))]
      [V2 Γ2 o2 ← (term (⇓ E O ,Γ1 e_2))]
-     [term (δ op2 ,V1 ,V2 ,Γ2 ,o1 ,o2)])])
+     [term (δ op2 ,V1 ,V2 ,Γ2 ,o1 ,o2)])]
+  
+  ; syntactic sugar
+  [(⇓ E O Γ (e_1 e_2 e_3 ...)) (⇓ E O Γ ((e_1 e_2) e_3 ...))]
+  [(⇓ E O Γ (λ (x z ...) e)) (⇓ E O Γ (λ (x) (λ (z ...) e)))]
+  [(⇓ E O Γ •) (⇓ E O Γ (•))]
+  [(⇓ E O Γ (and e)) (⇓ E O Γ e)]
+  [(⇓ E O Γ (and e_1 e_2 ...)) (⇓ E O Γ (if e_1 (and e_2 ...) #f))]
+  [(⇓ E O Γ (or e)) (⇓ E O Γ e)]
+  [(⇓ E O Γ (or e_1 e_2 ...)) (⇓ E O Γ (let (tmp e_1)
+                                         (if tmp tmp (or e_2 ...))))]
+  [(⇓ E O Γ (begin e)) (⇓ E O Γ e)]
+  [(⇓ E O Γ (begin e_1 e_2 ...)) (⇓ E O Γ (let (_ e_1) (begin e_2 ...)))]
+  [(⇓ E O Γ (let [x e_1] e)) (⇓ E O Γ ((λ (x) e) e_1))]
+  [(⇓ E O Γ (let ([x_1 e_1]) e)) (⇓ E O Γ (let [x_1 e_1] e))]
+  [(⇓ E O Γ (let ([x_1 e_1] [x_2 e_2] ...) e))
+   (⇓ E O Γ (let [x_1 e_1] (let ([x_2 e_2] ...) e)))]
+  [(⇓ E O Γ (cond [else e])) (⇓ E O Γ e)]
+  [(⇓ E O Γ (cond [e_1 e_2] any ...)) (⇓ E O Γ (if e_1 e_2 (cond any ...)))])
 
 ;; applies primitive ops, returns result + new propositions + path object
 (define-metafunction oc
@@ -292,6 +305,33 @@
   [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... (¬ p?) any_4 ...) ψs ...] any_2 ...) o′) Refuted]
   [(Γ⊢? p? any Γ o) Neither])
 
+;; flattens flat contract into expression, or #f for higher-order contracts
+(define-metafunction oc
+  FC : c -> (e) or #f
+  [(FC (flat e)) (e)]
+  [(FC (c ↦ any ...)) #f]
+  [(FC (or/c c_1 c_2))
+   ,(match (term ((FC c_1) (FC c_2)))
+      [`((,e1) (,e2)) (let ([x (variable-not-in `(,e1 ,e2) 'x)])
+                        (term [(λ (,x) (or [,e1 ,x] [,e2 ,x]))]))]
+      [_ #f])]
+  [(FC (and/c c_1 c_2))
+   ,(match (term ((FC c_1) (FC c_2)))
+      [`((,e1) (,e2)) (let ([x (variable-not-in `(,e1 ,e2) 'x)])
+                        (term [(λ (,x) (and [,e1 ,x] [,e2 ,x]))]))]
+      [_ #f])]
+  [(FC (cons/c c_1 c_2))
+   ,(match (term ((FC c_1) (FC c_2)))
+      [`((,e1) (,e2)) (let ([x (variable-not-in `(,e1 ,e2) 'x)])
+                        (term [(λ (,x)
+                                 (and [cons? ,x] [,e1 (car ,x)] [,e2 (cdr ,x)]))]))]
+      [_ #f])]
+  [(FC (μ (x) c)) ,(match (term (FC c))
+                     [`(,e) (term [(μ (x) ,e)])]
+                     [#f #f])]
+  [(FC x) (x)])
+
+
 ;; checks whether given set of predicates prevents the new one to hold
 (define-metafunction oc
   excludes? : p? p? -> b
@@ -366,33 +406,6 @@
   [(default-o o′ ∅) o′]
   [(default-o any o) o])
 
-;; transforms program to smaller set of syntax
-(define-metafunction oc
-  desug : e -> e
-  [(desug (λ (x) e)) (λ (x) (desug e))]
-  [(desug (λ (x z ...) e)) (λ (x) (desug (λ (z ...) e)))]
-  [(desug (f e)) ((desug f) (desug e))]
-  [(desug (f e_1 e_2 ...)) (desug ((f e_1) e_2 ...))]
-  [(desug (if e ...)) (if (desug e) ...)]
-  [(desug (μ (x) e)) (μ (x) (desug e))]
-  [(desug (op e ...)) (op (desug e) ...)]
-  [(desug (and e)) (desug e)]
-  [(desug (and e_1 e_2 ...)) (if (desug e_1) (desug (and e_2 ...)) #f)]
-  [(desug (or e)) (desug e)]
-  [(desug (or e_1 e_2 ...)) (desug (let [tmp e_1]
-                                     (if tmp tmp (or e_2 ...))))]
-  [(desug (begin e)) (desug e)]
-  [(desug (begin e_1 e_2 ...)) (desug (let [_ e_1] (begin e_2 ...)))]
-  [(desug (let [x e_1] e)) ((λ (x) (desug e)) (desug e_1))]
-  [(desug (let ([x e_1] ...) e)) (desug ((λ (x ...) e) e_1 ...))]
-  [(desug (cond [else e])) (desug e)]
-  [(desug (cond (e_1 e_2) any ...)) (if (desug e_1)
-                                        (desug e_2)
-                                        (desug (cond any ...)))]
-  [(desug •) (•)]
-  [(desug (mon c e)) (mon (desug-c c) (desug e))]
-  [(desug any) any])
-
 ;; defuglifies answer
 (define-metafunction oc
   simplify : A -> any
@@ -454,7 +467,6 @@
 (define-syntax return:
   (syntax-rules ()
     [(_ e ...) (list e ...)]))
-
 
 
 ;;;;; TESTS
