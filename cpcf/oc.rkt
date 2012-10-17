@@ -9,6 +9,7 @@
             (if e e e)
             (op1 e)
             (op2 e e)
+            (μ (x) e)
             
             ; syntactic sugar
             (and e e ...)
@@ -28,8 +29,9 @@
   [o ∅ o′]
   [o′ x (car o′) (cdr o′)] ; TODO: could <o,o> be useful?
   
-  ; closed value
+  ; closed value (with the exception of μx.e)
   [V (v E O)
+     ((μ (x) e) E O)
      (V V)]
   
   ; environments
@@ -48,12 +50,12 @@
   ; verification answer
   [Verified? Proved Refuted Neither]
   
-  [op1 p? add1 str-len car cdr]
-  [op2 + cons]
+  [op1 p? add1 sub1 str-len car cdr]
+  [op2 + - * cons]
   [op op1 op2]
-  [p? nat? str? cons? true? false? bool? proc?]
+  [p? zero? int? str? cons? true? false? bool? proc?]
   [c b n s]
-  [(m n) natural]
+  [(m n) integer]
   [s string]
   [b #t #f]
   [(x y z) variable-not-otherwise-mentioned])
@@ -84,7 +86,18 @@
   [(⇓ E O Γ (λ (x) e)) {(((λ (x) e) E O) Γ ∅)}]
   
   ; var
-  [(⇓ E O Γ x) {((! x E) Γ (! x O))}]
+  [(⇓ E O Γ x)
+   ,(match (term (! x E))
+      [`((μ (,z) ,e) ,Eμ ,Oμ) ; μx.e is not yet a value
+       (non-det
+        (match-lambda
+          [`(,V1 ,Γ1 ,o1) (term {(,V1 (Γ-pop-var ,z ,Γ1) x)})]
+          ['ERROR (term {ERROR})])
+        (term (⇓ (:: [,z ↦ ((μ (,z) ,e) ,Eμ ,Oμ)] ,Eμ)
+                 (:: [,z ↦ ,z] ,Oμ)
+                 (Γ-push-var ,z Γ)
+                 (μ (,z) ,e))))]
+      [V (term {(,V Γ (! x O))})])]
   
   ; app
   [(⇓ E O Γ (f e))
@@ -131,6 +144,17 @@
        ['ERROR (term {ERROR})])
      (term (⇓ E O Γ e_1)))]
   
+  ; μ
+  [(⇓ E O Γ (μ (x) e))
+   ,(non-det
+     (match-lambda
+       [`(,V1 ,Γ1 ,o1) (term {(,V1 (Γ-pop-var x ,Γ1) ,o1)})]
+       ['ERROR {term {ERROR}}])
+     (term (⇓ (:: [x ↦ ((μ (x) e) E O)] E)
+              (:: [x ↦ x] O)
+              (Γ-push-var x Γ)
+              e)))]
+  
   ; δ
   [(⇓ E O Γ (op1 e))
    ,(non-det
@@ -159,20 +183,30 @@
   ; add1
   [(δ add1 (n E O) Γ o) {((,(add1 (term n)) [] []) Γ ∅)}]
   [(δ add1 ((• p? ...) E O) Γ o)
-   ,(match (term (Γ⊢? nat? (p? ...) Γ o))
-      ['Proved (term {(((• nat?) [] []) Γ ∅)})]
+   ,(match (term (Γ⊢? int? (p? ...) Γ o))
+      ['Proved (term {(((• int?) [] []) Γ ∅)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• nat?) [] []) (Γ:: nat? o Γ) ∅)
+      ['Neither (term {(((• int?) [] []) (Γ:: int? o Γ) ∅)
                        ERROR})])]
   [(δ add1 V Γ o) {ERROR}]
+  
+  ; sub1
+  [(δ sub1 (n E O) Γ o) {((,(sub1 (term n)) [] []) Γ ∅)}]
+  [(δ sub1 ((• p? ...) E O) Γ o)
+   ,(match (term (Γ⊢? int? (p? ...) Γ o))
+      ['Proved (term {(((• int?) [] []) Γ ∅)})]
+      ['Refuted (term {ERROR})]
+      ['Neither (term {(((• int?) [] []) (Γ:: int? o Γ) ∅)
+                       ERROR})])]
+  [(δ sub1 V Γ o) {ERROR}]
   
   ; str-len
   [(δ str-len (s E O) Γ o) {((,(string-length (term s)) [] []) Γ o)}]
   [(δ str-len ((• p? ...) E O) Γ o)
    ,(match (term (Γ⊢? str? (p? ...) Γ o))
-      ['Proved (term {(((• nat?) [] []) Γ o)})]
+      ['Proved (term {(((• int?) [] []) Γ o)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• nat?) [] []) (Γ:: str? o Γ) ∅)
+      ['Neither (term {(((• int?) [] []) (Γ:: str? o Γ) ∅)
                        ERROR})])]
   [(δ str-len V Γ o) {ERROR}]
   
@@ -194,14 +228,40 @@
   [(δ + (m [] []) (n [] []) Γ o_1 o_2)
    {((,(+ (term m) (term n)) [] []) Γ ∅)}]
   [(δ + ((• p? ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
-   (δ + ((• p? ...) [] []) ((• nat?) [] []) Γ o_1 o_2)]
+   (δ + ((• p? ...) [] []) ((• int?) [] []) Γ o_1 o_2)]
   [(δ + (m E_1 O_1) ((• p? ...) E_2 O_2) Γ o_1 o_2)
-   (δ + ((• nat?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
+   (δ + ((• int?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
   [(δ + ((• p?_1 ...) E_1 O_1) ((• p?_2 ...) E_2 O_2) Γ o_1 o_2)
-   ,(match (term ((Γ⊢? nat? (p?_1 ...) Γ o_1) (Γ⊢? nat? (p?_2 ...) Γ o_2)))
-      [`(Proved Proved) (term {(((• nat?) [] []) Γ ∅)})]
+   ,(match (term ((Γ⊢? int? (p?_1 ...) Γ o_1) (Γ⊢? int? (p?_2 ...) Γ o_2)))
+      [`(Proved Proved) (term {(((• int?) [] []) Γ ∅)})]
       [(or `(Refuted ,_) `(,_ Refuted)) (term {ERROR})]
-      [_ (term {(((• nat?) [] []) Γ ∅) ERROR})])]
+      [_ (term {(((• int?) [] []) Γ ∅) ERROR})])]
+  
+  ; -
+  [(δ - (m [] []) (n [] []) Γ o_1 o_2)
+   {((,(- (term m) (term n)) [] []) Γ ∅)}]
+  [(δ - ((• p? ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
+   (δ - ((• p? ...) [] []) ((• int?) [] []) Γ o_1 o_2)]
+  [(δ - (m E_1 O_1) ((• p? ...) E_2 O_2) Γ o_1 o_2)
+   (δ - ((• int?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
+  [(δ - ((• p?_1 ...) E_1 O_1) ((• p?_2 ...) E_2 O_2) Γ o_1 o_2)
+   ,(match (term ((Γ⊢? int? (p?_1 ...) Γ o_1) (Γ⊢? int? (p?_2 ...) Γ o_2)))
+      [`(Proved Proved) (term {(((• int?) [] []) Γ ∅)})]
+      [(or `(Refuted ,_) `(,_ Refuted)) (term {ERROR})]
+      [_ (term {(((• int?) [] []) Γ ∅) ERROR})])]
+  
+  ; *
+  [(δ * (m [] []) (n [] []) Γ o_1 o_2)
+   {((,(* (term m) (term n)) [] []) Γ ∅)}]
+  [(δ * ((• p? ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
+   (δ * ((• p? ...) [] []) ((• int?) [] []) Γ o_1 o_2)]
+  [(δ * (m E_1 O_1) ((• p? ...) E_2 O_2) Γ o_1 o_2)
+   (δ * ((• int?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
+  [(δ * ((• p?_1 ...) E_1 O_1) ((• p?_2 ...) E_2 O_2) Γ o_1 o_2)
+   ,(match (term ((Γ⊢? int? (p?_1 ...) Γ o_1) (Γ⊢? int? (p?_2 ...) Γ o_2)))
+      [`(Proved Proved) (term {(((• int?) [] []) Γ ∅)})]
+      [(or `(Refuted ,_) `(,_ Refuted)) (term {ERROR})]
+      [_ (term {(((• int?) [] []) Γ ∅) ERROR})])]
   
   ; cons
   [(δ cons V_1 V_2 Γ o_1 o_2) {((V_1 V_2) Γ ∅ #|TODO could <o,o> be useful?|#)}]
@@ -240,7 +300,7 @@
                        (member (term p?_1) S)
                        (member (term p?_2) S) #t))
            `((true? false?)
-             (nat? str? bool? proc? cons?)))])
+             (int? str? bool? proc? cons?)))])
 
 ;; checks whether first predicates implies second
 (define-metafunction oc
@@ -253,7 +313,8 @@
 ;; checks predicates on concrete values
 (define-metafunction oc
   concrete-check : p? V -> b
-  [(concrete-check nat? (n E O)) #t]
+  [(concrete-check int? (n E O)) #t]
+  [(concrete-check zero? (0 E O)) #t]
   [(concrete-check str? (s E O)) #t]
   [(concrete-check false? (#f E O)) #t]
   [(concrete-check false? V) #f]
@@ -312,7 +373,7 @@
   [(desug (f e)) ((desug f) (desug e))]
   [(desug (f e_1 e_2 ...)) (desug ((f e_1) e_2 ...))]
   [(desug (if e ...)) (if (desug e) ...)]
-  [(desug (cons e ...)) (cons (desug e) ...)]
+  [(desug (μ (x) e)) (μ (x) (desug e))]
   [(desug (op e ...)) (op (desug e) ...)]
   [(desug (and e)) (desug e)]
   [(desug (and e_1 e_2 ...)) (if (desug e_1) (desug (and e_2 ...)) #f)]
@@ -378,20 +439,20 @@
 ;;;;; TESTS
 
 (define f2 (term (λ (x #|Number ∪ String|#)
-                   (if (nat? x) (add1 x) (str-len x)))))
-(define strnum? (term (λ (x) (or (str? x) (nat? x)))))
+                   (if (int? x) (add1 x) (str-len x)))))
+(define strnum? (term (λ (x) (or (str? x) (int? x)))))
 (define f11 (term (λ (p #|<⊤,⊤>|#) 
-                    (if (and (nat? (car p)) (nat? (cdr p)))
+                    (if (and (int? (car p)) (int? (cdr p)))
                         13
                         42))))
 (define carnum? (term (λ (x) ; assume x is a pair
-                        (nat? (car x)))))
+                        (int? (car x)))))
 (define f14 (term (λ (input #|Number ∪ String|#
                       extra #|<⊤,⊤>|#)
                     (cond
-                      [(and (nat? input) (nat? (car extra)))
+                      [(and (int? input) (int? (car extra)))
                        (+ input (car extra))]
-                      [(nat? (car extra))
+                      [(int? (car extra))
                        (+ (str-len input) (car extra))]
                       [else 0]))))
 
@@ -407,53 +468,53 @@
  (term
   (; example 1
    [(let [x •]
-      (if (nat? x) (add1 x) 0))
-    → {0 (• nat?)}]
+      (if (int? x) (add1 x) 0))
+    → {0 (• int?)}]
    
    ; example 2
-   [(,f2 (• nat?))
-    → {(• nat?)}]
+   [(,f2 (• int?))
+    → {(• int?)}]
    
    [(,f2 (• str?))
-    → {(• nat?)}]
+    → {(• int?)}]
    
    ; example 3: language not enough, yet
    
    ; example 4
    [(let [z •]
-      (if (or (nat? z) (str? z)) (,f2 z) 0))
-    → {0 (• nat?)}]
+      (if (or (int? z) (str? z)) (,f2 z) 0))
+    → {0 (• int?)}]
    
    
    ; example 5
    [(let ([z •]
           [y •])
-      (if (and (nat? z) (str? y))
+      (if (and (int? z) (str? y))
           (+ z (str-len y))
           0))
-    → {0 (• nat?)}]
+    → {0 (• int?)}]
    
    ; example 6 (unsafe)
    {(let ([z •]
           [y •])
-      (if (and (nat? z) (str? y))
+      (if (and (int? z) (str? y))
           (add1 (str-len y))
           (str-len z)))
-    → {(• nat?) ERROR}}
+    → {(• int?) ERROR}}
    
    ; example 7
    [(let ([z •]
           [y •])
-      (if (if (nat? z) (str? y) #f)
+      (if (if (int? z) (str? y) #f)
           (+ z (str-len y))
           0))
-    → {0 (• nat?)}]
+    → {0 (• int?)}]
    
    ; example 8
    [(,strnum? •)
     → {#t #f}]
    
-   [(,strnum? (• nat?))
+   [(,strnum? (• int?))
     → {#t}]
    
    [(,strnum? (• str?))
@@ -461,18 +522,18 @@
    
    ; example 9
    [(let [z •]
-      (if (let [tmp (nat? z)]
+      (if (let [tmp (int? z)]
             (if tmp tmp (str? z)))
           (,f2 z)
           0))
-    → {0 (• nat?)}]
+    → {0 (• int?)}]
    
    ; example 10
    [(let [p (cons • •)]
-      (if (nat? (car p))
+      (if (int? (car p))
           (add1 (car p))
           7))
-    → {7 (• nat?)}]
+    → {7 (• int?)}]
    
    ; example 11
    [(,f11 (cons • •))
@@ -482,39 +543,39 @@
    [(,carnum? (cons • •))
     → {#t #f}]
    
-   [(,carnum? (cons (• nat?) •))
+   [(,carnum? (cons (• int?) •))
     → {#t}]
    
    ; example 13
    [(let ([z •]
           [y •])
       (cond
-        [(and (nat? z) (str? y)) 1]
-        [(nat? z) 2]
+        [(and (int? z) (str? y)) 1]
+        [(int? z) 2]
         [else 3]))
     → {1 2 3}]
    
    ; example 14 PUTTING IT ALL TOGETHER
-   [(,f14 (• nat?) (cons • •))
-    → {0 (• nat?)}]
+   [(,f14 (• int?) (cons • •))
+    → {0 (• int?)}]
    
    [(,f14 (• str?) (cons • •))
-    → {0 (• nat?)}]
+    → {0 (• int?)}]
    
    ; information is represented in terms of farthest possible variable so it can
    ; be retained
    [(let (l (cons • •))
       (begin
         (let (x (car l))
-          (if (nat? x) "ignore" (add1 "raise error")))
+          (if (int? x) "ignore" (add1 "raise error")))
         ; if reach here, (car l) has to be nat
-        (nat? (car l))))
+        (int? (car l))))
     → {#t ERROR}]
    
    ; example that illustrates previous problem when having 2 different variables
    ; of the same name
    [(let (x •)
-      (if (nat? x)
+      (if (int? x)
           (let (x •)
             (if (str? x)
                 "x is a string" ; would be wrongly eliminated by previous bug
@@ -526,9 +587,9 @@
    ; when inner variable refers to outer one with the same name (and inner one
    ; gets updated while we could do so with outer one)
    [(let (x •)
-      (if (nat? x)
+      (if (int? x)
           (let (x x)
-            (if (nat? x) ; inner one uses outer one's info
+            (if (int? x) ; inner one uses outer one's info
                 "inner x is nat"
                 "this cannot happen"))
           "x is not nat"))
@@ -537,10 +598,10 @@
    [(let (x •)
       (begin
         (let (x x)
-          (if (nat? x)
+          (if (int? x)
               "x is nat"
               (add1 "raise error")))
-        (nat? x))) ; outer one uses info from eval-ing inner one
+        (int? x))) ; outer one uses info from eval-ing inner one
     → {#t ERROR}])))
 
 (test-results)
