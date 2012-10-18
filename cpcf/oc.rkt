@@ -24,7 +24,7 @@
   [v d
      (λ (x x ...) e)
      •
-     (• p? ...) #|value refined by predicates|#]
+     (• C ...) #|value refined by (closed) contracts|#]
   
   ; path
   [o ∅ o′]
@@ -32,8 +32,9 @@
   
   ; closed value (with the exception of μx.e)
   [V (v E O)
-     ((μ (x) e) E O)
-     (V V)]
+     ((μ (x) e) E O) ; this is not a value, but i don't know how to deal with it
+     ([(c ↦ (λ (x) c)) E O] V) ; monitored function
+     (V V) #|pair|#]
   
   ; environments
   [E ([x ↦ V] ...)]
@@ -61,7 +62,7 @@
      (c ↦ c)]
   
   ; closed contract
-  [C (c E)]
+  [C (c E O)]
   
   ; verification answer
   [Verified? Proved Refuted Neither]
@@ -93,7 +94,7 @@
   
   ; vals
   [(⇓ E O Γ d) {((d [] []) Γ ∅)}]
-  [(⇓ E O Γ (• p? ...)) {(((• p? ...) [] []) Γ ∅)}]
+  [(⇓ E O Γ (• C ...)) {(((• C ...) [] []) Γ ∅)}]
   [(⇓ E O Γ (λ (x) e)) {(((λ (x) e) E O) Γ ∅)}]
   
   ; var
@@ -113,7 +114,7 @@
        [`((λ (,x) ,e′) ,Eλ ,Oλ)
         (non-det:
          [V Γ2 o2 ← (term (⇓ E O ,Γ1 e))]
-         [if (equal? x o2) ; void precision loss for (let (x x) ...) cases
+         [if (equal? x o2) ; avoid precision loss for (let (x x) ...) cases
              (term (⇓ (:: [,x ↦ ,V] ,Eλ)
                       (:: [,x ↦ ,x] ,Oλ)
                       ,Γ2
@@ -124,8 +125,11 @@
                                    (Γ-push-var ,x ,Γ2)
                                    ,e′))]
               [return: (term (,V3 (Γ-pop-var ,x ,Γ3) ,o3))])])]
+       ; TODO mon-fun
+       [`(((,c1 ↦ (λ (,x) ,c2)) ,Ec ,Oc) ,Vf)
+        (error "TODO")]
        [`((• ,p? ...) ,Eλ ,Oλ)
-        (match (term (Γ⊢? proc? ,p? ,Γ1 oλ))
+        (match (term (⊢? proc? ,p? ,Γ1 oλ))
           ['Refuted (return: (term ERROR))]
           [(or 'Proved 'Neither) (return: (term (((•) [] []) ,Γ1 ∅))
                                           (term ERROR))])]])]
@@ -149,14 +153,72 @@
      [return: (term (,V1 (Γ-pop-var x ,Γ1) ,o1))])]
   
   ; mon
-  ;  [(⇓ E O Γ (mon c e))
-  ;   ,(match-non-det:
-  ;     (term (⇓ E O Γ e))
-  ;     ['ERROR (term {ERROR})]
-  ;     [`(,V1 ,Γ1 ,o1)
-  ;      (match-non-det:
-  ;       (FC c)
-  ;       [`(,pred) (
+  [(⇓ E O Γ (mon c e))
+   ,(non-det:
+     [V1 Γ1 o1 ← (term (⇓ E O Γ e))]
+     (match (term (V⊢? ,V1 (c E O)))
+       ['Proved (return: (term (,V1 ,Γ1 ,o1)))]
+       ['Refuted (return: (term ERROR))]
+       ['Neither 
+        (match (term (FC c))
+          [`(,pred) (non-det:
+                     [`((λ (,x) ,e′) ,Eλ ,Oλ) Γ2 o2 ← (term (⇓ E O ,Γ1 ,pred))]
+                     [V? Γ3 o3 ← (term (⇓ (:: [,x ↦ ,V1] ,Eλ)
+                                          (:: [,x ↦ (default-o ,x ,o1)] ,Oλ)
+                                          ,(if (equal? x o1)
+                                               Γ2
+                                               (term (Γ-push-var ,x ,Γ2)))
+                                          ,e′))]
+                     [`(,t? ,_E ,_O) _Γ _o ← (term (δ true? ,V? ,Γ3 ,o3))]
+                     [if t?
+                         (s-map
+                          (λ (V2)
+                            (term (,V2
+                                   ,(if (equal? x o1)
+                                        Γ3
+                                        (term (Γ-pop-var ,x ,Γ3)))
+                                   ,o1)))
+                          (term (refine-V ,V1 (c E O))))
+                         (return: (term ERROR))])]
+          [#f (error "TODO")
+              #;(match (term c)
+                  [`(,c1 ↦ (λ (,x) ,c2))  #|create monitored function|#
+                   (non-det:
+                    [`(,t? _E _O) _Γ _o ← (term (δ proc? ,V1 ,Γ1 ,o1))]
+                    (return: (if t? (term ((c E O) ,Γ1 ,o1)) (term ERROR))))]
+                  [`(or/c ,c1 ,c2)
+                   (match (term (FC ,c1))
+                     [`(,p1) ; unroll it here cos grammar is not enough to express
+                      (non-det:
+                       [`((λ (,x) ,e′) ,Et ,Ot) Γt ot ← (term (⇓ E O ,Γ1 ,p1))]
+                       [V? Γ? o? ← (term (⇓ (:: [,x ↦ ,V1] ,Et)
+                                            (:: [,x ↦ (default-o ,x ,o1)] ,Ot)
+                                            ,(if (equal? x o1)
+                                                 Γt
+                                                 (term (Γ-push-var ,x ,Γt)))
+                                            ,e′))]
+                       [`(,t? ,_E ,_O) _Γ _o ← (term (δ true? ,V? ,Γ? ,o?))]
+                       [let ([Γ3 (if (equal? x o1) Γ? (term (Γ-pop-var ,x ,Γ?)))])
+                         [if t?
+                             (s-map
+                              (λ (V2) (term (,V2 ,Γ3 ,o1)))
+                              (term (refine-V ,V1 (,c1 E O))))
+                             (term (⇓ E O ,Γ3 (mon ,c2 ,V1)))]])]
+                     [#f (return: (term ERROR)) #|first disjunct has to be 1st order|#])]
+                  [`(and/c ,c1 ,c2) (term (⇓ E O (mon ,c2 (mon ,c1 e))))] ; FIXME: repeated computation!
+                  [`(cons/c ,c1 ,c2)
+                   (non-det:
+                    [`(,t? _E _O) _Γ _o ← (term (δ cons? ,V1 ,Γ1 ,o1))]
+                    (if t? ; FIXME: repeated computation!
+                        (term (⇓ E O ,Γ1 (cons (mon ,c1 e) (mon ,c2 e))))
+                        (term {ERROR})))]
+                  [`(μ (,x) ,c) (error "TODO")]
+                  [`(,x) (error "TODO")]
+                  [`(,c1 ↦ ,c2) (let ([z (variable-not-in (term (c1 c2)) 'x)])
+                                  (non-det:
+                                   [`(,t? _E _O) _Γ _o ← (term (δ proc? ,V1 ,Γ1 ,o1))]
+                                   (return: (if t? (term (((,c1 ↦ (λ (,z) ,c2)) E O) ,Γ1 ,o1)) (term ERROR)))))])])]))]
+  
   
   ; δ
   [(⇓ E O Γ (op1 e))
@@ -193,31 +255,31 @@
   
   ; add1
   [(δ add1 (n E O) Γ o) {((,(add1 (term n)) [] []) Γ ∅)}]
-  [(δ add1 ((• p? ...) E O) Γ o)
-   ,(match (term (Γ⊢? int? (p? ...) Γ o))
-      ['Proved (term {(((• int?) [] []) Γ ∅)})]
+  [(δ add1 ((• C ...) E O) Γ o)
+   ,(match (term (⊢? int? (C ...) Γ o))
+      ['Proved (term {(((• (mk-C int?)) [] []) Γ ∅)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• int?) [] []) (Γ:: int? o Γ) ∅)
+      ['Neither (term {(((• (mk-C int?)) [] []) (Γ:: int? o Γ) ∅)
                        ERROR})])]
   [(δ add1 V Γ o) {ERROR}]
   
   ; sub1
   [(δ sub1 (n E O) Γ o) {((,(sub1 (term n)) [] []) Γ ∅)}]
-  [(δ sub1 ((• p? ...) E O) Γ o)
-   ,(match (term (Γ⊢? int? (p? ...) Γ o))
-      ['Proved (term {(((• int?) [] []) Γ ∅)})]
+  [(δ sub1 ((• C ...) E O) Γ o)
+   ,(match (term (⊢? int? (C ...) Γ o))
+      ['Proved (term {(((• (mk-C int?)) [] []) Γ ∅)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• int?) [] []) (Γ:: int? o Γ) ∅)
+      ['Neither (term {(((• (mk-C int?)) [] []) (Γ:: int? o Γ) ∅)
                        ERROR})])]
   [(δ sub1 V Γ o) {ERROR}]
   
   ; str-len
   [(δ str-len (s E O) Γ o) {((,(string-length (term s)) [] []) Γ o)}]
-  [(δ str-len ((• p? ...) E O) Γ o)
-   ,(match (term (Γ⊢? str? (p? ...) Γ o))
-      ['Proved (term {(((• int?) [] []) Γ o)})]
+  [(δ str-len ((• C ...) E O) Γ o)
+   ,(match (term (⊢? str? (C ...) Γ o))
+      ['Proved (term {(((• (mk-C int?)) [] []) Γ ∅)})]
       ['Refuted (term {ERROR})]
-      ['Neither (term {(((• int?) [] []) (Γ:: str? o Γ) ∅)
+      ['Neither (term {(((• (mk-C int?)) [] []) (Γ:: str? o Γ) ∅)
                        ERROR})])]
   [(δ str-len V Γ o) {ERROR}]
   
@@ -238,48 +300,48 @@
   ; +
   [(δ + (m [] []) (n [] []) Γ o_1 o_2)
    {((,(+ (term m) (term n)) [] []) Γ ∅)}]
-  [(δ + ((• p? ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
-   (δ + ((• p? ...) [] []) ((• int?) [] []) Γ o_1 o_2)]
-  [(δ + (m E_1 O_1) ((• p? ...) E_2 O_2) Γ o_1 o_2)
-   (δ + ((• int?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
-  [(δ + ((• p?_1 ...) E_1 O_1) ((• p?_2 ...) E_2 O_2) Γ o_1 o_2)
-   ,(match (term ((Γ⊢? int? (p?_1 ...) Γ o_1) (Γ⊢? int? (p?_2 ...) Γ o_2)))
-      [`(Proved Proved) (term {(((• int?) [] []) Γ ∅)})]
+  [(δ + ((• C ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
+   (δ + ((• C ...) [] []) ((• (mk-C int?)) [] []) Γ o_1 o_2)]
+  [(δ + (m E_1 O_1) ((• C ...) E_2 O_2) Γ o_1 o_2)
+   (δ + ((• (mk-C int?)) [] []) ((• C ...) [] []) Γ o_1 o_2)]
+  [(δ + ((• C_1 ...) E_1 O_1) ((• C_2 ...) E_2 O_2) Γ o_1 o_2)
+   ,(match (term ((⊢? int? (C_1 ...) Γ o_1) (⊢? int? (C_2 ...) Γ o_2)))
+      [`(Proved Proved) (term {(((• (mk-C int?)) [] []) Γ ∅)})]
       [(or `(Refuted ,_) `(,_ Refuted)) (term {ERROR})]
-      [_ (term {(((• int?) [] []) Γ ∅) ERROR})])]
+      [_ (term {(((• (mk-C int?)) [] []) Γ ∅) ERROR})])]
   
   ; -
   [(δ - (m [] []) (n [] []) Γ o_1 o_2)
    {((,(- (term m) (term n)) [] []) Γ ∅)}]
-  [(δ - ((• p? ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
-   (δ - ((• p? ...) [] []) ((• int?) [] []) Γ o_1 o_2)]
-  [(δ - (m E_1 O_1) ((• p? ...) E_2 O_2) Γ o_1 o_2)
-   (δ - ((• int?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
-  [(δ - ((• p?_1 ...) E_1 O_1) ((• p?_2 ...) E_2 O_2) Γ o_1 o_2)
-   ,(match (term ((Γ⊢? int? (p?_1 ...) Γ o_1) (Γ⊢? int? (p?_2 ...) Γ o_2)))
-      [`(Proved Proved) (term {(((• int?) [] []) Γ ∅)})]
+  [(δ - ((• C ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
+   (δ - ((• C ...) [] []) ((• (mk-C int?)) [] []) Γ o_1 o_2)]
+  [(δ - (m E_1 O_1) ((• C ...) E_2 O_2) Γ o_1 o_2)
+   (δ - ((• (mk-C int?)) [] []) ((• C ...) [] []) Γ o_1 o_2)]
+  [(δ - ((• C_1 ...) E_1 O_1) ((• C_2 ...) E_2 O_2) Γ o_1 o_2)
+   ,(match (term ((⊢? int? (C_1 ...) Γ o_1) (⊢? int? (C_2 ...) Γ o_2)))
+      [`(Proved Proved) (term {(((• (mk-C int?)) [] []) Γ ∅)})]
       [(or `(Refuted ,_) `(,_ Refuted)) (term {ERROR})]
-      [_ (term {(((• int?) [] []) Γ ∅) ERROR})])]
+      [_ (term {(((• (mk-C int?)) [] []) Γ ∅) ERROR})])]
   
   ; *
   [(δ * (m [] []) (n [] []) Γ o_1 o_2)
    {((,(* (term m) (term n)) [] []) Γ ∅)}]
-  [(δ * ((• p? ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
-   (δ * ((• p? ...) [] []) ((• int?) [] []) Γ o_1 o_2)]
-  [(δ * (m E_1 O_1) ((• p? ...) E_2 O_2) Γ o_1 o_2)
-   (δ * ((• int?) [] []) ((• p? ...) [] []) Γ o_1 o_2)]
-  [(δ * ((• p?_1 ...) E_1 O_1) ((• p?_2 ...) E_2 O_2) Γ o_1 o_2)
-   ,(match (term ((Γ⊢? int? (p?_1 ...) Γ o_1) (Γ⊢? int? (p?_2 ...) Γ o_2)))
-      [`(Proved Proved) (term {(((• int?) [] []) Γ ∅)})]
+  [(δ * ((• C ...) E_1 O_1) (n E_2 O_2) Γ o_1 o_2)
+   (δ * ((• C ...) [] []) ((• (mk-C int?)) [] []) Γ o_1 o_2)]
+  [(δ * (m E_1 O_1) ((• C ...) E_2 O_2) Γ o_1 o_2)
+   (δ * ((• (mk-C int?)) [] []) ((• C ...) [] []) Γ o_1 o_2)]
+  [(δ * ((• C_1 ...) E_1 O_1) ((• C_2 ...) E_2 O_2) Γ o_1 o_2)
+   ,(match (term ((⊢? int? (C_1 ...) Γ o_1) (⊢? int? (C_2 ...) Γ o_2)))
+      [`(Proved Proved) (term {(((• (mk-C int?)) [] []) Γ ∅)})]
       [(or `(Refuted ,_) `(,_ Refuted)) (term {ERROR})]
-      [_ (term {(((• int?) [] []) Γ ∅) ERROR})])]
+      [_ (term {(((• (mk-C int?)) [] []) Γ ∅) ERROR})])]
   
   ; cons
   [(δ cons V_1 V_2 Γ o_1 o_2) {((V_1 V_2) Γ ∅ #|TODO could <o,o> be useful?|#)}]
   
   ; predicates
-  [(δ p? ((• p?_1 ...) E O) Γ o)
-   ,(match (term (Γ⊢? p? (p?_1 ...) Γ o))
+  [(δ p? ((• C_1 ...) E O) Γ o)
+   ,(match (term (⊢? p? (C_1 ...) Γ o))
       ['Proved (term {((#t [] []) (Γ:: p? o Γ) ∅)})]
       ['Refuted (term {((#f [] []) (Γ:: (¬ p?) o Γ) ∅)})]
       ['Neither (term {((#t [] []) (Γ:: p? o Γ) ∅)
@@ -293,17 +355,66 @@
 
 ;; uses existing information to check whether the predicate holds for given value
 (define-metafunction oc
-  Γ⊢? : p? (p? ...) Γ o -> Verified?
-  [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Proved
-                                           (where #t (implies? p?_1 p?))]
-  [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Proved
-                                                                                  (where #t (implies? p?_1 p?))]
-  [(Γ⊢? p? (any_1 ... p?_1 any_2 ...) Γ o) Refuted
-                                           (where #t (excludes? p? p?_1))]
-  [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′) Refuted
-                                                                                  (where #t (excludes? p? p?_1))]
-  [(Γ⊢? p? any (any_1 ... [o′ ↦ (any_3 ... (¬ p?) any_4 ...) ψs ...] any_2 ...) o′) Refuted]
-  [(Γ⊢? p? any Γ o) Neither])
+  ⊢? : p? (C ...) Γ o -> Verified?
+  ; Γ is easier/cheaper, so use it first
+  [(⊢? p? (C ...) Γ o) ,(match (term (Γ⊢? p? Γ o))
+                          ['Proved (term Proved)]
+                          ['Refuted (term Refuted)]
+                          ['Neither (term (C⊢? p? (C ...)))])])
+
+;; checks whether proposition set can prove predicate
+(define-metafunction oc
+  Γ⊢? : p? Γ o -> Verified?
+  [(Γ⊢? p? (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′)
+   Proved
+   (where #t (implies? p?_1 p?))]
+  [(Γ⊢? p? (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′)
+   Refuted
+   (where #t (excludes? p? p?_1))]
+  [(Γ⊢? p? (any_1 ... [o′ ↦ (any_3 ... (¬ p?_1) any_4 ...) ψs ...] any_2 ...) o′)
+   Refuted
+   (where #t (implies? p? p?_1))]
+  [(Γ⊢? any_p? any_Γ any_o) Neither])
+
+;; checks whether contract set can prove predicate
+(define-metafunction oc
+  C⊢? : p? (C ...) -> Verified?
+  [(C⊢? p? (any_1 ... ((flat (λ (x) (p?_1 x))) E O) any_2 ...))
+   Proved
+   (where #t (implies? p?_1 p?))]
+  [(C⊢? p? (any_1 ... ((flat (λ (x) (p?_1 x))) E O) any_2 ...))
+   Refuted
+   (where #t (excludes? p? p?_1))]
+  [(C⊢? p? (C ...)) Neither])
+
+;; checks whether value satisfies contract
+(define-metafunction oc
+  V⊢? : V C -> Verified?
+  [(V⊢? ((• any_1 ... C_1 any_2 ...) E_1 O_1) C_2)
+   Proved
+   (where #t (C-implies? C_1 C_2))]
+  [(V⊢? ((• any_1 ... C_1 any_2 ...) E_1 O_1) C_2)
+   Refuted
+   (where #t (C-excludes? C_1 C_2))]
+  [(V⊢? V C) Neither])
+
+;; checks whether first contract is *sure* to imply second one
+;; may return false negative
+(define-metafunction oc
+  C-implies? : C C -> b
+  [(C-implies? ((flat (λ (x) (p?_1 x))) E_1 O_1)
+               ((flat (λ (z) (p?_2 z))) E_2 O_2))
+   (implies? p?_1 p?_2)]
+  [(C-implies? C_1 C_2) #f])
+
+;; checks whether first contract is *sure* to exclude second one
+;; may return false negative
+(define-metafunction oc
+  C-excludes? : C C -> b
+  [(C-excludes? ((flat (λ (x) (p?_1 x))) E_1 O_1)
+                ((flat (λ (z) (p?_2 z))) E_2 O_2))
+   (excludes? p?_1 p?_2)]
+  [(C-excludes? C_1 C_2) #f])
 
 ;; flattens flat contract into expression, or #f for higher-order contracts
 (define-metafunction oc
@@ -370,7 +481,7 @@
   split-cons : V Γ o -> {(V ...) ...} ; (V ...) being (V V) or ()
   [(split-cons (V_1 V_2) Γ o) {(V_1 V_2)}]
   [(split-cons ((• p? ...) E O) Γ o)
-   ,(match (term (Γ⊢? cons? (p? ...) Γ o))
+   ,(match (term (⊢? cons? (p? ...) Γ o))
       ['Proved (term {(((•) [] []) ((•) [] []))})]
       ['Refuted (term {()})]
       ['Neither (term {(((•) [] []) ((•) [] []))
@@ -411,7 +522,10 @@
   simplify : A -> any
   [(simplify ((V_1 V_2) Γ o)) (cons (simplify (V_1 [] ∅)) (simplify (V_2 [] ∅)))]
   [(simplify ((d E O) Γ o)) d]
-  [(simplify (((• p? ...) E O) Γ o)) (• p? ...)]
+  [(simplify (((• C ...) E O) Γ o))
+   ,(match (term (all-preds (C ...) Γ o))
+      ['() (term •)]
+      [ps (term (• ,@ ps))])]
   [(simplify (((λ (x ...) e) E O) Γ o)) function]
   [(simplify ERROR) ERROR])
 
@@ -437,9 +551,83 @@
    (any_1 ... (o ↦ (ψ ψ_1 ...) ψs ...) any_2 ...)]
   [(Γ:: ψ o (any ...)) ((o ↦ (ψ)) any ...)])
 
+;; makes closed contract out of primitive predicate
+(define-metafunction oc
+  mk-C : p? -> C
+  [(mk-C p?) ((flat (λ (x) (p? x))) [] [])])
+
+(define-metafunction oc
+  c-η-sim : any -> any
+  [(c-η-sim (λ (x) (any x))) (c-η-sim any)]
+  [(c-η-sim (flat any)) (c-η-sim any)]
+  [(c-η-sim any) any])
+
+;; refines set of contracts
+(define-metafunction oc
+  refine : {C ...} C -> {{C ...} ...}
+  
+  ; special cases where there's something we can do
+  [(refine {any_1 ... C_1 any_2 ...} C_2)
+   {any_1 ... C_1 any_2 ...}
+   (where #t (C-implies? C_1 C_2))]
+  [(refine {any_1 ... C_1 any_2 ...} C_2)
+   {any_1 ... C_2 any_2 ...}
+   (where #t (C-implies? C_2 C_1))]
+  [(refine {any_1 ... C_1 any_2 ...} C_2)
+   {}
+   (where #t (C-excludes? C_1 C_2))]
+  
+  ; generic ones...
+  [(refine {C ...} ((or/c c_1 c_2) E O))
+   ,(∪ (term (refine {C ...} (c_1 E O)))
+       (term (refine {C ...} (c_2 E O))))]
+  [(refine {C ...} ((and/c c_1 c_2) E O))
+   ,(s-map
+     (λ (Cs)
+       (term (refine ,Cs (c_2 E O))))
+     (term (refine {C ...} (c_2 E O))))]
+  [(refine {C ...} ((μ (x) c) E O))
+   (refine {C ...} (c (:: [x ↦ ((μ (x) c) E O)] E)
+                      (:: [x ↦ x] O)))]
+  [(refine {C ...} C_1) {{C_1 C ...}}])
+
+;; refines value
+(define-metafunction oc
+  refine-V : V C -> {V ...}
+  [(refine-V ((• C_1 ...) E O) C)
+   ,(s-map
+     (λ (Cs)
+       (term ((• ,@ Cs) [] [])))
+     (term (refine (C_1 ...) C)))]
+  [(refine-V V C) {V}])
+
+;; returns all possible predicates for displaying
+(define-metafunction oc
+  all-preds : (C ...) Γ o -> (ψ ...)
+  [(all-preds (C ...) Γ o) ,(∪ (term (C-all-preds C ...))
+                               (term (Γ-all-preds Γ o)))])
+(define-metafunction oc
+  C-all-preds : C ... -> (p? ...)
+  [(C-all-preds (c E O) ...) ((c-η-sim c) ...)])
+(define-metafunction oc
+  Γ-all-preds : Γ o -> (p? ...)
+  [(Γ-all-preds (any_1 ... [o′ ↦ ψs ψs_1 ...] any_2 ...) o′)
+   (p? ...)
+   (where (p? ...) (remove-negs ψs))]
+  [(Γ-all-preds any any_1) {}])
+(define-metafunction oc
+  remove-negs : ψs -> (p? ...)
+  [(remove-negs {}) {}]
+  [(remove-negs (p? ψ ...)) ,(cons (term p?) (term (remove-negs (ψ ...))))]
+  [(remove-negs ((¬ p?) ψ ...)) (remove-negs (ψ ...))])
+
 ;; remdup : [Listof X] -> [Listof X]
 ;; remove duplicates
 (define remdup (compose set->list list->set))
+
+;; ∪ : [Listof Any] [Listof Any] -> [Listof Any]
+(define (∪ xs ys)
+  (remdup (append xs ys)))
 
 ;; s-map : [X -> Y] [Listof X] -> [Listof Y]
 ;; like map, but remove duplicates
@@ -489,14 +677,15 @@
                        (+ (str-len input) (car extra))]
                       [else 0]))))
 
+(define c/int (term ((flat (λ (x) (int? x))) [] [])))
+(define c/str (term ((flat (λ (x) (str? x))) [] [])))
+
 ;; example 1
 (for-each
  (match-lambda
    [`(,prog → ,expected)
-    (test-predicate
-     (λ (answer)
-       (equal? (list->set answer) (list->set expected)))
-     (term (eval ,prog)))])
+    (test-equal (list->set (term (eval ,prog)))
+                (list->set expected))])
  
  (term
   (; example 1
@@ -505,10 +694,10 @@
     → {0 (• int?)}]
    
    ; example 2
-   [(,f2 (• int?))
+   [(,f2 (• ,c/int))
     → {(• int?)}]
    
-   [(,f2 (• str?))
+   [(,f2 (• ,c/str))
     → {(• int?)}]
    
    ; example 3: language not enough, yet
@@ -547,10 +736,10 @@
    [(,strnum? •)
     → {#t #f}]
    
-   [(,strnum? (• int?))
+   [(,strnum? (• ,c/int))
     → {#t}]
    
-   [(,strnum? (• str?))
+   [(,strnum? (• ,c/str))
     → {#t}]
    
    ; example 9
@@ -576,7 +765,7 @@
    [(,carnum? (cons • •))
     → {#t #f}]
    
-   [(,carnum? (cons (• int?) •))
+   [(,carnum? (cons (• ,c/int) •))
     → {#t}]
    
    ; example 13
@@ -589,10 +778,10 @@
     → {1 2 3}]
    
    ; example 14 PUTTING IT ALL TOGETHER
-   [(,f14 (• int?) (cons • •))
+   [(,f14 (• ,c/int) (cons • •))
     → {0 (• int?)}]
    
-   [(,f14 (• str?) (cons • •))
+   [(,f14 (• ,c/str) (cons • •))
     → {0 (• int?)}]
    
    ; information is represented in terms of farthest possible variable so it can
@@ -634,8 +823,16 @@
           (if (int? x)
               "x is nat"
               (add1 "raise error")))
-        (int? x))) ; outer one uses info from eval-ing inner one
+        (int? x))) ; outer x uses info from eval-ing inner x
     → {#t ERROR}]
+   
+   ; with contracts
+   [(mon (flat (λ (x) (int? x))) •)
+    → {ERROR (• int?)}]
+   [(mon (flat (λ (x) (int? x))) (• ,c/str))
+    → {ERROR}]
+   [(mon (flat (λ (x) (int? x))) (• ,c/int))
+    → {(• int?)}]
    
    ; check for proper list
    [(let (proper-list? (μ (check)
@@ -644,6 +841,14 @@
                                 (and (cons? l) (check (cdr l)))))))
       (proper-list? (cons • (cons • #f))))
     → {#t}]
-   )))
-
+   
+   ; 'lastpair' from Wright paper (with a safe counter to make sure it terminates)
+   [(let [lastpair (μ (lp)
+                      (λ (s n)
+                        (cond
+                          [(zero? n) "killed"]
+                          [(cons? (cdr s)) (lp (cdr s) (sub1 n))]
+                          [else s])))]
+      (lastpair (cons • •) 5))
+    → {"killed" (• cons?) (cons • •)}])))
 (test-results)
