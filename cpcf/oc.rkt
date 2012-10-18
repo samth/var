@@ -834,13 +834,15 @@
    [(mon (flat (λ (x) (int? x))) (• ,c/int))
     → {(• int?)}]
    
-   ; check for proper list
+   ; check for proper list (with safe counter to make sure it terminates)
    [(let (proper-list? (μ (check)
-                          (λ (l)
-                            (or (false? l)
-                                (and (cons? l) (check (cdr l)))))))
-      (proper-list? (cons • (cons • #f))))
-    → {#t}]
+                          (λ (l n)
+                            (cond
+                              [(zero? n) "killed"]
+                              [else (or (false? l)
+                                        (and (cons? l) (check (cdr l) (sub1 n))))]))))
+      (proper-list? • 7))
+    → {#t #f "killed"}]
    
    ; 'lastpair' from Wright paper (with a safe counter to make sure it terminates)
    [(let [lastpair (μ (lp)
