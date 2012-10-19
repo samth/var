@@ -852,5 +852,23 @@
                           [(cons? (cdr s)) (lp (cdr s) (sub1 n))]
                           [else s])))]
       (lastpair (cons • •) 5))
-    → {"killed" (• cons?) (cons • •)}])))
+    → {"killed" (• cons?) (cons • •)}]
+   
+   ; example where precision is lost: By the time 1 is evaluated, Γ will have
+   ; been forced to discard what it learned about x. Later we don't know that
+   ; x is int
+   [(int? ((let [x •]
+             (if (int? x)
+                 (λ (y) x)
+                 (λ (y) 1)))
+           •))
+    → {#t}]
+   ; this works fine though
+   [(let [x •]
+      (int? ((if (int? x)
+                 (λ (y) x)
+                 (λ (y) 1))
+             •)))
+    → {#t}]
+   )))
 (test-results)
