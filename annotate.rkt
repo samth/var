@@ -262,7 +262,9 @@ Pass 3: Annotate expressions/predicates
   [(ann-con OP LAB MODENV (X ...))
    (pred OP LAB)]
   [(ann-con RSV LAB MODENV (X ...))
-   (ann-con (pred RSV) LAB MODENV (X ...))]
+   (ann-con (pred RSV) LAB MODENV (X ...))
+   (side-condition (not (redex-match λc-raw X (term RSV))))
+   (side-condition (printf "adding RSV pred: ~a\n" (term RSV)))]
   [(ann-con (listof RCON) LAB MODENV (X ...))
    ,(let ((x (variable-not-in (term (RCON MODENV X ...)) 'LST)))
       (term (ann-con (rec/c ,x (or/c empty? (cons/c RCON ,x))) LAB MODENV (X ...))))]
@@ -280,6 +282,7 @@ Pass 3: Annotate expressions/predicates
   [(ann-con X LAB MODENV (X_1 ...))
    (ann-con (pred X) LAB MODENV (X_1 ...))
    (where ((any_f (X_s ...)) ...) MODENV)
+   #;(side-condition (printf ">>> adding pred around ~a\n" (term X)))
    (where (any ... X any_1 ...) (X_s ... ... X_1 ...))]
   [(ann-con (pred OP) LAB MODENV (X ...))
    (pred OP LAB)]    
@@ -312,8 +315,9 @@ Pass 3: Annotate expressions/predicates
    ((ann-con RCON_0 LAB MODENV (X ...)) ... 
     (ann-con RCON_1 LAB MODENV (X ...))
     ->* (ann-con RCON_2 LAB MODENV (X ...)))]  
-  [(ann-con (pred X) LAB MODENV (X_1 ...)) 
-   (pred (λ (x) "this is the fall-through case") ★)]
+  [(ann-con (pred X) LAB MODENV (X_1 ...))
+   (pred (λ (x) "this is the fall-through case") ★)
+   (side-condition (printf ">>> fall-through : ~a\n" (term X)))]
   [(ann-con RCON LAB MODENV (X ...)) RCON])
 
 
