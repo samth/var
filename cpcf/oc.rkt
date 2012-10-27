@@ -28,7 +28,7 @@
   
   ; path
   [o ∅ o′]
-  [o′ x (car o′) (cdr o′)] ; TODO: could <o,o> be useful?
+  [o′ (x n) (car o′) (cdr o′)] ; TODO: could <o′,o′> be useful?
   
   ; closed value (with the exception of μx.e)
   [V (v E O)
@@ -39,7 +39,7 @@
   ; environments
   [E ([x ↦ V] ...)]
   [O ([x ↦ o′] ...)]
-  [Γ ([o′ ↦ ψs ...] ...)]
+  [Γ ([o′ ↦ ψ ...] ...)]
   
   ; predicate
   [ψ p? (¬ p?)]
@@ -103,7 +103,7 @@
       [`((μ (,z) ,e) ,Eμ ,Oμ) ; μx.e is not yet a value
        (non-det:
         [V1 Γ1 o1 ← (term (⇓ ,Eμ ,Oμ Γ (μ (,z) ,e)))]
-        [return: (term (,V1 ,Γ1 x))])]
+        [return: (term (,V1 ,Γ1 (! x O)))])]
       [V (term {(,V Γ (! x O))})])]
   
   ; app
@@ -113,18 +113,8 @@
      [match Vλ
        [`((λ (,x) ,e′) ,Eλ ,Oλ)
         (non-det:
-         [V Γ2 o2 ← (term (⇓ E O ,Γ1 e))]
-         [if (equal? x o2) ; avoid precision loss for (let (x x) ...) cases
-             (term (⇓ (:: [,x ↦ ,V] ,Eλ)
-                      (:: [,x ↦ ,x] ,Oλ)
-                      ,Γ2
-                      ,e′))
-             (non-det:
-              [V3 Γ3 o3 ← (term (⇓ (:: [,x ↦ ,V] ,Eλ)
-                                   (:: [,x ↦ (default-o ,x ,o2)] ,Oλ)
-                                   (Γ-push-var ,x ,Γ2)
-                                   ,e′))]
-              [return: (term (,V3 (Γ-pop-var ,x ,Γ3) ,o3))])])]
+         [Vx Γ2 ox ← (term (⇓ E O ,Γ1 e))]
+         (term (⇓-app ,Γ2 ,Vλ (,Vx ,ox))))]
        ; TODO mon-fun
        [`(((,c1 ↦ (λ (,x) ,c2)) ,Ec ,Oc) ,Vf)
         (error "TODO")]
@@ -147,10 +137,10 @@
   [(⇓ E O Γ (μ (x) e))
    ,(non-det:
      [V1 Γ1 o1 ← (term (⇓ (:: [x ↦ ((μ (x) e) E O)] E)
-                          (:: [x ↦ x] O)
-                          (Γ-push-var x Γ)
+                          (:: [x ↦ (tag x E)] O)
+                          Γ
                           e))]
-     [return: (term (,V1 (Γ-pop-var x ,Γ1) ,o1))])]
+     [return: (term (,V1 (Γ-del (tag x E) ,Γ1) ,o1))])]
   
   ; mon
   [(⇓ E O Γ (mon c e))
@@ -162,62 +152,15 @@
        ['Neither 
         (match (term (FC c))
           [`(,pred) (non-det:
-                     [`((λ (,x) ,e′) ,Eλ ,Oλ) Γ2 o2 ← (term (⇓ E O ,Γ1 ,pred))]
-                     [V? Γ3 o3 ← (term (⇓ (:: [,x ↦ ,V1] ,Eλ)
-                                          (:: [,x ↦ (default-o ,x ,o1)] ,Oλ)
-                                          ,(if (equal? x o1)
-                                               Γ2
-                                               (term (Γ-push-var ,x ,Γ2)))
-                                          ,e′))]
-                     [`(,t? ,_E ,_O) _Γ _o ← (term (δ true? ,V? ,Γ3 ,o3))]
+                     [Vpred Γ2 o2 ← (term (⇓ E O ,Γ1 ,pred))]
+                     [Vt Γ3 o3 ← (term (⇓-app ,Γ2 ,Vpred (,V1 ,o1)))]
+                     [`(,t? ,_E ,_O) _Γ _o ← (term (δ true? ,Vt ,Γ3 ,o3))]
                      [if t?
                          (s-map
-                          (λ (V2)
-                            (term (,V2
-                                   ,(if (equal? x o1)
-                                        Γ3
-                                        (term (Γ-pop-var ,x ,Γ3)))
-                                   ,o1)))
+                          (λ (V) (term (,V ,Γ3 ,o1)))
                           (term (refine-V ,V1 (c E O))))
                          (return: (term ERROR))])]
-          [#f (error "TODO")
-              #;(match (term c)
-                  [`(,c1 ↦ (λ (,x) ,c2))  #|create monitored function|#
-                   (non-det:
-                    [`(,t? _E _O) _Γ _o ← (term (δ proc? ,V1 ,Γ1 ,o1))]
-                    (return: (if t? (term ((c E O) ,Γ1 ,o1)) (term ERROR))))]
-                  [`(or/c ,c1 ,c2)
-                   (match (term (FC ,c1))
-                     [`(,p1) ; unroll it here cos grammar is not enough to express
-                      (non-det:
-                       [`((λ (,x) ,e′) ,Et ,Ot) Γt ot ← (term (⇓ E O ,Γ1 ,p1))]
-                       [V? Γ? o? ← (term (⇓ (:: [,x ↦ ,V1] ,Et)
-                                            (:: [,x ↦ (default-o ,x ,o1)] ,Ot)
-                                            ,(if (equal? x o1)
-                                                 Γt
-                                                 (term (Γ-push-var ,x ,Γt)))
-                                            ,e′))]
-                       [`(,t? ,_E ,_O) _Γ _o ← (term (δ true? ,V? ,Γ? ,o?))]
-                       [let ([Γ3 (if (equal? x o1) Γ? (term (Γ-pop-var ,x ,Γ?)))])
-                         [if t?
-                             (s-map
-                              (λ (V2) (term (,V2 ,Γ3 ,o1)))
-                              (term (refine-V ,V1 (,c1 E O))))
-                             (term (⇓ E O ,Γ3 (mon ,c2 ,V1)))]])]
-                     [#f (return: (term ERROR)) #|first disjunct has to be 1st order|#])]
-                  [`(and/c ,c1 ,c2) (term (⇓ E O (mon ,c2 (mon ,c1 e))))] ; FIXME: repeated computation!
-                  [`(cons/c ,c1 ,c2)
-                   (non-det:
-                    [`(,t? _E _O) _Γ _o ← (term (δ cons? ,V1 ,Γ1 ,o1))]
-                    (if t? ; FIXME: repeated computation!
-                        (term (⇓ E O ,Γ1 (cons (mon ,c1 e) (mon ,c2 e))))
-                        (term {ERROR})))]
-                  [`(μ (,x) ,c) (error "TODO")]
-                  [`(,x) (error "TODO")]
-                  [`(,c1 ↦ ,c2) (let ([z (variable-not-in (term (c1 c2)) 'x)])
-                                  (non-det:
-                                   [`(,t? _E _O) _Γ _o ← (term (δ proc? ,V1 ,Γ1 ,o1))]
-                                   (return: (if t? (term (((,c1 ↦ (λ (,z) ,c2)) E O) ,Γ1 ,o1)) (term ERROR)))))])])]))]
+          [#f (error "TODO")])]))]
   
   
   ; δ
@@ -248,6 +191,16 @@
    (⇓ E O Γ (let [x_1 e_1] (let ([x_2 e_2] ...) e)))]
   [(⇓ E O Γ (cond [else e])) (⇓ E O Γ e)]
   [(⇓ E O Γ (cond [e_1 e_2] any ...)) (⇓ E O Γ (if e_1 e_2 (cond any ...)))])
+
+(define-metafunction oc
+  ⇓-app : Γ V (V o) -> {A ...}
+  [(⇓-app Γ [(λ (x) e′) E_λ O_λ] [V_x o_x])
+   ,(non-det:
+     [Vy Γ′ oy ← (term (⇓ (:: [x ↦ V_x] E_λ)
+                          (:: [x ↦ (default-o (tag x E_λ) o_x)] O_λ)
+                          Γ
+                          e′))]
+     [return: (term (,Vy (Γ-del (tag x E_λ) ,Γ′) ,oy))])])
 
 ;; applies primitive ops, returns result + new propositions + path object
 (define-metafunction oc
@@ -365,13 +318,13 @@
 ;; checks whether proposition set can prove predicate
 (define-metafunction oc
   Γ⊢? : p? Γ o -> Verified?
-  [(Γ⊢? p? (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′)
+  [(Γ⊢? p? (any_1 ... [o′ ↦ any_3 ... p?_1 any_4 ...] any_2 ...) o′)
    Proved
    (where #t (implies? p?_1 p?))]
-  [(Γ⊢? p? (any_1 ... [o′ ↦ (any_3 ... p?_1 any_4 ...) ψs ...] any_2 ...) o′)
+  [(Γ⊢? p? (any_1 ... [o′ ↦ any_3 ... p?_1 any_4 ...] any_2 ...) o′)
    Refuted
    (where #t (excludes? p? p?_1))]
-  [(Γ⊢? p? (any_1 ... [o′ ↦ (any_3 ... (¬ p?_1) any_4 ...) ψs ...] any_2 ...) o′)
+  [(Γ⊢? p? (any_1 ... [o′ ↦ any_3 ... (¬ p?_1) any_4 ...] any_2 ...) o′)
    Refuted
    (where #t (implies? p? p?_1))]
   [(Γ⊢? any_p? any_Γ any_o) Neither])
@@ -490,17 +443,17 @@
 
 ;; adds new binding to environment
 (define-metafunction oc
-  :: : (o ↦ any) ([o ↦ any] ...) -> ([o ↦ any] ...)
+  :: : (x ↦ any) ([x ↦ any] ...) -> ([x ↦ any] ...)
   [(:: (∅ ↦ any) any_1) any_1]
-  [(:: (o ↦ ∅) any) any]
-  [(:: (o ↦ any) (any_1 ...)) ([o ↦ any] any_1 ...)])
+  [(:: (x ↦ ∅) any) any]
+  [(:: (x ↦ any) (any_1 ...)) ([x ↦ any] any_1 ...)])
 
 ;; look up environment
 (define-metafunction oc
-  ! : o ([o ↦ any] ...) -> any
-  [(! o ([o ↦ any] any_1 ...)) any]
-  [(! o ([o_1 ↦ any_1] any_2 ...)) (! o (any_2 ...))]
-  [(! o []) ,(error "environment does not have" (term o))])
+  ! : x ([x ↦ any] ...) -> any
+  [(! x ([x ↦ any] any_1 ...)) any]
+  [(! x ([x_1 ↦ any_1] any_2 ...)) (! x (any_2 ...))]
+  [(! x []) ,(error "environment does not have" (term x))])
 
 ;; returns car/cdr of the path
 (define-metafunction oc
@@ -529,27 +482,35 @@
   [(simplify (((λ (x ...) e) E O) Γ o)) function]
   [(simplify ERROR) ERROR])
 
-;; adds new (empty) set of predicates for variable x that shadows old assumptions
+;; tag a variable with a fresh index to distinguish it from other ones with same
+;; name in given environment
 (define-metafunction oc
-  Γ-push-var : x Γ -> Γ
-  [(Γ-push-var x [any_1 ... (x ↦ ψs ...) any_2 ...])
-   (any_1 ... (x ↦ () ψs ...) any_2 ...)]
-  [(Γ-push-var x [any ...]) [(x ↦ ()) any ...]])
+  tag : x E -> (x n)
+  [(tag x E) (x (count x E))])
 
-;; invalidates the top assumptions for given variable
+;; counts the number of variables with given name in environment
 (define-metafunction oc
-  Γ-pop-var : x Γ -> Γ
-  [(Γ-pop-var x [any_1 ... (x ↦ ψs) any_2 ...]) (any_1 ... any_2 ...)] ; to make it nicer
-  [(Γ-pop-var x [any_1 ... (x ↦ ψs_1 ψs_2 ...) any_2 ...]) [any_1 ... (x ↦ ψs_2 ...) any_2 ...]]
-  [(Γ-pop-var x any) ,(error "WRONG:" (term any) (term x))])
+  count : x E -> n
+  [(count x ()) 0]
+  [(count x ([x ↦ any] any_1 ...)) ,(+ 1 (term (count x (any_1 ...))))]
+  [(count x (any any_1 ...)) (count x (any_1 ...))])
 
-;; updates Γ with new assumption
+;; restricts Γ's domain to exclude given path
+(define-metafunction oc
+  Γ-del : o′ Γ -> Γ
+  [(Γ-del o′ ()) ()]
+  [(Γ-del o′ ([o′ ↦ any] any_1 ...)) (any_1 ...)]
+  [(Γ-del o′ (any any_1 ...)) ,(cons (term any) (term (Γ-del o′ (any_1 ...))))])
+
+;; updates Γ[o]
 (define-metafunction oc
   Γ:: : ψ o Γ -> Γ
   [(Γ:: ψ ∅ Γ) Γ]
-  [(Γ:: ψ o [any_1 ... (o ↦ (ψ_1 ...) ψs ...) any_2 ...])
-   (any_1 ... (o ↦ (ψ ψ_1 ...) ψs ...) any_2 ...)]
-  [(Γ:: ψ o (any ...)) ((o ↦ (ψ)) any ...)])
+  [(Γ:: ψ o (any_1 ... (o ↦ any_3 ... ψ any_4 ...) any_2 ...))
+   (any_1 ... (o ↦ any_3 ... ψ any_4 ...) any_2 ...)]
+  [(Γ:: ψ o [any_1 ... (o ↦ ψ_1 ...) any_2 ...])
+   (any_1 ... (o ↦ ψ ψ_1 ...) any_2 ...)]
+  [(Γ:: ψ o (any ...)) ((o ↦ ψ) any ...)])
 
 ;; makes closed contract out of primitive predicate
 (define-metafunction oc
@@ -611,9 +572,9 @@
   [(C-all-preds (c E O) ...) ((c-η-sim c) ...)])
 (define-metafunction oc
   Γ-all-preds : Γ o -> (p? ...)
-  [(Γ-all-preds (any_1 ... [o′ ↦ ψs ψs_1 ...] any_2 ...) o′)
+  [(Γ-all-preds (any_1 ... [o′ ↦ ψ ...] any_2 ...) o′)
    (p? ...)
-   (where (p? ...) (remove-negs ψs))]
+   (where (p? ...) (remove-negs (ψ ...)))]
   [(Γ-all-preds any any_1) {}])
 (define-metafunction oc
   remove-negs : ψs -> (p? ...)
@@ -657,6 +618,137 @@
     [(_ e ...) (list e ...)]))
 
 
+;; judgment form
+(define-judgment-form oc
+  #:mode (b-step I I I I I I O O O)
+  #:contract (b-step E O Γ ⊢ e ↓ V Γ o)
+  
+  ; var
+  [----------------------------------
+   (b-step E O Γ ⊢ v ↓ (v E O) Γ ∅)]
+  
+  ; val
+  [----------------------------------------
+   (b-step E O Γ ⊢ x ↓ (! x E) Γ (! x O))]
+  
+  ; app
+  [(b-step E O Γ ⊢ e_1 ↓ ((λ (x) e′) E_λ O_λ) Γ_1 o_1)
+   (b-step E O Γ_1 ⊢ e_2 ↓ V_2 Γ_2 o_2)
+   (b-step (:: [x ↦ V_2] E_λ)
+           (:: [x ↦ (default-o (tag x E_λ) o_2)] O_λ)
+           Γ_1
+           ⊢ e′ ↓ V Γ_3 o_3)
+   ----------------------------------------------------
+   (b-step E O Γ ⊢ (e_1 e_2) ↓ V (Γ-del (tag x E_λ) Γ_3) o_3)]
+  
+  ; if-true
+  [(b-step E O Γ ⊢ e_1 ↓ V_1 Γ_1 o_1)
+   (where (any_1 ... ((#t E_t O_t) Γ_t o_t) any_2 ...)
+          (term (δ true? V_1 Γ_1 o_1)))
+   (b-step E O Γ_1 ⊢ e_2 ↓ V_2 Γ_2 o_2)
+   ---------------------------------------------------
+   (b-step E O Γ ⊢ (if e_1 e_2 e_3) ↓ V_2 Γ_2 o_2)]
+  
+  ; if-false
+  [(b-step E O Γ ⊢ e_1 ↓ V_1 Γ_1 o_1)
+   (where (any_1 ... ((#f E_t O_t) Γ_f o_f) any_2 ...)
+          (term (δ true? V_1 Γ_1 o_1)))
+   (b-step E O Γ_1 ⊢ e_3 ↓ V_3 Γ_3 o_3)
+   ---------------------------------------------------
+   (b-step E O Γ ⊢ (if e_1 e_2 e_3) ↓ V_3 Γ_3 o_3)]
+  
+  ; op1
+  [(b-step E O Γ ⊢ e ↓ V_1 Γ_1 o_1)
+   (where (any_1 ... (V_2 Γ_2 o_2) any_2 ...)
+          (δ op1 V_1 Γ_1 o_1))
+   --------------------------------
+   (b-step E O Γ ⊢ (op1 e) ↓ V_2 Γ_2 o_2)]
+  
+  ; op2
+  [(b-step E O Γ ⊢ e_1 ↓ V_1 Γ_1 o_1)
+   (b-step E O Γ_1 ⊢ e_2 ↓ V_2 Γ_2 o_2)
+   (where (any_1 ... (V_3 Γ_3 o_3) any_2 ...)
+          (δ op2 V_1 V_2 Γ_2 o_1 o_2))
+   ------------------------------------------
+   (b-step E O Γ ⊢ (op2 e_1 e_2) ↓ V_3 Γ_3 o_3)]
+  
+  ; check flat contract
+  [(b-step E O Γ ⊢ e ↓ V_1 Γ_1 o_1)
+   (where (e_p) (FC c))
+   (b-step E O Γ_1 ⊢ e_p ↓ ((λ (x) e′) E_λ O_λ) Γ_2 o_2)
+   (b-step (:: [x ↦ V_1] E_λ)
+           (:: [x ↦ (default-o (tag x E_λ) o_1)] O_λ)
+           Γ_2
+           ⊢ e′ ↓ V_t Γ_t o_t)
+   (where (any_1 ... ((#t E_t O_t) Γ_t′ o_t′) any_2 ...)
+          (δ true? V_t Γ_t o_t))
+   (where (any_1 ... V_1′ any_2 ...)
+          (refine-V V_1 (c E O)))
+   ------------------------------------------------------
+   (b-step E O Γ ⊢ (mon c e) ↓ V_1′ Γ_t o_1)]
+  
+  
+  ;;;;; syntactic sugar
+  
+  ; currying
+  [(b-step E O Γ ⊢ ((e_1 e_2) e_3 e_4 ...) ↓ V Γ_1 o_1)
+   ------------------------------------------------------
+   (b-step E O Γ ⊢ (e_1 e_2 e_3 e_4 ...) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ (λ (x) (λ (y z ...) e)) ↓ V Γ_1 o_1)
+   -----------------------------------------------------
+   (b-step E O Γ ⊢ (λ (x y z ...) e) ↓ V Γ_1 o_1)]
+  
+  ; • = (•)
+  [(b-step E O Γ ⊢ (•) ↓ V Γ_1 o_1)
+   ----------------------------------
+   (b-step E O Γ ⊢ • ↓ V Γ_1 o_1)]
+  
+  ; and, or
+  [(b-step E O Γ ⊢ e ↓ V Γ_1 o_1)
+   ---------------------------------------
+   (b-step E O Γ ⊢ (and e) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ (if e_1 (and e_2 e_3 ...) #f) ↓ V Γ_1 o_1)
+   -----------------------------------------------------------
+   (b-step E O Γ ⊢ (and e_1 e_2 e_3 ...) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ e ↓ V Γ_1 o_1)
+   ---------------------------------------
+   (b-step E O Γ ⊢ (or e) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ (let [tmp e_1]
+                     (if tmp tmp (or e_2 e_3 ...)))
+           ↓ V Γ_1 o_1)
+   -----------------------------------------------------------
+   (b-step E O Γ ⊢ (or e_1 e_2 e_3 ...) ↓ V Γ_1 o_1)]
+  
+  ; let
+  [(b-step E O Γ ⊢ ((λ (x) e) e_1) ↓ V Γ_1 o_1)
+   ---------------------------------------------
+   (b-step E O Γ ⊢ (let [x e_1] e) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ ((λ (x) e) e_1) ↓ V Γ_1 o_1)
+   ---------------------------------------------
+   (b-step E O Γ ⊢ (let ([x e_1]) e) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ (let (x e_1)
+                     (let ([y e_2] any ...) e))
+           ↓ V Γ_1 o_1)
+   ----------------------------------------------------------------
+   (b-step E O Γ ⊢ (let ([x e_1] [y e_2] any ...) e) ↓ V Γ_1 o_1)]
+  
+  ; begin
+  [(b-step E O Γ ⊢ (let [ignore e_1] (begin e_2 e_3 ...)) ↓ V Γ_1 o_1)
+   ------------------------------------------------
+   (b-step E O Γ ⊢ (begin e_1 e_2 e_3 ...) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ e ↓ V Γ_1 o_1)
+   ----------------------------------------
+   (b-step E O Γ ⊢ (begin e) ↓ V Γ_1 o_1)]
+  
+  ; cond
+  [(b-step E O Γ ⊢ e ↓ V Γ_1 o_1)
+   ----------------------------------------------
+   (b-step E O Γ ⊢ (cond [else e]) ↓ V Γ_1 o_1)]
+  [(b-step E O Γ ⊢ (if e_1 e_2 (cond any_1 any_2 ...)) ↓ V Γ_1 o_1)
+   ------------------------------------------------------------------
+   (b-step E O Γ ⊢ (cond [e_1 e_2] any_1 any_2 ...) ↓ V Γ_1 o_1)])
+
+
 ;;;;; TESTS
 
 (define f2 (term (λ (x #|Number ∪ String|#)
@@ -680,7 +772,6 @@
 (define c/int (term ((flat (λ (x) (int? x))) [] [])))
 (define c/str (term ((flat (λ (x) (str? x))) [] [])))
 
-;; example 1
 (for-each
  (match-lambda
    [`(,prog → ,expected)
@@ -793,8 +884,16 @@
         ; if reach here, (car l) has to be nat
         (int? (car l))))
     → {#t ERROR}]
+   [(let (x •)
+      (begin
+        (let (x x)
+          (if (int? x)
+              "x is nat"
+              (add1 "raise error")))
+        (int? x))) ; outer x uses info from eval-ing inner x
+    → {#t ERROR}]
    
-   ; example that illustrates previous problem when having 2 different variables
+   ; example where inner variable could previously mess up with outer one
    ; of the same name
    [(let (x •)
       (if (int? x)
@@ -804,6 +903,19 @@
                 "x is not a string"))
           "x is not a nat"))
     → {"x is a string" "x is not a string" "x is not a nat"}]
+   
+   ; example where outer variable could previously mess up with inner one
+   ; of the same name
+   [(let [x •]
+      (let [y x]
+        (let [x •]
+          (begin
+            (let [z y]
+              (if (int? z)
+                  42
+                  (add1 "raise error")))
+            (int? x)))))
+    → {#t #f ERROR}]
    
    ; blindly adding a new frame for variable can lead to imprecision (loss of info)
    ; when inner variable refers to outer one with the same name (and inner one
@@ -816,15 +928,6 @@
                 "this cannot happen"))
           "x is not nat"))
     → {"inner x is nat" "x is not nat"}]
-   
-   [(let (x •)
-      (begin
-        (let (x x)
-          (if (int? x)
-              "x is nat"
-              (add1 "raise error")))
-        (int? x))) ; outer x uses info from eval-ing inner x
-    → {#t ERROR}]
    
    ; with contracts
    [(mon (flat (λ (x) (int? x))) •)
@@ -870,5 +973,6 @@
                  (λ (y) 1))
              •)))
     → {#t}]
+   
    )))
 (test-results)
