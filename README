@@ -4,12 +4,8 @@ See also http://arxiv.org/abs/1103.1362
 
 To install:
 
-   % raco git --github samth var
+   % git clone http://github.com/samth/var
+   % raco link var
+   % raco setup var
 
 which enables the #lang var language.
-
-Before doing the above, you'll need the raco git package:
-
-   % git clone http://github.com/samth/raco-git.git
-   % raco link raco-git
-   % raco setup raco-git
