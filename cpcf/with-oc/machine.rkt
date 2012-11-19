@@ -1,7 +1,7 @@
 #lang racket
 (require redex)
 (require "lang.rkt")
-(provide red)
+(provide scpcf-m red)
 
 (define-extended-language scpcf-m scpcf
   ; machine state
