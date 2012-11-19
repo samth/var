@@ -2,6 +2,8 @@
 (require redex)
 (require "lang.rkt")
 
+(provide ⇓)
+
 (define-judgment-form scpcf
   #:mode     (⇓ I I  O O O)
   #:contract (⇓ Γ C  V Γ o)
