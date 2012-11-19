@@ -34,7 +34,12 @@ Similar to @tt{S-CPCF} from paper.
 
 @(centered (render-language scpcf))
 
-There is no explicit representation for union types. Instead, non-determinism is used for better precision. One example to illustrate this is from the Chugh paper. Instead of returning @tt{(∪ int? bool?)}, this function returns an @tt{int?} or @tt{bool?} in different non-deterministic branches.
+There is no explicit representation for union types.
+Instead, non-determinism is used for better precision.
+One example to illustrate this is from the Chugh paper.
+Instead of returning @tt{(∪ int? bool?)},
+this function returns an @tt{int?} or @tt{bool?}
+in different non-deterministic branches.
 
 @verbatim[#:indent 4]{
 (λ (x)
@@ -43,7 +48,8 @@ There is no explicit representation for union types. Instead, non-determinism is
     [(bool? x) (false? x)])
 }
 
-Γ is the proposition environment, mapping each path to a set of predicates. @tt{[o ↦ ψ1 ψ2 ...]} means @tt{((ψ1 o) ∧ (ψ2 o) ∧ ...)}.
+Γ is the proposition environment, mapping each path to a set of predicates.
+@tt{[o ↦ ψ1 ψ2 ...]} means @tt{((ψ1 o) ∧ (ψ2 o) ∧ ...)}.
 
 @section{Big-step semantics}
 
