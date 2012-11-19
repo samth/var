@@ -17,8 +17,7 @@
             (if e e e)
             (mon c e)
             (μ (x) e)
-            
-            ; syntactic sugar
+            ; syntactic sugar:
             (and e e ...)
             (or e e ...)
             (let (x e) e)
@@ -240,7 +239,7 @@
                [Vp Γ1 _ ← (term (step Γ (,p? ρ O)))]
                [Vt Γ2 ot ← (term (step (mk-Γ (dom ,Vp) ,Γ1)
                                        (@ ,Vp (V (mb o (dom ,Vp))))))]
-               [`(,t? _ρ _O) _Γ _o ← (term (δ true? (,Vt ,ot) ,Γ2))]
+               [`(,t? ,_ρ ,_O) _Γ _o ← (term (δ true? (,Vt ,ot) ,Γ2))]
                [if t?
                    (term {((refine-v V (c_1 ρ O))
                            (upd-Γ ,Γ1 ,Γ2)
