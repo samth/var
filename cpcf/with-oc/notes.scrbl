@@ -3,7 +3,6 @@
           slideshow/pict
           redex/pict
           "lang.rkt"
-          "tests.rkt"
           "machine.rkt"
           "judgment.rkt"
           scriblib/figure)
