@@ -112,10 +112,28 @@
    [--> (V Γ o [mon ((μ (x) c) ρ O) κ])
         (V [push Γ x] o [mon (c (:: ρ [x ↦ ((μ (x) c) ρ O)]) (:: O [x ↦ x])) κ])
         mon-μ]
+   [--> (V Γ o [with-V (V_1 o_1) κ])
+        (V_1 Γ o_1 κ)
+        with-V]
+   [--> (V Γ o [with-Γ Γ_1 {x} o_1 κ])
+        (V [upd-Γ Γ_1 (pop Γ x)]
+           [default-o′ (mb o_1 (dom Γ_1)) (mb o (dom Γ_1))]
+           κ)
+        with-Γ]
+   [--> (V Γ o [with-Γ Γ_1 {} o_1 κ])
+        (V [upd-Γ Γ_1]
+           [default-o′ (mb o_1 (dom Γ_1)) (mb o (dom Γ_1))]
+           κ)
+        with-Γ′]
    
    ; on ERR
    [--> (ERR Γ o κ) (ERR [] ∅ mt)
         err]))
+
+(define-metafunction scpcf-m
+  default-o′ : o o -> o
+  [(default-o′ ∅ o) o]
+  [(default-o′ o′ o) o′])
 
 
 ;;;; tests ; TODO more!!
