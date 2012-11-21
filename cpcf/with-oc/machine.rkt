@@ -6,13 +6,14 @@
 (define-extended-language scpcf-m scpcf
   ; machine state
   [ς (C Γ o κ)]
+  [x′ x ∅]
   
   ; kontinuation
   [κ mt
      (@ ([V o] ...) (C ...) κ)
      (mon CC κ)
      (if C C κ)
-     (with-Γ Γ {x ...} o κ)
+     (with-Γ Γ x′ o κ)
      (with-V (V o) κ)])
 
 (define red
@@ -27,11 +28,11 @@
    ; on non-values
    [--> ([x ρ O] Γ o κ)
         ([refine-with-Γ V Γ x] Γ [! O x] κ)
-        var→val
+        var
         (where V (! ρ x))]
    [--> ([x ρ O] Γ o κ)
-        ([(μ (z) e) ρ_μ O_μ] [mk-Γ (dom ρ_μ) Γ] ∅ [with-Γ Γ {} (! O x) κ])
-        var→μ
+        ([(μ (z) e) ρ_μ O_μ] [mk-Γ (dom ρ_μ) Γ] ∅ [with-Γ Γ ∅ (! O x) κ])
+        var-μ
         (where ((μ (z) e) ρ_μ O_μ) (! ρ x))]
    [--> ([(f e_1 e_2 ...) ρ O] Γ o κ)
         ([f ρ O] Γ ∅ [@ () ([e_1 ρ O] [e_2 ρ O] ...) κ])
@@ -41,7 +42,7 @@
         if-intro]
    [--> ([(μ (x) e) ρ O] Γ o κ)
         ([e (:: ρ [x ↦ ((μ (x) e) ρ O)]) (:: O [x ↦ x])]
-         [push Γ x] ∅ [with-Γ Γ {x} ∅ κ])
+         [push Γ x] ∅ [with-Γ Γ x ∅ κ])
         μ]
    [--> ([mon CC (C o_c)] Γ o κ)
         (C Γ o_c [mon CC κ]) ; TODO: is Γ appropriate? what rule generates this?
@@ -55,7 +56,7 @@
         ([e (:: ρ [x ↦ V]) (:: O [x ↦ (default-o (mb o (dom ρ)) x)])]
          [push (mk-Γ (dom ρ) Γ) x]
          ∅
-         [with-Γ Γ {x} ∅ κ])
+         [with-Γ Γ x ∅ κ])
         app-λ]
    [--> (V_y Γ o_y [@ [((op ρ O) o_f) (V_x o_x) ...] [] κ])
         (V_z Γ_z o_z κ)
@@ -116,12 +117,12 @@
    [--> (V Γ o [with-V (V_1 o_1) κ])
         (V_1 Γ o_1 κ)
         with-V]
-   [--> (V Γ o [with-Γ Γ_1 {x} o_1 κ])
+   [--> (V Γ o [with-Γ Γ_1 x o_1 κ])
         (V [upd-Γ Γ_1 (pop Γ x)]
            [default-o′ (mb o_1 (dom Γ_1)) (mb o (dom Γ_1))]
            κ)
         with-Γ]
-   [--> (V Γ o [with-Γ Γ_1 {} o_1 κ])
+   [--> (V Γ o [with-Γ Γ_1 ∅ o_1 κ])
         (V [upd-Γ Γ_1]
            [default-o′ (mb o_1 (dom Γ_1)) (mb o (dom Γ_1))]
            κ)
