@@ -4,7 +4,7 @@
 (provide
  scpcf δ ev step
  mb default-o acc-o
- flush pop push mk-Γ upd-Γ dom :: Γ:: ! FC split-cons
+ flush pop push mk-Γ upd-Γ dom :: Γ:: ! FC split-cons var-from-path
  refine-v refine-with-Γ
  s-map rem-dup non-det:
  c/any C/ANY c/int C/INT c/str C/STR c/bool C/BOOL)
