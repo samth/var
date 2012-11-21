@@ -189,7 +189,7 @@
   ; app-•
   [(step Γ (@ ((• CC ...) ρ O) (V o)))
    { ERR ; poor man's havoc
-     (((• ,@ (term ((C-range CC) ...))) [] []) Γ ∅) }]
+     (((• ,@ (term (C-ranges (CC ...)))) [] []) Γ ∅) }]
   
   ; if
   [(step Γ ((if e_1 e_2 e_3) ρ O))
@@ -272,7 +272,7 @@
    ,(cons (term (c_2 (:: ρ [x ↦ ((•) [] [])])
                      (:: O [x ↦ x])))
           (term (C-ranges (any ...))))]
-  [(C-ranges (any_1 any ...)) (C_ranges (any ...))])
+  [(C-ranges (any_1 any ...)) (C-ranges (any ...))])
 
 ;; 'flushes' all information in Γ to V, after which Γ doesn't know anything
 ;; new for V
@@ -348,7 +348,7 @@
   [(concrete-check str? (s ρ O)) #t]
   [(concrete-check false? (#f ρ O)) #t]
   [(concrete-check false? V) #f]
-  [(concrete-check bool? (b ρ O)) #t]
+  [(concrete-check bool? (bool ρ O)) #t]
   [(concrete-check proc? ((λ (x) e) ρ O)) #t]
   [(concrete-check true? (#f ρ O)) #f]
   [(concrete-check true? V) #t]
