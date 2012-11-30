@@ -4,8 +4,9 @@
 
 (provide
  (contract-out
-  [∆ (hash/c symbol? (or/c #f con?))]
-  [prim? (symbol? . -> . boolean?)])
+  [∆ (prim? . -> . (or/c #f con?))]
+  [prim? (symbol? . -> . any/c)]
+  [p⇒? (pred? pred? . -> . verified?)])
  C/ANY C/NUM C/REAL C/STR)
 
 ;; common basic contracts
@@ -16,14 +17,14 @@
 
 (define c:
   (letrec
-   ([mk-c
-     (match-lambda
-       [`(∧ ,c1 ,c2) (AND/C (mk-c c1) (mk-c c2))]
-       [`(∨ ,c1 ,c2) (OR/C (mk-c c1) (mk-c c2))]
-       [p? (FLAT/C p?)])])
-   (match-lambda
-     [`(,c1 → ,c) (FUNC/C `([x ,(mk-c c1)]) (mk-c c) #f)]
-     [`(,c1 ,c2 → ,c) (FUNC/C `([x ,(mk-c c1)] [y ,(mk-c c2)]) (mk-c c) #f)])))
+      ([mk-c
+        (match-lambda
+          [`(∧ ,c1 ,c2) (AND/C (mk-c c1) (mk-c c2))]
+          [`(∨ ,c1 ,c2) (OR/C (mk-c c1) (mk-c c2))]
+          [p? (FLAT/C p?)])])
+    (match-lambda
+      [`(,c1 → ,c) (FUNC/C `([x ,(mk-c c1)]) (mk-c c) #f)]
+      [`(,c1 ,c2 → ,c) (FUNC/C `([x ,(mk-c c1)] [y ,(mk-c c2)]) (mk-c c) #f)])))
 
 ;; primitive module
 (define ρ0 env0)
@@ -37,8 +38,12 @@
    [('+ `(,(CLO (? number? x) _ _) ,(CLO (? number? y) _ _)) Γ)
     {set (CLO (+ x y) ρ0 O0)}]))
 
+;; returns contract for primitive op
+(define (∆ x)
+  (hash-ref ∆c x (λ () (hash-ref ∆preds x))))
+
 ;; ∆ : Symbol -> CON
-(define ∆
+(define ∆c
   (hash
    ;; operators
    '+ (c: '[num? num? → num?])
@@ -46,7 +51,10 @@
    '* (c: '[num? num? → num?])
    '/ (c: '[(∧ num? non-zero?) num? → num?])
    
-   ;; predicates
+   ))
+
+(define ∆preds
+  (hash
    'tt #f
    'true? #f
    'false? #f
@@ -62,4 +70,29 @@
 
 ;; prim? : Symbol -> Boolean
 (define (prim? x)
-  (hash-has-key? ∆ x))
+  (or (hash-has-key? ∆c x)
+      (hash-has-key? ∆preds x)))
+
+;; primitive, type-like predicates
+(define (pred? x)
+  (or (hash-has-key? ∆preds x)
+      (STRUCT-P? x)))
+
+;; checks whether first predicate implies/precludes second
+(define p⇒?
+  (match-lambda**
+   [(_ 'tt) 'Proved]
+   [(p p) 'Proved]
+   [('false? 'true?) 'Refuted]
+   [(_ 'true?) 'Proved]
+   [((or 'zero? 'non-zero? 'int? 'real?) 'num?) 'Proved]
+   [([? symbol? x] [? symbol? y])
+    (if (ormap (λ (group)
+                 (and (member x group) (member y group)))
+               '({true? false?}
+                 {false? proc? str? num?}
+                 {false? proc? str? int? real?}))
+        'Refuted
+        'Neither)]
+   ;; only 'simple' primitive predicates can overlap at this point
+   [(_ _) 'Refuted]))
