@@ -29,7 +29,10 @@
   [struct STRUCT-MK ([tag symbol?] [field-count integer?])]
   [struct STRUCT-AC ([tag symbol?] [field-count integer?] [index integer?])]
   [struct STRUCT-P ([tag symbol?] [field-count integer?])]
-  [CONS val?] [CONS? val?] [CAR val?] [CDR val?])
+  [CONS val?] [CONS? val?] [CAR val?] [CDR val?]
+  [∨ (verified? verified? . -> . verified?)]
+  [∧ (verified? verified? . -> . verified?)]
+  [¬ (verified? . -> . verified?)])
  verified? modls-has? modl-defines? modl-exports? C?
  base? exp? val? V? modls? ∅)
 
@@ -111,3 +114,20 @@
 (define CONS? (STRUCT-P 'cons 2))
 (define CAR (STRUCT-AC 'cons 2 0))
 (define CDR (STRUCT-AC 'cons 2 1))
+
+;; and/or operators on verification result
+(define ∨
+  (match-lambda*
+    [(or `(Proved ,_) `(,_ Proved)) 'Proved]
+    [(or `(Neither ,_) `(,_ Neither)) 'Neither]
+    [_ 'Refuted]))
+(define ∧
+  (match-lambda*
+    [`(Proved Proved) 'Proved]
+    [(or `(Refuted ,_) `(,_ Refuted)) 'Refuted]
+    [_ 'Neither]))
+(define ¬
+  (match-lambda
+    ['Proved 'Refuted]
+    ['Refuted 'Proved]
+    [_ 'Neither]))
