@@ -8,24 +8,30 @@
   [struct MODL ([name symbol?] [exports (hash/c symbol? CON?)]
                                [bindings (hash/c symbol? exp?)])]
   [struct M-REF ([caller symbol?] [callee symbol?] [name symbol?])]
-  [struct AP ([func exp?] [args exp?])]
+  [struct AP ([func exp?] [args (listof exp?)])]
   [struct IF ([test exp?] [then exp?] [else exp?])]
   [struct MU ([x symbol?] [body exp?])]
   [struct MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CON?] [exp exp?])]
   [struct BLM ([who symbol?] [whom symbol?])]
   [struct LAM ([xs (listof symbol?)] [body exp?] [var-arg? boolean?])]
   [struct OPQ ([refinements (listof CC?)])]
-  [struct C-E ([e exp?] [ρ env?] [O env?])]
-  [struct C-CONS ([car C?] [cdr C?])]
+  [struct CLO ([e exp?] [ρ env?] [O env?])]
+  [struct C-STRUCT ([tag symbol?] [fields (listof C?)])]
   [struct C-MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CC?] [exp exp?])]
+  [con? (any/c . -> . boolean?)]
   [struct FLAT/C ([exp exp?])]
   [struct OR/C ([c1 CON?] [c2 CON?])]
   [struct AND/C ([c1 CON?] [c2 CON?])]
-  [struct CONS/C ([c1 CON?] [c2 CON?])]
+  [struct STRUCT/C ([tag symbol?] [fields (listof CON?)])]
   [struct FUNC/C ([c1 (listof (list/c symbol? CON?))] [c2 CON?] [var-arg? boolean?])]
-  [struct CC ([c CON?] [ρ env?] [O env?])])
- 
- exp? val? V? modls? ∆ prelude)
+  [struct MU/C ([x symbol?] [body CON?])]
+  [struct CC ([c CON?] [ρ env?] [O env?])]
+  [struct STRUCT-MK ([tag symbol?] [field-count integer?])]
+  [struct STRUCT-AC ([tag symbol?] [field-count integer?] [index integer?])]
+  [struct STRUCT-P ([tag symbol?] [field-count integer?])]
+  [CONS val?] [CONS? val?] [CAR val?] [CDR val?])
+ verified? modls-has? modl-defines? modl-exports? C?
+ base? exp? val? V? modls? ∅)
 
 ;; Program = (prog Modules Exp)
 (struct PROG (modules main) #:transparent)
@@ -34,10 +40,17 @@
 (struct MODL (name exports bindings) #:transparent)
 ;; Modules = [Hashtable Symbol Module]
 (define modls? (hash/c symbol? MODL?))
+;; Module Symbol -> Boolean
+(define (modl-exports? m x)
+  (hash-has-key? (MODL-exports m) x))
+(define (modl-defines? m x)
+  (hash-has-key? (MODL-bindings m) x))
+;; Modules Symbol -> Boolean
+(define modls-has? hash-has-key?)
 
 ;; Exp = .....
 (define (exp? x)
-  (or (EXP? x) (val? x)))
+  (or (EXP? x) (symbol? x) (val? x)))
 (define (ans? x)
   (or (ANS? x) (val? x)))
 (struct EXP () #:transparent)
@@ -51,20 +64,26 @@
 
 ;; Value = ...
 (define (val? x)
-  (or (LAM? x) (OPQ? x)
-      (symbol? x) (number? x) (string? x) (boolean? x)))
+  (or (LAM? x) (OPQ? x) (base? x)
+      (STRUCT-MK? x) (STRUCT-AC? x) (STRUCT-P? x)))
+(define (base? x)
+  (or (number? x) (string? x) (boolean? x)))
 (struct LAM ANS (xs body var-arg?) #:transparent)
 (struct OPQ ANS (refinements) #:transparent)
+;; special operators for structs
+(struct STRUCT-MK ANS (tag field-count) #:transparent)
+(struct STRUCT-AC ANS (tag field-count index) #:transparent)
+(struct STRUCT-P ANS (tag field-count) #:transparent)
 
 ;; Closures
 (struct C () #:transparent)
-(struct C-E C (e ρ O) #:transparent)
-(struct C-CONS (car cdr) #:transparent)
+(struct CLO C (e ρ O) #:transparent)
+(struct C-STRUCT (tag fields) #:transparent)
 (struct C-MON (lo l+ l- con exp) #:transparent)
 (define (V? x)
   (match x
-    [(C-E e _ρ _O) (val? e)]
-    [(C-CONS c1 c2) (and (V? c1) (V? c2))]
+    [(CLO e _ρ _O) (val? e)]
+    [(C-STRUCT _ xs) (andmap V? xs)]
     [(C-MON _o _+ _- (CC (FUNC/C _c1 _c2 _var?) _ρ _O) c) (V? c)]
     [_ #f]))
 
@@ -73,16 +92,22 @@
 (struct FLAT/C CON (exp) #:transparent)
 (struct OR/C CON (c1 c2) #:transparent)
 (struct AND/C CON (c1 c2) #:transparent)
-(struct CONS/C CON (c1 c2) #:transparent)
+(struct STRUCT/C CON (tag fields) #:transparent)
 (struct FUNC/C CON (c1 c2 var-arg?) #:transparent)
+(struct MU/C CON (x body) #:transparent)
+(define con? CON?)
 ;; Closed Contract
 (struct CC (c ρ O) #:transparent)
 
-;; primitive module
-(define ∆
-  (MODL '∆
-        (hash)
-        (hash)))
+(define verified?
+  (match-lambda
+    [(or 'Proved 'Refuted 'Neither) #t]
+    [_ #f]))
 
-(define prelude
-  (hash '∆ ∆))
+(define ∅ (set))
+
+;; cons stuff
+(define CONS (STRUCT-MK 'cons 2))
+(define CONS? (STRUCT-P 'cons 2))
+(define CAR (STRUCT-AC 'cons 2 0))
+(define CDR (STRUCT-AC 'cons 2 1))
