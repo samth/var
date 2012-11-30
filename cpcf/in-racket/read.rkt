@@ -177,9 +177,10 @@
             ['cons? CONS?]
             ['car CAR]
             ['cdr CDR]
-            [x (match (hash-ref ∆ x (λ () (error "Unbound identifier:" x)))
-                 [#f x]
-                 [c (MON '∆ '∆ from c x)])])]))]))
+            [(? prim? x) (match (∆ x)
+                           [#f x]
+                           [c (MON '∆ '∆ from c x)])]
+            [_ (error "Unknown identifier:" name)])]))]))
 
 
 ;; returns fresh variable(s) not in given term
