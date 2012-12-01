@@ -182,16 +182,12 @@
          ; cross module reference
          [(M-REF? ref) ref]
          ; primitive
-         [else
-          (match name
-            ['cons CONS]
-            ['cons? CONS?]
-            ['car CAR]
-            ['cdr CDR]
-            [(? prim? x) (match (∆ x)
-                           [#f x]
-                           [c (MON '∆ '∆ from c x)])]
-            [_ (error "Unknown identifier:" name)])]))]))
+         [else (match name
+                 ['cons CONS]
+                 ['cons? CONS?]
+                 ['car CAR]
+                 ['cdr CDR]
+                 [x (∆ from x)])]))]))
 
 
 ;; returns fresh variable(s) not in given term

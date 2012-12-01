@@ -13,6 +13,8 @@
   [struct MU ([x symbol?] [body exp?])]
   [struct MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CON?] [exp exp?])]
   [struct BLM ([who symbol?] [whom symbol?])]
+  [struct PRIM ([x symbol?])]
+  [struct PRED ([x symbol?])]
   [struct LAM ([xs (listof symbol?)] [body exp?] [var-arg? boolean?])]
   [struct OPQ ([refinements (listof CC?)])]
   [struct CLO ([e exp?] [ρ env?])]
@@ -72,7 +74,7 @@
 
 ;; Value = ...
 (define (val? x)
-  (or (LAM? x) (OPQ? x) (base? x)
+  (or (LAM? x) (OPQ? x) (base? x) (PRIM? x)
       (STRUCT-MK? x) (STRUCT-AC? x) (STRUCT-P? x)))
 (define (base? x)
   (or (number? x) (string? x) (boolean? x)))
@@ -82,6 +84,8 @@
 (struct STRUCT-MK ANS (tag field-count) #:transparent)
 (struct STRUCT-AC ANS (tag field-count index) #:transparent)
 (struct STRUCT-P ANS (tag field-count) #:transparent)
+(struct PRIM ANS (x) #:transparent)
+(struct PRED PRIM () #:transparent)
 
 ;; Closures
 (struct C () #:transparent)

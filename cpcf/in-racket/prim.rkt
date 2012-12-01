@@ -4,8 +4,7 @@
 
 (provide
  (contract-out
-  [∆ (prim? . -> . (or/c #f con?))]
-  [prim? (symbol? . -> . any/c)]
+  [∆ (symbol? symbol? . -> . exp?)]
   [p⇒? (pred? pred? . -> . verified?)])
  C/ANY C/NUM C/REAL C/STR)
 
@@ -38,10 +37,6 @@
    [('+ `(,(CLO (? number? x) _) ,(CLO (? number? y) _)) Γ)
     {set (CLO (+ x y) ρ0 O0)}]))
 
-;; returns contract for primitive op
-(define (∆ x)
-  (hash-ref ∆c x (λ () (hash-ref ∆preds x))))
-
 ;; ∆ : Symbol -> CON
 (define ∆c
   (hash
@@ -68,25 +63,29 @@
    'zero? (c: '[num? → tt])
    'non-zero? (c: '[num? → tt])))
 
-;; prim? : Symbol -> Boolean
-(define (prim? x)
-  (or (hash-has-key? ∆c x)
-      (hash-has-key? ∆preds x)))
+(define (∆ caller x)
+  (cond
+    [(hash-has-key? ∆c x) (MON '∆ '∆ caller (hash-ref ∆c x) (PRIM x))]
+    [(hash-has-key? ∆preds x)
+     (match (hash-ref ∆preds x)
+       [#f (PRED x)]
+       [c (MON '∆ '∆ caller c (PRED x))])]
+    [else (error "Unknown primitive identifier:" x)]))
 
 ;; primitive, type-like predicates
 (define (pred? x)
-  (or (hash-has-key? ∆preds x)
+  (or (PRED? x)
       (STRUCT-P? x)))
 
 ;; checks whether first predicate implies/precludes second
 (define p⇒?
   (match-lambda**
-   [(_ 'tt) 'Proved]
+   [(_ [PRED 'tt]) 'Proved]
    [(p p) 'Proved]
-   [('false? 'true?) 'Refuted]
-   [(_ 'true?) 'Proved]
-   [((or 'zero? 'non-zero? 'int? 'real?) 'num?) 'Proved]
-   [([? symbol? x] [? symbol? y])
+   [([PRED 'false?] [PRED 'true?]) 'Refuted]
+   [(_ [PRED 'true?]) 'Proved]
+   [([PRED (or 'zero? 'non-zero? 'int? 'real?)] [PRED 'num?]) 'Proved]
+   [([PRED x] [PRED y])
     (if (ormap (λ (group)
                  (and (member x group) (member y group)))
                '({true? false?}
