@@ -21,6 +21,8 @@
   [struct CLO ([e exp?] [ρ env?])]
   [struct C-STRUCT ([tag symbol?] [fields (listof C?)])]
   [struct C-MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CC?] [exp exp?])]
+  [AND (() () #:rest (listof exp?) . ->* . exp?)]
+  [OR (() () #:rest (listof exp?) . ->* . exp?)]
   [con? (any/c . -> . boolean?)]
   [struct FLAT/C ([exp exp?])]
   [struct OR/C ([c1 CON?] [c2 CON?])]
@@ -115,6 +117,22 @@
 (define con? CON?)
 ;; Closed Contract
 (struct CC (c ρ) #:transparent)
+
+(define AND
+    (match-lambda*
+      ['() #t]
+      [`(,e) e]
+      [`(,e1 ,e2 ...) (IF e1 (apply AND e2) #f)]))
+  
+(define OR
+  (match-lambda*
+    ['() #f]
+    [`(,e) e]
+    [`(,e1 ,e2 ...) (AP
+                     (LAM '(tmp)
+                          (IF 'tmp 'tmp (apply OR e2))
+                          #f)
+                     (list e1))]))
 
 (define verified?
   (match-lambda
