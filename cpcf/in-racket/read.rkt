@@ -11,7 +11,11 @@
            . ->* . exp?)]
   [read-c ((any/c)
            (symbol? modls? [listof symbol?] [hash/c symbol? (or/c 'c 'e)])
-           . ->* . con?)]))
+           . ->* . con?)]
+  [α-rename-p (PROG? . -> . PROG?)]
+  [α-rename-e (exp? . -> . exp?)]
+  [α-rename-c (con? . -> . con?)]
+  ))
 
 (define hash0 (hash))
 (define modls0 hash0)
@@ -197,3 +201,113 @@
   (variable-not-in e 'tmp))
 (define (fresh-xs n e)
   (variables-not-in e (make-list n 'tmp)))
+  
+
+;; α-renames program
+(define (α-rename-p′ p used0 maps)
+  [match-define (PROG ms e) p]
+  [define-values (ms1 used1) (α-rename-ms′ ms used0 maps)]
+  [α-rename-e′ e used1])
+;; α-renames modules
+(define (α-rename-ms′ ms used0 maps)
+  [define-values (ms1 used1) (ms used0)]
+  [hash-for-each
+   ms
+   (λ (x m)
+     (let-values ([(m′ used′) (α-rename-m′ m used1 maps)])
+       (set! used1 used′)
+       (set! ms1 (hash-set ms1 x m′))))]
+  [values ms1 used1])
+;; α-rename module
+(define (α-rename-m′ m used0 maps)
+  [match-define (MODL x cs es) m]
+  [define-values (used1 cs1 es1) (used0 cs es)]
+  [hash-for-each
+   cs
+   (λ (x c)
+     (let-values ([(c′ used′) (α-rename-c′ c used1 maps)])
+       (set! used1 used′)
+       (set! cs1 (hash-set cs1 x c′))))]
+  [hash-for-each
+   es
+   (λ (x e)
+     (let-values ([(e′ used′) (α-rename-e′ e used1 maps)])
+       (set! used1 used′)
+       (set! es1 (hash-set es1 x e′))))]
+  [values (MODL x cs1 es1) used1])
+(define (α-rename-c′ c used0 maps)
+  [define used1 used0]
+  (match c
+    [(FLAT/C e) (let-values ([(e′ used′) (α-rename-e′ e used1 maps)])
+                  (values (FLAT/C e′) used′))]
+    [(OR/C c1 c2) (let*-values ([(c1′ used2) (α-rename-c′ c1 used1 maps)]
+                                [(c2′ used3) (α-rename-c′ c2 used2 maps)])
+                    (values (OR/C c1′ c2′) used3))]
+    [(AND/C c1 c2) (let*-values ([(c1′ used2) (α-rename-c′ c1 used1 maps)]
+                                 [(c2′ used3) (α-rename-c′ c2 used2 maps)])
+                     (values (AND/C c1′ c2′) used3))]
+    [(STRUCT/C t cs)
+     (values
+      (STRUCT/C t
+                (map (λ (c) (let-values ([(c′ used′) (α-rename-c′ c used1 maps)])
+                              (set! used1 used′)
+                              c′))
+                     cs))
+      used1)]
+    [(FUNC/C `((,x ,c1) ...) c2 v?)
+     (let* ([c1′ (map (λ (ci)
+                        (let-values ([(ci′ used′) (α-rename-c′ ci used1 maps)])
+                          (set! used1 used′)
+                          ci′))
+                      c1)]
+            [zs (variables-not-in used1 x)]
+            [maps′ (foldl (λ (x z m) (hash-set m x z)) maps x zs)])
+       (let-values ([(c2′ used′ _) (α-rename-c′ c2 (append zs used1) maps′)])
+         (values (FUNC/C (map list zs c1′) c2′) used′)))]
+    [(MU/C x c)
+     (let ([z (variable-not-in used1 x)])
+       (let-values ([(c′ used′)
+                     (α-rename-c′ c (cons z used1) (hash-set maps x z))])
+         (values (MU/C z c′) used′)))]
+    [(REF/C x) (values (REF/C (hash-ref maps x)) used1)]))
+(define (α-rename-e′ e used0 maps)
+  (define used1 used0)
+  (match e
+    [(AP f xs l)
+     (let-values ([(f′ used′) (α-rename-e′ f used1 maps)])
+       (set! used1 used′)
+       (let ([zs (map (λ (x)
+                        (let-values ([(x′ used′) (α-rename-e′ x used1 maps)])
+                          (set! used1 used′)
+                          x′))
+                      xs)])
+         (values (AP f′ zs l) used1)))]
+    [(IF e1 e2 e3) (let*-values ([(e1′ used2) (α-rename-e′ e1 used1 maps)]
+                                 [(e2′ used3) (α-rename-e′ e2 used2 maps)]
+                                 [(e3′ used4) (α-rename-e′ e3 used3 maps)])
+                     (values (IF e1′ e2′ e3′) used4))]
+    [(MU x e1) (let ([z (variable-not-in used1 x)])
+                 (let-values
+                     ([(e1′ used′)
+                       (α-rename-e′ e1 (cons z used1) (hash-set maps x z))])
+                   (values (MU z e1′) used′)))]
+    [(MON l0 l+ l- c e1)
+     (let*-values ([(c′ used2) (α-rename-c′ c used1 maps)]
+                   [(e1′ used3) (α-rename-e′ e1 used2 maps)])
+       (values (MON l0 l+ l- c′ e1′) used3))]
+    [(LAM xs e1 v?)
+     (let ([zs (variables-not-in used1 xs)])
+       (let-values ([(e1′ used′) (α-rename-e′ e1 (append zs used1)
+                                              (foldl (λ (x z m) (hash-set m x z))
+                                                     maps xs zs))])
+         (values (LAM zs e1′ v?) used′)))]
+    [(? symbol? x) (values (hash-ref maps x) used1)]
+    [_ (values e used1)]))
+
+(define (run f)
+  (λ (x)
+    (let-values ([(r _) (f x '() hash0)])
+      r)))
+(match-define
+  `(,α-rename-p ,α-rename-e ,α-rename-c)
+  (map run `(,α-rename-p′ ,α-rename-e′ ,α-rename-c′)))
