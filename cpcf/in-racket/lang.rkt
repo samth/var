@@ -1,6 +1,7 @@
 #lang racket
 (require racket/contract)
 (require "env.rkt")
+(require "nd.rkt")
 
 (provide
  (contract-out
@@ -36,6 +37,9 @@
   [struct VO ([v (or/c C? CC?)] [o π?])]
   
   [CONS val?] [CONS? val?] [CAR val?] [CDR val?]
+  [close ((or/c exp? con?) env? . -> . (or/c C? CC?))]
+  
+  [FV (exp? . -> . (set/c symbol?))]
   
   [∨ (() () #:rest (listof verified?) . ->* . verified?)]
   [∧ (() () #:rest (listof verified?) . ->* . verified?)]
@@ -153,3 +157,33 @@
 
 ;; the valid thing that the run-time environment maps to
 (struct VO (v o) #:transparent)
+
+;; returns expression's free variables
+(define FV
+  (match-lambda
+    [(AP f xs) (set-union (FV f) (non-det FV xs))]
+    [(IF e1 e2 e3) (set-union (FV e1) (FV e2) (FV e3))]
+    [(MU x e) (set-remove (FV e) x)]
+    [(MON _ _ _ c e) (set-union (FV-c c) (FV e))]
+    [(LAM xs e _) (set-remove* (FV e) xs)]
+    [(? symbol? x) {set x}]
+    [(or [? val?] [? M-REF?] [? BLM?]) ∅]))
+(define FV-c
+  (match-lambda
+    [(FLAT/C e) (FV e)]
+    [(or (OR/C c1 c2) (AND/C c1 c2)) (set-union (FV-c c1) (FV-c c2))]
+    [(STRUCT/C _ cs) (non-det FV-c cs)]
+    [(FUNC/C `((,x ,c1) ...) c2 _)
+     (set-union (non-det FV c1) (set-remove* (FV c2) x))]
+    [(MU/C x c) (set-remove (FV-c c) x)]
+    [(REF/C x) {set x}]))
+
+;; closes expression/contract with environment, discarding unused variables
+(define (close x ρ)
+  (cond
+    [(exp? x) (CLO x (env-restrict ρ (FV x)))]
+    [(con? x) (CC x (env-restrict ρ (FV-c x)))]))
+
+(define (set-remove* s l)
+  (foldl (λ (x s) (set-remove s x)) s l))
+    
