@@ -35,7 +35,7 @@
   (match-lambda**
    
    ; +
-   [('+ `(,(CLO (? number? x) _ _) ,(CLO (? number? y) _ _)) Γ)
+   [('+ `(,(CLO (? number? x) _) ,(CLO (? number? y) _)) Γ)
     {set (CLO (+ x y) ρ0 O0)}]))
 
 ;; returns contract for primitive op
