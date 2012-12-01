@@ -12,11 +12,10 @@
   [env-upd (env? symbol? (any/c . -> . any/c) . -> . env?)]
   [env-restrict (env? (set/c symbol?) . -> . env?)]
   [env-pop (env? symbol? . -> . env?)]
-  
-  [Γ-mk (env? env? . -> . env?)]
-  [Γ-upd (env? env? . -> . env?)]
-  
   [env? (any/c . -> . boolean?)]
+  
+  [env-size (env? . -> . integer?)]
+  [env-has? (env? symbol? . -> . any/c)]
   ))
 
 ;; predicate for environment type
@@ -66,28 +65,3 @@
 
 ;; returns whether key is in environment's domain
 (define env-has? hash-has-key?)
-
-;; makes proposition environment with given domain
-;; that knows everything Γ knows
-(define (Γ-mk dom Γ)
-  (define fresh-Γ
-    (cond
-      [(env? dom) (let ([Γ′ env0])
-                    (hash-for-each dom
-                                   (λ (k v) (set! Γ′ (hash-set Γ′ k 'tt))))
-                    Γ′)]
-      [else (foldl (λ (x Γ′) (hash-set Γ′ x 'tt)) env0 dom)]))
-  (Γ-upd fresh-Γ Γ))
-
-
-;; updates Γ1 with all Γ2 knows
-;; assume Γ2 knows no less than Γ1
-(define (Γ-upd Γ1 Γ2)
-  (if (< (env-size Γ1) (env-size Γ2))
-      (hash-for-each Γ1 (λ (k _)
-                          (when (hash-has-key? Γ2 k)
-                            (set! Γ1 (hash-set Γ1 k (hash-ref Γ2 k))))))
-      (hash-for-each Γ2 (λ (k v)
-                          (when (hash-has-key? Γ1 k)
-                            (set! Γ1 (hash-set Γ1 k v))))))
-  Γ1)
