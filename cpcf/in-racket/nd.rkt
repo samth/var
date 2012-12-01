@@ -3,15 +3,16 @@
 
 (provide
  (contract-out
-  [s-map ((any/c . -> . any/c) set? . -> . set?)]
-  [non-det ((any/c . -> . set?) set? . -> . set?)])
+  [s-map ((any/c . -> . any/c) (or/c set? list?) . -> . set?)]
+  [non-det ((any/c . -> . set?) (or/c set? list?) . -> . set?)])
  non-det:)
 
 (define ∅ (set))
 
-;; maps function over set
+;; maps function over set/list
 (define (s-map f xs)
-  (for/set ([x xs]) (f x)))
+  (for/fold ([acc ∅]) ([x xs])
+    (set-add acc (f x))))
 
 ;; non-deterministically applies function
 (define (non-det f xs)
