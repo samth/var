@@ -6,8 +6,12 @@
 (provide
  (contract-out
   [read-p (any/c . -> . PROG?)]
-  [read-e (any/c . -> . exp?)]
-  [read-c (any/c . -> . con?)]))
+  [read-e ((any/c)
+           (symbol? modls? [listof symbol?] [hash/c symbol? (or/c 'c 'e)])
+           . ->* . exp?)]
+  [read-c ((any/c)
+           (symbol? modls? [listof symbol?] [hash/c symbol? (or/c 'c 'e)])
+           . ->* . con?)]))
 
 (define hash0 (hash))
 (define modls0 hash0)
@@ -17,7 +21,7 @@
   (match-lambda
     [`(,m ... (require ,reqs ...) ,e)
      (match-let ([modls (read-ms m modls0)])
-       (PROG modls (read-e e '† modls reqs ∅)))]
+       (PROG modls (read-e e '† modls reqs hash0)))]
     [`(,m ... ,e) (read-p `(,@ m (require) ,e))]
     [s (error "Invalid program form:" s)]))
 
@@ -57,11 +61,11 @@
           [(`(define (,f ,x ...) ,e) _)
            (d-pass-2 `(define ,f (λ ,x ,e)) m)]
           [(`(define ,x ,e) (MODL n decs defs))
-           (MODL n decs (hash-set defs x (read-e e n ms reqs ∅)))]
+           (MODL n decs (hash-set defs x (read-e e n ms reqs hash0)))]
           [(`(provide ,pr ...) (MODL n decs defs))
            (foldl (match-lambda**
                    [(`(,x ,c) (MODL n decs defs))
-                    (MODL n (hash-set decs x (read-c c n ms reqs ∅)) defs)])
+                    (MODL n (hash-set decs x (read-c c n ms reqs hash0)) defs)])
                   m pr)]
           [(_ _) (error "Invalid module body form:" d)]))
       
@@ -78,7 +82,7 @@
   (foldl m-pass-2 (foldl m-pass-1 ms s) s))
 
 ;; S-exp Symbol [Hashtable Symbol Module] [Listof Symbol] [Setof Symbol] -> Exp
-(define (read-e s [modl-name '†] [modls modls0] [reqs '()] [bound ∅])
+(define (read-e s [modl-name '†] [modls modls0] [reqs '()] [bound hash0])
   ;; short-hand for recursion with same accumulators
   (define (loop s) (read-e s modl-name modls reqs bound))
   
@@ -100,7 +104,7 @@
     
     ;; special forms
     [`(if ,e1 ,e2 ,e3) (IF (loop e1) (loop e2) (loop e3))]
-    [`(μ (,x) ,e) (MU x (read-e e modl-name modls reqs (set-add bound x)))]
+    [`(μ (,x) ,e) (MU x (read-e e modl-name modls reqs (bind-vars bound `(,x))))]
     [`(mon ,lo ,l+ ,l- ,c ,e)
      (MON lo l+ l-
           (read-c c modl-name modls reqs bound)
@@ -109,12 +113,12 @@
      (if (and (symbol? z) (andmap symbol? x))
          (let ([params (append x (list z))])
            (LAM params
-                (read-e e modl-name modls reqs (set-union (list->set params) bound))
+                (read-e e modl-name modls reqs (bind-vars bound params))
                 #t))
          (error "Invalid var-λ variable declaration:" x z))]
     [`(λ (,x ...) ,e)
      (if (andmap symbol? x)
-         (LAM x (read-e e modl-name modls reqs (set-union (list->set x) bound)) #f)
+         (LAM x (read-e e modl-name modls reqs (bind-vars bound x)) #f)
          (error "Invalid λ variable declaration:" x))]
     
     ;; application
@@ -128,7 +132,7 @@
          [else (error "Invalid expression form:" x)])]))
 
 ;; S-exp Symbol [Hashtable Symbol Module] [Setof Symbol] [Setof Symbol] -> Contract
-(define (read-c s [modl-name '†] [modls modls0] [reqs '()] [bound ∅])
+(define (read-c s [modl-name '†] [modls modls0] [reqs '()] [bound hash0])
   (define (loop x) (read-c x modl-name modls reqs bound))
   (match s
     [`(or/c ,c1 ,c2) (OR/C (loop c1) (loop c2))]
@@ -137,27 +141,34 @@
     [`(struct/c ,t ,cs ...) (STRUCT/C t (map loop cs))]
     [`(,c1 ... ,c1′ .. ↦ (λ (,x ...) ,c2))
      (FUNC/C (map list x (append (map loop c1) (list (loop c1′))))
-             (read-c c2 modl-name modls reqs (set-union (list->set x) bound))
+             (read-c c2 modl-name modls reqs (bind-vars bound x))
              #t)]
     [`(,c1 ... ↦ (λ (,x ...) ,c2))
      (FUNC/C (map list x (map loop c1))
-             (read-c c2 modl-name modls reqs (set-union (list->set x) bound))
+             (read-c c2 modl-name modls reqs (bind-vars bound x))
              #f)]
     [`(,c1 ... ,c1′ .. ↦ ,c2) (let ([xs (fresh-xs (length `(,@ c1 ,c1′)) s)])
                                 (loop `(,@ c1 ,c1′ ↦ (λ ,xs ,c2))))]
     [`(,c1 ... ↦ ,c2) (let ([xs (fresh-xs (length c1) c2)])
                         (loop `(,@ c1 ↦ (λ ,xs ,c2))))]
-    [`(μ (,x) ,c) (MU/C x (read-c c modl-name modls reqs (set-add bound x)))]
-    [e (FLAT/C (read-e e modl-name modls reqs bound))]))
+    [`(μ (,x) ,c) (MU/C x (read-c c modl-name modls reqs (hash-set bound x 'c)))]
+    [x (if (and (symbol? x) (hash-has-pair? bound x 'c ))
+           (REF/C x)
+           (FLAT/C (read-e x modl-name modls reqs bound)))]))
 
+(define (bind-vars bound xs)
+  (foldl (λ (x b) (hash-set b x 'e)) bound xs))
 
+;; hash-has-pair? : [Hashtable K V] K V -> Bool, (V ⊂ true?)
+(define (hash-has-pair? h k v)
+  (equal? v (hash-ref h k (λ () #f))))
 
 ;; Symbol Modules [Listof Symbol] [Setof Symbol] Symbol -> Exp
 ;; checks whether the identier can be found in any required module
 (define (resolve-id from modls reqs bound name)
   (cond
     ; local variable
-    [(set-member? bound name) name]
+    [(hash-has-pair? bound name 'e) name]
     ; same module reference
     [(and (modls-has? modls from) (modl-defines? (hash-ref modls from) name))
      (M-REF from from name)]

@@ -25,6 +25,7 @@
   [struct STRUCT/C ([tag symbol?] [fields (listof CON?)])]
   [struct FUNC/C ([c1 (listof (list/c symbol? CON?))] [c2 CON?] [var-arg? boolean?])]
   [struct MU/C ([x symbol?] [body CON?])]
+  [struct REF/C ([x symbol?])]
   [struct CC ([c CON?] [ρ env?] [O env?])]
   [struct STRUCT-MK ([tag symbol?] [field-count integer?])]
   [struct STRUCT-AC ([tag symbol?] [field-count integer?] [index integer?])]
@@ -98,6 +99,7 @@
 (struct STRUCT/C CON (tag fields) #:transparent)
 (struct FUNC/C CON (c1 c2 var-arg?) #:transparent)
 (struct MU/C CON (x body) #:transparent)
+(struct REF/C CON (x) #:transparent)
 (define con? CON?)
 ;; Closed Contract
 (struct CC (c ρ O) #:transparent)
