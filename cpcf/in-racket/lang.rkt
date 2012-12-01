@@ -15,7 +15,7 @@
   [struct BLM ([who symbol?] [whom symbol?])]
   [struct LAM ([xs (listof symbol?)] [body exp?] [var-arg? boolean?])]
   [struct OPQ ([refinements (listof CC?)])]
-  [struct CLO ([e exp?] [ρ env?] [O env?])]
+  [struct CLO ([e exp?] [ρ env?])]
   [struct C-STRUCT ([tag symbol?] [fields (listof C?)])]
   [struct C-MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CC?] [exp exp?])]
   [con? (any/c . -> . boolean?)]
@@ -26,15 +26,19 @@
   [struct FUNC/C ([c1 (listof (list/c symbol? CON?))] [c2 CON?] [var-arg? boolean?])]
   [struct MU/C ([x symbol?] [body CON?])]
   [struct REF/C ([x symbol?])]
-  [struct CC ([c CON?] [ρ env?] [O env?])]
+  [struct CC ([c CON?] [ρ env?])]
   [struct STRUCT-MK ([tag symbol?] [field-count integer?])]
   [struct STRUCT-AC ([tag symbol?] [field-count integer?] [index integer?])]
   [struct STRUCT-P ([tag symbol?] [field-count integer?])]
+  [struct Π ([accs (listof STRUCT-AC?)] [x symbol?])]
+  [struct VO ([v exp?] [o π?])]
+  
   [CONS val?] [CONS? val?] [CAR val?] [CDR val?]
+  
   [∨ (() () #:rest (listof verified?) . ->* . verified?)]
   [∧ (() () #:rest (listof verified?) . ->* . verified?)]
   [¬ (verified? . -> . verified?)])
- verified? modls-has? modl-defines? modl-exports? C?
+ verified? modls-has? modl-defines? modl-exports? C? π?
  base? exp? val? V? modls? ∅)
 
 ;; Program = (prog Modules Exp)
@@ -81,14 +85,14 @@
 
 ;; Closures
 (struct C () #:transparent)
-(struct CLO C (e ρ O) #:transparent)
+(struct CLO C (e ρ) #:transparent)
 (struct C-STRUCT (tag fields) #:transparent)
 (struct C-MON (lo l+ l- con exp) #:transparent)
 (define (V? x)
   (match x
-    [(CLO e _ρ _O) (val? e)]
+    [(CLO e _ρ) (val? e)]
     [(C-STRUCT _ xs) (andmap V? xs)]
-    [(C-MON _o _+ _- (CC (FUNC/C _c1 _c2 _var?) _ρ _O) c) (V? c)]
+    [(C-MON _o _+ _- (CC (FUNC/C _c1 _c2 _var?) _ρ) c) (V? c)]
     [_ #f]))
 
 ;; Contracts
@@ -102,7 +106,7 @@
 (struct REF/C CON (x) #:transparent)
 (define con? CON?)
 ;; Closed Contract
-(struct CC (c ρ O) #:transparent)
+(struct CC (c ρ) #:transparent)
 
 (define verified?
   (match-lambda
@@ -137,3 +141,11 @@
     ['Proved 'Refuted]
     ['Refuted 'Proved]
     [_ 'Neither]))
+
+;; paths
+(struct Π (accs x) #:transparent)
+(define (π? x)
+  (or (Π? x) (equal? x '∅)))
+
+;; the valid thing that the run-time environment maps to
+(struct VO (v o) #:transparent)
