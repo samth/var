@@ -45,7 +45,7 @@
   
   [∨ (() () #:rest (listof verified?) . ->* . verified?)]
   [∧ (() () #:rest (listof verified?) . ->* . verified?)]
-  [¬ (verified? . -> . verified?)])
+  [v¬ (verified? . -> . verified?)])
  verified? modls-has? modl-defines? modl-exports? C? π?
  base? exp? val? V? modls? ∅)
 
@@ -163,7 +163,7 @@
       [(or `(Refuted ,_) `(,_ Refuted)) 'Refuted]
       [_ 'Neither]))
   (foldl ∧2 'Proved xs))
-(define ¬
+(define v¬
   (match-lambda
     ['Proved 'Refuted]
     ['Refuted 'Proved]
