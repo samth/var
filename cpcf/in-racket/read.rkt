@@ -94,11 +94,13 @@
     [`(let [,x ,e] ,e1) (loop `((λ (,x) ,e1) ,e))]
     [`(let ([,x ,e]) ,e1) (loop `((λ (,x) ,e1) ,e))]
     [`(let ([,x ,e] ,bindings ...) ,e1) (loop `((λ (,x) (let bindings ,e1)) ,e))]
-    [`(and ,e) (loop e)]
+    #|[`(and ,e) (loop e)]
     [`(and ,e ,e1 ...) (loop `(if ,e (and ,@ e1) #f))]
     [`(or ,e) (loop e)]
     [`(or ,e ,e1 ...) (let ([x (fresh-x e1)])
-                        (loop `(let [,x ,e] (if x x (or ,@ e1)))))]
+                        (loop `(let [,x ,e] (if x x (or ,@ e1)))))]|#
+    [`(and ,e ...) (apply AND (map loop e))]
+    [`(or ,e ...) (apply (curry OR modl-name) (map loop e))]
     [`(cond [else ,e]) (loop e)]
     [`(cond [,e1 ,e2] ,otherwise ...) (loop `(if ,e1 ,e2 (cond ,@ otherwise)))]
     
@@ -122,7 +124,7 @@
          (error "Invalid λ variable declaration:" x))]
     
     ;; application
-    [`(,f ,xs ...) (AP (loop f) (map loop xs))]
+    [`(,f ,xs ...) (AP (loop f) (map loop xs) modl-name)]
     
     ;; variables / other values
     ['• (OPQ)]

@@ -9,7 +9,7 @@
   [struct MODL ([name symbol?] [exports (hash/c symbol? CON?)]
                                [bindings (hash/c symbol? exp?)])]
   [struct M-REF ([caller symbol?] [callee symbol?] [name symbol?])]
-  [struct AP ([func exp?] [args (listof exp?)])]
+  [struct AP ([func exp?] [args (listof exp?)] [l symbol?])]
   [struct IF ([test exp?] [then exp?] [else exp?])]
   [struct MU ([x symbol?] [body exp?])]
   [struct MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CON?] [exp exp?])]
@@ -22,7 +22,7 @@
   [struct C-STRUCT ([tag symbol?] [fields (listof C?)])]
   [struct C-MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CC?] [exp exp?])]
   [AND (() () #:rest (listof exp?) . ->* . exp?)]
-  [OR (() () #:rest (listof exp?) . ->* . exp?)]
+  [OR ((symbol?) () #:rest (listof exp?) . ->* . exp?)]
   [con? (any/c . -> . boolean?)]
   [struct FLAT/C ([exp exp?])]
   [struct OR/C ([c1 CON?] [c2 CON?])]
@@ -72,7 +72,7 @@
 (struct EXP () #:transparent)
 (struct ANS EXP () #:transparent)
 (struct M-REF EXP (caller callee name) #:transparent)
-(struct AP EXP (func args) #:transparent)
+(struct AP EXP (func args l) #:transparent)
 (struct IF EXP (test then else) #:transparent)
 (struct MU EXP (x body) #:transparent)
 (struct MON EXP (lo l+ l- con exp) #:transparent)
@@ -119,20 +119,21 @@
 (struct CC (c ρ) #:transparent)
 
 (define AND
-    (match-lambda*
-      ['() #t]
-      [`(,e) e]
-      [`(,e1 ,e2 ...) (IF e1 (apply AND e2) #f)]))
-  
-(define OR
   (match-lambda*
+    ['() #t]
+    [`(,e) e]
+    [`(,e1 ,e2 ...) (IF e1 (apply AND e2) #f)]))
+
+(define (OR m . xs)
+  (match xs
     ['() #f]
     [`(,e) e]
     [`(,e1 ,e2 ...) (AP
                      (LAM '(tmp)
-                          (IF 'tmp 'tmp (apply OR e2))
+                          (IF 'tmp 'tmp (apply (curry OR m) e2))
                           #f)
-                     (list e1))]))
+                     (list e1)
+                     m)]))
 
 (define verified?
   (match-lambda
@@ -179,7 +180,7 @@
 ;; returns expression's free variables
 (define FV
   (match-lambda
-    [(AP f xs) (set-union (FV f) (non-det FV xs))]
+    [(AP f xs _) (set-union (FV f) (non-det FV xs))]
     [(IF e1 e2 e3) (set-union (FV e1) (FV e2) (FV e3))]
     [(MU x e) (set-remove (FV e) x)]
     [(MON _ _ _ c e) (set-union (FV-c c) (FV e))]
@@ -204,4 +205,3 @@
 
 (define (set-remove* s l)
   (foldl (λ (x s) (set-remove s x)) s l))
-    

@@ -8,7 +8,7 @@
  (contract-out
   [C⇒? (CC? CC? . -> . verified?)]
   [C-simpl (CC? . -> . (set/c (set/c CC?)))]
-  [FC (con? . -> . (or/c #f (list/c exp?)))])
+  [FC (symbol? con? . -> . (or/c #f (list/c exp?)))])
  )
 
 ;; simplify contracts into (possibilities-of (sets-of 'simpler'-contracts))
@@ -71,33 +71,37 @@
       [(_ _) 'Neither])))
 
 ;; flattens contract into predicate
-(define FC
-  (match-lambda
+(define (FC m c)
+  (define (FC′ c) (FC m c))
+  (match c
     [(FLAT/C e) (list e)]
     [(OR/C c1 c2)
-     (match* ([FC c1] [FC c2])
-       [([list e1] [list e2]) (list (LAM '(x) (OR e1 e2) #f))]
+     (match* ([FC′ c1] [FC′ c2])
+       [([list e1] [list e2]) (list (LAM '(x) (OR m e1 e2) #f))]
        [(_ _) #f])]
     [(AND/C c1 c2)
-     (match* ([FC c1] [FC c2])
+     (match* ([FC′ c1] [FC′ c2])
        [([list e1] [list e2]) (list (LAM '(x) (AND e1 e2) #f))]
        [(_ _) #f])]
     [(? FUNC/C?) #f]
     [(STRUCT/C t cs)
-     (match (map FC cs)
+     (match (map FC′ cs)
        [`(,(list e) ...)
         (let ([n (length cs)])
           (list
            (LAM '(x)
-                (apply AND
-                       (cons [AP (STRUCT-P t n) (list 'x)]
+                (apply AND ; label doesn't matter here. Should never blame!!
+                       (cons [AP (STRUCT-P t n) (list 'x) '☠]
                              [map (λ (p i)
-                                    (AP p (list [AP (STRUCT-AC t n i) (list 'x)])))
+                                    (AP p
+                                        (list [AP (STRUCT-AC t n i) (list 'x) '☠])
+                                        m))
                                   e
-                                  (build-list identity n)])))))]
+                                  (build-list n identity)]))
+                #f)))]
        [#f #f])]
-    [(MU/C x c) (match (FC c)
+    [(MU/C x c) (match (FC′ c)
                   [(list e) (list (MU x e))]
                   [#f #f])]
-    [(REF/C x) (list 'x)]))
+    [(REF/C x) (list x)]))
 
