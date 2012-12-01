@@ -1,0 +1,103 @@
+#lang racket
+(require "env.rkt")
+(require "lang.rkt")
+(require "prim.rkt")
+(require "nd.rkt")
+
+(provide
+ (contract-out
+  [C⇒? (CC? CC? . -> . verified?)]
+  [C-simpl (CC? . -> . (set/c (set/c CC?)))]
+  [FC (con? . -> . (or/c #f (list/c exp?)))])
+ )
+
+;; simplify contracts into (possibilities-of (sets-of 'simpler'-contracts))
+;; specifically: split or/c, unroll μ, look up reference, and break and/c
+(define (C-simpl C)
+  (match-let ([(CC c ρ) C])
+    (match c
+      [(OR/C c1 c2) (non-det:
+                     [s1 ← (C-simpl (close c1 ρ))]
+                     [s2 ← (C-simpl (close c2 ρ))]
+                     [return: s1 s2])]
+      [(AND/C c1 c2) (non-det:
+                      [s1 ← (C-simpl (close c1 ρ))]
+                      [s2 ← (C-simpl (close c2 ρ))]
+                      [return: (set-union s1 s2)])]
+      [(MU/C x c′) (C-simpl (close c′ (env+ ρ x (VO C '∅))))]
+      [(REF/C x) (C-simpl (VO-v (env-get ρ x)))]
+      [_ (non-det: [return: {set C}])])))
+
+;; checks whether first contract implies/precludes second
+(define (C⇒? A B)
+  (match-let ([(CC a ρA) A]
+              [(CC b ρB) B])
+    (match* (a b)
+      ; trivial 'any/c' contract
+      [(_ [FLAT/C (PRED 'tt)]) 'Proved]
+      ; flat contract, can tell answer for primitive predicates
+      [([FLAT/C (? pred? p)] [FLAT/C (? pred? q)]) (p⇒? p q)]
+      ; break and/or contracts into simpler ones
+      [((OR/C a1 a2) _) (∧ (C⇒? (close a1 ρA) B) (C⇒? (C⇒? a2 ρA) B))]
+      [(_ (OR/C b1 b2)) (∨ (C⇒? A (close b1 ρB)) (C⇒? A (close b2 ρB)))]
+      [((AND/C a1 a2) _) (∨ (C⇒? (close a1 ρA) B) (C⇒? (C⇒? a2 ρA) B))]
+      [(_ (AND/C b1 b2)) (∧ (C⇒? A (close b1 ρB)) (C⇒? A (close b2 ρB)))]
+      ; unroll recursive contract
+      [((MU/C x a′) _) (C⇒? (close a′ (env+ ρA x (VO A '∅))) B)]
+      [(_ (MU/C x b′)) (C⇒? A (close b′ (env+ ρB x (VO B '∅))))]
+      ; look-up contract reference
+      [((REF/C x) _) (C⇒? (VO-v (env-get ρA x)) B)]
+      [(_ (REF/C x)) (C⇒? A (VO-v (env-get ρB x)))]
+      ; struct/c
+      [((STRUCT/C ta as) _)
+       (match b
+         [(STRUCT/C tb bs)
+          (if (and [equal? ta tb] [= (length as) (length bs)])
+              (apply ∧ (map (λ (ai bi) (C⇒? (close ai ρA) (close bi ρB))) as bs))
+              'Refuted)]
+         [(FLAT/C (STRUCT-P tb _)) (if (equal? ta tb) 'Proved 'Refuted)]
+         [(FUNC/C _ _ _) 'Refuted]
+         [_ 'Neither])]
+      ; func/c ; TODO: more precise??
+      [((? FUNC/C?) (FLAT/C (? pred? p))) (p⇒? p (PRED 'proc?))]
+      [((FUNC/C c d v?) (FUNC/C c′ d′ v?))
+       (if (= (length c) (length c′))
+           (∧ (apply ∧ (map (match-lambda**
+                             [(`(,_ ,ci) `(,_ ,ci′)) (C⇒? ci′ ci)])
+                            c c′))
+              (C⇒? d d′))
+           (if v? 'Neither 'Refuted))]
+      ; remain conservative for everything else
+      [(_ _) 'Neither])))
+
+;; flattens contract into predicate
+(define FC
+  (match-lambda
+    [(FLAT/C e) (list e)]
+    [(OR/C c1 c2)
+     (match* ([FC c1] [FC c2])
+       [([list e1] [list e2]) (list (LAM '(x) (OR e1 e2) #f))]
+       [(_ _) #f])]
+    [(AND/C c1 c2)
+     (match* ([FC c1] [FC c2])
+       [([list e1] [list e2]) (list (LAM '(x) (AND e1 e2) #f))]
+       [(_ _) #f])]
+    [(? FUNC/C?) #f]
+    [(STRUCT/C t cs)
+     (match (map FC cs)
+       [`(,(list e) ...)
+        (let ([n (length cs)])
+          (list
+           (LAM '(x)
+                (apply AND
+                       (cons [AP (STRUCT-P t n) (list 'x)]
+                             [map (λ (p i)
+                                    (AP p (list [AP (STRUCT-AC t n i) (list 'x)])))
+                                  e
+                                  (build-list identity n)])))))]
+       [#f #f])]
+    [(MU/C x c) (match (FC c)
+                  [(list e) (list (MU x e))]
+                  [#f #f])]
+    [(REF/C x) (list 'x)]))
+
