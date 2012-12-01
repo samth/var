@@ -6,7 +6,7 @@
  (contract-out
   [∆ (symbol? symbol? . -> . exp?)]
   [p⇒? (pred? pred? . -> . verified?)])
- C/ANY C/NUM C/REAL C/STR)
+ pred? C/ANY C/NUM C/REAL C/STR)
 
 ;; common basic contracts
 (define C/ANY (FLAT/C 'tt))

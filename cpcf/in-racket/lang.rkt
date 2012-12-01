@@ -33,7 +33,7 @@
   [struct STRUCT-AC ([tag symbol?] [field-count integer?] [index integer?])]
   [struct STRUCT-P ([tag symbol?] [field-count integer?])]
   [struct Π ([accs (listof STRUCT-AC?)] [x symbol?])]
-  [struct VO ([v exp?] [o π?])]
+  [struct VO ([v (or/c C? CC?)] [o π?])]
   
   [CONS val?] [CONS? val?] [CAR val?] [CDR val?]
   
