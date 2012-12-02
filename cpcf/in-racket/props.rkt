@@ -8,6 +8,7 @@
 (provide
  (contract-out
   [struct ¬ ([p pred?])]
+  [Γ0 Γ?]
   [Γ+ (Γ? (or/c symbol? π?) ψ? . -> . Γ?)]
   [Γ-get (Γ? (or/c symbol? Π?) . -> . (set/c ψ?))]
   [Γ-mk ((or/c set? list? env?) Γ? . -> . Γ?)]
@@ -18,11 +19,14 @@
   [¬p ((or/c pred? ¬?) . -> . ψ?)])
  Γ? ψ?)
 
+(define Γ0 env0)
+
 (struct ¬ (p) #:transparent)
 (define (ψ? x)
   ((or/c pred? ¬?) x))
 (define Γ? (hash/c symbol? (hash/c (listof STRUCT-AC?) (set/c ψ?))))
 
+;; checks whether first ψ implies second
 (define ψ⇒?
   (match-lambda**
    [(_ [PRED 'tt]) 'Proved]
@@ -36,6 +40,7 @@
    
    [(_ _) 'Neither]))
 
+;; negates + simplifies predicate
 (define ¬p
   (match-lambda
     [(? pred? p) (¬ p)]
