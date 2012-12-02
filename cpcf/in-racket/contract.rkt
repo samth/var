@@ -1,4 +1,5 @@
 #lang racket
+(require racket/contract)
 (require "env.rkt")
 (require "lang.rkt")
 (require "prim.rkt")
@@ -7,25 +8,34 @@
 (provide
  (contract-out
   [C⇒? (CC? CC? . -> . verified?)]
-  [C-simpl (CC? . -> . (set/c (set/c CC?)))]
+  [simplify-CC (CC? . -> . (set/c (set/c simpl-CC?)))]
+  [refine1
+   ((set/c simpl-CC?) simpl-CC?  . -> .
+                      (or/c 'Refuted (set/c simpl-CC?)))] ; TODO remove helper
   [FC (symbol? con? . -> . (or/c #f (list/c exp?)))])
- )
+ simpl-CC?)
 
-;; simplify contracts into (possibilities-of (sets-of 'simpler'-contracts))
+;; checks for simple closed contract
+(define simpl-CC?
+  (match-lambda
+    [(CC (or [? FLAT/C?] [? FUNC/C?] [? STRUCT/C?]) (? env?)) #t]
+    [_ #f]))
+
+;; simplify contract into (possibilities-of (sets-of 'simpler'-contracts))
 ;; specifically: split or/c, unroll μ, look up reference, and break and/c
-(define (C-simpl C)
+(define (simplify-CC C)
   (match-let ([(CC c ρ) C])
     (match c
       [(OR/C c1 c2) (non-det:
-                     [s1 ← (C-simpl (close c1 ρ))]
-                     [s2 ← (C-simpl (close c2 ρ))]
+                     [s1 ← (simplify-CC (close c1 ρ))]
+                     [s2 ← (simplify-CC (close c2 ρ))]
                      [return: s1 s2])]
       [(AND/C c1 c2) (non-det:
-                      [s1 ← (C-simpl (close c1 ρ))]
-                      [s2 ← (C-simpl (close c2 ρ))]
+                      [s1 ← (simplify-CC (close c1 ρ))]
+                      [s2 ← (simplify-CC (close c2 ρ))]
                       [return: (set-union s1 s2)])]
-      [(MU/C x c′) (C-simpl (close c′ (env+ ρ x (VO C '∅))))]
-      [(REF/C x) (C-simpl (VO-v (env-get ρ x)))]
+      [(MU/C x c′) (simplify-CC (close c′ (env+ ρ x (VO C '∅))))]
+      [(REF/C x) (simplify-CC (VO-v (env-get ρ x)))]
       [_ (non-det: [return: {set C}])])))
 
 ;; checks whether first contract implies/precludes second
@@ -105,3 +115,26 @@
                   [#f #f])]
     [(REF/C x) (list x)]))
 
+;; refines given set of contracts with new one
+;; returns possibilities of refinements
+(define (refine1 Cs C)
+  (match
+      (for/fold ([acc 'Neither]) ([Ci Cs])
+        ; check for possibilities:
+        ; * current contracts are sufficient to deduce new one
+        ; * current contracts preclude new one
+        ; * new one is sufficient to replace old one
+        ; * nothing is known, add new contract, might result in spurious stuff
+        (match acc
+          ['Neither (match (C⇒? Ci C)
+                      ['Neither (match (C⇒? C Ci)
+                                  ['Proved `(Replace ,Ci)]
+                                  ['Refuted 'Refuted]
+                                  ['Neither 'Neither])]
+                      ['Proved 'Redundant]
+                      ['Refuted 'Refuted])]
+          [(or 'Refuted 'Redundant `[Replace ,_]) acc]))
+    ['Redundant Cs]
+    ['Refuted 'Refuted]
+    [`(Replace ,Ci) (set-add (set-remove Cs Ci) C)]
+    ['Neither (set-add Cs C)]))
