@@ -9,9 +9,7 @@
  (contract-out
   [C⇒? (CC? CC? . -> . verified?)]
   [simplify-CC (CC? . -> . (set/c (set/c simpl-CC?)))]
-  [refine1
-   ((set/c simpl-CC?) simpl-CC?  . -> .
-                      (or/c 'Refuted (set/c simpl-CC?)))] ; TODO remove helper
+  [refine ((set/c simpl-CC?) CC? . -> . (set/c (set/c simpl-CC?)))]
   [FC (symbol? con? . -> . (or/c #f (list/c exp?)))])
  simpl-CC?)
 
@@ -117,14 +115,25 @@
 
 ;; refines given set of contracts with new one
 ;; returns possibilities of refinements
+(define (refine Cs new-C)
+  (for/fold ([possibilities ∅]) ([new-Cs (simplify-CC new-C)])
+    (match
+        (for/fold ([possibility Cs]) ([Ci new-Cs])
+          (match possibility
+            ['Refuted 'Refuted]
+            [_ (refine1 possibility Ci)]))
+      ['Refuted possibilities]
+      [p (set-add possibilities p)])))
+
+;; refines given set of contracts with new (simple) one
 (define (refine1 Cs C)
   (match
+      ; check for possibilities:
+      ; * current contracts are sufficient to deduce new one
+      ; * current contracts preclude new one
+      ; * new one is sufficient to replace old one
+      ; * nothing is known, add new contract, might result in spurious stuff
       (for/fold ([acc 'Neither]) ([Ci Cs])
-        ; check for possibilities:
-        ; * current contracts are sufficient to deduce new one
-        ; * current contracts preclude new one
-        ; * new one is sufficient to replace old one
-        ; * nothing is known, add new contract, might result in spurious stuff
         (match acc
           ['Neither (match (C⇒? Ci C)
                       ['Neither (match (C⇒? C Ci)
