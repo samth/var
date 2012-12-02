@@ -193,7 +193,7 @@
     [(or (OR/C c1 c2) (AND/C c1 c2)) (set-union (FV-c c1) (FV-c c2))]
     [(STRUCT/C _ cs) (non-det FV-c cs)]
     [(FUNC/C `((,x ,c1) ...) c2 _)
-     (set-union (non-det FV c1) (set-remove* (FV c2) x))]
+     (set-union (non-det FV-c c1) (set-remove* (FV-c c2) x))]
     [(MU/C x c) (set-remove (FV-c c) x)]
     [(REF/C x) {set x}]))
 

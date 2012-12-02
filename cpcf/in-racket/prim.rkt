@@ -85,12 +85,15 @@
    [([PRED 'false?] [PRED 'true?]) 'Refuted]
    [(_ [PRED 'true?]) 'Proved]
    [([PRED (or 'zero? 'non-zero? 'int? 'real?)] [PRED 'num?]) 'Proved]
+   [([PRED 'zero?] [PRED 'int?]) 'Proved]
+   [([PRED (or 'zero? 'non-zero? 'int?)] [PRED 'real?]) 'Proved]
    [([PRED x] [PRED y])
     (if (ormap (λ (group)
                  (and (member x group) (member y group)))
                '({true? false?}
                  {false? proc? str? num?}
-                 {false? proc? str? int? real?}))
+                 {false? proc? str? real?}
+                 {false? proc? str? int?}))
         'Refuted
         'Neither)]
    ;; only 'simple' primitive predicates can overlap at this point
