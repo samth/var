@@ -10,9 +10,10 @@
   [C⇒? (CC? CC? . -> . verified?)]
   [simplify-CC (CC? . -> . (set/c (set/c simpl-CC?)))]
   [refine ((set/c simpl-CC?) CC? . -> . (set/c (set/c simpl-CC?)))]
-  [refine* ([listof (set/c simpl-CC?)] CC? . -> . (set/c [listof (set/c simpl-CC?)]))]
+  [refine* ([listof (set/c simpl-CC?)] [listof CC?] . -> . (set/c [listof (set/c simpl-CC?)]))]
   [refine-v (val? CC? . -> . (set/c val?))]
   [refine-V (V? CC? . -> . (set/c V?))]
+  [refine-V* ([listof V?] [listof CC?] . -> . (set/c [listof V?]))]
   [split-struct
    (V? symbol? integer? . -> . (set/c (or/c 'Refuted [listof V?])))]
   [split-struct-C
@@ -38,17 +39,13 @@
       [`(,c1 → ,c) (FUNC/C `([x ,(mk-c c1)]) (mk-c c) #f)]
       [`(,c1 ,c2 → ,c) (FUNC/C `([x ,(mk-c c1)] [y ,(mk-c c2)]) (mk-c c) #f)])))
 
-;; primitive module
-(define ρ0 env0)
-(define O0 env0)
-
 ;; δ : Symbol [Listof [List V Path]] Γ -> [List Val Γ Path]
 (define δ
   (match-lambda**
    
    ; +
    [('+ `(,(CLO (? number? x) _) ,(CLO (? number? y) _)) Γ)
-    {set (CLO (+ x y) ρ0 O0)}]))
+    {set (CLO (+ x y) ρ0)}]))
 
 ;; ∆ : Symbol -> CON
 (define ∆c
@@ -226,14 +223,22 @@
 
 ;; refines given vector of contract sets with new vector of contracts
 ;; returns all possibilities
-(define S0 {set '()})
 (define (refine* Cs* C*)
-  (match Cs*
-    ['() S0]
-    [(cons Cs Cs1*) (non-det:
-                     [Cs′ ← (refine Cs (first C*))]
-                     [Cs1*′ ← (refine* Cs1* (rest C*))]
-                     [return: (cons Cs′ Cs1*′)])]))
+  (match* (Cs* C*)
+    [('() _) {set '()}]
+    [([cons Cs Cs1*] [cons C C1*])
+     (non-det: [Cs′ ← (refine Cs C)]
+               [Cs1*′ ← (refine* Cs1* C1*)]
+               [return: (cons Cs′ Cs1*′)])]))
+
+;; refines given vector of closed values with new vector of contracts
+(define (refine-V* V* C*)
+  (match* (V* C*)
+    [('() _) {set '()}]
+    [([cons V V1*] [cons C C1*])
+     (non-det: [V′ ← (refine-V V C)]
+               [V1*′ ← (refine-V* V1* C1*)]
+               [return: (cons V′ V1*′)])]))
 
 ;; refines given set of contracts with new (simple) one
 ;; [Setof SimplCC] SimplCC -> [Setof SimplCC] or 'Refuted
@@ -269,7 +274,8 @@
      (match (split-struct-C refinements tag field-count)
        ['Refuted {set 'Refuted}]
        ['Neither {set 'Refuted (make-list field-count [CLO • env0])}]
-       [possibilities (s-map (curry map OPQ) possibilities)])]
+       [possibilities (s-map (curry map (λ (Cs) (CLO (OPQ Cs) env0)))
+                             possibilities)])]
     [_ {set 'Refuted}]))
 
 ;; attempts to split a refinment set into refinements for each field

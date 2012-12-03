@@ -11,7 +11,7 @@
   [env-set (env? symbol? any/c . -> . env?)]
   [env-upd (env? symbol? (any/c . -> . any/c) . -> . env?)]
   [env-restrict (env? (set/c symbol?) . -> . env?)]
-  [env-pop (env? symbol? . -> . env?)]
+  [env-pop (env? (or/c symbol? [listof symbol?]) . -> . env?)]
   [env? (any/c . -> . boolean?)]
   
   [env-size (env? . -> . integer?)]
@@ -57,7 +57,10 @@
             ρ′))))
 
 ;; removes key from environment's domain
-(define env-pop hash-remove)
+(define (env-pop ρ x)
+  (cond
+    [(symbol? x) (hash-remove ρ x)]
+    [else (foldl (λ (z ρ1) (hash-remove ρ1 z)) ρ x)]))
 
 ;; returns environment's domain size
 ;; env-size : env? -> nat?

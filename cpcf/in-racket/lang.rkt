@@ -17,10 +17,10 @@
   [struct PRIM ([x symbol?])]
   [struct PRED ([x symbol?])]
   [struct LAM ([xs (listof symbol?)] [body exp?] [var-arg? boolean?])]
-  [struct OPQ ([refinements (listof CC?)])]
+  [struct OPQ ([refinements (set/c CC?)])]
   [struct CLO ([e exp?] [ρ env?])]
   [struct C-STRUCT ([tag symbol?] [fields (listof C?)])]
-  [struct C-MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CC?] [exp exp?])]
+  [struct C-MON ([lo symbol?] [l+ symbol?] [l- symbol?] [con CC?] [exp VO?])]
   [AND (() () #:rest (listof exp?) . ->* . exp?)]
   [OR ((symbol?) () #:rest (listof exp?) . ->* . exp?)]
   [con? (any/c . -> . boolean?)]
@@ -41,13 +41,21 @@
   [CONS val?] [CONS? val?] [CAR val?] [CDR val?]
   [close ((or/c exp? con?) env? . -> . (or/c C? CC?))]
   
+  [modls-get-def (modls? symbol? symbol? . -> . exp?)]
+  [modls-get-con (modls? symbol? symbol? . -> . con?)]
+  [modls-set-def (modls? symbol? symbol? exp? . -> . modls?)]
+  
   [FV (exp? . -> . (set/c symbol?))]
   
   [∨ (() () #:rest (listof verified?) . ->* . verified?)]
   [∧ (() () #:rest (listof verified?) . ->* . verified?)]
   [v¬ (verified? . -> . verified?)])
+ •
  verified? modls-has? modl-defines? modl-exports? C? π?
- base? exp? val? V? modls? ∅)
+ base? exp? val? V? modls? ∅ ρ0)
+
+(define ∅ (set))
+(define ρ0 env0)
 
 ;; Program = (prog Modules Exp)
 (struct PROG (modules main) #:transparent)
@@ -63,6 +71,15 @@
   (hash-has-key? (MODL-bindings m) x))
 ;; Modules Symbol -> Boolean
 (define modls-has? hash-has-key?)
+(define (modls-get-def ms m x)
+  (hash-ref (MODL-bindings (hash-ref ms m)) x))
+(define (modls-get-con ms m x)
+  (hash-ref (MODL-exports (hash-ref ms m)) x))
+(define (modls-set-def ms m x e)
+  (hash-update ms m
+               (match-lambda
+                 [(MODL name decs defs)
+                  (MODL name decs (hash-set defs x e))])))
 
 ;; Exp = .....
 (define (exp? x)
@@ -86,6 +103,7 @@
   (or (number? x) (string? x) (boolean? x)))
 (struct LAM ANS (xs body var-arg?) #:transparent)
 (struct OPQ ANS (refinements) #:transparent)
+(define • (OPQ ∅))
 ;; special operators for structs
 (struct STRUCT-MK ANS (tag field-count) #:transparent)
 (struct STRUCT-AC ANS (tag field-count index) #:transparent)
@@ -98,11 +116,11 @@
 (struct CLO C (e ρ) #:transparent)
 (struct C-STRUCT (tag fields) #:transparent)
 (struct C-MON (lo l+ l- con exp) #:transparent)
-(define (V? x)
-  (match x
-    [(CLO e _ρ) (val? e)]
-    [(C-STRUCT _ xs) (andmap V? xs)]
-    [(C-MON _o _+ _- (CC (FUNC/C _c1 _c2 _var?) _ρ) c) (V? c)]
+(define V?
+  (match-lambda
+    [(or [CLO (? val?) _]
+         [C-STRUCT _ (? [curry andmap V?])]
+         [C-MON _ _ _ (CC [? FUNC/C?] _) [VO (? V?) _]]) #t]
     [_ #f]))
 
 ;; Contracts
@@ -139,8 +157,6 @@
   (match-lambda
     [(or 'Proved 'Refuted 'Neither) #t]
     [_ #f]))
-
-(define ∅ (set))
 
 ;; cons stuff
 (define CONS (STRUCT-MK 'cons 2))

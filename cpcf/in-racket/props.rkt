@@ -3,7 +3,6 @@
 (require "lang.rkt")
 (require "env.rkt")
 (require "prim.rkt")
-(require "contract.rkt")
 
 (provide
  (contract-out
@@ -13,8 +12,8 @@
   [Γ-get (Γ? (or/c symbol? Π?) . -> . (set/c ψ?))]
   [Γ-mk ((or/c set? list? env?) Γ? . -> . Γ?)]
   [Γ-upd (Γ? Γ? . -> . Γ?)]
-  [Γ-pop (Γ? symbol? . -> . Γ?)]
-  [Γ-push (Γ? symbol? . -> . Γ?)]
+  [Γ-pop (Γ? (or/c symbol? [listof symbol?]) . -> . Γ?)]
+  [Γ-push (Γ? (or/c symbol? [listof symbol?]) . -> . Γ?)]
   [ψ⇒? (ψ? ψ? . -> . verified?)]
   [¬p ((or/c pred? ¬?) . -> . ψ?)])
  Γ? ψ?)
@@ -77,7 +76,9 @@
 
 ;; reset values for symbol in environment
 (define (Γ-push Γ x)
-  (hash-set Γ x env0))
+  (cond
+    [(symbol? x) (hash-set Γ x env0)]
+    [else (foldl (λ (z Γ1) (hash-set Γ1 z)) Γ x)]))
 
 ;; looks up path in environment
 (define (Γ-get Γ o)
