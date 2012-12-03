@@ -10,9 +10,14 @@
   [C⇒? (CC? CC? . -> . verified?)]
   [simplify-CC (CC? . -> . (set/c (set/c simpl-CC?)))]
   [refine ((set/c simpl-CC?) CC? . -> . (set/c (set/c simpl-CC?)))]
+  [refine* ([listof (set/c simpl-CC?)] CC? . -> . (set/c [listof (set/c simpl-CC?)]))]
+  [refine-v (val? CC? . -> . (set/c val?))]
+  [refine-V (V? CC? . -> . (set/c V?))]
   [split-struct
+   (V? symbol? integer? . -> . (set/c (or/c 'Refuted [listof V?])))]
+  [split-struct-C
    ([set/c simpl-CC?] symbol? integer? . -> .
-                      (or/c 'Refuted 'Neither [listof (set/c simpl-CC?)]))]
+                      (or/c 'Refuted 'Neither (set/c [listof (set/c simpl-CC?)])))]
   [FC (symbol? con? . -> . (or/c #f (list/c exp?)))])
  simpl-CC? pred? C/ANY C/NUM C/REAL C/STR)
 
@@ -219,6 +224,17 @@
       ['Refuted possibilities]
       [p (set-add possibilities p)])))
 
+;; refines given vector of contract sets with new vector of contracts
+;; returns all possibilities
+(define S0 {set '()})
+(define (refine* Cs* C*)
+  (match Cs*
+    ['() S0]
+    [(cons Cs Cs1*) (non-det:
+                     [Cs′ ← (refine Cs (first C*))]
+                     [Cs1*′ ← (refine* Cs1* (rest C*))]
+                     [return: (cons Cs′ Cs1*′)])]))
+
 ;; refines given set of contracts with new (simple) one
 ;; [Setof SimplCC] SimplCC -> [Setof SimplCC] or 'Refuted
 (define (refine1 Cs C)
@@ -245,31 +261,48 @@
                 [(CC (FLAT/C (PRED 'tt)) _) Cs]
                 [_ (set-add Cs C)])]))
 
+;; attempts to split value into diffent struct fields
+(define (split-struct V tag field-count)
+  (match V
+    [(C-STRUCT t fields) {set (if (equal? t tag) fields 'Refuted)}]
+    [(CLO (OPQ refinements) _)
+     (match (split-struct-C refinements tag field-count)
+       ['Refuted {set 'Refuted}]
+       ['Neither {set 'Refuted (make-list field-count [CLO • env0])}]
+       [possibilities (s-map (curry map OPQ) possibilities)])]
+    [_ {set 'Refuted}]))
+
 ;; attempts to split a refinment set into refinements for each field
-(define (split-struct refinements tag field-count)
+(define (split-struct-C refinements tag field-count)
   (for/fold ([acc 'Neither]) ([Ci refinements])
     (match acc
       ['Refuted 'Refuted]
       [_ (match Ci
            [(CC (STRUCT/C t cs) ρ)
             (if (and [equal? t tag] [= field-count (length cs)])
-                (match acc
-                  ['Neither (map (λ (c) {set (close c ρ)}) cs)]
-                  [field-refinements
-                   (foldr (λ (S c fields)
-                            (match fields
-                              ['Refuted 'Refuted]
-                              [_ (match (refine1 S (close c ρ))
-                                   ['Refuted 'Refuted]
-                                   [S′ (cons S′ fields)])]))
-                          '()
-                          field-refinements
-                          cs)])
+                (non-det (λ (Cs*) (refine* Cs* (map (λ (c) (close c ρ)) cs)))
+                         (match acc
+                           ['Neither {set (make-list field-count ∅)}]
+                           [_ acc]))
                 'Refuted)]
            [(CC (FLAT/C p) _)
             (match p
               [(? pred?) (match (p⇒? p (STRUCT-P tag field-count))
-                           ['Proved (make-list field-count ∅)]
+                           ['Proved {set (make-list field-count ∅)}]
                            [x x])]
               [_ 'Neither])]
            [(CC (? FUNC/C?) _) 'Refuted])])))
+
+(define (refine-v v CC)
+  (match v
+    [(OPQ refinements) (s-map
+                        (λ (CC1) (OPQ CC1))
+                        (refine refinements CC))]
+    [_ {set v}]))
+
+(define (refine-V V CC)
+  (match V
+    [(CLO v ρ) (s-map
+                (λ (v1) (CLO v1 ρ))
+                (refine-v v CC))]
+    [_ {set V}])) ; TODO: eliminate spurious stuff
