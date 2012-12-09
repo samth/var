@@ -46,7 +46,7 @@
   
   ; path
   [o ∅ o′]
-  [o′ x (acc acc ... x)] ; TODO: why did i make 2 cases??
+  [o′ (acc ... x)]
   [acc car cdr]
   
   ; closures
@@ -152,7 +152,7 @@
         (non-det:
          [Vy Γ3 oy ← (term (step [push (mk-Γ (dom ,ρλ) ,Γ2) ,x]
                                  [:: ,ρλ [,x ↦ ,Vx]]
-                                 [:: ,Oλ [,x ↦ (default-o ,ox (dom ,ρλ) ,x)]]
+                                 [:: ,Oλ [,x ↦ (default-o ,ox (dom ,ρλ) (,x))]]
                                  ,ey))]
          [return: (term (,Vy [upd-Γ ,Γ2 (pop ,Γ3 ,x)]
                              [default-o ,oy (dom [pop Γ ,x]) ∅]))])]
@@ -404,10 +404,6 @@
 ;; use propositions in Γ to refine value
 (define-metafunction scpcf
   refine-with-Γ : V Γ o′ -> V
-  [(refine-with-Γ ((• CC ...) ρ O) ([o′ ↦ ψ ...] any ...) o′)
-   (refine-with-Γ ((• (mk-CC () ψ) ... CC ...) ρ O) (any ...) o′)]
-  [(refine-with-Γ ((• CC ...) ρ O) ([(acc ... x) ↦ ψ ...] any ...) x)
-   (refine-with-Γ ((• (mk-CC (acc ...) ψ) ... CC ...) ρ O) (any ...) x)]
   [(refine-with-Γ ((• CC ...) ρ O) ([(acc ... acc_1 ... x) ↦ ψ ...] any ...) (acc_1 ... x))
    (refine-with-Γ ((• (mk-CC (acc ...) ψ) ... CC ...) ρ O) (any ...) (acc_1 ... x))]
   [(refine-with-Γ ((• CC ...) ρ O) (any any_1 ...) o′)
@@ -438,25 +434,25 @@
 ;; overrides Γ with [x ↦ tt]
 (define-metafunction scpcf
   push : Γ x -> Γ
-  [(push Γ x) ,(cons (term [x ↦ tt]) (term (pop Γ x)))])
+  [(push Γ x) ,(cons (term [(x) ↦ tt]) (term (pop Γ x)))])
 
 ;; returns environment's domain. (overloaded on closures)
 (define-metafunction scpcf
   dom : any -> {x ...}
   [(dom ([o′ ↦ any ...] ...)) ,(rem-dup (term ((var-from-path o′) ...)))]
+  [(dom ([x ↦ any ...] ...)) (x ...)]
   ; overloaded
   [(dom (e ρ O)) (dom ρ)]
   [(dom (mon (c ρ O) (C o))) (dom ρ)])
 ;; extracts variable from path
 (define-metafunction scpcf
   var-from-path : o′ -> x
-  [(var-from-path x) x]
   [(var-from-path (any ... x)) x])
 
 ;; makes proposition environment with given domain and updates it with Γ
 (define-metafunction scpcf
   mk-Γ : {x ...} Γ -> Γ
-  [(mk-Γ {x ...} Γ) (upd-Γ ([x ↦ tt] ...) Γ)])
+  [(mk-Γ {x ...} Γ) (upd-Γ ([(x) ↦ tt] ...) Γ)])
 
 ;; updates Γ1 with propositions from Γ2 if they talk about the same variable
 (define-metafunction scpcf
@@ -464,10 +460,10 @@
   [(upd-Γ any []) any]
   [(upd-Γ (any_1 ... [o′ ↦ ψ ...] any_2 ...) ([o′ ↦ ψ_1 ...] any_3 ...))
    (upd-Γ (any_1 ... [o′ ↦ ψ_1 ...] any_2 ...) (any_3 ...))]
-  [(upd-Γ (any_1 ... [x ↦ ψ ...] any_2 ...) ([(acc ... x) ↦ ψ_1 ...] any_3 ...))
-   (upd-Γ ([(acc ... x) ↦ ψ_1 ...] any_1 ... [x ↦ ψ ...] any_2 ...) (any_3 ...))]
-  [(upd-Γ (any_1 ... [(acc ... x) ↦ ψ ...] any_2 ...) ([x ↦ ψ_1 ...] any_3 ...))
-   (upd-Γ ([x ↦ ψ_1 ...] any_1 ... [(acc ... x) ↦ ψ ...] any_2 ...) (any_3 ...))]
+  [(upd-Γ (any_1 ... [(acc_1 ... x) ↦ ψ ...] any_2 ...)
+          ([(acc ... x) ↦ ψ_1 ...] any_3 ...))
+   (upd-Γ ([(acc ... x) ↦ ψ_1 ...] any_1 ... [(acc_1 ... x) ↦ ψ ...] any_2 ...)
+          (any_3 ...))]
   [(upd-Γ any (any_1 any_2 ...)) (upd-Γ any (any_2 ...))])
 
 ;; extends/updates environment
