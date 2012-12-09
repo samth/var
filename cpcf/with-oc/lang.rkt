@@ -3,7 +3,7 @@
 
 (provide
  scpcf δ ev step
- mb default-o acc-o
+ default-o acc-o
  flush pop push mk-Γ upd-Γ dom :: Γ:: ! FC split-cons var-from-path
  refine-v refine-with-Γ
  s-map rem-dup non-det:
@@ -11,21 +11,21 @@
 
 (define-language scpcf
   ; expression
-  [(e e′ f) a
-            x
-            (e e e ...)
-            (if e e e)
-            (mon c e)
-            (μ (x) e)
-            ; syntactic sugar:
-            (and e e ...)
-            (or e e ...)
-            (let (x e) e)
-            (let ([x e] [x e] ...) e)
-            (cond [e e] ... [else e])
-            (begin e e ...)
-            •]
-  [a v ERR]
+  [(e f) v
+         blame
+         x
+         (e e e ...)
+         (if e e e)
+         (mon c e)
+         (μ (x) e)
+         ; syntactic sugar:
+         (and e e ...)
+         (or e e ...)
+         (let (x e) e)
+         (let ([x e] [x e] ...) e)
+         (cond [e e] ... [else e])
+         (begin e e ...)
+         •]
   [v (λ (x) e) op b]
   
   ; primitives
@@ -40,24 +40,20 @@
   [ψ p? (¬ p?)]
   
   ; environments
-  [ρ ([x ↦ C] ...)]
+  [ρ ([x ↦ V] ...)]
   [O ([x ↦ o′] ...)]
   [Γ ([o′ ↦ ψ ...] ...)]
   
   ; path
   [o ∅ o′]
-  [o′ x (acc acc ... x)]
+  [o′ x (acc acc ... x)] ; TODO: why did i make 2 cases??
   [acc car cdr]
   
   ; closures
   [C ERR
-     (e ρ O)
-     (@ C (C o) (C o) ...)
-     (C C)
-     (mon CC (C o))]
+     (e ρ O)]
   [V (v ρ O)
-     (V V)
-     (mon ((c ↦ (λ (x) c)) ρ O) (V o))]
+     (Cons V V)]
   [CC (c ρ O)]
   
   ; contract
@@ -66,8 +62,7 @@
      (and/c c c)
      (cons/c c c)
      (c ↦ (λ (x) c))
-     (μ (x) c)
-     x]
+     (μ (x) c)]
   
   ; big-step answer
   [A (V Γ o) ERR]
@@ -93,7 +88,7 @@
   ev : e -> {ea ...}
   [(ev e)
    ,(rem-dup (term ((simplify A) ...)))
-   (where (A ...) (step [] (e [] [])))])
+   (where (A ...) (step [] [] [] e))])
 
 (define-metafunction scpcf
   simplify : A -> ea
@@ -103,7 +98,7 @@
   [(simplify (((• CC ...) ρ O) Γ o)) ,(match (rem-dup (term (all-preds (CC ...))))
                                         ['() (term •)]
                                         [ps (term (• ,@ ps))])]
-  [(simplify ((V_1 V_2) Γ o))
+  [(simplify ((Cons V_1 V_2) Γ o))
    (cons (simplify (V_1 [] ∅)) (simplify (V_2 [] ∅)))]
   [(simplify ((any ρ O) Γ o)) any])
 
@@ -116,153 +111,95 @@
   [(all-preds ()) ()])
 
 (define-metafunction scpcf
-  step : Γ C -> {A ...}
+  step : Γ ρ O e -> {A ...}
   
   ; desugar
-  [(step Γ ((and e) ρ O)) (step Γ (e ρ O))]
-  [(step Γ ((and e_1 e ...) ρ O)) (step Γ ((if e_1 (and e ...) #f) ρ O))]
-  [(step Γ ((or e) ρ O)) (step Γ (e ρ O))]
-  [(step Γ ((or e_1 e ...) ρ O)) (step Γ ((let (tmp e_1)
-                                            (if tmp tmp (or e ...))) ρ O))]
-  [(step Γ ((let (x e_x) e) ρ O)) (step Γ (((λ (x) e) e_x) ρ O))]
-  [(step Γ ((let ([x e_x]) e) ρ O)) (step Γ (((λ (x) e) e_x) ρ O))]
-  [(step Γ ((let ([x e_x] [y e_y] ...) e) ρ O))
-   (step Γ ((let (x e_x) (let ([y e_y] ...) e)) ρ O))]
-  [(step Γ ((cond [else e]) ρ O)) (step Γ (e ρ O))]
-  [(step Γ ((cond [e_1 e_2] any ...) ρ O))
-   (step Γ ((if e_1 e_2 (cond any ...)) ρ O))]
-  [(step Γ ((begin e) ρ O)) (step Γ (e ρ O))]
-  [(step Γ ((begin e_1 e_2 ...) ρ O))
-   (step Γ ((let (ignore e_1) (begin e_2 ...)) ρ O))]
-  [(step Γ (• ρ O)) (step Γ ((•) ρ O))]
+  [(step Γ ρ O (and e)) (step Γ ρ O e)]
+  [(step Γ ρ O (and e_1 e ...)) (step Γ ρ O (if e_1 (and e ...) #f))]
+  [(step Γ ρ O (or e)) (step Γ ρ O e)]
+  [(step Γ ρ O (or e_1 e ...))
+   (step Γ ρ O (let (tmp e_1) (if tmp tmp (or e ...))))
+   (where tmp ,(variable-not-in (term (e ...)) (term tmp)))]
+  [(step Γ ρ O (let (x e_x) e)) (step Γ ρ O ((λ (x) e) e_x))]
+  [(step Γ ρ O (let ([x e_x]) e)) (step Γ ρ O ((λ (x) e) e_x))]
+  [(step Γ ρ O (let ([x e_x] [y e_y] ...) e))
+   (step Γ ρ O (let (x e_x) (let ([y e_y] ...) e)))]
+  [(step Γ ρ O (cond [else e])) (step Γ ρ O e)]
+  [(step Γ ρ O (cond [e_1 e_2] any ...))
+   (step Γ ρ O (if e_1 e_2 (cond any ...)))]
+  [(step Γ ρ O (begin e)) (step Γ ρ O e)]
+  [(step Γ ρ O (begin e_1 e_2 ...))
+   (step Γ ρ O (let (tmp e_1) (begin e_2 ...)))
+   (where tmp ,(variable-not-in (term (e_2 ...)) (term tmp)))]
+  [(step Γ ρ O •) (step Γ ρ O (•))]
+  
+  ; blame
+  [(step Γ ρ O blame) {ERR}]
   
   ; val
-  [(step Γ V) {((flush Γ V) Γ ∅)}]
+  [(step Γ ρ O v) {((v [flush Γ ρ] O) Γ ∅)}]
   
   ; var
-  [(step Γ (x ρ O))
-   {((refine-with-Γ V Γ x) Γ (! O x))}
-   (where V (! ρ x))]
-  [(step Γ (x ρ O))
-   ,(non-det:
-     [V Γ′ _ ← (term (step (mk-Γ (dom ρ) Γ) ((μ (z) e) ρ_c O_c)))]
-     [return: (term (,V (upd-Γ Γ ,Γ′) (! O x)))])
-   (where ((μ (z) e) ρ_c O_c) (! ρ x))]
+  [(step Γ ρ O x) {((refine-with-Γ [! ρ x] Γ [! O x]) Γ (! O x))}]
   
-  ; app-raw
-  [(step Γ ((f e) ρ O))
+  ; app-1
+  [(step Γ ρ O (f e))
    ,(non-det:
-     [Vf Γ1 __ ← (term (step Γ (f ρ O)))]
-     [Vx Γ2 ox ← (term (step ,Γ1 (e ρ O)))]
-     (if (redex-match scpcf (o1 any_ρ any_O) Vf)
-         (term (δ ,(first Vf) (,Vx ,ox) ,Γ2))
-         (non-det:
-          [Vy Γ3 oy ← (term (step (mk-Γ (dom ,Vf) ,Γ2)
-                                  (@ ,Vf (,Vx (mb ,ox (dom ,Vf))))))]
-          [return: (term (,Vy (upd-Γ ,Γ2 ,Γ3) (mb ,oy (dom Γ))))])))]
-  [(step Γ ((f e_1 e_2) ρ O))
+     [Vf Γ1 __ ← (term (step Γ ρ O f))]
+     [Vx Γ2 ox ← (term (step ,Γ1 ρ O e))]
+     (match Vf
+       [`((λ (,x) ,ey) ,ρλ ,Oλ)
+        (non-det:
+         [Vy Γ3 oy ← (term (step [push (mk-Γ (dom ,ρλ) ,Γ2) ,x]
+                                 [:: ,ρλ [,x ↦ ,Vx]]
+                                 [:: ,Oλ [,x ↦ (default-o ,ox (dom ,ρλ) ,x)]]
+                                 ,ey))]
+         [return: (term (,Vy [upd-Γ ,Γ2 (pop ,Γ3 ,x)]
+                             [default-o ,oy (dom [pop Γ ,x]) ∅]))])]
+       [`((• ,CC ...) ,_ρ ,_O) (term {ERR
+                                      (((• ,@ (term (C-ranges ,@ CC))) [] []) ,Γ2 ∅)})]
+       [`(,o1 ,_ρ ,_O) (term (δ ,o1 (,Vx ,ox) ,Γ2))]))]
+  ; app-2
+  [(step Γ ρ O (f e_1 e_2))
    ,(non-det:
-     [`(,op ,_ρ ,_O) Γ1 __ ← (term (step Γ (f ρ O)))]
-     [V1 Γ2 o1 ← (term (step ,Γ1 (e_1 ρ O)))]
-     [V2 Γ3 o2 ← (term (step ,Γ2 (e_2 ρ O)))]
-     [term (δ ,op (,V1 ,o1) (,V2 ,o2) ,Γ3)])]
-  ; app-λ
-  [(step Γ (@ ((λ (x) e) ρ O) (V o)))
-   ,(non-det:
-     [Vy Γ′ oy ← (term (step (push Γ x)
-                             (e (:: ρ [x ↦ V]) (:: O [x ↦ (default-o o x)]))))]
-     [return: (term (,Vy (pop ,Γ′ x) (mb ,oy (dom Γ))))])]
-  ; app-mon
-  [(step Γ (@ (mon ((c_1 ↦ (λ (x) c_2)) ρ O) (V_f o_f))
-              (V_x o_x)))
-   ,(non-det:
-     [Vx Γ1 __ ← (term (step Γ (mon (c_1 ρ O) (V_x o_x))))]
-     [Vy Γ2 oy ← (term (step (mk-Γ (dom V_f) ,Γ1)
-                             (@ V_f (,Vx (mb o_x (dom V_f))))))]
-     [Vy′ Γ3 oy′ ← (term (step (push (upd-Γ ,Γ1 ,Γ2) x)
-                               (mon (c_2 (:: ρ [x ↦ ,Vx])
-                                         (:: O [x ↦ (default-o o_x x)])))))]
-     [return: (term (,Vy′ (pop ,Γ3 x) (mb ,oy′ (dom Γ))))])]
-  ; app-prim
-  [(step Γ (@ (o1 ρ O) (V o))) (δ o1 (V o) Γ)]
-  [(step Γ (@ (o2 ρ O) (V_1 o_1) (V_2 o_2) Γ)) (δ o2 (V_1 o_1) (V_2 o_2) Γ)]
-  ; app-•
-  [(step Γ (@ ((• CC ...) ρ O) (V o)))
-   { ERR ; poor man's havoc
-     (((• ,@ (term (C-ranges (CC ...)))) [] []) Γ ∅) }]
+     [`(,o2 ,_ρ ,_O) Γ1 __ ← (term (step Γ ρ O f))]
+     [Vx Γ2 ox ← (term (step ,Γ1 ρ O e_1))]
+     [Vy Γ3 oy ← (term (step ,Γ2 ρ O e_2))]
+     [term (δ ,o2 (,Vx ,ox) (,Vy ,oy) ,Γ3)])]
   
   ; if
-  [(step Γ ((if e_1 e_2 e_3) ρ O))
+  [(step Γ ρ O (if e_1 e_2 e_3))
    ,(non-det:
-     [V1 Γ1 o1 ← (term (step Γ (e_1 ρ O)))]
-     [`(,t? ,_ρ ,_O) _Γ ot ← (term (δ true? (,V1 ,o1) ,Γ1))]
+     [V1 Γ1 o1 ← (term (step Γ ρ O e_1))]
+     [`(,t? ,_ρ ,_O) Γt ot ← (term (δ true? (,V1 ,o1) ,Γ1))]
      [if t?
-         (term (step ,Γ1 (e_2 ρ O)))
-         (term (step ,Γ1 (e_3 ρ O)))])]
+         (term (step ,Γt ρ O e_2))
+         (term (step ,Γt ρ O e_3))])]
   
   ; μ
-  [(step Γ ((μ (x) e) ρ O))
-   ,(non-det:
-     [V Γ′ o ← (term (step (push Γ x) (e (:: ρ [x ↦ ((μ (x) e) ρ O)])
-                                         (:: O [x ↦ x]))))]
-     [return: (term (,V (pop ,Γ′ x) (mb ,o (dom Γ))))])]
+  [(step Γ ρ O (μ (x) e)) (step Γ ρ O (subst e x (μ (x) e)))]
   
-  ; mon-distr
-  [(step Γ ((mon c e) ρ O))
-   ,(non-det:
-     [V Γ1 o ← (term (step Γ (e ρ O)))]
-     [term (step ,Γ1 (mon (c ρ O) (,V ,o)))])]
-  
-  ; mon
-  [(step Γ (mon (c ρ O) (V o)))
-   ,(match (term (FC c))
-      [`(,p?) (non-det:
-               [V-p? Γ1 _ ← (term (step Γ (,p? ρ O)))]
-               [`(,t? ,_ρ ,_O) Γ2 ot ←
-                               (term (step (mk-Γ (dom ,V-p?) ,Γ1)
-                                           (@ ,V-p? (V (mb o (dom ,V-p?))))))]
-               [if t?
-                   (let ([Γ3 (term (upd-Γ ,Γ1 ,Γ2))]
-                         [o′ (term (mb o (dom Γ)))])
-                     (s-map
-                      (λ (V′) (term (,V′ ,Γ3 ,o′)))
-                      (term (refine-v V (c ρ O)))))
-                   (term {ERR})])]
-      [_ (match (term c)
-           [`(and/c ,c1 ,c2)
-            (non-det:
-             [V′ Γ′ _ ← (term (step Γ (mon (,c1 ρ O) (V o))))]
-             [term (step ,Γ′ (mon (,c2 ρ O) (,V′ o)))])]
-           [`(or/c ,c1 ,c2)
-            (match-let ([`(,p?) (term (FC c1))]) ; assume flat left disjunction
-              (non-det:
-               [Vp Γ1 _ ← (term (step Γ (,p? ρ O)))]
-               [Vt Γ2 ot ← (term (step (mk-Γ (dom ,Vp) ,Γ1)
-                                       (@ ,Vp (V (mb o (dom ,Vp))))))]
-               [`(,t? ,_ρ ,_O) _Γ _o ← (term (δ true? (,Vt ,ot) ,Γ2))]
-               [if t?
-                   (term {((refine-v V (c_1 ρ O))
-                           (upd-Γ ,Γ1 ,Γ2)
-                           (mb o (dom Γ)))})
-                   (term (step (upd-Γ ,Γ1 ,Γ2)
-                               (mon (,c2 ρ O) (V (mb o (dom Γ))))))]))]
-           [`(cons/c ,c1 ,c2)
-            (s-map
-             (match-lambda
-               [`(,V1 ,V2)
-                (non-det:
-                 [V1′ Γ1 o1 ← (term (mon (,c1 ρ O) (,V1 (mb (acc-o car o) (dom ρ)))))]
-                 [V2′ Γ2 o2 ← (term (mon (,c2 ρ O) (,V2 (mb (acc-o cdr o) (dom ρ)))))]
-                 [return: (term ((,V1′ ,V2′) ,Γ2 (mb o (dom Γ))))])]
-               [`() 'ERR])
-             (term (split-cons (V o) Γ)))]
-           [`(μ (,x) ,c′)
-            (term (step (push Γ ,x)
-                        (mon (,c′ (:: ρ [,x ↦ `((μ (,x) ,c′) ρ O)])
-                                  (:: O [,x ↦ ,x]))
-                             (V o))))]
-           [x (match-let ([`(,c ,ρ ,O) (term (! ρ ,x))])
-                (term (step (mk-Γ (dom ,ρ) Γ) (mon (,c ,ρ ,O) (V o)))))])])])
+  ; mon-flat
+  [(step Γ ρ O (mon [flat e_p] e))
+   (step Γ ρ O (let [x e] (if (e_p x) x blame)))
+   (where x ,(variable-not-in (term e_p) (term x)))]
+  ; mon-and
+  [(step Γ ρ O (mon [and/c c_1 c_2] e))
+   (step Γ ρ O (mon c_2 (mon c_1 e)))]
+  ; mon-or
+  [(step Γ ρ O (mon (or/c c_1 c_2) e))
+   (step Γ ρ O (let [x e] (if ([FC c_1] x) x (mon c_2 x))))]
+  ; mon-cons
+  [(step Γ ρ O (mon (cons/c c_1 c_2) e))
+   (step Γ ρ O (let [x (mon (flat cons?) e)]
+                 (cons (mon c_1 (car x)) (mon c_2 (cdr x)))))]
+  ; mon-μ
+  [(step Γ ρ O (mon (μ (x) c) e)) (step Γ ρ O (mon (subst-c c x (μ (x) c)) e))]
+  ; mon-fun
+  [(step Γ ρ O (mon (c_1 ↦ (λ (x) c_2)) e))
+   (step Γ ρ O (let [f e] (λ (x) (mon c_2 (f (mon c_1 x))))))
+   (where f ,(variable-not-in (term (c_1 x c_2)) (term f)))])
+
 
 ;; extract function contract's domain
 (define-metafunction scpcf
@@ -274,26 +211,18 @@
           (term (C-ranges (any ...))))]
   [(C-ranges (any_1 any ...)) (C-ranges (any ...))])
 
-;; 'flushes' all information in Γ to V, after which Γ doesn't know anything
-;; new for V
-(define-metafunction scpcf
-  flush : Γ V -> V
-  [(flush Γ ((λ (x) e) ρ O)) ((λ (x) e) (flush-ρ Γ ρ) O)]
-  [(flush Γ (mon (c ρ O) (V o))) (mon (c (flush-ρ Γ ρ) O) (V o))]
-  [(flush Γ V) V]) ; for now
-
 ;; 'flushes' all propositions in Γ into ρ as refinining contracts for •'s
 (define-metafunction scpcf
-  flush-ρ : Γ ρ -> ρ
-  [(flush-ρ [] ρ) ρ]
-  [(flush-ρ ([x ↦ ψ ...] any ...) (any_1 ... [x ↦ ((• CC ...) ρ O)] any_2 ...))
-   (flush-ρ (any ...)
-            (any_1 ... [x ↦ ((• (mk-CC () ψ) ... CC ...) [] [])] any_2 ...))]
-  [(flush-ρ ([(acc ... x) ↦ ψ ...] any ...)
-            (any_1 ... [x ↦ ((• CC ...) ρ O)] any_2 ...))
-   (flush-ρ (any ...)
-            (any_1 ... [x ↦ ((• (mk-CC (acc ...) ψ) ... CC ...) [] [])] any_2 ...))]
-  [(flush-ρ (any_1 any ...) ρ) (flush-ρ (any ...) ρ)])
+  flush : Γ ρ -> ρ
+  [(flush [] ρ) ρ]
+  [(flush ([x ↦ ψ ...] any ...) (any_1 ... [x ↦ ((• CC ...) ρ O)] any_2 ...))
+   (flush (any ...)
+          (any_1 ... [x ↦ ((• (mk-CC () ψ) ... CC ...) [] [])] any_2 ...))]
+  [(flush ([(acc ... x) ↦ ψ ...] any ...)
+          (any_1 ... [x ↦ ((• CC ...) ρ O)] any_2 ...))
+   (flush (any ...)
+          (any_1 ... [x ↦ ((• (mk-CC (acc ...) ψ) ... CC ...) [] [])] any_2 ...))]
+  [(flush (any_1 any ...) ρ) (flush (any ...) ρ)])
 
 ;; check whether value satisfies contract
 (define-metafunction scpcf
@@ -352,8 +281,42 @@
   [(concrete-check proc? ((λ (x) e) ρ O)) #t]
   [(concrete-check true? (#f ρ O)) #f]
   [(concrete-check true? V) #t]
-  [(concrete-check cons? (V_1 V_2)) #t]
+  [(concrete-check cons? (Cons V_1 V_2)) #t]
   [(concrete-check p? V) #f])
+
+(define-metafunction scpcf
+  subst : e x any -> e
+  [(subst (λ (x) e) x any) (λ (x) e)]
+  [(subst (λ (z) e) x any) (λ (z) (subst e x any))]
+  [(subst (μ (x) e) x any) (μ (x) e)]
+  [(subst (μ (z) e) x any) (μ (z) (subst e x any))]
+  [(subst x x any) any]
+  [(subst x z any) x]
+  [(subst (e ...) x any) ((subst e x any) ...)]
+  [(subst (mon c e) x any)
+   (subst (mon (subst-c c x any) (subst e x any)))]
+  [(subst (let [x e_1] e) x any) (let [x (subst e_1 x any)] e)]
+  [(subst (let [z e_1] e) x any) (let [z (subst e_1 x any)] (subst e x any))]
+  [(subst (let ([z e_z] ...) e) x any)
+   (let ([z (subst e_z x any)] ...) e)
+   (where (any_2 ... x any_3 ...) (z ...))]
+  [(subst (let ([z e_z] ...) e) x any)
+   (let ([z (subst e_z x any)] ...) (subst e x any))]
+  [(subst (cond [e_1 e_2] ... [else e]) x any)
+   (cond [(subst e_1 x any) (subst e_2 x any)] ... [else (subst e x any)])]
+  [(subst (any_l e ...) x any) (any_l (subst e x any) ...)]
+  [(subst v x any) v]
+  [(subst blame x any) blame])
+(define-metafunction scpcf
+  subst-c : c x any -> c
+  [(subst-c (flat e) x any) (flat (subst e x any))]
+  [(subst-c (c_1 ↦ (λ (x) c_2)) x any)
+   ((subst-c c_1 x any) ↦ (λ (x) c_2))]
+  [(subst-c (c_1 ↦ (λ (z) c_2)) x any)
+   ((subst-c c_1 x any) ↦ (λ (z) (subst-c c_2 x any)))]
+  [(subst-c (μ (x) c) x any) (μ (x) c)]
+  [(subst-c (μ (z) c) x any) (μ (z) (subst-c c x any))]
+  [(subst-c (any_l c ...) x any) (any_l (subst-c c x any) ...)])
 
 ;; refines value with given (closed) contract
 (define-metafunction scpcf
@@ -440,14 +403,16 @@
 
 ;; use propositions in Γ to refine value
 (define-metafunction scpcf
-  refine-with-Γ : V Γ x -> V
-  [(refine-with-Γ ((• CC ...) ρ O) ([x ↦ ψ ...] any ...) x)
-   (refine-with-Γ ((• (mk-CC () ψ) ... CC ...) ρ O) (any ...) x)]
+  refine-with-Γ : V Γ o′ -> V
+  [(refine-with-Γ ((• CC ...) ρ O) ([o′ ↦ ψ ...] any ...) o′)
+   (refine-with-Γ ((• (mk-CC () ψ) ... CC ...) ρ O) (any ...) o′)]
   [(refine-with-Γ ((• CC ...) ρ O) ([(acc ... x) ↦ ψ ...] any ...) x)
    (refine-with-Γ ((• (mk-CC (acc ...) ψ) ... CC ...) ρ O) (any ...) x)]
-  [(refine-with-Γ ((• CC ...) ρ O) (any any_1 ...) x)
-   (refine-with-Γ ((• CC ...) ρ O) (any_1 ...) x)]
-  [(refine-with-Γ V Γ x) V])
+  [(refine-with-Γ ((• CC ...) ρ O) ([(acc ... acc_1 ... x) ↦ ψ ...] any ...) (acc_1 ... x))
+   (refine-with-Γ ((• (mk-CC (acc ...) ψ) ... CC ...) ρ O) (any ...) (acc_1 ... x))]
+  [(refine-with-Γ ((• CC ...) ρ O) (any any_1 ...) o′)
+   (refine-with-Γ ((• CC ...) ρ O) (any_1 ...) o′)]
+  [(refine-with-Γ V Γ o′) V])
 
 ;; makes (closed) contract out of proposition
 (define-metafunction scpcf
@@ -532,16 +497,11 @@
 
 ;; keeps the path only when it's in given domain
 (define-metafunction scpcf
-  mb : o {x ...} -> o
-  [(mb x {z ... x y ...}) x]
-  [(mb (acc ... x) {z ... x y ...}) (acc ... x)]
-  [(mb o any) ∅])
-
-;; use the first path unless it is ∅ (then resort to second one)
-(define-metafunction scpcf
-  default-o : o o′ -> o′
-  [(default-o ∅ o′) o′]
-  [(default-o o′ any) o′])
+  default-o : o {x ...} o -> o
+  [(default-o ∅ any o) o]
+  [(default-o x {z ... x y ...} any) x]
+  [(default-o (acc ... x) {z ... x y ...} any) (acc ... x)]
+  [(default-o o any o_1) o_1])
 
 ;; applies accessor on path
 (define-metafunction scpcf
@@ -673,7 +633,7 @@
                 ERR})])]
   
   ; cons
-  [(δ cons (V_1 o_1) (V_2 o_2) Γ) {((V_1 V_2) Γ ∅)}]
+  [(δ cons (V_1 o_1) (V_2 o_2) Γ) {((Cons V_1 V_2) Γ ∅)}]
   
   ; predicates
   [(δ tt (V o) Γ) {((#t [] []) Γ ∅)}]
@@ -693,7 +653,7 @@
 ;; split pair closure into 2, or () indicating not a pair
 (define-metafunction scpcf
   split-cons : (V o) Γ -> {(V ...) ...} ; (V ...) being (V V) or ()
-  [(split-cons ((V_1 V_2) o) Γ) {(V_1 V_2)}]
+  [(split-cons ((Cons V_1 V_2) o) Γ) {(V_1 V_2)}]
   [(split-cons (((• CC ...) ρ O) o) Γ)
    ,(match (term (acc-cons (CC ...) ()))
       ['() (match (term (Γ⊢? Γ o cons?))
