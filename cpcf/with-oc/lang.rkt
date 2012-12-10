@@ -41,6 +41,7 @@
   [acc car cdr]
   
   ; closures
+  [C (e ρ O)]
   [V (v ρ O)
      (Cons V V)]
   [D (c ρ O)]
