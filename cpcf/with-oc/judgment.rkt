@@ -20,6 +20,15 @@
       (V_y Γ_3 o_y))
    ----- "app-λ"
    (⇓ Γ ρ O (e_f e_x) (V_y [upd-Γ Γ_2 (pop Γ_3 x)] (default-o o_y (dom (pop Γ x)) ∅)))]
+  [(⇓ Γ ρ O e_f (((• D ...) ρ_f O_f) Γ_1 o_f))
+   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
+   (where (D_y ...) (D-ranges (D ...)))
+   ----- "app-•-ok"
+   (⇓ Γ ρ O (e_f e_x) (((• D_y ...) [] []) Γ_2 ∅))]
+  [(⇓ Γ ρ O e_f (((• D ...) ρ_f O_f) Γ_1 o_f))
+   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
+   ----- "app-•-err"
+   (⇓ Γ ρ O (e_f e_x) ERR)]
   [(⇓ Γ ρ O e_f ((o1 ρ_f O_f) Γ_1 o_f))
    (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
    (where (any ... A any_1 ...) (δ o1 (V_x o_x) Γ_2))

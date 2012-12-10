@@ -76,12 +76,23 @@
         (V_r Γ_1 o_r κ)
         δ
         (where (A ... (V_r Γ_1 o_r) A_1 ...) (δ op [V_x o_x] ... [V o] Γ))]
+   [--> (V Γ o [@ ([(op ρ_o O_o) o_o] [V_x o_x] ...) () κ])
+        ([blame () ()] [] ∅ mt)
+        δ-err
+        (where (A ... ERR A_1 ...) (δ op [V_x o_x] ... [V o] Γ))]
    [--> (V Γ o [@ ([((λ (x) e_y) ρ_f O_f) o_f]) () κ])
         ([e_y (:: ρ_f [x ↦ V]) (:: O_f [x ↦ (default-o o (dom ρ_f) [x])])]
          [push (mk-Γ (dom ρ_f) Γ) x]
          ∅
          [WITH-Γ Γ x κ])
         β]
+   [--> (V Γ o [@ ([((• D ...) ρ_f O_f) o_f]) () κ])
+        ([(• D_y ...) () ()] Γ ∅ κ)
+        app-•-ok
+        (where (D_y ...) (D-ranges (D ...)))]
+   [--> (V Γ o [@ ([((• D ...) ρ_f O_f) o_f]) () κ])
+        ([blame () ()] [] ∅ mt)
+        app-•-err]
    [--> (V Γ o [with-Γ Γ_1 x κ])
         (V [upd-Γ Γ_1 (pop Γ x)] [default-o o (dom (pop Γ_1 x)) ∅] κ)
         upd-Γ]
@@ -135,12 +146,12 @@
 
 ;;;; tests
 
-(try (term ((λ (x)
+#;(try (term ((λ (x)
               (if (int? x) (- 0 x)
                   (if (bool? x) (false? x) "ignore")))
             •)))
 
-(try (term (let ([input •] [extra •])
+#;(try (term (let ([input •] [extra •])
              (if (and (or (int? input) (str? input))
                       (cons? extra))
                  (cond

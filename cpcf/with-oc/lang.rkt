@@ -1,11 +1,11 @@
 #lang racket
 (require redex)
-(require "lang-simple.rkt")
+(require (except-in "lang-simple.rkt" subst subst-c))
 
 (provide
  scpcf δ ev step
  default-o acc-o subst subst-c FC var-not-in
- flush pop push mk-Γ upd-Γ dom :: Γ:: ! FC split-cons var-from-path
+ flush pop push mk-Γ upd-Γ dom :: Γ:: ! FC split-cons var-from-path D-ranges
  refine-v refine-with-Γ
  s-map rem-dup non-det:
  c/any C/ANY c/int C/INT c/str C/STR c/bool C/BOOL)
@@ -26,7 +26,8 @@
   [o1 .... sub1 str-len car cdr]
   [o2 .... - *]
   [p? .... true? bool? str? int? proc? cons? zero?]
-  [b .... s (• D ...)]
+  [v .... (• D ...)]
+  [b .... s]
   [bool #t #f]
   [s string]
   [ψ p? (¬ p?)]
@@ -42,8 +43,7 @@
   
   ; closures
   [C (e ρ O)]
-  [V (v ρ O)
-     (Cons V V)]
+  [V (v ρ O) (Cons V V)]
   [D (c ρ O)]
   
   ; big-step answer
@@ -137,7 +137,7 @@
          [return: (term (,Vy [upd-Γ ,Γ2 (pop ,Γ3 ,x)]
                              [default-o ,oy (dom [pop Γ ,x]) ∅]))])]
        [`((• ,D ...) ,_ρ ,_O) (term {ERR
-                                     (((• ,@ (term (D-ranges ,@ D))) [] []) ,Γ2 ∅)})]
+                                     (((• ,@ (term (D-ranges ,D))) [] []) ,Γ2 ∅)})]
        [`(,o1 ,_ρ ,_O) (term (δ ,o1 (,Vx ,ox) ,Γ2))]))]
   ; app-2
   [(step Γ ρ O (e_f e_1 e_2))
@@ -425,11 +425,12 @@
    ([o ↦ ψ] any_1 ... [o_k ↦ ψ_k ...] any_2 ...)
    (where (x x) ((var-from-path o_k) (var-from-path o)))])
 
-;; keeps the path only when it's in given domain
+;; keeps the path only when it's in given domain and not
+;; an extension of the given path
 (define-metafunction scpcf
   default-o : o {x ...} o -> o
   [(default-o ∅ any o) o]
-  [(default-o x {z ... x y ...} any) x]
+  [(default-o (acc ... x) any (acc_1 ... x)) (acc_1 ... x)]
   [(default-o (acc ... x) {z ... x y ...} any) (acc ... x)]
   [(default-o o any o_1) o_1])
 
@@ -602,6 +603,39 @@
    (where #t (excludes? p? cons?))]
   [(acc-cons (any any_1 ...) any_acc) (acc-cons (any_1 ...) any_acc)])
 
+(define-metafunction scpcf
+  subst : e x any -> e
+  [(subst (λ (x) e) x any) (λ (x) e)]
+  [(subst (λ (z) e) x any) (λ (z) (subst e x any))]
+  [(subst (μ (x) e) x any) (μ (x) e)]
+  [(subst (μ (z) e) x any) (μ (z) (subst e x any))]
+  [(subst x x any) any]
+  [(subst x z any) x]
+  [(subst (e ...) x any) ((subst e x any) ...)]
+  [(subst (mon c e) x any)
+   (subst (mon (subst-c c x any) (subst e x any)))]
+  [(subst (let [x e_1] e) x any) (let [x (subst e_1 x any)] e)]
+  [(subst (let [z e_1] e) x any) (let [z (subst e_1 x any)] (subst e x any))]
+  [(subst (let ([z e_z] ...) e) x any)
+   (let ([z (subst e_z x any)] ...) e)
+   (where (any_2 ... x any_3 ...) (z ...))]
+  [(subst (let ([z e_z] ...) e) x any)
+   (let ([z (subst e_z x any)] ...) (subst e x any))]
+  [(subst (cond [e_1 e_2] ... [else e]) x any)
+   (cond [(subst e_1 x any) (subst e_2 x any)] ... [else (subst e x any)])]
+  [(subst (any_l e ...) x any) (any_l (subst e x any) ...)]
+  [(subst v x any) v]
+  [(subst blame x any) blame])
+(define-metafunction scpcf
+  subst-c : c x any -> c
+  [(subst-c (flat e) x any) (flat (subst e x any))]
+  [(subst-c (c_1 ↦ (λ (x) c_2)) x any)
+   ((subst-c c_1 x any) ↦ (λ (x) c_2))]
+  [(subst-c (c_1 ↦ (λ (z) c_2)) x any)
+   ((subst-c c_1 x any) ↦ (λ (z) (subst-c c_2 x any)))]
+  [(subst-c (μ (x) c) x any) (μ (x) c)]
+  [(subst-c (μ (z) c) x any) (μ (z) (subst-c c x any))]
+  [(subst-c (any_l c ...) x any) (any_l (subst-c c x any) ...)])
 
 
 ;;;;; HELPER stuff for non-determinism

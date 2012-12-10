@@ -9,8 +9,7 @@
   ; expression
   [e v
      x
-     (e e)
-     (e e e)
+     (e e e ...)
      (if e e e)
      (mon c e)
      (μ (x) e)
@@ -35,9 +34,6 @@
   
   ; closed value
   [V (v ρ) (Cons V V)]
-  
-  ; closed contract
-  [D (c ρ)]
   
   ; evaluation answer
   [A ERR V]
