@@ -2,156 +2,245 @@
 (require redex)
 (require "lang.rkt")
 
-(provide ⇓)
+(provide ⇓ ⇓c ⇓@ ⇓m)
 
 (define-judgment-form scpcf
-  #:mode     (⇓ I I I I  O)
-  #:contract (⇓ Γ ρ O e  A)
+  #:mode     (⇓ I I I I I O   O O)
+  #:contract (⇓ Γ ρ O ψ e Ans Γ o)
+  
   [----- "val"
-         (⇓ Γ ρ O v ([v (flush Γ ρ) O] Γ ∅))]
+   (⇓ Γ ρ O ψ v (v (Γ-flush Γ ρ) O ψ) Γ ∅)]
   [----- "var"
-         (⇓ Γ ρ O x ([refine-with-Γ (! ρ x) Γ (! O x)] Γ [! O x]))]
-  [(⇓ Γ ρ O e_f (((λ (x) e_y) ρ_f O_f) Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   (⇓ [push (mk-Γ (dom ρ_f) Γ_2) x]
-      [:: ρ_f (x ↦ V_x)]
-      [:: O_f (x ↦ (default-o o_x (dom ρ_f) [x]))]
-      e_y
-      (V_y Γ_3 o_y))
-   ----- "app-λ"
-   (⇓ Γ ρ O (e_f e_x) (V_y [upd-Γ Γ_2 (pop Γ_3 x)] (default-o o_y (dom (pop Γ x)) ∅)))]
-  [(⇓ Γ ρ O e_f (((• D ...) ρ_f O_f) Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   (where (D_y ...) (D-ranges (D ...)))
-   ----- "app-•-ok"
-   (⇓ Γ ρ O (e_f e_x) (((• D_y ...) [] []) Γ_2 ∅))]
-  [(⇓ Γ ρ O e_f (((• D ...) ρ_f O_f) Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   ----- "app-•-err"
-   (⇓ Γ ρ O (e_f e_x) ERR)]
-  [(⇓ Γ ρ O e_f ((o1 ρ_f O_f) Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   (where (any ... A any_1 ...) (δ o1 (V_x o_x) Γ_2))
-   ----- "app-o1"
-   (⇓ Γ ρ O (e_f e_x) A)]
-  [(⇓ Γ ρ O e_f ((o2 ρ_f O_f) Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   (⇓ Γ_2 ρ O e_y (V_y Γ_3 o_y))
-   (where (any ... A any_1 ...) (δ o2 (V_x o_x) (V_y o_y) Γ_3))
-   ----- "app-o2"
-   (⇓ Γ ρ O (e_f e_x e_y) A)]
-  [(⇓ Γ ρ O e_f ERR)
-   -----"app-err1"
-   (⇓ Γ ρ O (e_f e_x) ERR)]
-  [(⇓ Γ ρ O e_f (V_f Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x ERR)
-   -----"app-err2"
-   (⇓ Γ ρ O (e_f e_x e_y ...) ERR)]
-  [(⇓ Γ ρ O e_f (V_f Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   (⇓ Γ_2 ρ O e_y ERR)
-   -----"app-err3"
-   (⇓ Γ ρ O (e_f e_x e_y) ERR)]
-  [(⇓ Γ ρ O e_f (((λ (x) e_y) ρ_f O_f) Γ_1 o_f))
-   (⇓ Γ_1 ρ O e_x (V_x Γ_2 o_x))
-   (⇓ [push (mk-Γ (dom ρ_f) Γ_2) x]
-      [:: ρ_f (x ↦ V_x)]
-      [:: O_f (x ↦ (default-o o_x (dom ρ_f) [x]))]
-      e_y
-      ERR)
-   ----- "app-err4"
-   (⇓ Γ ρ O (e_f e_x) ERR)]
-  [(⇓ Γ ρ O e_0 (V_0 Γ_1 o_0))
-   (where (any ... ((#f ρ_t O_t) Γ_t o_t) any_1 ...)
-          (δ false? (V_0 o_0) Γ_1))
-   (⇓ Γ_t ρ O e_1 A)
+   (⇓ Γ ρ O ψ x (Γ-refine (! ρ x) Γ (! O x)) Γ (! O x))]
+  
+  [(⇓ Γ ρ O ψ e_f V_f Γ_1 o_f)
+   (⇓ Γ_1 ρ O ψ e_x V_x Γ_2 o_x)
+   (⇓@ Γ_2 V_f ([V_x o_x]) Ans Γ_3 o_y)
+   ----- "app-1"
+   (⇓ Γ ρ O ψ (e_f e_x) Ans Γ_3 o_y)]
+  [(⇓ Γ ρ O ψ e_f V_f Γ_1 o_f)
+   (⇓ Γ_1 ρ O ψ e_x V_x Γ_2 o_x)
+   (⇓ Γ_2 ρ O ψ e_y V_y Γ_3 o_y)
+   (⇓@ Γ_3 V_f ([V_x o_x] [V_y o_y]) Ans Γ_4 o_z)
+   ----- "app-2"
+   (⇓ Γ ρ O ψ (e_f e_x e_y) Ans Γ_4 o_z)]
+  [(⇓ Γ ρ O ψ e_f ERR Γ_1 o_f)
+   ----- "app-err1"
+   (⇓ Γ ρ O ψ (e_f e_x ...) ERR Γ_1 ∅)]
+  [(⇓ Γ ρ O ψ e_f V_f Γ_1 o_f)
+   (⇓ Γ_1 ρ O ψ e_x ERR Γ_2 o_x)
+   ----- "app-err2"
+   (⇓ Γ ρ O ψ (e_f e_x e_y ...) ERR Γ_2 ∅)]
+  [(⇓ Γ ρ O ψ e_f V_f Γ_1 o_f)
+   (⇓ Γ_1 ρ O ψ e_x V_x Γ_2 o_x)
+   (⇓ Γ_2 ρ O ψ e_y ERR Γ_3 o_y)
+   ----- "app-err3"
+   (⇓ Γ ρ O ψ (e_f e_x e_y) ERR Γ_3 ∅)]
+  
+  [(⇓ Γ ρ O ψ e V Γ_1 o)
+   (where (any ... ((#f ρ_t O_t ψ_t) Γ_2 o_t) any_1 ...) (δ false? (V o) Γ_1))
+   (⇓ Γ_2 ρ O ψ e_1 Ans Γ_3 o_ans)
    ----- "if-true"
-   (⇓ Γ ρ O (if e_0 e_1 e_2) A)]
-  [(⇓ Γ ρ O e_0 (V_0 Γ_1 o_0))
-   (where (any ... ((#t ρ_t O_t) Γ_t o_t) any_1 ...)
-          (δ false? (V_0 o_0) Γ_1))
-   (⇓ Γ_t ρ O e_2 A)
+   (⇓ Γ ρ O ψ (if e e_1 e_2) Ans Γ_3 o_ans)]
+  [(⇓ Γ ρ O ψ e V Γ_1 o)
+   (where (any ... ((#t ρ_t O_t ψ_t) Γ_2 o_t) any_1 ...) (δ false? (V o) Γ_1))
+   (⇓ Γ_2 ρ O ψ e_2 Ans Γ_3 o_ans)
    ----- "if-false"
-   (⇓ Γ ρ O (if e_0 e_1 e_2) A)]
-  [(⇓ Γ ρ O e ERR)
+   (⇓ Γ ρ O ψ (if e e_1 e_2) Ans Γ_3 o_ans)]
+  [(⇓ Γ ρ O ψ e ERR Γ_1 o)
    ----- "if-err"
-   (⇓ Γ ρ O (if e e_1 e_2) ERR)]
-  [(⇓ Γ ρ O (subst e x (μ (x) e)) A)
+   (⇓ Γ ρ O ψ (if e e_1 e_2) ERR Γ_1 ∅)]
+  
+  [(⇓ Γ ρ O ψ (subst e x (μ (x) e)) Ans Γ_1 o)
    ----- "μ"
-   (⇓ Γ ρ O (μ (x) e) A)]
-  [(where x (var-not-in e_p X))
-   (⇓ Γ ρ O (let [x e] (if (e_p x) x blame)) A)
-   ----- "mon-flat"
-   (⇓ Γ ρ O (mon (flat e_p) e) A)]
-  [(⇓ Γ ρ O (mon c_2 (mon c_1 e)) A)
-   ----- "mon-and/c"
-   (⇓ Γ ρ O (mon (and/c c_1 c_2) e) A)]
-  [(where (e_p) (FC c_1))
-   (where x (var-not-in e_p X))
-   (⇓ Γ ρ O (let [x e] (if (e_p x) x (mon c_2 x))) A)
-   ----- "mon-or/c"
-   (⇓ Γ ρ O (mon (or/c c_1 c_2) e) A)]
-  [(where x (var-not-in (c_1 c_2) X))
-   (⇓ Γ ρ O (let [x (mon (flat cons?) e)]
-              (cons (mon c_1 (car x)) (mon c_2 (cdr x))))
-      A)
-   ----- "mon-cons/c"
-   (⇓ Γ ρ O (mon (cons/c c_1 c_2) e) A)]
-  [(where f (var-not-in (c_x ↦ (λ (x) c_y)) F))
-   (⇓ Γ ρ O (let [f e] (λ (x) (mon c_y (f (mon c_x x))))) A)
-   ----- "mon-func/c"
-   (⇓ Γ ρ O (mon (c_x ↦ (λ (x) c_y)) e) A)]
-  [(⇓ Γ ρ O (mon (subst-c c x (μ (x) c)) e) A)
-   ----- "mon-μ"
-   (⇓ Γ ρ O (mon (μ (x) c) e) A)]
+   (⇓ Γ ρ O ψ (μ (x) e) Ans Γ_1 o)]
+  
+  [(⇓c Γ ρ O ψ c D Γ_1)
+   (⇓ Γ_1 ρ O ψ e V Γ_2 o)
+   (⇓m Γ_2 D (V o) Ans Γ_3)
+   ----- "mon"
+   (⇓ Γ ρ O ψ (mon c e) Ans Γ_3 o)]
+  [(⇓c Γ ρ O ψ c ERR Γ_1)
+   ----- "mon-c-err"
+   (⇓ Γ ρ O ψ (mon c e) ERR Γ_1 ∅)]
+  [(⇓c Γ ρ O ψ c D Γ_1)
+   (⇓ Γ_1 ρ O ψ e ERR Γ_2 o)
+   ----- "mon-e-err"
+   (⇓ Γ ρ O ψ (mon c e) ERR Γ_2 o)]
   
   ;; syntactic sugar
-  [(⇓ Γ ρ O e A)
+  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (and e) A)]
-  [(⇓ Γ ρ O (if e_1 (and e_2 e_3 ...) #f) A)
+   (⇓ Γ ρ O ψ (and e) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ (if e_1 (and e_2 e_3 ...) #f) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (and e_1 e_2 e_3 ...) A)]
-  [(⇓ Γ ρ O e A)
+   (⇓ Γ ρ O ψ (and e_1 e_2 e_3 ...) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (or e) A)]
+   (⇓ Γ ρ O ψ (or e) Ans Γ_1 o)]
   [(where x (var-not-in (e_2 e_3 ...) X))
-   (⇓ Γ ρ O (let [x e_1] (if x x (or e_2 e_3 ...))) A)
+   (⇓ Γ ρ O ψ (let [x e_1] (if x x (or e_2 e_3 ...))) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (or e_1 e_2 e_3 ...) A)]
-  [(⇓ Γ ρ O ((λ (x) e) e_x) A)
+   (⇓ Γ ρ O ψ (or e_1 e_2 e_3 ...) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ ((λ (x) e) e_x) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (let [x e_x] e) A)]
-  [(⇓ Γ ρ O ((λ (x) e) e_x) A)
+   (⇓ Γ ρ O ψ (let [x e_x] e) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ ((λ (x) e) e_x) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (let ([x e_x]) e) A)]
-  [(⇓ Γ ρ O (let [x e_x] (let ([y e_y] [z e_z] ...) e)) A)
+   (⇓ Γ ρ O ψ (let ([x e_x]) e) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ (let [x e_x] (let ([y e_y] [z e_z] ...) e)) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (let ([x e_x] [y e_y] [z e_z] ...) e) A)]
-  [(⇓ Γ ρ O e A)
+   (⇓ Γ ρ O ψ (let ([x e_x] [y e_y] [z e_z] ...) e) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (cond [else e]) A)]
-  [(⇓ Γ ρ O (if e_1 e_2 (cond any ...)) A)
+   (⇓ Γ ρ O ψ (cond [else e]) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ (if e_1 e_2 (cond any ...)) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (cond [e_1 e_2] any ...) A)]
-  [(⇓ Γ ρ O e A)
+   (⇓ Γ ρ O ψ (cond [e_1 e_2] any ...) Ans Γ_1 o)]
+  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (begin e) A)]
+   (⇓ Γ ρ O ψ (begin e) Ans Γ_1 o)]
   [(where x (var-not-in (e_2 e_3 ...) X))
-   (⇓ Γ ρ O (let [x e_1] (begin e_2 e_3 ...)) A)
+   (⇓ Γ ρ O ψ (let [x e_1] (begin e_2 e_3 ...)) Ans Γ_1 o)
    -----
-   (⇓ Γ ρ O (begin e_1 e_2 e_3 ...) A)]
+   (⇓ Γ ρ O ψ (begin e_1 e_2 e_3 ...) Ans Γ_1 o)]
   [-----
-   (⇓ Γ ρ O • (((•) [] []) Γ ∅))])
+   (⇓ Γ ρ O ψ • ((•) [] [] []) Γ ∅)])
 
-;; tests
-(judgment-holds
- (⇓ [] [] [] (let ([input •] [extra •])
-               (if (and (or (int? input) (str? input))
-                        (cons? extra))
-                   (cond
-                     [(and (int? input) (int? (car extra))) (+ input (car extra))]
-                     [(int? (car extra)) (+ (str-len input) (car extra))]
-                     [else 0])
-                   "ignore"))
-    ((0 ρ O) Γ o)))
+(define-judgment-form scpcf
+  #:mode     (⇓c I I I I I O   O)
+  #:contract (⇓c Γ ρ O ψ c Dns Γ)
+  [(⇓ Γ ρ O ψ e V Γ_1 o)
+   ----- "flat/c"
+   (⇓c Γ ρ O ψ (flat e) (flat V) Γ_1)]
+  [(⇓ Γ ρ O ψ e ERR Γ_1 o)
+   ----- "flat/c-err"
+   (⇓c Γ ρ O ψ (flat e) ERR Γ_1)]
+  [----- "or/c"
+   (⇓c Γ ρ O ψ (or/c c_1 c_2) (or/c c_1 c_2 (Γ-flush Γ ρ) O ψ) Γ)]
+  [----- "and/c"
+   (⇓c Γ ρ O ψ (and/c c_1 c_2) (and/c c_1 c_2 (Γ-flush Γ ρ) O ψ) Γ)]
+  [----- "cons/c"
+   (⇓c Γ ρ O ψ (cons/c c_1 c_2) (cons/c c_1 c_2 (Γ-flush Γ ρ) O ψ) Γ)]
+  [----- "func/c"
+   (⇓c Γ ρ O ψ (c_x ↦ (λ (x) c_y)) (c_x ↦ (λ (x) c_y) (Γ-flush Γ ρ) O ψ) Γ)]
+  [(⇓c Γ ρ O (:: ψ [x ↦ ((μ (x) c) ρ O ψ)]) c Dns Γ_1)
+   ----- "μ/c"
+   (⇓c Γ ρ O ψ (μ (x) c) Dns Γ_1)]
+  [(where (c ρ_c O_c ψ_c) (! ψ x))
+   (⇓c (Γ-mk (dom ρ_c) Γ) ρ_c O_c ψ_c c Dns Γ_1)
+   ----- "x/c"
+   (⇓c Γ ρ O ψ x Dns (Γ-upd Γ Γ_1))])
+
+(define-judgment-form scpcf
+  #:mode     (⇓@ I I I           O   O O)
+  #:contract (⇓@ Γ V ([V o] ...) Ans Γ o)
+  
+  [(⇓
+    (Γ-reset (Γ-mk (dom ρ) Γ) x)
+    (:: ρ [x ↦ V_x])
+    (:: O [x ↦ (default-o o_x (del (dom ρ) x) [x])])
+    ψ
+    e
+    Ans Γ_1 o_ans)
+   ----- "app-λ"
+   (⇓@ Γ ((λ (x) e) ρ O ψ) ([V_x o_x])
+       Ans (Γ-upd Γ (Γ-del Γ_1 x)) (default-o o_ans (del (dom Γ) x) ∅))]
+  
+  [(⇓m Γ (c_x ρ O ψ) (V_x o_x) V_x1 Γ_1)
+   (⇓c
+    (Γ-reset (Γ-mk (dom ρ) Γ_1) x)
+    (:: ρ (x ↦ V_x1))
+    (:: O (x ↦ (default-o o_x (del (dom ρ) x) [x])))
+    ψ
+    c_y
+    D_y Γ_2)
+   (⇓@ (Γ-upd Γ_1 Γ_2) V_f ([V_x1 o_x]) V_y Γ_3 o_y)
+   (⇓m Γ_3 D_y (V_y o_y) V_y1 Γ_4)
+   ----- "app-arr"
+   (⇓@ Γ (arr (c_x ↦ (λ (x) c_y) ρ O ψ) V_f) ([V_x o_x]) V_y1 Γ_4 o_y)]
+  
+  [(where (any ... (Ans Γ_1 o) any_1 ...) (δ o1 (V_x o_x) Γ))
+   ----- "app-o1"
+   (⇓@ Γ (o1 ρ_o O_o ψ_o) ([V_x o_x]) Ans Γ_1 o)]
+  [(where (any ... (Ans Γ_1 o) any_1 ...) (δ o2 (V_x o_x) (V_y o_y) Γ))
+   ----- "app-o2"
+   (⇓@ Γ (o2 ρ_o O_o ψ_o) ([V_x o_x] [V_y o_y]) Ans Γ_1 o)])
+
+(define-judgment-form scpcf
+  #:mode     (⇓m I I  I     O   O)
+  #:contract (⇓m Γ CC (V o) Ans Γ)
+  
+  [(⇓@ Γ V_p ([V o]) V_t Γ_1 o_t)
+   (where (any ... ((#f ρ_t O_t ψ_t) Γ_2 o) any_1 ...) (δ false? (V_t o_t) Γ_1))
+   ----- "flat-ok"
+   (⇓m Γ (flat V_p) (V o) (flat-refine V V_p) Γ_2)]
+  [(⇓@ Γ V_p ([V o]) V_t Γ_1 o_t)
+   (where (any ... ((#t ρ_t O_t ψ_t) Γ_2 o) any_1 ...) (δ false? (V_t o_t) Γ_1))
+   ----- "flat-fail"
+   (⇓m Γ (flat V_p) (V o) ERR Γ_2)]
+  [(⇓@ Γ V_p ([V o]) ERR Γ_1 o_t)
+   ----- "flat-err"
+   (⇓m Γ (flat V_p) (V o) ERR Γ_1)]
+  
+  [----- "arr"
+   (⇓m Γ (c_x ↦ (λ (x) c_y) ρ O ψ) (V o) (arr (c_x ↦ (λ (x) c_y) ρ O ψ) V) Γ)]
+  
+  [(where #t (flat? c_1))
+   (⇓m Γ (c_1 ρ O ψ) (V o) V_1 Γ_1)
+   ----- "or/c-left"
+   (⇓m Γ (or/c c_1 c_2 ρ O ψ) (V o) V_1 Γ_1)]
+  [(where #t (flat? c_1))
+   (⇓m Γ (c_1 ρ O ψ) (V o) ERR Γ_1)
+   (⇓m Γ_1 (c_2 ρ O ψ) (V o) Ans Γ_2)
+   ----- "or/c-right"
+   (⇓m Γ (or/c c_1 c_2 ρ O ψ) (V o) Ans Γ_2)]
+  [(where #f (flat? c_1))
+   ----- "or/c-err"
+   (⇓m Γ (or/c c_1 c_2 ρ O ψ) (V o) ERR Γ)]
+  
+  [(⇓m Γ (c_1 ρ O ψ) (V o) V_1 Γ_1)
+   (⇓m Γ_1 (c_2 ρ O ψ) (V_1 o) Ans Γ_2)
+   ----- "and/c"
+   (⇓m Γ (and/c c_1 c_2 ρ O ψ) (V o) Ans Γ_2)]
+  [(⇓m Γ (c_1 ρ O ψ) (V o) ERR Γ_1)
+   ----- "and/c-err"
+   (⇓m Γ (and/c c_1 c_2 ρ O ψ) (V o) ERR Γ_1)]
+  
+  [(where (any_1 ... ((#t ρ_t O_t ψ_t) Γ_1 o_t) any_2 ...) (δ cons? (V o) Γ))
+   (where (any_3 ... (V_car Γ_2 o_car) any_4 ...) (δ car (V o) Γ_1))
+   (⇓m Γ_2 (c_1 ρ O ψ) (V_car o_car) V_car1 Γ_3)
+   (where (any_5 ... (V_cdr Γ_4 o_cdr) any_6 ...) (δ cdr (V o) Γ_3))
+   (⇓m Γ_4 (c_2 ρ O ψ) (V_cdr o_cdr) V_cdr1 Γ_5)
+   (where (any_7 ... (V_1 Γ_6 o_1) any_8 ...) (δ cons (V_car1 o_car) (V_cdr1 o_cdr) Γ_5))
+   ----- "cons/c"
+   (⇓m Γ (cons/c c_1 c_2 ρ O ψ) (V o) V_1 Γ_6)]
+  [(where (any ... ((#f ρ_t O_t ψ_t) Γ_1 o_t) any_1 ...) (δ cons? (V o) Γ))
+   ----- "cons/c-err1"
+   (⇓m Γ (cons/c c_1 c_2 ρ O ψ) (V o) ERR Γ_1)]
+  [(where (any_1 ... ((#t ρ_t O_t ψ_t) Γ_1 o_t) any_2 ...) (δ cons? (V o) Γ))
+   (where (any_3 ... (V_car Γ_2 o_car) any_4 ...) (δ car (V o) Γ_1))
+   (⇓m Γ_2 (c_1 ρ O ψ) (V_car o_car) ERR Γ_3)
+   ----- "cons/c-err2"
+   (⇓m Γ (cons/c c_1 c_2 ρ O ψ) (V o) ERR Γ_3)]
+  [(where (any_1 ... ((#t ρ_t O_t ψ_t) Γ_1 o_t) any_2 ...) (δ cons? (V o) Γ))
+   (where (any_3 ... (V_car Γ_2 o_car) any_4 ...) (δ car (V o) Γ_1))
+   (⇓m Γ_2 (c_1 ρ O ψ) (V_car o_car) V_car1 Γ_3)
+   (where (any_5 ... (V_cdr Γ_4 o_cdr) any_6 ...) (δ cdr (V o) Γ_3))
+   (⇓m Γ_4 (c_2 ρ O ψ) (V_cdr o_cdr) ERR Γ_5)
+   ----- "cons/c-err3"
+   (⇓m Γ (cons/c c_1 c_2 ρ O ψ) (V o) ERR Γ_5)]
+  
+  [(⇓c (Γ-mk (dom ρ) Γ) ρ O ψ c D Γ_1)
+   (⇓m (Γ-upd Γ Γ_1) D (V o) Ans Γ_2)
+   ----- "closed-con"
+   (⇓m Γ (c ρ O ψ) (V o) Ans Γ_2)]
+  [(⇓c (Γ-mk (dom ρ) Γ) ρ O ψ c ERR Γ_1)
+   ----- "closed-con-err"
+   (⇓m Γ (c ρ O ψ) (V o) ERR Γ_1)])
+  
+(define-metafunction scpcf
+  flat-refine : V V -> V
+  [(flat-refine ((• CC ...) ρ O ψ) (v ρ_c O_c ψ_c))
+   ((• ((flat v) ρ_c O_c ψ_c) CC ...) ρ O ψ)]
+  [(flat-refine V V_p) V])

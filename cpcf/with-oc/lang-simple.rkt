@@ -3,6 +3,7 @@
 
 (provide
  cpcf ⇓ ⇓c subst subst-c #;FC var-not-in
+ AND OR
  :: !)
 
 (define-language cpcf

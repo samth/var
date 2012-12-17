@@ -5,9 +5,9 @@
 (provide
  scpcf δ
  default-o acc-o subst subst-c var-not-in
- flush del Γ-del Γ-reset Γ-mk Γ-upd dom :: Γ:: ! split-cons var-from-path D-ranges
- refine-v refine-with-Γ
- s-map rem-dup non-det:
+ Γ-flush del Γ-del Γ-reset Γ-mk Γ-upd dom :: Γ:: ! split-cons var-from-path D-ranges
+ refine-v Γ-refine
+ s-map rem-dup #;non-det:
  c/any C/ANY c/int C/INT c/str C/STR c/bool C/BOOL)
 
 (define-extended-language scpcf cpcf
@@ -26,7 +26,7 @@
   [o1 .... sub1 str-len car cdr]
   [o2 .... - *]
   [p? .... true? bool? str? int? proc? cons? zero?]
-  [v .... (• D ...)]
+  [v .... (• (c ρ O ψ) ...)]
   [b .... s]
   [bool #t #f]
   [s string]
@@ -44,12 +44,12 @@
   ; closures
   [C (e ρ O ψ)]
   [V (v ρ O ψ) (Cons V V) (arr D V)]
-  [CC (c ρ O ψ) D]
   [D (flat V)
      (c ↦ (λ (x) c) ρ O ψ)
      (or/c c c ρ O ψ)
      (and/c c c ρ O ψ)
      (cons/c c c ρ O ψ)]
+  [CC (c ρ O ψ) Dns]
   
   ; interpreter answer
   [ea n s bool function • (• p? ...) ERR (cons ea ea)]
@@ -58,60 +58,60 @@
   [Verified? Proved Refuted Neither])
 
 (define c/any (term (flat tt)))
-(define C/ANY (term (flat (tt [] [] []))))
+(define C/ANY (term (,c/any [] [] [])))
 (define c/int (term (flat int?)))
-(define C/INT (term (flat (int? [] [] []))))
+(define C/INT (term (,c/int [] [] [])))
 (define c/str (term (flat str?)))
-(define C/STR (term (flat (str? [] [] []))))
+(define C/STR (term (,c/str [] [] [])))
 (define c/bool (term (flat bool?)))
-(define C/BOOL (term (flat (bool? [] [] []))))
+(define C/BOOL (term (,c/bool [] [] [])))
 
 ;; extract function contract's domain
 (define-metafunction scpcf ; FIXME obsolete
   D-ranges : (D ...) -> (D ...)
   [(D-ranges ()) ()]
   [(D-ranges (((c_1 ↦ (λ (x) c_2)) ρ O ψ) any ...))
-   ,(cons (term (c_2 (:: ρ [x ↦ ((•) [] [])])
+   ,(cons (term (c_2 (:: ρ [x ↦ ((•) [] [] [])])
                      (:: O [x ↦ x])))
           (term (D-ranges (any ...))))]
   [(D-ranges (any_1 any ...)) (D-ranges (any ...))])
 
 ;; 'flushes' all propositions in Γ into ρ as refinining contracts for •'s
 (define-metafunction scpcf
-  flush : Γ ρ -> ρ
-  [(flush [] ρ) ρ]
-  [(flush ([x ↦ φ ...] any ...) (any_1 ... [x ↦ ((• D ...) ρ O ψ)] any_2 ...))
-   (flush (any ...)
-          (any_1 ... [x ↦ ((• (mk-D () φ) ... D ...) [] [])] any_2 ...))]
-  [(flush ([(acc ... x) ↦ φ ...] any ...)
-          (any_1 ... [x ↦ ((• D ...) ρ O ψ)] any_2 ...))
-   (flush (any ...)
-          (any_1 ... [x ↦ ((• (mk-D (acc ...) φ) ... D ...) [] [])] any_2 ...))]
-  [(flush (any_1 any ...) ρ) (flush (any ...) ρ)])
+  Γ-flush : Γ ρ -> ρ
+  [(Γ-flush [] ρ) ρ]
+  [(Γ-flush ([x ↦ φ ...] any ...) (any_1 ... [x ↦ ((• CC ...) ρ O ψ)] any_2 ...))
+   (Γ-flush (any ...)
+          (any_1 ... [x ↦ ((• (mk-D () φ) ... CC ...) [] [] [])] any_2 ...))]
+  [(Γ-flush ([(acc ... x) ↦ φ ...] any ...)
+          (any_1 ... [x ↦ ((• CC ...) ρ O ψ)] any_2 ...))
+   (Γ-flush (any ...)
+          (any_1 ... [x ↦ ((• (mk-D (acc ...) φ) ... CC ...) [] [] [])] any_2 ...))]
+  [(Γ-flush (any_1 any ...) ρ) (Γ-flush (any ...) ρ)])
 
 ;; check whether value satisfies contract
 (define-metafunction scpcf
-  V⊢? : V D -> Verified?
-  [(V⊢? ((• any_1 ... D any_2 ...) ρ O ψ) D_1)
+  V⊢? : V CC -> Verified?
+  [(V⊢? ((• any_1 ... CC any_2 ...) ρ O ψ) CC_1)
    Proved
-   (where #t (D-implies? D D_1))]
-  [(V⊢? ((• any_1 ... D any_2 ...) ρ O ψ) D_1)
+   (where #t (CC-implies? CC CC_1))]
+  [(V⊢? ((• any_1 ... C any_2 ...) ρ O ψ) CC_1)
    Refuted
-   (where #t (D-excludes? D D_1))]
-  [(V⊢? V D) Neither])
+   (where #t (D-excludes? CC CC_1))]
+  [(V⊢? V CC) Neither])
 
 ;; uses existing information to check whether the predicate holds
 (define-metafunction scpcf
-  ⊢? : (D ...) Γ o p? -> Verified?
+  ⊢? : (CC ...) Γ o p? -> Verified?
   ; Γ is easier/cheaper, so use it first
-  [(⊢? (D ...) Γ o p?) ,(match (term (Γ⊢? Γ o p?))
+  [(⊢? (CC ...) Γ o p?) ,(match (term (Γ⊢? Γ o p?))
                           ['Proved (term Proved)]
                           ['Refuted (term Refuted)]
-                          ['Neither (term (C⊢? (D ...) p?))])])
+                          ['Neither (term (C⊢? (CC ...) p?))])])
 
 ;; checks whether contract set can prove/refute predicate
 (define-metafunction scpcf
-  C⊢? : (D ...) p? -> Verified?
+  C⊢? : (CC ...) p? -> Verified?
   [(C⊢? (any_1 ... ((flat p?) ρ O ψ) any_2 ...) p?_1)
    Proved
    (where #t (implies? p? p?_1))]
@@ -151,12 +151,12 @@
 
 ;; refines value with given (closed) contract
 (define-metafunction scpcf
-  refine-v : V D -> {V ...}
-  [(refine-v ((• D_1 ...) ρ O ψ) D)
+  refine-v : V CC -> {V ...}
+  [(refine-v ((• CC_1 ...) ρ O ψ) CC)
    ,(s-map
      (λ (Cs) (term ((• ,@ Cs) ρ O ψ)))
-     (term (refine (D_1 ...) D)))]
-  [(refine-v V D) {V}])
+     (term (refine (CC_1 ...) CC)))]
+  [(refine-v V CC) {V}])
 
 ;; refines set of contracts with another contract
 (define-metafunction scpcf
@@ -165,10 +165,10 @@
   ; special cases where we can do something smarter
   [(refine {any_1 ... D_1 any_2 ...} D_2)
    {{any_1 ... D_1 any_2 ...}}
-   (where #t (D-implies? D_1 D_2))] ; refining contract is redundant
+   (where #t (CC-implies? D_1 D_2))] ; refining contract is redundant
   [(refine {any_1 ... D_1 any_2 ...} D_2)
    {{any_1 ... D_2 any_2 ...}}
-   (where #t (D-implies? D_2 D_1))] ; one of the old contract is redundant
+   (where #t (CC-implies? D_2 D_1))] ; one of the old contract is redundant
   [(refine {any_1 ... D_1 any_2 ...} D_2)
    {}
    (where #t (D-excludes? D_1 D_2))] ; the refinement is bullshit
@@ -190,9 +190,9 @@
 ;; checks whether first contract (definitely) implies second
 ;; may give false negative
 (define-metafunction scpcf
-  D-implies? : D D -> bool
-  [(D-implies? ((flat p?) ρ O ψ) ((flat p?_1) ρ_1 O_1)) (implies? p? p?_1)]
-  [(D-implies? D_1 D_2) #f])
+  CC-implies? : CC CC -> bool
+  [(CC-implies? ((flat p?) ρ O ψ) ((flat p?_1) ρ_1 O_1)) (implies? p? p?_1)]
+  [(CC-implies? CC_1 CC_2) #f])
 
 ;; checks whether first contract (definitely) contradicts second
 ;; may give false negative
@@ -234,19 +234,19 @@
 
 ;; use propositions in Γ to refine value
 (define-metafunction scpcf
-  refine-with-Γ : V Γ o′ -> V
-  [(refine-with-Γ ((• D ...) ρ O ψ) ([(acc ... acc_1 ... x) ↦ φ ...] any ...) (acc_1 ... x))
-   (refine-with-Γ ((• (mk-D (acc ...) φ) ... D ...) ρ O ψ) (any ...) (acc_1 ... x))]
-  [(refine-with-Γ ((• D ...) ρ O ψ) (any any_1 ...) o′)
-   (refine-with-Γ ((• D ...) ρ O ψ) (any_1 ...) o′)]
-  [(refine-with-Γ V Γ o′) V])
+  Γ-refine : V Γ o′ -> V
+  [(Γ-refine ((• CC ...) ρ O ψ) ([(acc ... acc_1 ... x) ↦ φ ...] any ...) (acc_1 ... x))
+   (Γ-refine ((• (mk-D (acc ...) φ) ... CC ...) ρ O ψ) (any ...) (acc_1 ... x))]
+  [(Γ-refine ((• CC ...) ρ O ψ) (any any_1 ...) o′)
+   (Γ-refine ((• CC ...) ρ O ψ) (any_1 ...) o′)]
+  [(Γ-refine V Γ o′) V])
 
 ;; makes (closed) contract out of proposition
 (define-metafunction scpcf
-  mk-D : (acc ...) φ -> D
-  [(mk-D any p?) ((mk-c any (flat p?)) [] [])]
+  mk-D : (acc ...) φ -> (c ρ O ψ)
+  [(mk-D any p?) ((mk-c any (flat p?)) [] [] [])]
   ; lose precision for now until we have not/c?
-  [(mk-D any (¬ p?)) ((flat tt) [] [])])
+  [(mk-D any (¬ p?)) ((flat tt) [] [] [])])
 ;; constructs contract for given path of accessors
 (define-metafunction scpcf
   mk-c : (acc ...) c -> c
@@ -333,137 +333,137 @@
 
 ;; interprets primitive ops
 (define-metafunction scpcf
-  δ : op (V o) ... Γ -> {A ...}
+  δ : op (V o) ... Γ -> {(Ans Γ o) ...}
   
   ; add1
-  [(δ add1 ((n ρ O ψ) o) Γ) {((,(add1 (term n)) [] []) Γ ∅)}]
-  [(δ add1 (((• D ...) ρ O ψ) o) Γ)
-   ,(match (term (⊢? (D ...) Γ o int?))
-      ['Proved (term {(((• ,C/INT) [] []) Γ ∅)})]
-      ['Refuted (term {ERR})]
-      ['Neither (term {(((• ,C/INT) [] []) (Γ:: Γ int? o) ∅)
-                       ERR})])]
-  [(δ add1 (V o) Γ) {ERR}]
+  [(δ add1 ((n ρ O ψ) o) Γ) {((,(add1 (term n)) [] [] []) Γ ∅)}]
+  [(δ add1 (((• CC ...) ρ O ψ) o) Γ)
+   ,(match (term (⊢? (CC ...) Γ o int?))
+      ['Proved (term {(((• ,C/INT) [] [] []) Γ ∅)})]
+      ['Refuted (term {(ERR Γ ∅)})]
+      ['Neither (term {(((• ,C/INT) [] [] []) (Γ:: Γ int? o) ∅)
+                       (ERR Γ ∅)})])]
+  [(δ add1 (V o) Γ) {(ERR Γ ∅)}]
   
   ; sub1
-  [(δ sub1 ((n ρ O ψ) o) Γ) {((,(sub1 (term n)) [] []) Γ ∅)}]
-  [(δ sub1 (((• D ...) ρ O ψ) o) Γ)
-   ,(match (term (⊢? (D ...) Γ o int?))
-      ['Proved (term {(((• ,C/INT) [] []) Γ ∅)})]
-      ['Refuted (term {ERR})]
-      ['Neither (term {(((• ,C/INT) [] []) (Γ:: Γ int? o) ∅)
-                       ERR})])]
-  [(δ sub1 (V o) Γ) {ERR}]
+  [(δ sub1 ((n ρ O ψ) o) Γ) {((,(sub1 (term n)) [] [] []) Γ ∅)}]
+  [(δ sub1 (((• CC ...) ρ O ψ) o) Γ)
+   ,(match (term (⊢? (CC ...) Γ o int?))
+      ['Proved (term {(((• ,C/INT) [] [] []) Γ ∅)})]
+      ['Refuted (term {(ERR Γ ∅)})]
+      ['Neither (term {(((• ,C/INT) [] [] []) (Γ:: Γ int? o) ∅)
+                       (ERR Γ ∅)})])]
+  [(δ sub1 (V o) Γ) {(ERR Γ ∅)}]
   
   ; str-len
-  [(δ str-len ((s ρ O ψ) o) Γ) {((,(string-length (term s)) [] []) Γ o)}]
-  [(δ str-len (((• D ...) ρ O ψ) o) Γ)
-   ,(match (term (⊢? (D ...) Γ o str?))
-      ['Proved (term {(((• ,C/INT) [] []) Γ ∅)})]
-      ['Refuted (term {ERR})]
-      ['Neither (term {(((• ,C/INT) [] []) (Γ:: Γ str? o) ∅)
-                       ERR})])]
-  [(δ str-len (V o) Γ) {ERR}]
+  [(δ str-len ((s ρ O ψ) o) Γ) {((,(string-length (term s)) [] [] []) Γ o)}]
+  [(δ str-len (((• CC ...) ρ O ψ) o) Γ)
+   ,(match (term (⊢? (CC ...) Γ o str?))
+      ['Proved (term {(((• ,C/INT) [] [] []) Γ ∅)})]
+      ['Refuted (term {(ERR Γ ∅)})]
+      ['Neither (term {(((• ,C/INT) [] [] []) (Γ:: Γ str? o) ∅)
+                       (ERR Γ ∅)})])]
+  [(δ str-len (V o) Γ) {(ERR Γ ∅)}]
   
   ; car, cdr
   [(δ car (V o) Γ)
    ,(s-map
      (match-lambda
        [`(,V1 ,V2) (term (,V1 (Γ:: Γ cons? o) (acc-o car o)))]
-       [`() (term ERR)])
+       [`() (term (ERR Γ ∅))])
      (term (split-cons (V o) Γ)))]
   [(δ cdr (V o) Γ)
    ,(s-map
      (match-lambda
        [`(,V1 ,V2) (term (,V2 (Γ:: Γ cons? o) (acc-o cdr o)))]
-       [`() (term ERR)])
+       [`() (term (ERR Γ ∅))])
      (term (split-cons (V o) Γ)))]
   
   ; +
-  [(δ + ((m ρ_m O_m) o_m) ((n ρ_n O_n) o_n) Γ)
-   {((,(+ (term m) (term n)) [] []) Γ ∅)}]
-  [(δ + (((• D ...) ρ_m O_m) o_m) ((n ρ_n O_n) o_n) Γ)
-   (δ + (((• D ...) [] []) o_m) (((• ,C/INT) [] []) o_n) Γ)]
-  [(δ + ((m ρ_m O_m) o_m) (((• D ...) ρ_n O_n) o_n) Γ)
-   (δ + (((• ,C/INT) [] []) o_m) (((• D ...) [] []) o_n) Γ)]
-  [(δ + (((• D_1 ...) ρ_m O_m) o_m) (((• D_2 ...) ρ_n O_n) o_n) Γ)
-   ,(match (term ((⊢? (D_1 ...) Γ o_m int?) (⊢? (D_2 ...) Γ o_n int?)))
-      [`(Proved Proved) (term {(((• ,C/INT) [] []) Γ ∅)})]
-      [(or `(Refuted ,_) `(,_ Refuted)) (term {ERR})]
-      [_ (term {(((• ,C/INT) [] [])
+  [(δ + ((m ρ_m O_m ψ_m) o_m) ((n ρ_n O_n ψ_n) o_n) Γ)
+   {((,(+ (term m) (term n)) [] [] []) Γ ∅)}]
+  [(δ + (((• CC ...) ρ_m O_m ψ_m) o_m) ((n ρ_n O_n ψ_n) o_n) Γ)
+   (δ + (((• CC ...) [] [] []) o_m) (((• ,C/INT) [] [] []) o_n) Γ)]
+  [(δ + ((m ρ_m O_m ψ_m) o_m) (((• CC ...) ρ_n O_n ψ_n) o_n) Γ)
+   (δ + (((• ,C/INT) [] [] []) o_m) (((• CC ...) [] [] []) o_n) Γ)]
+  [(δ + (((• CC_1 ...) ρ_m O_m ψ_m) o_m) (((• CC_2 ...) ρ_n O_n ψ_n) o_n) Γ)
+   ,(match (term ((⊢? (CC_1 ...) Γ o_m int?) (⊢? (CC_2 ...) Γ o_n int?)))
+      [`(Proved Proved) (term {(((• ,C/INT) [] [] []) Γ ∅)})]
+      [(or `(Refuted ,_) `(,_ Refuted)) (term {(ERR Γ ∅)})]
+      [_ (term {(((• ,C/INT) [] [] [])
                  (Γ:: (Γ:: Γ int? o_m) int? o_n)
                  ∅)
-                ERR})])]
+                (ERR Γ ∅)})])]
   
   ; -
-  [(δ - ((m ρ_m O_m) o_m) ((n ρ_n O_n) o_n) Γ)
-   {((,(- (term m) (term n)) [] []) Γ ∅)}]
-  [(δ - (((• D ...) ρ_m O_m) o_m) ((n ρ_n O_n) o_n) Γ)
-   (δ - (((• D ...) [] []) o_m) (((• ,C/INT) [] []) o_n) Γ)]
-  [(δ - ((m ρ_m O_m) o_m) (((• D ...) ρ_n O_n) o_n) Γ)
-   (δ - (((• ,C/INT) [] []) o_m) (((• D ...) [] []) o_n) Γ)]
-  [(δ - (((• D_1 ...) ρ_m O_m) o_m) (((• D_2 ...) ρ_n O_n) o_n) Γ)
-   ,(match (term ((⊢? (D_1 ...) Γ o_m int?) (⊢? (D_2 ...) Γ o_n int?)))
-      [`(Proved Proved) (term {(((• ,C/INT) [] []) Γ ∅)})]
-      [(or `(Refuted ,_) `(,_ Refuted)) (term {ERR})]
-      [_ (term {(((• ,C/INT) [] [])
+  [(δ - ((m ρ_m O_m ψ_m) o_m) ((n ρ_n O_n ψ_n) o_n) Γ)
+   {((,(- (term m) (term n)) [] [] []) Γ ∅)}]
+  [(δ - (((• CC ...) ρ_m O_m ψ_m) o_m) ((n ρ_n O_n ψ_n) o_n) Γ)
+   (δ - (((• CC ...) [] [] []) o_m) (((• ,C/INT) [] [] []) o_n) Γ)]
+  [(δ - ((m ρ_m O_m ψ_m) o_m) (((• CC ...) ρ_n O_n ψ_n) o_n) Γ)
+   (δ - (((• ,C/INT) [] [] []) o_m) (((• CC ...) [] [] []) o_n) Γ)]
+  [(δ - (((• CC_1 ...) ρ_m O_m ψ_m) o_m) (((• CC_2 ...) ρ_n O_n ψ_n) o_n) Γ)
+   ,(match (term ((⊢? (CC_1 ...) Γ o_m int?) (⊢? (CC_2 ...) Γ o_n int?)))
+      [`(Proved Proved) (term {(((• ,C/INT) [] [] []) Γ ∅)})]
+      [(or `(Refuted ,_) `(,_ Refuted)) (term {(ERR Γ ∅)})]
+      [_ (term {(((• ,C/INT) [] [] [])
                  (Γ:: (Γ:: Γ int? o_m) int? o_n)
                  ∅)
-                ERR})])]
+                (ERR Γ ∅)})])]
   
   ; *
-  [(δ * ((m ρ_m O_m) o_m) ((n ρ_n O_n) o_n) Γ)
-   {((,(* (term m) (term n)) [] []) Γ ∅)}]
-  [(δ * (((• D ...) ρ_m O_m) o_m) ((n ρ_n O_n) o_n) Γ)
-   (δ * (((• D ...) [] []) o_m) (((• ,C/INT) [] []) o_n) Γ)]
-  [(δ * ((m ρ_m O_m) o_m) (((• D ...) ρ_n O_n) o_n) Γ)
-   (δ * (((• ,C/INT) [] []) o_m) (((• D ...) [] []) o_n) Γ)]
-  [(δ * (((• D_1 ...) ρ_m O_m) o_m) (((• D_2 ...) ρ_n O_n) o_n) Γ)
-   ,(match (term ((⊢? (D_1 ...) Γ o_m int?) (⊢? (D_2 ...) Γ o_n int?)))
-      [`(Proved Proved) (term {(((• ,C/INT) [] []) Γ ∅)})]
-      [(or `(Refuted ,_) `(,_ Refuted)) (term {ERR})]
-      [_ (term {(((• ,C/INT) [] [])
+  [(δ * ((m ρ_m O_m ψ_m) o_m) ((n ρ_n O_n ψ_n) o_n) Γ)
+   {((,(* (term m) (term n)) [] [] []) Γ ∅)}]
+  [(δ * (((• CC ...) ρ_m O_m ψ_m) o_m) ((n ρ_n O_n ψ_n) o_n) Γ)
+   (δ * (((• CC ...) [] [] []) o_m) (((• ,C/INT) [] [] []) o_n) Γ)]
+  [(δ * ((m ρ_m O_m ψ_m) o_m) (((• CC ...) ρ_n O_n ψ_n) o_n) Γ)
+   (δ * (((• ,C/INT) [] [] []) o_m) (((• CC ...) [] [] []) o_n) Γ)]
+  [(δ * (((• CC_1 ...) ρ_m O_m ψ_m) o_m) (((• CC_2 ...) ρ_n O_n ψ_n) o_n) Γ)
+   ,(match (term ((⊢? (CC_1 ...) Γ o_m int?) (⊢? (CC_2 ...) Γ o_n int?)))
+      [`(Proved Proved) (term {(((• ,C/INT) [] [] []) Γ ∅)})]
+      [(or `(Refuted ,_) `(,_ Refuted)) (term {(ERR Γ ∅)})]
+      [_ (term {(((• ,C/INT) [] [] [])
                  (Γ:: (Γ:: Γ int? o_m) int? o_n)
                  ∅)
-                ERR})])]
+                (ERR Γ ∅)})])]
   
   ; cons
   [(δ cons (V_1 o_1) (V_2 o_2) Γ) {((Cons V_1 V_2) Γ ∅)}]
   
   ; predicates
-  [(δ tt (V o) Γ) {((#t [] []) Γ ∅)}]
-  [(δ p? (((• D ...) ρ O ψ) o) Γ)
-   ,(match (term (⊢? (D ...) Γ o p?))
-      ['Proved (term {((#t [] []) (Γ:: Γ p? o) ∅)})]
-      ['Refuted (term {((#f [] []) (Γ:: Γ (¬ p?) o) ∅)})]
-      ['Neither (term {((#t [] []) (Γ:: Γ p? o) ∅)
-                       ((#f [] []) (Γ:: Γ (¬ p?) o) ∅)})])]
+  [(δ tt (V o) Γ) {((#t [] [] []) Γ ∅)}]
+  [(δ p? (((• CC ...) ρ O ψ) o) Γ)
+   ,(match (term (⊢? (CC ...) Γ o p?))
+      ['Proved (term {((#t [] [] []) (Γ:: Γ p? o) ∅)})]
+      ['Refuted (term {((#f [] [] []) (Γ:: Γ (¬ p?) o) ∅)})]
+      ['Neither (term {((#t [] [] []) (Γ:: Γ p? o) ∅)
+                       ((#f [] [] []) (Γ:: Γ (¬ p?) o) ∅)})])]
   [(δ p? (V o) Γ)
    ,(match (term (concrete-check p? V))
-      [#t (term {((#t [] []) (Γ:: Γ p? o) ∅)})]
-      [#f (term {((#f [] []) (Γ:: Γ (¬ p?) o) ∅)})])]
+      [#t (term {((#t [] [] []) (Γ:: Γ p? o) ∅)})]
+      [#f (term {((#f [] [] []) (Γ:: Γ (¬ p?) o) ∅)})])]
   
-  [(δ op (V o) ... Γ) {ERR}])
+  [(δ op (V o) ... Γ) {(ERR Γ ∅)}])
 
 ;; split pair closure into 2, or () indicating not a pair
 (define-metafunction scpcf
   split-cons : (V o) Γ -> {(V ...) ...} ; (V ...) being (V V) or ()
   [(split-cons ((Cons V_1 V_2) o) Γ) {(V_1 V_2)}]
-  [(split-cons (((• D ...) ρ O ψ) o) Γ)
-   ,(match (term (acc-cons (D ...) ()))
+  [(split-cons (((• CC ...) ρ O ψ) o) Γ)
+   ,(match (term (acc-cons (CC ...) ()))
       ['() (match (term (Γ⊢? Γ o cons?))
-             ['Proved (term { (((•) [] []) ((•) [] [])) })]
+             ['Proved (term { (((•) [] [] []) ((•) [] [] [])) })]
              ['Refuted (term {()})]
-             ['Neither (term { (((•) [] []) ((•) [] []))
+             ['Neither (term { (((•) [] [] []) ((•) [] [] []))
                                () })])]
       [acc (s-map
             (match-lambda
-              [`(,Cs1 ,Cs2) (term (((• ,@ Cs1) [] []) ((• ,@ Cs2) [] [])))]
+              [`(,Cs1 ,Cs2) (term (((• ,@ Cs1) [] [] []) ((• ,@ Cs2) [] [] [])))]
               ['() (term ())])
             acc)])]
   [(split-cons (V o) Γ) {()}])
 (define-metafunction scpcf
-  acc-cons : (D ...) {((D ...) ...) ...} -> {((D ...) ...) ...}
+  acc-cons : (CC ...) {((CC ...) ...) ...} -> {((CC ...) ...) ...}
   [(acc-cons () any) any]
   [(acc-cons ([(or/c c_1 c_2) ρ O ψ] any ...) any_acc)
    ,(∪ (term (acc-cons ((c_1 ρ O ψ) any ...) any_acc))
@@ -540,14 +540,14 @@
   (rem-dup (map f xs)))
 
 ;; non-det : [X -> [Listof Y]] [Listof X] -> [Listof Y]
-(define (non-det f xs)
+#;(define (non-det f xs)
   (rem-dup (apply append (map f xs))))
 
 ;; ∪ : [Listof X] [Listof X] -> [Listof X]
 (define (∪ xs ys)
   (rem-dup (append xs ys)))
 
-(define-syntax non-det:
+#;(define-syntax non-det:
   (syntax-rules (← return:)
     [(_ [V Γ o ← e] e1 e2 ...)
      (non-det

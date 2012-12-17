@@ -7,31 +7,30 @@
   ; assume all variables have been (statically) renamed
   ev : e -> {ea ...}
   [(ev e)
-   ,(rem-dup (term ((simplify A) ...)))
-   (where (A ...) (step [] [] [] e))])
+   ,(rem-dup (term ((simplify Ans) ...)))
+   (where (Ans ...) (step [] [] [] [] e))])
 
 (define-metafunction scpcf
-  step : Γ ρ O e -> {A ...}
-  [(step Γ ρ O e)
-   {A ...}
-   (where {A ...} ,(judgment-holds (⇓ Γ ρ O e A) A))])
+  step : Γ ρ O ψ e -> {Ans ...}
+  [(step Γ ρ O ψ e)
+   {Ans ...}
+   (where {Ans ...} ,(judgment-holds (⇓ Γ ρ O ψ e Ans Γ o) Ans))])
 
 (define-metafunction scpcf
-  simplify : A -> ea
+  simplify : Ans -> ea
   [(simplify ERR) ERR]
-  [(simplify (((λ (x) e) ρ O) Γ o)) function]
-  [(simplify ((op ρ O) Γ o)) function]
-  [(simplify (((• D ...) ρ O) Γ o)) ,(match (rem-dup (term (all-preds (D ...))))
-                                       ['() (term •)]
-                                       [ps (term (• ,@ ps))])]
-  [(simplify ((Cons V_1 V_2) Γ o))
-   (cons (simplify (V_1 [] ∅)) (simplify (V_2 [] ∅)))]
-  [(simplify ((any ρ O) Γ o)) any])
+  [(simplify ((λ (x) e) ρ O ψ)) function]
+  [(simplify (op ρ O ψ)) function]
+  [(simplify ((• CC ...) ρ O ψ)) ,(match (rem-dup (term (all-preds (CC ...))))
+                                   ['() (term •)]
+                                   [ps (term (• ,@ ps))])]
+  [(simplify (Cons V_1 V_2)) (cons (simplify V_1) (simplify V_2))]
+  [(simplify (any ρ O ψ)) any])
 
 (define-metafunction scpcf
-  all-preds : (D ...) -> (p? ...)
-  [(all-preds (((flat tt) ρ O) any ...)) (all-preds (any ...))]
-  [(all-preds (((flat p?) ρ O) any ...))
+  all-preds : ((c ρ O ψ) ...) -> (p? ...)
+  [(all-preds (((flat tt) ρ O ψ) any ...)) (all-preds (any ...))]
+  [(all-preds (((flat p?) ρ O ψ) any ...))
    ,(cons (term p?) (term (all-preds (any ...))))]
   [(all-preds (any any_1 ...)) (all-preds (any_1 ...))]
   [(all-preds ()) ()])
