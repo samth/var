@@ -45,6 +45,7 @@
   ; evaluation answer
   [Ans ERR V]
   [Dns ERR D]
+  [CC (c ρ ψ) Dns]
   
   [(m n) integer]
   [(x y z) variable-not-otherwise-mentioned])
@@ -124,14 +125,13 @@
    Ans
    (where (Ans) ,(judgment-holds (⇓ [:: ρ (x ↦ V)] ψ e Ans) Ans))]
   [(APP [arr (c_x ↦ (λ (x) c_y) ρ ψ) V_f] V_x)
-   (MON D_y (APP V_f (MON D_x V_x)))
-   (where (D_x) ,(judgment-holds (⇓c ρ ψ c_x D_x) D_x))
-   (where (D_y) ,(judgment-holds (⇓c [:: ρ (x ↦ V)] ψ c_y D_y) D_y))]
-  [(APP [op ρ_o ψ_o] V ...) (δ op V ...)]
-  [(APP V_f V_x ...) ERR])
+   (MON [c_y (:: ρ [x ↦ V]) ψ]
+        (APP V_f
+             (MON [c_x ρ ψ] V_x)))]
+  [(APP [op ρ_o ψ_o] V ...) (δ op V ...)])
 
 (define-metafunction cpcf
-  MON : D V -> Ans
+  MON : CC Ans -> Ans
   [(MON (flat V_p) V)
    ERR
    (where (#t ρ_t ψ_t) (δ false? (APP V_p V)))]
@@ -143,21 +143,19 @@
    V
    (where #t (FC c_1 ρ ψ V))]
   [(MON (or/c c_1 c_2 ρ ψ) V)
-   (MON D_2 V)
-   (where #f (FC c_1 ρ ψ V))
-   (where (D_2) ,(judgment-holds (⇓c ρ ψ c_2 D_2) D_2))]
-  [(MON (and/c c_1 c_2 ρ ψ) V)
-   (MON D_2 (MON D_1 V))
-   (where (D_1) ,(judgment-holds (⇓c ρ ψ c_1 D_1) D_1))
-   (where (D_2) ,(judgment-holds (⇓c ρ ψ c_2 D_2) D_2))]
+   (MON (c_2 ρ ψ) V)
+   (where #f (FC c_1 ρ ψ V))]
+  [(MON (and/c c_1 c_2 ρ ψ) V) (MON (c_2 ρ ψ) (MON (c_1 ρ ψ) V))]
   [(MON (cons/c c_1 c_2 ρ ψ) V)
    V
    (where (#t ρ_t ψ_t) (δ cons? V))
-   (where (D_1) ,(judgment-holds (⇓c ρ ψ c_1 D_1) D_1))
-   (where (V_1) (MON D_1 (δ car V)))
-   (where (D_2) ,(judgment-holds (⇓c ρ ψ c_2 D_2) D_2))
-   (where (V_2) (MON D_2 (δ cdr V)))]
-  [(MON D V) ERR]) ; catch-all clause for failure during contract-eval.
+   (where (V_1) (MON (c_1 ρ ψ) (δ car V)))
+   (where (V_2) (MON (c_2 ρ ψ) (δ cdr V)))]
+  [(MON (c ρ ψ) V)
+   (MON D V)
+   (where (D) ,(judgment-holds (⇓c ρ ψ c D) D))]
+  [(MON CC ERR) ERR]
+  [(MON ERR Ans) ERR])
 
 (define-metafunction cpcf
   FC : c ρ ψ V -> #t or #f or ERR
