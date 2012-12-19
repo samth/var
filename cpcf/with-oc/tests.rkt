@@ -20,6 +20,7 @@
   simplify : Ans -> ea
   [(simplify ERR) ERR]
   [(simplify ((λ (x) e) ρ O ψ)) function]
+  [(simplify (arr D V)) function]
   [(simplify (op ρ O ψ)) function]
   [(simplify ((• CC ...) ρ O ψ)) ,(match (rem-dup (term (all-preds (CC ...))))
                                    ['() (term •)]

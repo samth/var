@@ -2,7 +2,7 @@
 (require redex)
 
 (provide
- cpcf ⇓ ⇓c subst subst-c #;FC var-not-in
+ cpcf ⇓ ⇓c APP MON subst subst-c #;FC var-not-in
  AND OR
  :: !)
 
@@ -19,7 +19,7 @@
   [op o1 o2]
   [o1 p? add1 car cdr]
   [o2 + cons]
-  [p? tt int? cons? false?]
+  [p? tt int? cons? false? proc?]
   
   ; contract
   [c (flat e)
@@ -32,7 +32,7 @@
   
   ; environment
   [ρ ([x ↦ V] ...)]
-  [ψ ([x ↦ (c ρ ψ)] ...)]
+  [ψ ([x ↦ CC] ...)]
   
   ; closed value
   [V (v ρ ψ) (Cons V V) (arr D V)]
@@ -46,7 +46,8 @@
   ; evaluation answer
   [Ans ERR V]
   [Dns ERR D]
-  [CC (c ρ ψ) Dns]
+  [CC (c ρ ψ)]
+  [Cns CC Dns]
   
   [(m n) integer]
   [(x y z) variable-not-otherwise-mentioned])
@@ -59,10 +60,9 @@
    (⇓ ρ ψ v (v ρ ψ))]
   [----- "var"
    (⇓ ρ ψ x (! ρ x))]
-  [(⇓ ρ ψ e_f V_f)
-   (⇓ ρ ψ e_x V_x) ...
+  [(⇓ ρ ψ e_i V_i) ...
    ----- "app"
-   (⇓ ρ ψ (e_f e_x ...) (APP V_f V_x ...))]
+   (⇓ ρ ψ (e_i ...) (APP V_i ...))]
   [(⇓ ρ ψ e_1 V_1) ...
    (⇓ ρ ψ e_i ERR)
    ----- "app-err"
@@ -132,14 +132,19 @@
   [(APP [op ρ_o ψ_o] V ...) (δ op V ...)])
 
 (define-metafunction cpcf
-  MON : CC Ans -> Ans
+  MON : Cns Ans -> Ans
   [(MON (flat V_p) V)
    ERR
    (where (#t ρ_t ψ_t) (δ false? (APP V_p V)))]
   [(MON (flat V_p) V)
    V
    (where (#f ρ_t ψ_t) (δ false? (APP V_p V)))]
-  [(MON (c_x ↦ (λ (x) c_y) ρ ψ) V) (arr (c_x ↦ (λ (x) c_y) ρ ψ) V)]
+  [(MON (c_x ↦ (λ (x) c_y) ρ ψ) V)
+   (arr (c_x ↦ (λ (x) c_y) ρ ψ) V)
+   (where (#t ρ_t ψ_t) (δ proc? V))]
+  [(MON (c_x ↦ (λ (x) c_y) ρ ψ) V)
+   ERR
+   (where (#f ρ_t ψ_t) (δ proc? V))]
   [(MON (or/c c_1 c_2 ρ ψ) V)
    V
    (where #t (FC c_1 ρ ψ V))]
@@ -155,7 +160,7 @@
   [(MON (c ρ ψ) V)
    (MON D V)
    (where (D) ,(judgment-holds (⇓c ρ ψ c D) D))]
-  [(MON CC ERR) ERR]
+  [(MON Cns ERR) ERR]
   [(MON ERR Ans) ERR])
 
 (define-metafunction cpcf
@@ -201,6 +206,9 @@
   [(δ cons? (Cons V_1 V_2)) (#t [] [])]
   [(δ false? (#f ρ ψ)) (#t [] [])]
   [(δ tt V) (#t [] [])]
+  [(δ proc? ((λ (x) e) ρ ψ)) (#t [] [])]
+  [(δ proc? (arr D V)) (#t [] [])]
+  [(δ proc? op) (#t [] [])]
   [(δ p? V) (#f [] [])]
   
   [(δ add1 (n ρ ψ)) (,(add1 (term n)) [] [])]

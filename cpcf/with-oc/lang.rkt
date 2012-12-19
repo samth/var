@@ -5,9 +5,9 @@
 (provide
  scpcf δ desug
  default-o acc-o subst subst-c var-not-in
- Γ-flush del Γ-del Γ-reset Γ-mk Γ-upd dom :: Γ:: ! split-cons var-from-path D-ranges
+ Γ-flush del Γ-del Γ-reset Γ-mk Γ-upd dom :: Γ:: ! split-cons D-ranges
  refine-v Γ-refine flat-refine
- s-map rem-dup #;non-det:
+ s-map rem-dup #;non-det: remove-duplicates
  c/any C/ANY c/int C/INT c/str C/STR c/bool C/BOOL)
 
 (define-extended-language scpcf cpcf
@@ -26,7 +26,7 @@
   [o1 .... sub1 str-len car cdr]
   [o2 .... - *]
   [p? .... true? bool? str? int? proc? cons? zero?]
-  [v .... (• (c ρ O ψ) ...)]
+  [v .... (• CC ...)]
   [b .... s]
   [bool #t #f]
   [s string]
@@ -49,7 +49,7 @@
      (or/c c c ρ O ψ)
      (and/c c c ρ O ψ)
      (cons/c c c ρ O ψ)]
-  [CC (c ρ O ψ) Dns]
+  [CC (c ρ O ψ)]
   
   ; interpreter answer
   [ea n s bool function • (• p? ...) ERR (cons ea ea)]
@@ -145,6 +145,7 @@
   [(concrete-check bool? (bool ρ O ψ)) #t]
   [(concrete-check proc? ((λ (x) e) ρ O ψ)) #t]
   [(concrete-check proc? (arr D V)) #t]
+  [(concrete-check proc? (op ρ O ψ)) #t]
   [(concrete-check true? (#f ρ O ψ)) #f]
   [(concrete-check true? V) #t]
   [(concrete-check cons? (Cons V_1 V_2)) #t]
@@ -302,13 +303,9 @@
 ;; removes x from Γ's domain
 (define-metafunction scpcf
   Γ-del : Γ x ... -> Γ
-  [(Γ-del () x ...) ()]
-  [(Γ-del ([x ↦ any ...] any_1 ...) x_1 ... x x_i ...)
-   (Γ-del (any_1 ...) x_1 ... x x_i ...)]
-  [(Γ-del ([(any_acc ... x) ↦ any ...] any_1 ...) x_1 ... x x_i ...)
-   (Γ-del (any_1 ...) x_1 ... x x_i ...)]
-  [(Γ-del (any any_1 ...) x_1 ... x x_i ...)
-   ,(cons (term any) (term (Γ-del (any_1 ...) x_1 ... x x_i ...)))])
+  [(Γ-del (any ... [(acc ... x) ↦ φ ...] any_1 ...) x_1 ... x x_2 ...)
+   (Γ-del (any ... any_1 ...) x_1 ... x x_2 ...)]
+  [(Γ-del Γ x ...) Γ])
 
 ;; overrides Γ with [x ↦ tt]
 (define-metafunction scpcf
@@ -318,15 +315,14 @@
 ;; returns environment's domain. (overloaded on closures)
 (define-metafunction scpcf
   dom : any -> {x ...}
-  [(dom ([o′ ↦ any ...] ...)) ,(rem-dup (term ((var-from-path o′) ...)))]
-  [(dom ([x ↦ any ...] ...)) (x ...)]
-  ; overloaded
-  [(dom (e ρ O ψ)) (dom ρ)]
-  [(dom (mon (c ρ O ψ) (C o))) (dom ρ)])
-;; extracts variable from path
+  [(dom ([(acc ... x) ↦ any ...] ...)) (remove-duplicates (x ...))]
+  [(dom ([x ↦ any ...] ...)) (x ...)])
+
 (define-metafunction scpcf
-  var-from-path : o′ -> x
-  [(var-from-path (any ... x)) x])
+  remove-duplicates : {any ...} -> {any ...}
+  [(remove-duplicates (any_1 ... any any_2 ... any any_3 ...))
+   (remove-duplicates (any_1 ... any_2 ... any any_3 ...))]
+  [(remove-duplicates any) any])
 
 ;; makes proposition environment with given domain and updates it with Γ
 (define-metafunction scpcf
@@ -354,15 +350,13 @@
    (any ... [o ↦ φ_1 ... φ φ_n ...] any_1 ...)]
   [(Γ:: (any_1 ... [o ↦ any ...] any_2 ...) φ o)
    (any_1 ... [o ↦ φ any ...] any_2 ...)]
-  [(Γ:: (any_1 ... [o_k ↦ φ_k ...] any_2 ...) φ o)
-   ([o ↦ φ] any_1 ... [o_k ↦ φ_k ...] any_2 ...)
-   (where (x x) ((var-from-path o_k) (var-from-path o)))])
+  [(Γ:: (any_1 ... [(acc_1 ... x) ↦ φ_k ...] any_2 ...) φ (acc_2 ... x))
+   ([(acc_2 ... x) ↦ φ] any_1 ... [(acc_1 ... x) ↦ φ_k ...] any_2 ...)])
 
 ;; keeps the path only when it's in given domain.
 ;; Otherwise defaults to second path (3rd argument)
 (define-metafunction scpcf
   default-o : o {x ...} o -> o
-  [(default-o ∅ any o) o]
   [(default-o (acc ... x) {z ... x y ...} o) (acc ... x)]
   [(default-o o any o_1) o_1])
 

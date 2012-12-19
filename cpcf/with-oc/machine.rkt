@@ -1,7 +1,7 @@
 #lang racket
 (require redex)
 (require "lang.rkt")
-(provide scpcf-m red)
+(provide scpcf-m red WITH-Γ APP MON)
 
 ;; extended language with machine state
 (define-extended-language scpcf-m scpcf
@@ -40,6 +40,9 @@
    [--> ([(μ (x) e) ρ O ψ] Γ o κ)
         ([(subst e x (μ (x) e)) ρ O ψ] Γ o κ)
         μ]
+   [--> (ERR Γ o κ) (ERR Γ o mt)
+        e-err
+        (side-condition (not (equal? (term κ) (term mt))))]
    
    ;; on non-contract (CC Γ κ)
    [--> ([(flat e) ρ O ψ] Γ κ)
@@ -64,14 +67,10 @@
         ([c ρ_c O_c ψ_c] [Γ-mk (dom ρ_c) Γ] [WITH-Γ Γ {} κ])
         x/c
         (where (c ρ_c O_c ψ_c) (! ψ x))]
+   [--> (ERR Γ κ) (ERR Γ mt)
+        c-err
+        (side-condition (not (equal? (term κ) (term mt))))]
    
-   ;; on evaluated contract (D Γ κ)
-   [--> (D Γ [mon-e (C o) κ])
-        (C Γ o [mon-D D κ])
-        mon-swap]
-   [--> (D Γ [with-Γ Γ_1 {x ...} κ])
-        (D [Γ-upd Γ_1 (Γ-del Γ x ...)] κ)
-        upd-Γ-1]
    
    ;; on value (V Γ o κ)
    [--> (V Γ o [if (C_1 o_1) (C_2 o_2) κ])
@@ -87,7 +86,7 @@
         mk-flat]
    [--> (V Γ o [with-Γ Γ_1 {x ...} κ])
         (V [Γ-upd Γ_1 [Γ-del Γ x ...]] [default-o o (del (dom Γ) x ...) ∅] κ)
-        upd-Γ-2]
+        upd-Γ-1]
    [--> (V Γ o [mon-D D κ])
         ς
         mon
@@ -115,36 +114,44 @@
    [--> (V Γ o [chk-cons (V_1 o_1) (c ρ O ψ) κ])
         (V_1 Γ o_1 [ap ([(cdr [] [] []) ∅]) ()
                         (mon-C (c ρ O ψ) (ap ([(cons [] [] []) ∅] [V o]) [] κ))])
-        chk-cons]))
+        chk-cons]
+   
+   ;; on evaluated contract (D Γ κ)
+   [--> (D Γ [mon-e (C o) κ])
+        (C Γ o [mon-D D κ])
+        mon-swap]
+   [--> (D Γ [with-Γ Γ_1 {x ...} κ])
+        (D [Γ-upd Γ_1 (Γ-del Γ x ...)] κ)
+        upd-Γ-2]))
 
 (define-judgment-form scpcf-m
   #:mode     (MON I I     I I O)
   #:contract (MON D (V o) Γ κ (C Γ o κ))
-  [-----
+  [----- "mon-flat"
    (MON (flat V_p) (V o) Γ κ
         (V Γ o [ap ([V_p ∅]) () (if ((flat-refine V V_p) o) (ERR ∅) κ)]))]
-  [-----
+  [----- "mon-or/c"
    (MON (or/c c_1 c_2 ρ O ψ) (V o) Γ κ
         ([(FC c_1) ρ O ψ] Γ ∅ [chk-ok (V o) (or/c c_1 c_2 ρ O ψ) κ]))]
-  [-----
+  [----- "mon-and/c"
    (MON (and/c c_1 c_2 ρ O ψ) (V o) Γ κ
         (V Γ o [mon-C (c_1 ρ O ψ) (mon-C (c_2 ρ O ψ) κ)]))]
   [(where (any ... ((#f ρ_t O_t ψ_t) Γ_t o_t) any_1 ...) (δ cons? (V o) Γ))
-   -----
+   ----- "mon-cons/c-err"
    (MON (cons/c c_1 c_2 ρ O ψ) (V o) Γ κ
         (ERR Γ_t ∅ mt))]
   [(where (any ... ((#t ρ_t O_t ψ_t) Γ_t o_t) any_1 ...) (δ cons? (V o) Γ))
-   -----
+   ----- "mon-cons/c"
    (MON (cons/c c_1 c_2 ρ O ψ) (V o) Γ κ
         (V Γ_t o [ap ([(car [] [] []) ∅]) ()
                      (mon-C (c_1 ρ O ψ)
                             (chk-cons (V o) (c_2 ρ O ψ) κ))]))]
   [(where (any ... ((#f ρ_t O_t ψ_t) Γ_t o_t) any_1 ...) (δ proc? (V o) Γ))
-   -----
+   ----- "mon-arr-err"
    (MON (c_x ↦ (λ (x) c_y) ρ O ψ) (V o) Γ κ
         (ERR Γ_t ∅ mt))]
   [(where (any ... ((#t ρ_t O_t ψ_t) Γ_t o_t) any_1 ...) (δ proc? (V o) Γ))
-   -----
+   ----- "mon-arr"
    (MON (c_x ↦ (λ (x) c_y) ρ O ψ) (V o) Γ κ
         ([arr (c_x ↦ (λ (x) c_y) ρ O ψ) V] Γ o κ))])
 
@@ -180,9 +187,7 @@
 
 (define-metafunction scpcf-m
   ∪ : {any ...} {any ...} -> {any ...}
-  [(∪ {any_1 ... any any_2 ...} {any_3 ... any_i any_4 ...})
-   (∪ {any_1 ... any any_2 ...} {any_3 ... any_4 ...})]
-  [(∪ {any_1 ...} {any_2 ...}) {any_1 ... any_2 ...}])
+  [(∪ {any_1 ...} {any_2 ...}) (remove-duplicates {any_1 ... any_2 ...})])
 
 (define-metafunction scpcf-m
   load : e -> ς

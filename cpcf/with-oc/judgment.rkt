@@ -2,7 +2,7 @@
 (require redex)
 (require "lang.rkt")
 
-(provide ⇓ ⇓c ⇓@ ⇓m)
+(provide ⇓ ⇓c ⇓a ⇓m)
 
 (define-judgment-form scpcf
   #:mode     (⇓ I I I I I O   O O)
@@ -15,13 +15,13 @@
   
   [(⇓ Γ ρ O ψ e_f V_f Γ_1 o_f)
    (⇓ Γ_1 ρ O ψ e_x V_x Γ_2 o_x)
-   (⇓@ Γ_2 V_f ([V_x o_x]) Ans Γ_3 o_y)
+   (⇓a Γ_2 V_f ([V_x o_x]) Ans Γ_3 o_y)
    ----- "app-1"
    (⇓ Γ ρ O ψ (e_f e_x) Ans Γ_3 o_y)]
   [(⇓ Γ ρ O ψ e_f V_f Γ_1 o_f)
    (⇓ Γ_1 ρ O ψ e_x V_x Γ_2 o_x)
    (⇓ Γ_2 ρ O ψ e_y V_y Γ_3 o_y)
-   (⇓@ Γ_3 V_f ([V_x o_x] [V_y o_y]) Ans Γ_4 o_z)
+   (⇓a Γ_3 V_f ([V_x o_x] [V_y o_y]) Ans Γ_4 o_z)
    ----- "app-2"
    (⇓ Γ ρ O ψ (e_f e_x e_y) Ans Γ_4 o_z)]
   [(⇓ Γ ρ O ψ e_f ERR Γ_1 o_f)
@@ -94,8 +94,8 @@
    (⇓c Γ ρ O ψ x Dns (Γ-upd Γ Γ_1))])
 
 (define-judgment-form scpcf
-  #:mode     (⇓@ I I I           O   O O)
-  #:contract (⇓@ Γ V ([V o] ...) Ans Γ o)
+  #:mode     (⇓a I I I           O   O O)
+  #:contract (⇓a Γ V ([V o] ...) Ans Γ o)
   
   [(⇓
     (Γ-reset (Γ-mk (dom ρ) Γ) x)
@@ -105,7 +105,7 @@
     e
     Ans Γ_1 o_ans)
    ----- "app-λ"
-   (⇓@ Γ ((λ (x) e) ρ O ψ) ([V_x o_x])
+   (⇓a Γ ((λ (x) e) ρ O ψ) ([V_x o_x])
        Ans (Γ-upd Γ (Γ-del Γ_1 x)) (default-o o_ans (del (dom Γ) x) ∅))]
   
   [(⇓m Γ (c_x ρ O ψ) (V_x o_x) V_x1 Γ_1)
@@ -116,47 +116,48 @@
     ψ
     c_y
     D_y Γ_2)
-   (⇓@ (Γ-upd Γ_1 Γ_2) V_f ([V_x1 o_x]) V_y Γ_3 o_y)
+   (⇓a (Γ-upd Γ_1 Γ_2) V_f ([V_x1 o_x]) V_y Γ_3 o_y)
    (⇓m Γ_3 D_y (V_y o_y) V_y1 Γ_4)
    ----- "app-arr"
-   (⇓@ Γ (arr (c_x ↦ (λ (x) c_y) ρ O ψ) V_f) ([V_x o_x]) V_y1 Γ_4 o_y)]
+   (⇓a Γ (arr (c_x ↦ (λ (x) c_y) ρ O ψ) V_f) ([V_x o_x]) V_y1 Γ_4 o_y)]
   
-  [(where (any ... (Ans Γ_1 o) any_1 ...) (δ o1 (V_x o_x) Γ))
-   ----- "app-o1"
-   (⇓@ Γ (o1 ρ_o O_o ψ_o) ([V_x o_x]) Ans Γ_1 o)]
-  [(where (any ... (Ans Γ_1 o) any_1 ...) (δ o2 (V_x o_x) (V_y o_y) Γ))
-   ----- "app-o2"
-   (⇓@ Γ (o2 ρ_o O_o ψ_o) ([V_x o_x] [V_y o_y]) Ans Γ_1 o)])
+  [(where (any ... (Ans Γ_1 o) any_1 ...) (δ op (V_x o_x) ... Γ))
+   ----- "app-prim"
+   (⇓a Γ (op ρ_o O_o ψ_o) ([V_x o_x] ...) Ans Γ_1 o)])
 
 (define-judgment-form scpcf
   #:mode     (⇓m I I  I     O   O)
-  #:contract (⇓m Γ CC (V o) Ans Γ)
+  #:contract (⇓m Γ Cns (V o) Ans Γ)
   
-  [(⇓@ Γ V_p ([V o]) V_t Γ_1 o_t)
+  [(⇓a Γ V_p ([V o]) V_t Γ_1 o_t)
    (where (any ... ((#f ρ_t O_t ψ_t) Γ_2 o) any_1 ...) (δ false? (V_t o_t) Γ_1))
    ----- "flat-ok"
    (⇓m Γ (flat V_p) (V o) (flat-refine V V_p) Γ_2)]
-  [(⇓@ Γ V_p ([V o]) V_t Γ_1 o_t)
+  [(⇓a Γ V_p ([V o]) V_t Γ_1 o_t)
    (where (any ... ((#t ρ_t O_t ψ_t) Γ_2 o) any_1 ...) (δ false? (V_t o_t) Γ_1))
    ----- "flat-fail"
    (⇓m Γ (flat V_p) (V o) ERR Γ_2)]
-  [(⇓@ Γ V_p ([V o]) ERR Γ_1 o_t)
+  [(⇓a Γ V_p ([V o]) ERR Γ_1 o_t)
    ----- "flat-err"
    (⇓m Γ (flat V_p) (V o) ERR Γ_1)]
   
-  [----- "arr"
-   (⇓m Γ (c_x ↦ (λ (x) c_y) ρ O ψ) (V o) (arr (c_x ↦ (λ (x) c_y) ρ O ψ) V) Γ)]
+  [(where (any ... ((#t ρ_t O_t ψ_t) Γ_t o_t) any_1 ...) (δ proc? (V o) Γ))
+   ----- "arr-ok"
+   (⇓m Γ (c_x ↦ (λ (x) c_y) ρ O ψ) (V o) (arr (c_x ↦ (λ (x) c_y) ρ O ψ) V) Γ_t)]
+  [(where (any ... ((#f ρ_t O_t ψ_t) Γ_t o_t) any_1 ...) (δ proc? (V o) Γ))
+   ----- "arr-err"
+   (⇓m Γ (c_x ↦ (λ (x) c_y) ρ O ψ) (V o) ERR Γ_t)]
   
-  [(where #t (flat? c_1))
+  [(where #t (flat? c_1 ψ))
    (⇓m Γ (c_1 ρ O ψ) (V o) V_1 Γ_1)
    ----- "or/c-left"
    (⇓m Γ (or/c c_1 c_2 ρ O ψ) (V o) V_1 Γ_1)]
-  [(where #t (flat? c_1))
+  [(where #t (flat? c_1 ψ))
    (⇓m Γ (c_1 ρ O ψ) (V o) ERR Γ_1)
    (⇓m Γ_1 (c_2 ρ O ψ) (V o) Ans Γ_2)
    ----- "or/c-right"
    (⇓m Γ (or/c c_1 c_2 ρ O ψ) (V o) Ans Γ_2)]
-  [(where #f (flat? c_1))
+  [(where #f (flat? c_1 ψ))
    ----- "or/c-err"
    (⇓m Γ (or/c c_1 c_2 ρ O ψ) (V o) ERR Γ)]
   
@@ -199,3 +200,12 @@
   [(⇓c (Γ-mk (dom ρ) Γ) ρ O ψ c ERR Γ_1)
    ----- "closed-con-err"
    (⇓m Γ (c ρ O ψ) (V o) ERR Γ_1)])
+
+(define-metafunction scpcf
+  flat? : c ψ -> #t or #f
+  [(flat? (c_x ↦ (λ (x) c_y)) ψ) #f]
+  [(flat? (flat e) ψ) #t]
+  [(flat? (any c_1 c_2) ψ) ,(and (term (flat? c_1 ψ)) (term (flat? c_2 ψ)))]
+  [(flat? (μ (x) c) ψ) (flat? c ψ)]
+  [(flat? x ψ) (flat? c)
+               (where (c ρ O ψ) (! ψ x))])
