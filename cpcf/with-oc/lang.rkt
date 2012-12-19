@@ -3,10 +3,10 @@
 (require (except-in "lang-simple.rkt" subst subst-c))
 
 (provide
- scpcf δ
+ scpcf δ desug
  default-o acc-o subst subst-c var-not-in
  Γ-flush del Γ-del Γ-reset Γ-mk Γ-upd dom :: Γ:: ! split-cons var-from-path D-ranges
- refine-v Γ-refine
+ refine-v Γ-refine flat-refine
  s-map rem-dup #;non-det:
  c/any C/ANY c/int C/INT c/str C/STR c/bool C/BOOL)
 
@@ -144,10 +144,55 @@
   [(concrete-check false? V) #f]
   [(concrete-check bool? (bool ρ O ψ)) #t]
   [(concrete-check proc? ((λ (x) e) ρ O ψ)) #t]
+  [(concrete-check proc? (arr D V)) #t]
   [(concrete-check true? (#f ρ O ψ)) #f]
   [(concrete-check true? V) #t]
   [(concrete-check cons? (Cons V_1 V_2)) #t]
   [(concrete-check p? V) #f])
+
+(define-metafunction scpcf
+  desug : e -> e
+  [(desug (λ (x) e)) (λ (x) (desug e))]
+  [(desug v) v]
+  [(desug x) x]
+  [(desug (e_0 e_1 e_2 ...)) ((desug e_0) (desug e_1) (desug e_2) ...)]
+  [(desug (if e e_1 e_2)) (if (desug e) (desug e_1) (desug e_2))]
+  [(desug (mon c e)) (mon (desug-c c) (desug e))]
+  [(desug (μ (x) e)) (μ (x) (desug e))]
+  [(desug (and e)) (desug e)]
+  [(desug (and e_1 e_2 ...)) (if (desug e_1) (desug (and e_2 ...)) #f)]
+  [(desug (or e)) (desug e)]
+  [(desug (or e_1 e_2 ...))
+   ((λ (x_tmp) (if x_tmp x_tmp (desug (or e_2 ...)))) (desug e_1))
+   (where x_tmp ,(variable-not-in (term (e_1 e_2 ...)) (term tmp)))]
+  [(desug (let [x e_x] e)) ((λ (x) (desug e)) (desug e_x))]
+  [(desug (let ([x e_x]) e)) ((λ (x) (desug e)) (desug e_x))]
+  [(desug (let ([x_1 e_1] [x_2 e_2] ...) e))
+   ((λ (x_1) (desug (let ([x_2 e_2] ...) e))) (desug e_1))]
+  [(desug (cond [else e])) (desug e)]
+  [(desug (cond [e_1 e_2] any ...))
+   (if (desug e_1) (desug e_2) (desug (cond any ...)))]
+  [(desug (begin e)) (desug e)]
+  [(desug (begin e_1 e_2 ...))
+   ((λ (x_tmp) (desug (begin e_2 ...))) (desug e_1))
+   (where x_tmp ,(variable-not-in (term (e_1 e_2 ...)) (term tmp)))]
+  [(desug •) (•)])
+
+(define-metafunction scpcf
+  desug-c : c -> c
+  [(desug-c (flat e)) (flat (desug e))]
+  [(desug-c (or/c c_1 c_2)) (or/c (desug-c c_1) (desug-c c_2))]
+  [(desug-c (and/c c_1 c_2)) (and/c (desug-c c_1) (desug-c c_2))]
+  [(desug-c (cons/c c_1 c_2)) (cons/c (desug-c c_1) (desug-c c_2))]
+  [(desug-c (c_x ↦ (λ (x) c_y))) ((desug-c c_x) ↦ (λ (x) (desug-c c_y)))]
+  [(desug-c (μ (x) c)) (μ (x) (desug-c c))]
+  [(desug-c x) x])
+
+(define-metafunction scpcf
+  flat-refine : V V -> V
+  [(flat-refine ((• CC ...) ρ O ψ) (v ρ_c O_c ψ_c))
+   ((• ((flat v) ρ_c O_c ψ_c) CC ...) ρ O ψ)]
+  [(flat-refine V V_p) V])
 
 ;; refines value with given (closed) contract
 (define-metafunction scpcf
@@ -256,11 +301,14 @@
 
 ;; removes x from Γ's domain
 (define-metafunction scpcf
-  Γ-del : Γ x -> Γ
-  [(Γ-del () x) ()]
-  [(Γ-del ([x ↦ any ...] any_1 ...) x) (Γ-del (any_1 ...) x)]
-  [(Γ-del ([(any_acc ... x) ↦ any ...] any_1 ...) x) (Γ-del (any_1 ...) x)]
-  [(Γ-del (any any_1 ...) x) ,(cons (term any) (term (Γ-del (any_1 ...) x)))])
+  Γ-del : Γ x ... -> Γ
+  [(Γ-del () x ...) ()]
+  [(Γ-del ([x ↦ any ...] any_1 ...) x_1 ... x x_i ...)
+   (Γ-del (any_1 ...) x_1 ... x x_i ...)]
+  [(Γ-del ([(any_acc ... x) ↦ any ...] any_1 ...) x_1 ... x x_i ...)
+   (Γ-del (any_1 ...) x_1 ... x x_i ...)]
+  [(Γ-del (any any_1 ...) x_1 ... x x_i ...)
+   ,(cons (term any) (term (Γ-del (any_1 ...) x_1 ... x x_i ...)))])
 
 ;; overrides Γ with [x ↦ tt]
 (define-metafunction scpcf
@@ -327,9 +375,10 @@
 
 ;; removes element from given list/set
 (define-metafunction scpcf
-  del : (any ...) any -> (any ...)
-  [(del (any_1 ... any any_k ...) any) (del (any_1 ... any_k ...) any)]
-  [(del any any_1) any])
+  del : (any ...) any ... -> (any ...)
+  [(del {any_1 ... any any_2 ...} any_3 ... any any_4 ...)
+   (del {any_1 ... any_2 ...} any_3 ... any any_4 ...)]
+  [(del any any_1 ...) any])
 
 ;; interprets primitive ops
 (define-metafunction scpcf

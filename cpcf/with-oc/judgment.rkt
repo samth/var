@@ -66,46 +66,7 @@
   [(⇓c Γ ρ O ψ c D Γ_1)
    (⇓ Γ_1 ρ O ψ e ERR Γ_2 o)
    ----- "mon-e-err"
-   (⇓ Γ ρ O ψ (mon c e) ERR Γ_2 o)]
-  
-  ;; syntactic sugar
-  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (and e) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ (if e_1 (and e_2 e_3 ...) #f) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (and e_1 e_2 e_3 ...) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (or e) Ans Γ_1 o)]
-  [(where x (var-not-in (e_2 e_3 ...) X))
-   (⇓ Γ ρ O ψ (let [x e_1] (if x x (or e_2 e_3 ...))) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (or e_1 e_2 e_3 ...) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ ((λ (x) e) e_x) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (let [x e_x] e) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ ((λ (x) e) e_x) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (let ([x e_x]) e) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ (let [x e_x] (let ([y e_y] [z e_z] ...) e)) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (let ([x e_x] [y e_y] [z e_z] ...) e) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (cond [else e]) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ (if e_1 e_2 (cond any ...)) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (cond [e_1 e_2] any ...) Ans Γ_1 o)]
-  [(⇓ Γ ρ O ψ e Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (begin e) Ans Γ_1 o)]
-  [(where x (var-not-in (e_2 e_3 ...) X))
-   (⇓ Γ ρ O ψ (let [x e_1] (begin e_2 e_3 ...)) Ans Γ_1 o)
-   -----
-   (⇓ Γ ρ O ψ (begin e_1 e_2 e_3 ...) Ans Γ_1 o)]
-  [-----
-   (⇓ Γ ρ O ψ • ((•) [] [] []) Γ ∅)])
+   (⇓ Γ ρ O ψ (mon c e) ERR Γ_2 o)])
 
 (define-judgment-form scpcf
   #:mode     (⇓c I I I I I O   O)
@@ -238,9 +199,3 @@
   [(⇓c (Γ-mk (dom ρ) Γ) ρ O ψ c ERR Γ_1)
    ----- "closed-con-err"
    (⇓m Γ (c ρ O ψ) (V o) ERR Γ_1)])
-  
-(define-metafunction scpcf
-  flat-refine : V V -> V
-  [(flat-refine ((• CC ...) ρ O ψ) (v ρ_c O_c ψ_c))
-   ((• ((flat v) ρ_c O_c ψ_c) CC ...) ρ O ψ)]
-  [(flat-refine V V_p) V])

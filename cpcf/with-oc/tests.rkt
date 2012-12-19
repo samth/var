@@ -8,7 +8,7 @@
   ev : e -> {ea ...}
   [(ev e)
    ,(rem-dup (term ((simplify Ans) ...)))
-   (where (Ans ...) (step [] [] [] [] e))])
+   (where (Ans ...) (step [] [] [] [] (desug e)))])
 
 (define-metafunction scpcf
   step : Γ ρ O ψ e -> {Ans ...}
