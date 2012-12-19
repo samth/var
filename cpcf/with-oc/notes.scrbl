@@ -496,11 +496,21 @@ Continuation forms
              (render-reduction-relation red #:style 'compact-vertical)))
 
 @subsubsection{APP relation}
+@verbatim[#:indent 4]{
+                      
+APP : V ([V o] ...) Γ κ -> (C Γ o κ)
+
+}
 @(centered (parameterize
                ([judgment-form-cases '("app-λ" "app-arr" "app-prim")])
              (render-judgment-form APP)))
 
 @subsubsection{MON relation}
+@verbatim[#:indent 4]{
+                      
+MON : D (V o) Γ κ -> (C Γ o κ)
+
+}
 @(centered (parameterize ([judgment-form-cases '("mon-flat")])
              (render-judgment-form MON)))
 @(centered (parameterize ([judgment-form-cases '("mon-or/c")])
