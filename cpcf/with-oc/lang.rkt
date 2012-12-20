@@ -364,7 +364,6 @@
 (define-metafunction scpcf
   acc-o : acc o -> o
   [(acc-o acc ∅) ∅]
-  [(acc-o acc x) (acc x)]
   [(acc-o acc (acc_1 ... x)) (acc acc_1 ... x)])
 
 ;; removes element from given list/set
