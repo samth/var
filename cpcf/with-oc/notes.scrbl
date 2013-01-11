@@ -4,8 +4,6 @@
           redex/pict
           (only-in "lang-simple.rkt" [⇓ ⇓s] [⇓c ⇓cs] [APP APP-s] [MON MON-s] cpcf)
           "lang.rkt"
-          "machine.rkt"
-          "judgment.rkt"
           scriblib/figure)
 
 @section{Previously problematic programs}
@@ -65,19 +63,16 @@ and closure monitoring, respectively.
 
 @subsection{Syntax}
 @(centered (parameterize
-               ([render-language-nts '(e v b op o1 o2 p? c ρ ψ V D Ans Dns CC Cns)])
+               ([render-language-nts '(e a v b op o1 o2 p? acc n c V A D Dns ρ)])
              (render-language cpcf)))
-(@tt{tt} is the constant true function.
-@tt{CC} is closed, unevaluated contract.)
 
 @subsection{Expression big-step semantics}
 @verbatim[#:indent 4]{
-ρ, ψ ⊢ e ⇓ Ans
+ρ ⊢ e ⇓ A
 }
-
-@tt{Ans} is either a closed value or @tt{ERR}.
-(@tt{ERR} is returned with more information in the next section.)
-
+@subsubsection{Blame}
+@(centered (parameterize ([judgment-form-cases '("blame")])
+             (render-judgment-form ⇓s)))
 @subsubsection{Value}
 @(centered (parameterize ([judgment-form-cases '("val")])
              (render-judgment-form ⇓s)))
@@ -94,45 +89,35 @@ and closure monitoring, respectively.
 @(centered (parameterize ([judgment-form-cases '("μ")])
              (render-judgment-form ⇓s)))
 @subsubsection{Monitored expressions}
-@(centered (parameterize ([judgment-form-cases '("mon" "mon-c-err" "mon-e-err")])
+@(centered (parameterize ([judgment-form-cases '("mon" "mon-err-c" "mon-err-e")])
              (render-judgment-form ⇓s)))
 
 @subsection{Contract big-step semantics}
 @verbatim[#:indent 4]{
-ρ, ψ ⊢ c ⇓ Dns
+ρ ⊢ c ⇓c Dns
 }
 @subsubsection{Flat contract}
 @(centered (parameterize ([judgment-form-cases '("flat" "flat-err")])
              (render-judgment-form ⇓cs)))
 @subsubsection{Disjunctive, conjunctive, pair, function contracts}
-Composite contracts are delayed because evaluating recursive contracts
-may proceed forever.
+Disjuctive contracts are delayed because one branch may be recursive.
+Cases with errors during evaluation of contracts are omitted.
 @(centered (parameterize ([judgment-form-cases '("or/c" "and/c" "cons/c" "func/c")])
              (render-judgment-form ⇓cs)))
 @subsubsection{Recursive contract}
-Recursive contracts are unrolled then evaluated.
 @(centered (parameterize ([judgment-form-cases '("μ/c")])
              (render-judgment-form ⇓cs)))
-@subsubsection{Contract reference}
-(A contract reference is only introduced by some recursive contract)
-@(centered (parameterize ([judgment-form-cases '("x/c")])
-             (render-judgment-form ⇓cs)))
 
-@subsection{Closure application}
+@subsection{Application}
 @verbatim[#:indent 4]{
-APP : V V ... -> Ans
+APP : V V ... -> A
 }
 @(centered (render-metafunction APP-s))
 
-@subsection{Closure monitoring}
+@subsection{Monitoring}
 @verbatim[#:indent 4]{
-MON : Cns Ans -> Cns
+MON : D V -> A
 }
-@tt{MON} takes as its first argument a contract that's potentially unevaluated.
-This is to factor out the task of closing and evaluating sub-contracts for
-@tt{or/c}, @tt{and/c}, and @tt{cons/c}.
-Also, arguments are @tt{Cns} and @tt{Ans} instead of @tt{D} and @tt{V}
-to help propagating errors.
 @(centered (render-metafunction MON-s))
 
 @section{Symbolic Core Racket}
@@ -140,7 +125,7 @@ to help propagating errors.
 @subsection{Syntax}
 Compared to @tt{CPCF}, this language has symbolic values refinable by contracts.
 
-@(centered (parameterize ([render-language-nts '(v φ O Γ o o′ acc C V D)])
+@(centered (parameterize ([render-language-nts '(v φ O Γ o o′ V D)])
              (render-language scpcf)))
 
 There is no explicit representation for union types.
@@ -178,19 +163,19 @@ and path lookup in @tt{ρ} is defined as
 }
 
 The language's semantics is defined by 4 relations:
-@tt{⇓}, @tt{⇓c}, @tt{⇓a}, @tt{⇓m},
-for expression evaluation, contract evaluation, closure application,
-and closure monitoring, respectively.
-Due to non-determinism when dealing with abstract values,
+@tt{⇓}, @tt{⇓c}, @tt{APP}, @tt{MON},
+for expression evaluation, contract evaluation, application,
+and monitoring, respectively.
+Due to non-determinism introduced by evaluating abstract values,
 I turn the metafunctions @tt{MON} and @tt{APP} from the previous section
-into relations @tt{⇓a} and @tt{⇓m}.
+into relations.
 
 @verbatim[#:indent 4]{
                       
-Γ, ρ, O, ψ ⊢ e ⇓ Ans; Γ′; o
-Γ, ρ, O, ψ ⊢ c ⇓c Dns; Γ′
-Γ ⊢ V ((V o) ...) ⇓a Ans; Γ′; o
-Γ ⊢ D (V o) ⇓m Ans; Γ′
+Γ, ρ, O ⊢ e ⇓ A; Γ′; o
+Γ, ρ, O ⊢ c ⇓c D; Γ′
+APP ⊆ (Γ × V × ([V o] ...))  ×  (A × Γ′ × o)
+MON ⊆ (Γ × D × (V o))  ×  (A × Γ′)
          
 }
 
@@ -198,19 +183,19 @@ into relations @tt{⇓a} and @tt{⇓m}.
 
 @verbatim[#:indent 4]{
                       
-Γ, ρ, O, ψ ⊢ e ⇓ Ans; Γ′; o
+Γ, ρ, O ⊢ e ⇓ Ans; Γ′; o
 
 }
 means under assumptions @tt{Γ}, expression @tt{e}, closed by environment @tt{ρ},
-evaluates to answer @tt{Ans}, resulting in a new set of propositions @tt{Γ′}
+evaluates to answer @tt{A}, resulting in a new set of propositions @tt{Γ′}
 with no less information than @tt{Γ}.
 
 Invariants:
 @itemlist[
   @item{@tt{dom(ρ)} = @tt{dom(O)} = @tt{dom(Γ)} = @tt{dom(Γ′)},
         where @tt{dom} is defined in Appendix.}
-  @item{If @tt{Ans} = @tt{V} and @tt{o} ≠ @tt{∅}, then @tt{ρ[o]} is @tt{V}}
-  @item{If @tt{Ans} = @tt{V}, whatever @tt{Γ′} knows that's relevant to @tt{V}
+  @item{If @tt{A} = @tt{V} and @tt{o} ≠ @tt{∅}, then @tt{ρ[o]} is @tt{V}}
+  @item{If @tt{A} = @tt{V}, whatever @tt{Γ′} knows that's relevant to @tt{V}
         has already been incorporated in @tt{V}}
 ]
 
@@ -219,10 +204,10 @@ We turn propositions in @tt{Γ} into contracts refining variables
 in @tt{ρ} on closing @tt{v}.
 @(centered (parameterize ([judgment-form-cases '("val")])
              (render-judgment-form ⇓)))
-The metafunction @tt{flush} updates @tt{ρ} with propositions from @tt{Γ}
+The metafunction @tt{Γ-flush} updates @tt{ρ} with propositions from @tt{Γ}
 @verbatim[#:indent 4]{
                       
-flush : Γ ρ -> ρ
+Γ-flush : Γ ρ -> ρ
 
 }
 The following example illustrates why this is helpful.
@@ -243,8 +228,7 @@ This was not a problem with type-checking because we could look through @tt{λ}
 and say it was of type @tt{(any? → int?)} once and for all.
 
 @subsubsection{Variable}
-If @tt{x} maps to closed value @tt{V}, this is the last chance to refine it
-with propositions from @tt{Γ}.
+Propositions from @tt{Γ} are used to refine values in @tt{ρ} on lookup.
 For example, @tt{Γ} knows @tt{[(car x) ↦ int?]}, and @tt{x} maps to @tt{•},
 then we know it evaluates to @tt{• / (cons/c int? any/c)}.
 @(centered (parameterize ([judgment-form-cases '("var")])
@@ -263,7 +247,7 @@ The threading of proposition environments prevents me from making the rules more
 as in the previous section...
 @(centered
   (parameterize 
-      ([judgment-form-cases '("app-1" "app-2" "app-err1" "app-err2" "app-err3")])
+      ([judgment-form-cases '("app-1" "app-2" "app-err-1" "app-err-2" "app-err-3")])
     (render-judgment-form ⇓)))
 
 @subsubsection{Conditional}
@@ -275,13 +259,13 @@ as in the previous section...
              (render-judgment-form ⇓)))
 
 @subsubsection{Monitored expressions}
-@(centered (parameterize ([judgment-form-cases '("mon" "mon-c-err" "mon-e-err")])
+@(centered (parameterize ([judgment-form-cases '("mon" "mon-err-c" "mon-err-e")])
              (render-judgment-form ⇓)))
 
 @subsection{Contract big-step semantics}
 @verbatim[#:indent 4]{
                       
-Γ, ρ, O, ψ ⊢ c ⇓c Dns; Γ′
+Γ, ρ, O ⊢ c ⇓c Dns; Γ′
 
 }
 means under assumptions @tt{Γ}, contract @tt{c},
@@ -294,34 +278,32 @@ relevant to @tt{D} (if @tt{Dns} = @tt{D}) has already been 'flushed'
 into its environment.
 
 @subsubsection{Flat contract}
-@(centered (parameterize ([judgment-form-cases '("flat/c" "flat/c-err")])
+@(centered (parameterize ([judgment-form-cases '("flat" "flat-err")])
              (render-judgment-form ⇓c)))
 @subsubsection{Disjunctive, conjunctive, pair, function contracts}
+(Error cases are omitted)
 @(centered (parameterize
                ([judgment-form-cases '("or/c" "and/c" "cons/c" "func/c")])
              (render-judgment-form ⇓c)))
 @subsubsection{Recursive contract}
 @(centered (parameterize ([judgment-form-cases '("μ/c")])
              (render-judgment-form ⇓c)))
-@subsubsection{Contract reference}
-@(centered (parameterize ([judgment-form-cases '("x/c")])
-             (render-judgment-form ⇓c)))
 
 @subsection{Closure application}
 @verbatim[#:indent 4]{
                       
-Γ ⊢ V ((V o) ...) ⇓a Ans; Γ′; o
+APP ⊆ (Γ × V × ([V o] ...))  ×  (A × Γ′ × o)
 
 }
 Invariants: @tt{Γ} and @tt{Γ′} have the same domain,
-and all path objects @tt{o}'s are in this domain if they're not @tt{∅}.
+and all path objects @tt{o}'s are in this domain (or @tt{∅}).
 
 @subsubsection{Lambda}
 
 Application is where @tt{Γ}'s domain needs maintenance
 to be in sync with the new environment.
 @(centered (parameterize ([judgment-form-cases '("app-λ")])
-             (render-judgment-form ⇓a)))
+             (render-judgment-form APP)))
 Metafunctions:
 @itemlist[
   @item{@tt{Γ-reset : Γ x -> Γ} : extends @tt{Γ}'s domain to include @tt{x}
@@ -342,14 +324,14 @@ Metafunctions:
 ]
 
 @subsubsection{Monitored function}
-Steps taken are:
-evaluate @tt{c_x}, evaluate @tt{V_x}, monitor @tt{V_x},
+Steps:
+evaluate @tt{c_x}, monitor @tt{V_x},
 evaluate @tt{c_y}, apply funtion, then monitor result.
 @(centered (parameterize ([judgment-form-cases '("app-arr")])
-             (render-judgment-form ⇓a)))
+             (render-judgment-form APP)))
 @subsubsection{Primitive operator}
 @(centered (parameterize ([judgment-form-cases '("app-prim")])
-             (render-judgment-form ⇓a)))
+             (render-judgment-form APP)))
 
 Primitive applications are where propositions are added to @tt{Γ}
 @verbatim[#:indent 4]{
@@ -365,7 +347,7 @@ For example:
 @verbatim[#:indent 4]{
                       
 δ add1 (• [car z]) ([z ↦ cons?])
-     = { (ERR ([z ↦ cons?] [(car z) ↦ (¬ int?)]) ∅)
+     = { (blame ([z ↦ cons?] [(car z) ↦ (¬ int?)]) ∅)
          ([• int?] ([z ↦ cons?] [(car z) ↦ int?]) ∅) }
      
 }
@@ -374,10 +356,9 @@ Whether argument failed or passed predicate is also remembered:
                       
 δ p? (V o) Γ
      = (match (prove? p? V)
-        ['Proved {((#t () ()) Γ ∅)}]
-        ['Refuted {((#f () ()) Γ ∅)}]
-        ['Neither {((#t () ()) Γ[o ↦ p?] ∅)
-                   ((#f () ()) Γ[o ↦ (¬ p?)] ∅)}])
+        ['Proved {(#t Γ ∅)}]
+        ['Refuted {(#f Γ ∅)}]
+        ['Neither {(#t Γ[o ↦ p?] ∅) (#f Γ[o ↦ (¬ p?)] ∅)}])
                                                 
 } (@tt{Γ} only needs updating when it's ambiguous)
 
@@ -385,152 +366,28 @@ Whether argument failed or passed predicate is also remembered:
 
 @subsection{Monitoring}
 @verbatim[#:indent 4]{
-Γ ⊢ D (V o) ⇓m Ans; Γ′
+MON ⊆  (Γ × D × (V o))  ×  (A × Γ′)
 }
 
 (@tt{Γ} and @tt{Γ′} have the same domain.)
+(Some error cases are omitted)
 @subsubsection{Flat contract}
-@(centered (parameterize ([judgment-form-cases '("flat-ok" "flat-fail" "flat-err")])
-             (render-judgment-form ⇓m)))
+@(centered (parameterize ([judgment-form-cases '("flat" "flat-fail" "flat-err")])
+             (render-judgment-form MON)))
 @subsubsection{Function contract}
-@(centered (parameterize ([judgment-form-cases '("arr-ok" "arr-err")])
-             (render-judgment-form ⇓m)))
+@(centered (parameterize ([judgment-form-cases '("func/c" "func/c-fail")])
+             (render-judgment-form MON)))
 @subsubsection{Disjunctive contract}
-@(centered (parameterize ([judgment-form-cases '("or/c-left" "or/c-right" "or/c-err")])
-             (render-judgment-form ⇓m)))
+@(centered (parameterize ([judgment-form-cases '("or/c-1" "or/c-2")])
+             (render-judgment-form MON)))
 @subsubsection{Conjunctive contract}
-Non-determinism and the fact that @tt{V} is already a closure
-prevents me to come up with a way to turn @tt{and/c} into a nesting of
-simpler tests.
-@(centered (parameterize ([judgment-form-cases '("and/c" "and/c-err")])
-             (render-judgment-form ⇓m)))
+@(centered (parameterize ([judgment-form-cases '("and/c" "and/c-fail")])
+             (render-judgment-form MON)))
 @subsubsection{Pair contract}
 @(centered
   (parameterize
-      ([judgment-form-cases '("cons/c" "cons/c-err1" "cons/c-err2" "cons/c-err3")])
-             (render-judgment-form ⇓m)))
-@subsubsection{Closed, unevaluated contract}
-@(centered
-  (parameterize ([judgment-form-cases '("closed-con" "closed-con-err")])
-             (render-judgment-form ⇓m)))
-
-@subsection{Machine semantics}
-
-Machine state:  @(parameterize ([render-language-nts '(ς)])
-                   (render-language scpcf-m))
-
-The 4-tuple @tt{(C Γ o κ)} state means it's evaluating an expression, 3-tuple @tt{(CC Γ κ)} a contract.
-
-The judgment form
-@verbatim[#:indent 4]{
-                      
-Γ, ρ, O, ψ ⊢ e ⇓ Ans; Γ′; o
-
-}
-corresponds to
-@verbatim[#:indent 4]{
-                      
-([e ρ O ψ] Γ ∅ κ) →* (Ans Γ′ o κ)
-
-}, and
-@verbatim[#:indent 4]{
-                      
-Γ, ρ, O, ψ ⊢ c ⇓ Dns; Γ′
-                      
-}
-corresponds to
-@verbatim[#:indent 4]{
-                      
-([c ρ O ψ] Γ κ) →* (Dns Γ′ κ)
-                      
-}, for all @tt{κ}.
- 
-Continuation forms
-@(centered (parameterize ([render-language-nts '(κ)])
-             (render-language scpcf-m)))
-
-@itemlist[
-  @item{@tt{(ap Vo* C* κ)} : waits for the next evaluated argument to be
-       added to @tt{Vo*}. @tt{C*} are the next arguments to be evaluated.}
-  @item{@tt{(if (C_1 o_1) (C_2 o_2) κ)} : waits to branch on either
-        @tt{(C_1 o_1)} or @tt{(C_2 o_2)} depending on true/false result.}
-  @item{@tt{(with-Γ Γ x* κ)} : replaces current proposition environment @tt{Γ1}
-        with @tt{(Γ-upd(Γ, Γ-del(Γ1, x*)))}. Also, keeps the current path @tt{o}
-        only when it's in @tt{(dom(Γ) \ x*)}}
-  @item{@tt{(flat-c κ)} : waits for the expression to be evaluated then wraps it
-        inside a flat contract constructor.}
-  @item{@tt{(mon-e (C o) κ)} : waits for contract to be evaluated,
-        then uses it to monitor closure @tt{C}}
-  @item{@tt{(mon-D D κ)} : waits for expression to be evaluated,
-        then uses @tt{D} to monitor it.}
-  @item{@tt{(mon-C (c ρ O ψ) κ)} : waits for expression to be evaluated,
-        then evaluates closed contract @tt{(c ρ O ψ)} to monitor it later}
-  @item{@tt{(chk-or (V o) (or/c c_1 c_2 ρ O ψ) κ)} : waits for value
-         from flat-checking @tt{c_1} on @tt{V}.
-         If true, returns @tt{V} refined by @tt{c_1},
-         otherwise monitors @tt{V} using @tt{c_2}.}
-  @item{@tt{chk-cons} : waits for returned value, which is @tt{car V}
-         then monitor @tt{(cdr V)} and returns the refined pair if
-         everything succeeds.}
-]
-
-@subsubsection{On non-value: @tt{(C Γ o κ)}}
-@(centered (parameterize ([render-reduction-relation-rules
-                           '(var app-intro if-intro mon-intro μ e-err)])
-             (render-reduction-relation red #:style 'compact-vertical)))
-
-@subsubsection{On unevaluated contract: @tt{(CC Γ κ)}}
-@(centered (parameterize ([render-reduction-relation-rules
-                           '(flat/c or/c and/c cons/c func/c μ/c x/c c-err)])
-             (render-reduction-relation red #:style 'compact-vertical)))
-
-@subsubsection{On value: @tt{(V Γ o κ)}}
-@(centered (parameterize ([render-reduction-relation-rules
-                           '(if-true if-false mk-flat upd-Γ-2 mon
-                                     app-swap app or-left or-right mon-C chk-cons)])
-             (render-reduction-relation red #:style 'compact-vertical)))
-
-@subsubsection{On evaluated contract: @tt{(D Γ κ)}}
-@(centered (parameterize ([render-reduction-relation-rules
-                           '(mon-swap upd-Γ-1)])
-             (render-reduction-relation red #:style 'compact-vertical)))
-
-@subsubsection{APP relation}
-@verbatim[#:indent 4]{
-                      
-APP : V ([V o] ...) Γ κ -> (C Γ o κ)
-
-}
-@(centered (parameterize
-               ([judgment-form-cases '("app-λ" "app-arr" "app-prim")])
-             (render-judgment-form APP)))
-
-@subsubsection{MON relation}
-@verbatim[#:indent 4]{
-                      
-MON : D (V o) Γ κ -> (C Γ o κ)
-
-}
-@(centered (parameterize ([judgment-form-cases '("mon-flat")])
+      ([judgment-form-cases '("cons/c")])
              (render-judgment-form MON)))
-@(centered (parameterize ([judgment-form-cases '("mon-or/c")])
-             (render-judgment-form MON)))
-@(centered (parameterize([judgment-form-cases '("mon-and/c")])
-             (render-judgment-form MON)))
-@(centered (parameterize ([judgment-form-cases '("mon-cons/c-err" "mon-cons/c")])
-             (render-judgment-form MON)))
-@(centered (parameterize ([judgment-form-cases '("mon-arr-err" "mon-arr")])
-             (render-judgment-form MON)))
-
-@subsubsection{Preserving tail-call}
-
-Application builds up another frame to restore @tt{Γ}'s domain later.
-It's possible to compact adjacent @tt{with-Γ} frames into one.
-The metafunction @tt{WITH-Γ} does this:
-@verbatim[#:indent 4]{
-WITH-Γ : Γ {x ...} κ -> κ
-}
-@(render-metafunction WITH-Γ)
 
 @section{Appendix: metafunctions}
 
