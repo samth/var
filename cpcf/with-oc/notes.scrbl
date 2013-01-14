@@ -3,7 +3,8 @@
           slideshow/pict
           redex/pict
           (only-in "lang-simple.rkt"
-                   [⇓ ⇓s] [⇓c ⇓cs] [APP APP-s] [MON MON-s] [FC FC-s] cpcf)
+                   [⇓ ⇓s] [⇓c ⇓cs] [APP APP-s] [MON MON-s] [FC FC-s] cpcf
+                   AND OR)
           "lang.rkt"
           scriblib/figure)
 
@@ -124,6 +125,9 @@ MON : C V -> A
 returning @tt{#f} if value fails, @tt{non-#f} if value passes,
 and may blame during evaluation.
 @(centered (render-metafunction FC-s))
+
+@(centered (render-metafunction AND))
+@(centered (render-metafunction OR))
 
 @section{Symbolic Core Racket}
 
@@ -274,6 +278,12 @@ MON ⊆  (ρ × C × (V o))  ×  (A × ρ′)
 @subsubsection{Disjunctive contract}
 @(centered (parameterize ([judgment-form-cases '("or/c-left" "or/c-right" "or/c-err")])
              (render-judgment-form MON)))
+
+Where @tt{FC} monitors using a flat contract like in previous section,
+only it's extended as a relation.
+
+@(centered (render-judgment-form FC))
+
 @subsubsection{Conjunctive contract}
 @(centered (parameterize ([judgment-form-cases '("and/c" "and/c-fail")])
              (render-judgment-form MON)))
@@ -324,7 +334,7 @@ Checks whether value proves contract.
 Simple adhoc rules are used for common cases.
 The function defaults to the conservative answer @tt{Neither}.
 
-@(render-metafunction proves?)
+@(centered (render-metafunction proves?))
 
 @subsection{Value refining}
 @subsubsection{refine : V C -> V}
@@ -335,41 +345,41 @@ PRECON: @tt{(proves? V C) = Neither}
 POSTCON: @tt{(refine V C)} is no less precise than @tt{V}.
 The function defaults to @tt{V} itself as a safe answer.
 
-@(render-metafunction refine)
+@(centered (render-metafunction refine))
 
 @subsection{Closing value}
 @subsubsection{close : v ρ O -> V}
-@(render-metafunction close)
+@(centered (render-metafunction close))
 
 @subsection{Environment manipulation}
 
 @subsubsection{dom : ρ -> {x ...}}
-@(render-metafunction dom)
+@(centered (render-metafunction dom))
 
 @subsubsection{ρ-upd : ρ_1 ρ_2 -> ρ}
 Updates @tt{ρ_1[x]} to be @tt{ρ_2[x]} if @tt{x} is in both environments.
 
 PRECON: @tt{ρ_2[x]} is no less precise than @tt{ρ_1[x]}.
 
-@(render-metafunction ρ-upd)
+@(centered (render-metafunction ρ-upd))
 
 @subsubsection{ρ: : ρ [o ↦ φ] -> ρ}
 Refines environment at path @tt{o}.
 
 PRECON: if @tt{o} is not @tt{∅}, it's a valid path in @tt{ρ}.
 
-@(render-metafunction ρ:)
+@(centered (render-metafunction ρ:))
 
-@(render-metafunction V-upd)
+@(centered (render-metafunction V-upd))
 
 @subsection{Path manipulation}
 @subsubsection{default-o : o {x ...} o -> o}
 Keeps the path if its root is in given domain,
 otherwise defaults to second path.
 
-@(render-metafunction default-o)
+@(centered (render-metafunction default-o))
 
 @subsubsection{acc+ : acc o -> o}
-@(render-metafunction acc+)
+@(centered (render-metafunction acc+))
 
 
