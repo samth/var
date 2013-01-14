@@ -3,8 +3,8 @@
 
 (provide
  cpcf
- ⇓ ⇓c APP MON ev
- close ! :: subst subst/c AND OR)
+ ⇓ ⇓c APP MON FC ev
+ close ! :: \\ subst subst/c AND OR)
 
 (define-language cpcf
   [e a
@@ -157,8 +157,10 @@
   [(MON (Cons/c c_1 c_2 ρ) V) blame]
   ; propagate blame
   [(MON C blame) blame])
+
+;; monitoring with flat contract
 (define-metafunction cpcf
-  FC : C V -> V
+  FC : C V -> A
   [(FC V_p V) (APP V_p V)]
   [(FC (Or/c C_1 C_2) V) (OR (FC C_1 V) (FC C_2 V))]
   [(FC (And/c C_1 C_2) V) (AND (FC C_1 V) (FC C_2 V))]
@@ -170,17 +172,14 @@
 (define-metafunction cpcf
   OR : A ... -> A
   [(OR) #f]
-  [(OR A) A]
   [(OR #f A ...) (OR A ...)]
-  [(OR V A ...) V])
+  [(OR A A_1 ...) A]) ; non-#f value or blame
 (define-metafunction cpcf
   AND : A ... -> A
   [(AND) #t]
-  [(AND A) A]
   [(AND #f A ...) #f]
   [(AND blame A ...) blame]
   [(AND V A ...) (AND A ...)])
-
 
 ;; close value
 (define-metafunction cpcf
@@ -192,12 +191,18 @@
 (define-metafunction cpcf
   ! : ([any ↦ any] ...) any -> any
   [(! (any_1 ... [any_k ↦ any_v] any_2 ...) any_k) any_v])
+
 ;; environment update
 (define-metafunction cpcf
   :: : ([any ↦ any] ...) [any ↦ any] -> ([any ↦ any] ...)
   [(:: (any_1 ... [any_k ↦ any_v] any_n ...) [any_k ↦ any_u])
    (any_1 ... [any_k ↦ any_u] any_n ...)]
   [(:: (any ...) [any_k ↦ any_v]) ([any_k ↦ any_v] any ...)])
+
+;; environment delete
+(define-metafunction cpcf
+  \\ : ([any ↦ any] ...) any -> ([any ↦ any] ...)
+  [(\\ (any_1 ... [any_k ↦ any_v] any_2 ...) any_k) (any_1 ... any_2 ...)])
 
 ;; substitution, assume α-renamed
 (define-metafunction cpcf

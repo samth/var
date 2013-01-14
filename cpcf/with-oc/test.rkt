@@ -187,7 +187,7 @@
       (begin
         (let (x (car l))
           (if (int? x) "ignore" (add1 "raise error")))
-        ; reached here, (car l) has to be nat
+        ; reached here, (car l) has to be int?
         (int? (car l))))
     → {#t blame}]
    

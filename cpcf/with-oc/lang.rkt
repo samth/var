@@ -1,17 +1,12 @@
 #lang racket
 (require
  redex
- (only-in "lang-simple.rkt"
-          cpcf
-          :: !
-          [subst subst1]
-          [subst/c subst/c1]))
+ (only-in "lang-simple.rkt" cpcf :: ! \\
+          [AND AND′] [OR OR′] [subst subst1] [subst/c subst/c1]))
 (provide
- scpcf ev
- ⇓ ⇓c APP MON FC δ
- ρ-upd ρ+ ρ- ρ:
- refine proves? V-upd
- dom acc+ default-o)
+ scpcf ev ⇓ ⇓c APP MON FC δ ∆ close
+ ρ-upd ρ: V-upd
+ refine proves? V-upd dom acc+ default-o)
          
 (define-extended-language scpcf cpcf
   [v .... •]
@@ -142,7 +137,7 @@
       e
       A ρ_1 o_a)
    ----- "app-λ"
-   (APP ρ ((λ x e) ρ_f O_f) ([V o]) A (ρ-upd ρ (ρ- ρ_1 x)) (default-o o_a (dom ρ) ∅))]
+   (APP ρ ((λ x e) ρ_f O_f) ([V o]) A (ρ-upd ρ (\\ ρ_1 x)) (default-o o_a (dom ρ) ∅))]
   
   [(⇓c (ρ-upd ρ_c ρ) O_c c_x C_x)
    (MON ρ C_x (V_x o_x) V_x′ ρ_1)
@@ -185,7 +180,7 @@
   #:contract (MON ρ C (V o) A ρ)
   [(APP ρ V_p ([V o]) V_t ρ_1 o_t)
    (δ ρ_1 false? ([V_t o_t]) #f ρ_2 o_t′)
-   ----- "flat"
+   ----- "flat-ok"
    (MON ρ V_p (V o) (refine V V_p) ρ_2)]
   [(APP ρ V_p ([V o]) V_t ρ_1 o_t)
    (δ ρ_1 false? ([V_t o_t]) #t ρ_2 o_t′)
@@ -255,17 +250,21 @@
   #:contract (δ ρ op ([V o] ...) A ρ o)
   
   ; primitive predicates
-  [(δ ρ p? ([V o]) #t ρ ∅)
-   (where Proved (proves? V p?))]
-  [(δ ρ p? ([V o]) #f ρ ∅)
-   (where Refuted (proves? V p?))]
-  [(δ ρ p? ([V o]) #t [ρ: ρ [o ↦ p?]] ∅)
-   (where Neither (proves? V p?))]
-  [(δ ρ p? ([V o]) #f [ρ: ρ [o ↦ (¬ p?)]] ∅)
-   (where Neither (proves? V p?))]
+  [(where Proved (proves? V p?))
+   ----- "pred-ok"
+   (δ ρ p? ([V o]) #t ρ ∅)]
+  [(where Refuted (proves? V p?))
+   ----- "pred-fail"
+   (δ ρ p? ([V o]) #f ρ ∅)]
+  [(where Neither (proves? V p?))
+   ----- "pred-assume-ok"
+   (δ ρ p? ([V o]) #t [ρ: ρ [o ↦ p?]] ∅)]
+  [(where Neither (proves? V p?))
+   ----- "pred-assume-fail"
+   (δ ρ p? ([V o]) #f [ρ: ρ [o ↦ (¬ p?)]] ∅)]
   
   ; +
-  [(δ ρ + ([m o_m] [n o_n]) (@ + m n) ρ ∅)]
+  [(δ ρ + ([m o_m] [n o_n]) (∆ + m n) ρ ∅)]
   [(δ ρ + ([V_1 o_1] [V_2 o_2]) blame ρ_1 ∅)
    (δ ρ int? ([V_1 o_1]) #f ρ_1 o_t)]
   [(δ ρ + ([V_1 o_1] [V_2 o_2]) blame ρ_2 ∅)
@@ -279,25 +278,31 @@
    (δ ρ_1 int? ([V o_2]) #t ρ_2 o_t2)]
   
   ; add1
-  [(δ ρ add1 ([n o]) (@ add1 n) ρ ∅)]
-  [(δ ρ add1 ([V o]) blame ρ_1 ∅)
-   (δ ρ int? ([V o]) #f ρ_1 o_t)]
-  [(δ ρ add1 ([(• C ...) o]) (• int?) ρ_1 ∅)
-   (δ ρ int? ([(• C ...) o]) #t ρ_1 o_t)]
+  [----- "add1-n"
+   (δ ρ add1 ([n o]) (∆ add1 n) ρ ∅)]
+  [(δ ρ int? ([V o]) #f ρ_1 o_t)
+   ----- "add1-fail"
+   (δ ρ add1 ([V o]) blame ρ_1 ∅)]
+  [(δ ρ int? ([(• C ...) o]) #t ρ_1 o_t)
+   ----- "add1-assume-ok"
+   (δ ρ add1 ([(• C ...) o]) (• int?) ρ_1 ∅)]
   
   ; car, cdr
-  [(δ ρ car ([(Cons V_1 V_2) o]) V_1 ρ (acc+ car o))]
+  [----- "car-ok"
+   (δ ρ car ([(Cons V_1 V_2) o]) V_1 ρ (acc+ car o))]
   [(δ ρ cdr ([(Cons V_1 V_2) o]) V_2 ρ (acc+ cdr o))]
-  [(δ ρ acc ([V o]) blame ρ_1 ∅)
-   (δ ρ cons? ([V o]) #f ρ_1 o_t)]
-  [(δ ρ acc ([(• C ...) o]) (•) ρ_1 (acc+ acc o))
-   (δ ρ cons? ([(• C ...) o]) #t ρ_1 o_t)]
+  [(δ ρ cons? ([V o]) #f ρ_1 o_t)
+   ----- "acc-fail"
+   (δ ρ acc ([V o]) blame ρ_1 ∅)]
+  [(δ ρ cons? ([(• C ...) o]) #t ρ_1 o_t)
+   ----- "acc-assume-ok"
+   (δ ρ acc ([(• C ...) o]) (•) ρ_1 (acc+ acc o))]
   
   ; cons
   [(δ ρ cons ([V_1 o_1] [V_2 o_2]) (Cons V_1 V_2) ρ ∅)]
   
   ; str-len
-  [(δ ρ str-len ([s o]) (@ str-len s) ρ ∅)]
+  [(δ ρ str-len ([s o]) (∆ str-len s) ρ ∅)]
   [(δ ρ str-len ([V o]) blame ρ_1 ∅)
    (δ ρ str? ([V o]) #f ρ_1 o_t)]
   [(δ ρ str-len ([(• C ...) o]) (• int?) ρ_1 ∅)
@@ -331,17 +336,10 @@
   [(δ ρ cons? ([V o]) #f ρ_1 o_1)
    ----- "FC-cons/c-fail"
    (FC ρ (Cons/c c_1 c_2 ρ_c O_c) (V o) #f ρ_1)])
-(define-metafunction scpcf
-  AND : A ... -> A
-  [(AND) #t]
-  [(AND blame A ...) blame]
-  [(AND #f A ...) #f]
-  [(AND A_1 A ...) (AND A ...)])
-(define-metafunction scpcf
-  OR : A ... -> A
-  [(OR) #f]
-  [(OR #f A ...) (OR A ...)]
-  [(OR A A_1 ...) A])
+(define-metafunction/extension AND′ scpcf
+  AND : A ... -> A)
+(define-metafunction/extension OR′ scpcf
+  OR : A ... -> A)
       
 (define-metafunction scpcf
   acc+ : acc o -> o
@@ -442,17 +440,6 @@
    (any ... [x ↦ (V-upd V (acc ...) φ)] any_1 ...)]
   [(ρ: ρ [∅ ↦ φ]) ρ])
 
-;; extends environment
-(define-metafunction scpcf
-  ρ+ : ρ [x ↦ V] -> ρ
-  [(ρ+ (any ... [x ↦ V_1] any_1 ...) [x ↦ V]) ([x ↦ V] any ... any_1 ...)]
-  [(ρ+ (any ...) [x ↦ V]) ([x ↦ V] any ...)])
-
-;; restricts environment
-(define-metafunction scpcf
-  ρ- : ρ x -> ρ
-  [(ρ- (any ... [x ↦ V] any_1 ...) x) (any ... any_1 ...)])
-
 ;; POSTCON: (V-upd V (acc ...) φ) ⊑ V
 (define-metafunction scpcf
   V-upd : V (acc ...) φ -> V
@@ -478,7 +465,7 @@
   [(A->EA A) A])
 
 (define-metafunction scpcf
-  @ : any V ... -> V
-  [(@ + m n) ,(+ (term m) (term n))]
-  [(@ add1 n) ,(add1 (term n))]
-  [(@ str-len s) ,(string-length (term s))])
+  ∆ : any V ... -> V
+  [(∆ + m n) ,(+ (term m) (term n))]
+  [(∆ add1 n) ,(add1 (term n))]
+  [(∆ str-len s) ,(string-length (term s))])
