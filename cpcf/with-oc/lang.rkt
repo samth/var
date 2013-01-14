@@ -7,7 +7,7 @@
           [subst subst1]
           [subst/c subst/c1]))
 (provide
- scpcf
+ scpcf ev
  ⇓ ⇓c APP MON FC δ
  ρ-upd ρ+ ρ- ρ:
  refine proves? V-upd
@@ -15,6 +15,10 @@
          
 (define-extended-language scpcf cpcf
   [v .... •]
+  [b .... s]
+  [o1 .... str-len]
+  [p? .... true? str?]
+  [s string]
   
   ; path environment
   [O ([x ↦ o′] ...)]
@@ -29,7 +33,7 @@
      (Arr (c ↦ (λ x c) ρ O) V)
      (Cons V V)
      (• C ...)]
-  [EA function n #t #f (Cons EA EA) (• C ...) • blame]
+  [EA function n #t #f s (Cons EA EA) (• C ...) • blame]
       
   ; evaluated contract
   [C V
@@ -290,7 +294,16 @@
    (δ ρ cons? ([(• C ...) o]) #t ρ_1 o_t)]
   
   ; cons
-  [(δ ρ cons ([V_1 o_1] [V_2 o_2]) (Cons V_1 V_2) ρ ∅)])
+  [(δ ρ cons ([V_1 o_1] [V_2 o_2]) (Cons V_1 V_2) ρ ∅)]
+  
+  ; str-len
+  [(δ ρ str-len ([s o]) (@ str-len s) ρ ∅)]
+  [(δ ρ str-len ([V o]) blame ρ_1 ∅)
+   (δ ρ str? ([V o]) #f ρ_1 o_t)]
+  [(δ ρ str-len ([(• C ...) o]) (• int?) ρ_1 ∅)
+   (δ ρ str? ([(• C ...) o]) #t ρ_1 o_t)]
+  [(δ ρ str-len ([(• C ...) o]) blame ρ_1 ∅)
+   (δ ρ str? ([(• C ...) o]) #f ρ_1 o_t)])
 
 ;; monitor a flat contract
 (define-judgment-form scpcf
@@ -368,28 +381,28 @@
 ;; checks whether value proves contract
 (define-metafunction scpcf
   proves? : V C -> Proved?
+  [(proves? V ((λ x #t) ρ O)) Proved]
+  [(proves? s str?) Proved]
+  [(proves? s p?) Refuted]
   [(proves? n int?) Proved]
   [(proves? n p?) Refuted]
   [(proves? #f false?) Proved]
-  [(proves? bool p?) Refuted]
+  [(proves? #f p?) Refuted]
+  [(proves? #t true?) Proved]
+  [(proves? #t p?) Refuted]
   [(proves? PROC proc?) Proved]
   [(proves? PROC p?) Refuted]
   [(proves? (Cons V_1 V_2) cons?) Proved]
   [(proves? (Cons V_1 V_2) p?) Refuted]
-  [(proves? V (Or/c C_1 ... C C_2 ...))
-   Proved
-   (where Proved (proves? V C))]
-  [(proves? V (And/c C_1 ... C C_2 ...))
-   Refuted
-   (where Refuted (proves? V C))]
-  [(proves? V ((λ x (false? (p? x))) ρ O))
-   Proved
-   (where Refuted (proves? V p?))]
-  [(proves? V ((λ x (false? (p? x))) ρ O))
-   Refuted
-   (where Proved (proves? V p?))]
+  [(proves? V (Or/c C_1 ... C C_2 ...)) Proved (where Proved (proves? V C))]
+  [(proves? V (Or/c C ...)) Refuted (where (Refuted ...) ((proves? V C) ...))]
+  [(proves? V (And/c C_1 ... C C_2 ...)) Refuted (where Refuted (proves? V C))]
+  [(proves? V (And/c C ...)) Proved (where (Proved ...) ((proves? V C) ...))]
+  [(proves? V ((λ x (false? (p? x))) ρ O)) Proved (where Refuted (proves? V p?))]
+  [(proves? V ((λ x (false? (p? x))) ρ O)) Refuted (where Proved (proves? V p?))]
   [(proves? (• C_1 ... C C_2 ...) C) Proved]
   [(proves? (• C_1 ... ((λ x (false? (p? x))) ρ O) C_2 ...) p?) Refuted]
+  [(proves? (• C_1 ... p? C_2 ...) p?_1) Refuted] ; p? ≠ p?_1
   [(proves? V C) Neither])
 
 ;; refines a value with given contract.
@@ -407,6 +420,7 @@
    (where (C_2) ,(judgment-holds (⇓c ρ O c_2 C) C))]
   [(refine (• C ...) cons?) (Cons (•) (•))]
   [(refine (• C ...) false?) #f]
+  [(refine (• C ...) true?) #t]
   [(refine (• C_1 ...) C) (• C C_1 ...)]
   [(refine V C) V])
 
@@ -416,7 +430,7 @@
   ρ-upd : ρ ρ -> ρ
   [(ρ-upd ρ ()) ρ]
   [(ρ-upd (any ... [x ↦ V] any_1 ...) ([x ↦ V_1] any_2 ...))
-   (ρ-upd (any ... [x ↦ (V⊓ V V_1)] any_1 ...) (any_2 ...))]
+   (ρ-upd (any ... [x ↦ V_1] any_1 ...) (any_2 ...))]
   [(ρ-upd ρ (any_1 any ...)) (ρ-upd ρ (any ...))])
 
 ;; refines value at given path in environment
@@ -466,4 +480,5 @@
 (define-metafunction scpcf
   @ : any V ... -> V
   [(@ + m n) ,(+ (term m) (term n))]
-  [(@ add1 n) ,(add1 (term n))])
+  [(@ add1 n) ,(add1 (term n))]
+  [(@ str-len s) ,(string-length (term s))])
