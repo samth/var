@@ -52,7 +52,7 @@
   [----- "val"
    (⇓ ρ O v [close v ρ O] ρ ∅)]
   [----- "var"
-   (⇓ ρ O x [! ρ x] ρ [! O x])]
+   (⇓ ρ O x [ρ! ρ [! O x]] ρ [! O x])]
   
   [(⇓ ρ O e V_t ρ_1 o_t)
    (δ ρ_1 false? ([V_t o_t]) #f ρ_2 o_t′)
@@ -133,7 +133,7 @@
   #:contract (APP ρ V ([V o] ...) A ρ o)
   
   [(⇓ [:: (ρ-upd ρ_f ρ) (x ↦ V)]
-      [:: O_f (x ↦ (default-o o (dom ρ) [x]))]
+      [:: O_f (x ↦ (default-o o (dom ρ_f) [x]))]
       e
       A ρ_1 o_a)
    ----- "app-λ"
@@ -469,3 +469,12 @@
   [(∆ + m n) ,(+ (term m) (term n))]
   [(∆ add1 n) ,(add1 (term n))]
   [(∆ str-len s) ,(string-length (term s))])
+
+(define-metafunction scpcf
+  ρ! : ρ o′ -> V
+  [(ρ! (any ... [x ↦ V] any_1 ...) (acc ... x)) (V! V (acc ...))])
+(define-metafunction scpcf
+  V! : V (acc ...) -> V
+  [(V! V ()) V]
+  [(V! (Cons V_1 V_2) (car acc ...)) (V! V_1 (acc ...))]
+  [(V! (Cons V_1 V_2) (cdr acc ...)) (V! V_2 (acc ...))])

@@ -5,7 +5,7 @@
           (only-in "lang-simple.rkt"
                    [⇓ ⇓s] [⇓c ⇓cs] [APP APP-s] [MON MON-s] [FC FC-s] cpcf
                    AND OR)
-          "lang.rkt"
+          "lang1.rkt"
           scriblib/figure)
 
 @section{Previously problematic programs}
@@ -133,8 +133,10 @@ and may blame during evaluation.
 
 @subsection{Syntax}
 Compared to @tt{CPCF}, this language has symbolic values refinable by contracts.
+I use @tt{★} for an abstract, refinable closure instead of @tt{•}
+for syntax to avoid the impression of circularity at some point.
 
-@(centered (parameterize ([render-language-nts '(v O o o′ V C φ)])
+@(centered (parameterize ([render-language-nts '(v V C ρ σ)])
              (render-language scpcf)))
 
 Due to non-determinism introduced by evaluating abstract values,
@@ -143,11 +145,11 @@ are turned into relations.
 
 @verbatim[#:indent 4]{
                       
-ρ, O ⊢ e ⇓  A; ρ′; o
-ρ, O ⊢ c ⇓c C
-APP ⊆ (ρ × V × ([V o] ...))  ×  (A × ρ′ × o)
-MON ⊆ (ρ × C × (V o))  ×  (A × ρ′)
-δ   ⊆ (ρ × op × ([V o] ...))  ×  (A × ρ′ × o)
+σ, ρ ⊢ e ⇓  A; σ
+σ, ρ ⊢ c ⇓c C; σ
+APP ⊆ (σ × V × [V ...])  ×  (A × σ)
+MON ⊆ (σ × C × V)  ×  (A × σ)
+δ   ⊆ (σ × op × [V ...])  ×  (A × σ)
          
 }
 
@@ -155,32 +157,23 @@ MON ⊆ (ρ × C × (V o))  ×  (A × ρ′)
 
 @verbatim[#:indent 4]{
                       
-ρ, O ⊢ e ⇓ A; ρ′; o
+σ, ρ ⊢ e ⇓  A; σ
 
 }
 means expression e, closed by environment @tt{ρ},
-evaluates to answer @tt{A}.
-The closing environment @tt{ρ} is also refined and results
-in a new environment @tt{ρ′} with the same domain and
-@tt{ρ′[x]} maps @tt{x} to a value no less precise than @tt{ρ[x]}.
-Further, if @tt{A} is a value and @tt{o} is not @tt{∅},
-looking up @tt{ρ′} at @tt{o} gives @tt{A}.
+evaluates to answer @tt{A},
+and modifies the global environment @tt{σ} to @tt{σ′}.
 
-Environment @tt{O} has the same domain as @tt{ρ},
-and attempts to map each variable to a path rooted
-from the lexically farthest possible variable that relates to it.
-For example, in this program, by the time @tt{z} is in scope,
-@tt{O} is @tt{([x ↦ (x)] [y ↦ (car x)] [z ↦ (cdr car x)])}
-@verbatim[#:indent 4]{
-(let [x •]
-  (let [y (car x)]
-    (let [z (cdr y)]
-      ... )))
-}
-
+Environment @tt{ρ} maps variables to values as normal.
+Values now include labels, which can be thought of as
+pointers to some value elsewhere in the global environment @tt{σ}.
+Labels are passed around like other values and are forced by @tt{APP} and @tt{δ}
+when necessary.
 
 @subsubsection{Value}
-@(centered (parameterize ([judgment-form-cases '("val")])
+Each abstract value introduced in the source code
+evaluates to a label as an alias.
+@(centered (parameterize ([judgment-form-cases '("val-•" "val")])
              (render-judgment-form ⇓)))
 
 @subsubsection{Variable}
@@ -206,7 +199,7 @@ Because contract evaluation is essentially closing value,
 there is no opportunity for refining the environment.
 @verbatim[#:indent 4]{
                       
-ρ, O ⊢ c ⇓c C
+σ, ρ ⊢ c ⇓c C; σ
 
 }
 
@@ -222,26 +215,15 @@ there is no opportunity for refining the environment.
              (render-judgment-form ⇓c)))
 
 @subsection{Application}
+Most rules are like in previous version,
+except label occuring at function position is forced.
 @verbatim[#:indent 4]{
                       
-APP ⊆ (ρ × V_f × ([V_i o_i] ...))  ×  (A × ρ′ × o)
+APP ⊆ (σ × V_f × [V_i ...])  ×  (A × σ)
 
 }
 
-Applies closure @tt{V_f} to arguments @tt{V_i}'s.
-Each argument is attached with an object @tt{o_i}
-that's a valid path in @tt{ρ} so @tt{ρ}
-can be refined when facts are discovered/assumed about @tt{V_i}.
-The refined environment @tt{ρ′} has the same domain as @tt{ρ}
-and each value mapped to in @tt{ρ′} is no less precise than in @tt{ρ}.
-
 @subsubsection{Lambda}
-
-Precondition: if @tt{x} is in both @tt{ρ} and @tt{ρ_f}'s domains,
-it refers to the same variable.
-
-@tt{ρ-upd} updates the first environment with more precise values
-from the second one.
 
 @(centered (parameterize ([judgment-form-cases '("app-λ")])
              (render-judgment-form APP)))
@@ -264,9 +246,13 @@ evaluate @tt{c_y} then monitor result.
 @(centered (parameterize ([judgment-form-cases '("havoc-1" "havoc-2")])
              (render-judgment-form APP)))
 
+@subsubsection{Label}
+@(centered (parameterize ([judgment-form-cases '("app-l")])
+             (render-judgment-form APP)))
+
 @subsection{Monitoring}
 @verbatim[#:indent 4]{
-MON ⊆  (ρ × C × (V o))  ×  (A × ρ′)
+MON ⊆  (σ × C × V)  ×  (A × σ)
 }
 
 @subsubsection{Flat contract}
@@ -297,11 +283,11 @@ or propogated from monitoring the pair's component.
 
 @subsection{Primitive operators}
 When it's not known whether the argument satisfies or fails a condition,
-both possibilities are tried out and the environment is refined
+both possibilities are tried out and the global environent is refined
 accordingly in each non-deterministic branch.
 @verbatim[#:indent 4]{
                       
-δ ⊆ (ρ × op × ([V o] ...))  ×  (A × ρ′ × o)
+δ ⊆ (σ × op × [V ...])  ×  (A × σ)
                       
 }
 
@@ -310,26 +296,29 @@ Below is part of @tt{δ}:
 @subsubsection{Primitive predicates}
 @(centered
   (parameterize ([judgment-form-cases
-                  '("pred-ok" "pred-fail" "pred-assume-ok" "pred-assume-fail")])
+                  '("pred-ok" "pred-fail" "pred-l-assumed-ok" "pred-l-assumed-fail"
+                              "pred-★-assumed-ok" "pred-★-assumed-fail")])
     (render-judgment-form δ)))
 
 @subsubsection{Add1}
 @tt{(∆ add1 n)} adds 1 to number @tt{n}.
 I do this only because I cannot unquote inside judgment forms.
 @(centered
-  (parameterize ([judgment-form-cases '("add1-n" "add1-fail" "add1-assume-ok")])
+  (parameterize ([judgment-form-cases '("add1-n" "add1-fail" "add1-assumed-ok")])
     (render-judgment-form δ)))
 
 @subsubsection{Pair accessor}
 @(centered
-  (parameterize ([judgment-form-cases '("car-ok" "acc-fail" "acc-assume-ok")])
+  (parameterize
+      ([judgment-form-cases
+        '("car-ok" "acc-fail" "acc-assumed-ok1" "acc-assumed-ok2")])
     (render-judgment-form δ)))
 
 
 @section{Appendix: Other metafunctions}
 
 @subsection{Contract satisfaction}
-@subsubsection{proves? : V C -> {Proved, Refuted, Neither}}
+@subsubsection{proves? : σ V C -> {Proved, Refuted, Neither}}
 Checks whether value proves contract.
 Simple adhoc rules are used for common cases.
 The function defaults to the conservative answer @tt{Neither}.
@@ -348,38 +337,13 @@ The function defaults to @tt{V} itself as a safe answer.
 @(centered (render-metafunction refine))
 
 @subsection{Closing value}
-@subsubsection{close : v ρ O -> V}
+@subsubsection{close : v ρ -> V}
 @(centered (render-metafunction close))
 
 @subsection{Environment manipulation}
 
-@subsubsection{dom : ρ -> {x ...}}
-@(centered (render-metafunction dom))
+@subsubsection{σ: : σ [l ↦ φ] -> σ}
+Refines abstract value bound to label @tt{l} with proposition @tt{φ}
 
-@subsubsection{ρ-upd : ρ_1 ρ_2 -> ρ}
-Updates @tt{ρ_1[x]} to be @tt{ρ_2[x]} if @tt{x} is in both environments.
-
-PRECON: @tt{ρ_2[x]} is no less precise than @tt{ρ_1[x]}.
-
-@(centered (render-metafunction ρ-upd))
-
-@subsubsection{ρ: : ρ [o ↦ φ] -> ρ}
-Refines environment at path @tt{o}.
-
-PRECON: if @tt{o} is not @tt{∅}, it's a valid path in @tt{ρ}.
-
-@(centered (render-metafunction ρ:))
-
-@(centered (render-metafunction V-upd))
-
-@subsection{Path manipulation}
-@subsubsection{default-o : o {x ...} o -> o}
-Keeps the path if its root is in given domain,
-otherwise defaults to second path.
-
-@(centered (render-metafunction default-o))
-
-@subsubsection{acc+ : acc o -> o}
-@(centered (render-metafunction acc+))
-
+@(centered (render-metafunction σ:))
 

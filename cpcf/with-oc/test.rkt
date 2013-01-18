@@ -1,7 +1,7 @@
 #lang racket
 
 (require redex)
-(require (only-in "lang.rkt" scpcf [ev ev1]))
+(require (only-in "lang1.rkt" scpcf [ev ev1] δ))
 
 
 (define-extended-language cr scpcf
