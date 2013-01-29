@@ -26,6 +26,7 @@
      (Cons V V)
      l
      (★ C ...)]
+  [W b ((λ x e) ρ) (Arr (c ↦ (λ x c) ρ) V) (Cons V V) (★ C ...)]
   [EA function n #t #f s (Cons EA EA) (• C ...) • blame]
       
   ; evaluated contract
@@ -173,7 +174,10 @@
   ; poor man's havoc
   [(δ σ proc? [(★ C ...)] #t σ_1)
    ----- "havoc-1"
-   (APP σ (★ C ...) [V ...] (★) σ_1)])
+   (APP σ (★ C ...) [V ...] (★) σ_1)]
+  [(δ σ proc? [(★ C ...)] #t σ_1)
+   ----- "havoc-2"
+   (APP σ (★ C ...) [V ...] blame σ_1)])
 
 ;; monitoring
 (define-judgment-form scpcf
@@ -251,24 +255,25 @@
   #:contract (δ σ op [V ...] A σ)
   
   ; primitive predicates
-  [(where Proved (proves? σ V p?))
-   ----- "pred-ok"
-   (δ σ p? [V] #t σ)]
-  [(where Refuted (proves? σ V p?))
-   ----- "pred-fail"
-   (δ σ p? [V] #f σ)]
   [(δ σ p? [[! σ l]] #t σ_1)
-   ----- "pred-l-assumed-ok"
+   ------ "pred-l-ok"
    (δ σ p? [l] #t [σ: σ_1 [l ↦ p?]])]
   [(δ σ p? [[! σ l]] #f σ_1)
-   ----- "pred-l-assumed-fail"
-   (δ σ p? [l] #f [σ: σ [l ↦ (¬ p?)]])]
-  [(where Neither (proves? σ (★ C ...) p?))
-   ----- "pred-★-assumed-ok"
-   (δ σ p? [(★ C ...)] #t σ)]
-  [(where Neither (proves? σ (★ C ...) p?))
-   ----- "pred-★-assumed-fail"
-   (δ σ p? [(★ C ...)] #f σ)]
+   ------ "pred-l-fail"
+   (δ σ p? [l] #f [σ: σ_1 [l ↦ (¬ p?)]])]
+  
+  [(where Proved (proves? W p?))
+   ----- "pred-ok"
+   (δ σ p? [W] #t σ)]
+  [(where Refuted (proves? W p?))
+   ----- "pred-fail"
+   (δ σ p? [W] #f σ)]
+  [(where Neither (proves? W p?))
+   ----- "pred-assumed-ok"
+   (δ σ p? [W] #t σ)]
+  [(where Neither (proves? W p?))
+   ----- "pred-assumed-fail"
+   (δ σ p? [W] #f σ)]
   
   ; +
   [(δ σ + [m n] (∆ + m n) σ)]
@@ -302,17 +307,17 @@
    (δ σ acc [V] blame σ_1)]
   [(δ σ cons? [l] #t σ_1)
    (where (Cons V_1 V_2) (! σ_1 l))
-   ----- "car-assumed-ok1"
+   ----- "car-l-assumed-ok"
    (δ σ car [l] V_1 σ_1)]
   [(δ σ cons? [(★ C ...)] #t σ_1)
-   ----- "car-assumed-ok2"
+   ----- "car-★-assumed-ok"
    (δ σ car [(★ C ...)] (★) σ_1)]
   [(δ σ cons? [l] #t σ_1)
    (where (Cons V_1 V_2) (! σ_1 l))
-   ----- "cdr-assumed-ok1"
+   ----- "cdr-l-assumed-ok"
    (δ σ cdr [l] V_2 σ_1)]
   [(δ σ cons? [(★ C ...)] #t σ_1)
-   ----- "cdr-assumed-ok2"
+   ----- "cdr-★-assumed-ok"
    (δ σ cdr [(★ C ...)] (★) σ_1)]
   
   ; cons
@@ -384,50 +389,49 @@
 
 ;; checks whether value proves contract
 (define-metafunction scpcf
-  proves? : σ V C -> Proved?
-  [(proves? σ l C) (proves? σ [! σ l] C)]
-  [(proves? σ V ((λ x #t) ρ)) Proved]
-  [(proves? σ s str?) Proved]
-  [(proves? σ s p?) Refuted]
-  [(proves? σ n int?) Proved]
-  [(proves? σ n p?) Refuted]
-  [(proves? σ #f false?) Proved]
-  [(proves? σ #f p?) Refuted]
-  [(proves? σ #t true?) Proved]
-  [(proves? σ #t p?) Refuted]
-  [(proves? σ PROC proc?) Proved]
-  [(proves? σ PROC p?) Refuted]
-  [(proves? σ (Cons V_1 V_2) cons?) Proved]
-  [(proves? σ (Cons V_1 V_2) p?) Refuted]
-  [(proves? σ V (Or/c C_1 ... C C_2 ...)) Proved (where Proved (proves? σ V C))]
-  [(proves? σ V (Or/c C ...)) Refuted (where (Refuted ...) ((proves? σ V C) ...))]
-  [(proves? σ V (And/c C_1 ... C C_2 ...)) Refuted (where Refuted (proves? σ V C))]
-  [(proves? σ V (And/c C ...)) Proved (where (Proved ...) ((proves? σ V C) ...))]
-  [(proves? σ V ((λ x (false? (p? x))) ρ)) Proved (where Refuted (proves? σ V p?))]
-  [(proves? σ V ((λ x (false? (p? x))) ρ)) Refuted (where Proved (proves? σ V p?))]
-  [(proves? σ (★ C_1 ... C C_2 ...) C) Proved]
-  [(proves? σ (★ C_1 ... ((λ x (false? (p? x))) ρ) C_2 ...) p?) Refuted]
-  [(proves? σ (★ C_1 ... p? C_2 ...) p?_1) Refuted] ; p? ≠ p?_1
-  [(proves? σ V C) Neither])
+  proves? : W C -> Proved?
+  [(proves? V ((λ x #t) ρ)) Proved]
+  [(proves? s str?) Proved]
+  [(proves? s p?) Refuted]
+  [(proves? n int?) Proved]
+  [(proves? n p?) Refuted]
+  [(proves? #f false?) Proved]
+  [(proves? #f p?) Refuted]
+  [(proves? #t true?) Proved]
+  [(proves? #t p?) Refuted]
+  [(proves? PROC proc?) Proved]
+  [(proves? PROC p?) Refuted]
+  [(proves? (Cons V_1 V_2) cons?) Proved]
+  [(proves? (Cons V_1 V_2) p?) Refuted]
+  [(proves? V (Or/c C_1 ... C C_2 ...)) Proved (where Proved (proves? V C))]
+  [(proves? V (Or/c C ...)) Refuted (where (Refuted ...) ((proves? V C) ...))]
+  [(proves? V (And/c C_1 ... C C_2 ...)) Refuted (where Refuted (proves? V C))]
+  [(proves? V (And/c C ...)) Proved (where (Proved ...) ((proves? V C) ...))]
+  [(proves? V ((λ x (false? (p? x))) ρ)) Proved (where Refuted (proves? V p?))]
+  [(proves? V ((λ x (false? (p? x))) ρ)) Refuted (where Proved (proves? V p?))]
+  [(proves? (★ C_1 ... C C_2 ...) C) Proved]
+  [(proves? (★ C_1 ... ((λ x (false? (p? x))) ρ) C_2 ...) p?) Refuted]
+  [(proves? (★ C_1 ... p? C_2 ...) p?_1) Refuted] ; p? ≠ p?_1
+  [(proves? V C) Neither])
 
 ;; refines a value with given contract.
 ;; PRECON: (proves? V C) = Neither
 ;; POSTCON: (refine V C) ⊑ V
 (define-metafunction scpcf
   refine : V C -> V
+  [(refine W C) W (where Proved (proves? W C))]
   [(refine (★ C ...) (Cons/c c_1 c_2 ρ))
    (Cons (refine (★) C_1) (refine (★) C_2)) ; FIXME wrong
    (where (C_1) ,(judgment-holds (⇓c [] ρ c_1 C σ) C))
    (where (C_2) ,(judgment-holds (⇓c [] ρ c_2 C σ) C))]
   [(refine (Cons V_1 V_2) (Cons/c c_1 c_2 ρ))
-   (Cons (refine V_1 C_1) (refine V_2 C_2))
+   (Cons (refine V_1 C_1) (refine V_2 C_2)) ; FIXME wrong
    (where (C_1) ,(judgment-holds (⇓c [] ρ c_1 C σ) C))
    (where (C_2) ,(judgment-holds (⇓c [] ρ c_2 C σ) C))]
   [(refine (★ C ...) cons?) (Cons (★) (★))]
   [(refine (★ C ...) false?) #f]
   [(refine (★ C ...) true?) #t]
-  [(refine (★ C_1 ...) C)
-   (★ C C_1 ...)]
+  [(refine (★ C_1 ...) C) (★ C C_1 ...)]
   [(refine V C) V])
 
 ;; refines value at given path in environment
@@ -449,11 +453,11 @@
    (where ((A σ) ...) ,(judgment-holds (⇓ () () e A σ) (A σ)))])
 (define-metafunction scpcf
   A->EA : σ A -> EA
+  [(A->EA σ l) (A->EA σ [! σ l])]
   [(A->EA σ (★)) •]
   [(A->EA σ (★ C ...)) (• C ...)]
-  [(A->EA σ V) function (where Proved (proves? σ V proc?))]
+  [(A->EA σ V) function (where Proved (proves? V proc?))]
   [(A->EA σ (Cons V_1 V_2)) (Cons (A->EA σ V_1) (A->EA σ V_2))]
-  [(A->EA σ l) (A->EA σ [! σ l])]
   [(A->EA σ A) A])
 
 (define-metafunction scpcf
