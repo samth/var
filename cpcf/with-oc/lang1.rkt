@@ -5,7 +5,7 @@
           [AND AND′] [OR OR′] [subst subst1] [subst/c subst/c1]))
 (provide
  scpcf ev ⇓ ⇓c APP MON FC δ ∆ close
- refine proves? dom σ:)
+ refine proves? dom σ: var-not-in not-equal? !)
          
 (define-extended-language scpcf cpcf
   [v .... •]
@@ -171,12 +171,9 @@
    (APP σ l [V ...] A σ_1)]
   
   ; poor man's havoc
-  [(δ σ proc? [l] #t σ_1)
+  [(δ σ proc? [(★ C ...)] #t σ_1)
    ----- "havoc-1"
-   (APP σ l [V ...] (★) σ_1)]
-  [(δ σ proc? [l] #t σ_1)
-   ----- "havoc-2"
-   (APP σ l [V ...] blame σ_1)])
+   (APP σ (★ C ...) [V ...] (★) σ_1)])
 
 ;; monitoring
 (define-judgment-form scpcf
