@@ -86,11 +86,16 @@ Plan:
 The analysis mimicks a programmer's intuitive reasoning about unknown values.
 We use symbolic execution as a systematic way of automating these intuitions.
 Appropriate portions of the environment are refined after every primitive application.
+
+Compared to type-checking, symbolic execution makes the process of reasoning simpler
+and more transparent.
+Instead of saying "If this is true, then that is true", we think of it as either
+"We know it's true", "We know it's not true", or "We don't know, let's split and remember".
+
 By maintaining an environment that keeps track of what we have learned so far
 and threading it through every execution step,
 we retain information despite arbitrarily deep layers of abstraction and
 complex test combinations.
-
 
 @section{Simple Language}
 
