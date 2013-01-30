@@ -3,7 +3,7 @@
           slideshow/pict
           redex/pict
           scriblib/figure
-          (only-in "lang-new.rkt" λrec ⇓))
+          #;(only-in "lang-new.rkt" λrec ⇓))
 
 @section{Introduction}
 
