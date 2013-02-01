@@ -2,7 +2,7 @@
 (require redex)
 
 (provide
- λrec ⇓ APP δ proves? close A→EA ev ! ::)
+ λrec ⇓ APP δ proves? close A→EA ev ! :: render-⇓ render-APP rewrite-:: rewrite-!)
 
 (define-language λrec
   ; expression
@@ -137,3 +137,29 @@
 (define-metafunction λrec
   ev : e -> A
   [(ev e) A (where (A) ,(judgment-holds (⇓ () e A) A))])
+
+(define rewrite-⇓
+  (match-lambda
+    [`(,_ ,_ ,ρ ,e ,A ,_) `(,ρ " ⊢ " ,e " ⇓ " ,A)]))
+
+(define rewrite-!
+  (match-lambda
+    [`(,_ ,_ ,ρ ,x ,_) `(,ρ "[" ,x "]")]))
+  
+(define (render-⇓
+         [cs '("err" "val" "var" "app" "app-err" "if-true" "if-false" "if-err")])
+  (with-compound-rewriters
+   (['⇓ rewrite-⇓] ['! rewrite-!] [':: rewrite-::])
+   (parameterize ([judgment-form-cases cs])
+     (render-judgment-form ⇓))))
+
+(define rewrite-::
+  (match-lambda
+    [`(,_ ,_ ,ρ ,_) `(,ρ)]
+    [`(,_ ,_ ,ρ ,p1 ,_) `(,ρ "," ,p1)]
+    [`(,_ ,_ ,ρ ,p1 ,p2 ,_) `(,ρ "/" ,p1 "/" ,p2)]))
+
+(define (render-APP)
+  (with-compound-rewriters
+   (['⇓ rewrite-⇓] [':: rewrite-::])
+   (render-metafunction APP)))

@@ -3,12 +3,14 @@
           slideshow/pict
           redex/pict
           scriblib/figure
-          #;(only-in "lang-new.rkt" λrec ⇓))
+          (only-in "lang-paper-simple.rkt"
+                   λrec [render-⇓ render-⇓-s] [render-APP render-APP-s])
+          (only-in "lang-paper.rkt" sλrec render-⇓ render-APP))
 
 @bold{Abstract}
 
-Automated software verification is tricky, especially for programs
-written in languages with first-class functions and control.
+Automated software verification is tricky, especially in the presence
+of higher-order functions.
 @emph{[... TODO: Why it's an interesting problem..]}
 We present a solution based on symbolic execution that reasons about
 unknown program portions effectively and scales to many language features.
@@ -22,53 +24,41 @@ its output has property X?".
 
 Modular reasoning about software is hard because the analysis
 needs to allow an arbitrary number of unknown portions and make conservative assumptions.
-First-class functions and control worsen the situation even further
+First-class functions worsen the situation even further
 by making it too easy to assume spurious paths.
 Tobin-Hochstadt and Van Horn (2012) make a novel approach of using symbolic execution
-with @emph{specifications as values}, which is mostly orthogonal
+with @emph{specifications as symbolic values}, which is mostly orthogonal
 to a language's semantics
 and readily scales to an expressive set of language features.
 But contracts, being boundary-level specifications, turn out not sufficient
 for giving precise analyses in quite a few cases.
-If a value is not guarded by the right contract when it flows into a module,
-there may not be enough information to verify the value that flows back out.
-In the following example, their analysis relies on an appropriate disjunctive contract
-to monitor the argument.
-When an opaque value is refined by this contract, it splits into more precise values.
-This splitting, in many cases, coincides with the test in the function's body
-and helps verification.
+The analysis in the paper does a good job reasoning about programs when invariants
+are encoded as contracts, but not when they are encoded in the program logic itself.
+This neccessitates a more general solution that learns about the program
+more effecitvely.
+If the analysis does a good enough job of exploring facts through tests
+and program flow, this implies that contracts can be compiled into
+this smaller language and have invariants checked by this new analysis.
+
+The following example...
 @verbatim[#:indent 4]{
                       
-(module
-  (provide
-   [maybe-head ((μ (l) (or/c nil (cons/c any/c l))) →
-                   (or/c #f (cons/c any/c nil)))])
-  (define (maybe-head x)
-    (if (cons? x) (cons (car x) nil) #f)))
-    
-}
-However, this module, with a simpler contract, cannot be verified:
-@verbatim[#:indent 4]{
+(provide
+ (f (even? → even?))
+ (define (f x)
+   (+ 2 x)))
                       
-(module
-  (provide
-   [maybe-head (any/c → (or/c #f (cons/c any/c nil)))])
-  (define (maybe-head x)
-    (if (cons? x) (cons (car x) nil) #f)))
-    
 }
 
-[TODO:
-Is the purpose of the old analysis just to prove that a module
-respects its own contract and it doesn't matter if it violates others'
-(like ∆, the language, in this case)?
-If it's ok for the module to violate ∆, i will need to complicate this example
-a bit by using dependent contract to make the old analysis return a false blame)
-, like this:
 @verbatim[#:indent 4]{
-(any/c → (λ (x) (flat (λ (y) (if (cons? x) (cons? y) (false? y))))))
+                      
+(provide
+ (f (number? → even?))
+ (define (f x)
+   (if (even? x) (+ 2 x) (error "input not even"))))
+   
 }
-]
+
 
 Ad-hoc rules remembering simple tests do not suffice,
 because real programs can have complex and abstracted tests
@@ -82,7 +72,7 @@ have at run-time.
                       
 (if (and (or (num? x) (str? x)) (cons? y))
     (cond
-      [(and (num? x) (num? (car y))) (+ x (car y))]
+      [(and (positive? x) (num? (car y))) (/ (car y) x)]
       [(num? (car y)) (+ (str-len x) (car y))]
       [else 0])
     0)
@@ -93,12 +83,20 @@ This problem has been solved in [Sam's paper] in the context of
 type-checking.
 We want to employ these ideas in symbolic execution to strengthen
 our previous analysis.
+While type-checking only rules out certain types of errors,
+we aim for a stronger property: That the execution reports no error
+implies the absence of runtime errors for all concretization of
+program inputs.
 
 Contribution:
 @itemlist[
   @item{We give a method of significantly improving precision for
         symbolic execution by making better use of tests and program flow}
-  @item{We show that the new analysis can verify a larger set of programs}
+  @item{We show that the new analysis can verify a larger set of programs
+        , proving that they are free of run-time errors.
+        In case of errors, the analysis provides enough information
+        for programmers to inspect and see whether the errors can actually
+        happen at run-time or not.}
   @item{We discuss useful by-products coming out of this analysis, namely 
         more elimination of run-time checks and dead-code,
         and analyzing function's preconditions}
@@ -109,6 +107,7 @@ Plan:
   @item{High-level description}
   @item{Simple language without •}
   @item{Add • to language}
+  @item{Apply this to handle contracts}
   @item{Discussion: evaluate results, by-products, possible improvements}
   @item{Related work}
 ]
@@ -129,12 +128,38 @@ we retain information despite arbitrarily deep layers of abstraction and
 complex test combinations.
 
 @section{Simple Language}
+@subsection{Syntax}
+@(centered (parameterize
+               ([render-language-nts '(e a v b o o1 o2 n s p? acc ρ V A)])
+             (render-language λrec)))
+@subsection{Semantics}
+The language's semantics is mostly standard.
+@subsubsection{Evaluation}
+@(centered (render-⇓-s))
+@subsubsection{Application}
+@(centered (render-APP-s))
 
 @section{Adding Abstract Values}
+@subsection{Syntax}
+@(centered (parameterize ([render-language-nts '(v V)])
+             (render-language sλrec)))
+@subsection{Semantics}
+@subsubsection{Evaluation}
+@(centered (render-⇓))
+@subsubsection{Application}
+@(centered (render-APP))
 
 @section{Discussion}
+@subsection{Interesting programs verified}
+@subsection{Applications}
+@subsubsection{Inferring neccessary conditions}
+@subsubsection{Optimization}
+@subsection{Improvements}
 
 @section{Related Work}
+@subsection{Symbolic Execution}
+@subsection{Contract Verification}
+@subsection{Occurence Typing}
 
 @section{Conclusion}
 

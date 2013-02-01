@@ -1,8 +1,9 @@
 #lang racket
 (require redex)
 (require (only-in "lang-paper-simple.rkt"
-                  λrec δ [close close′] ! :: [A→EA A→EA′]))
-(provide sλrec ⇓ APP ∆ proves? ev A→EA not-•? var-not-in vars-not-in)
+                  λrec δ [close close′] ! :: [A→EA A→EA′] rewrite-! rewrite-::))
+(provide sλrec ⇓ APP Δ proves? ev A→EA not-•? var-not-in vars-not-in close :: !
+         render-⇓ render-APP render-Δ)
 
 (define-extended-language sλrec λrec
   [v .... •]
@@ -21,7 +22,7 @@
   #:mode     (⇓ I I I O O)
   #:contract (⇓ σ ρ e A σ)
   [----- "err"
-   (⇓ σ ρ err ERR σ)]
+         (⇓ σ ρ err ERR σ)]
   [(where l (var-not-in σ L))
    ----- "•"
    (⇓ σ ρ • l [:: σ (l ↦ (★))])]
@@ -29,7 +30,7 @@
    ----- "val"
    (⇓ σ ρ v [close v ρ] σ)]
   [----- "var"
-   (⇓ σ ρ x [! ρ x] σ)]
+         (⇓ σ ρ x [! ρ x] σ)]
   [(⇓ σ ρ e_f V_f σ_1)
    (⇓ σ_1 ρ e_x V_x σ_2)
    (APP σ_2 V_f [V_x] A σ_3)
@@ -55,12 +56,12 @@
    (⇓ σ ρ (e_f e_x e_y) ERR σ_3)]
   
   [(⇓ σ ρ e V_t σ_1)
-   (∆ σ_1 false? [V_t] #f σ_2)
+   (Δ σ_1 false? [V_t] #f σ_2)
    (⇓ σ_2 ρ e_1 A σ_3)
    ----- "if-true"
    (⇓ σ ρ (if e e_1 e_2) A σ_3)]
   [(⇓ σ ρ e V_t σ_1)
-   (∆ σ_1 false? [V_t] #t σ_2)
+   (Δ σ_1 false? [V_t] #t σ_2)
    (⇓ σ_2 ρ e_2 A σ_3)
    ----- "if-false"
    (⇓ σ ρ (if e e_1 e_2) A σ_3)]
@@ -77,106 +78,106 @@
   [(⇓ σ [:: ρ (x ↦ V)] e A σ_1)
    ----- "APP-λ"
    (APP σ ((λ x e) ρ) [V] A σ_1)]
-  [(∆ σ o [V ...] A σ_1)
-   ----- "APP-∆"
+  [(Δ σ o [V ...] A σ_1)
+   ----- "APP-Δ"
    (APP σ o [V ...] A σ_1)]
   
   [(APP σ [! σ l] [V ...] A σ_1)
    ----- "APP-l"
    (APP σ l [V ...] A σ_1)]
   
-  [(∆ σ proc? [V_f] #f σ_1)
+  [(Δ σ proc? [V_f] #f σ_1)
    ----- "APP-err"
    (APP σ V_f [V ...] ERR σ_1)]
   
-  [(∆ σ proc? (★ V ...) #t σ_1)
+  [(Δ σ proc? (★ V ...) #t σ_1)
    ----- "APP-havoc1"
    (APP σ (★ V ...) [V_x ...] (★) σ_1)]
-  [(∆ σ proc? (★ V ...) #t σ_1)
+  [(Δ σ proc? (★ V ...) #t σ_1)
    ----- "APP-havoc2"
    (APP σ (★ V ...) [V_x ...] ERR σ_1)])
 
 (define-judgment-form sλrec
-  #:mode     (∆ I I I       O O)
-  #:contract (∆ σ o [V ...] A σ)
+  #:mode     (Δ I I I       O O)
+  #:contract (Δ σ o [V ...] A σ)
   
   ; primitive ops
-  [(∆ σ p? [[! σ l]] #t σ_1)
+  [(Δ σ p? [[! σ l]] #t σ_1)
    ----- "pred-l-ok"
-   (∆ σ p? [l] #t [σ: σ_1 (l ↦ p?)])]
-  [(∆ σ p? [[! σ l]] #f σ_1)
+   (Δ σ p? [l] #t [σ: σ_1 (l ↦ p?)])]
+  [(Δ σ p? [[! σ l]] #f σ_1)
    ----- "pred-l-fail"
-   (∆ σ p? [l] #f [σ: σ_1 (l ↦ (¬ p?))])]
+   (Δ σ p? [l] #f [σ: σ_1 (l ↦ (¬ p?))])]
   [(where Proved (proves? W p?))
    ----- "pred-ok"
-   (∆ σ p? [W] #t σ)]
+   (Δ σ p? [W] #t σ)]
   [(where Refuted (proves? W p?))
    ----- "pred-fail"
-   (∆ σ p? [W] #f σ)]
+   (Δ σ p? [W] #f σ)]
   [(where Neither (proves? W p?))
    ----- "pred-assumed-ok"
-   (∆ σ p? [W] #t σ)]
+   (Δ σ p? [W] #t σ)]
   [(where Neither (proves? W p?))
    ----- "pred-assumed-fail"
-   (∆ σ p? [W] #f σ)]
+   (Δ σ p? [W] #f σ)]
   
   ; sub1
-  [(∆ σ add/sub1 [n] [δ add/sub1 n] σ)]
-  [(∆ σ add/sub1 [V] (★ num?) σ_1)
+  [(Δ σ add/sub1 [n] [δ add/sub1 n] σ)]
+  [(Δ σ add/sub1 [V] (★ num?) σ_1)
    (side-condition (not-n? V))
-   (∆ σ num? [V] #t σ_1)]
-  [(∆ σ add/sub1 [V] ERR σ_1)
-   (∆ σ num? [V] #f σ_1)]
+   (Δ σ num? [V] #t σ_1)]
+  [(Δ σ add/sub1 [V] ERR σ_1)
+   (Δ σ num? [V] #f σ_1)]
   
-  [(∆ σ +|-|* [m n] [δ +|-|* m n] σ)]
-  [(∆ σ +|-|* [V_1 V_2] (★ num?) σ_2)
+  [(Δ σ +|-|* [m n] [δ +|-|* m n] σ)]
+  [(Δ σ +|-|* [V_1 V_2] (★ num?) σ_2)
    (side-condition (OR (not-n? V_1) (not-n? V_2)))
-   (∆ σ num? [V_1] #t σ_1)
-   (∆ σ_1 num? [V_1] #t σ_2)]
-  [(∆ σ +|-|* [V_1 V_2] ERR σ_1)
-   (∆ σ num? [V_1] #f σ_1)]
-  [(∆ σ +|-|* [V_1 V_2] ERR σ_2)
-   (∆ σ num? [V_1] #t σ_1)
-   (∆ σ_1 num? [V_2] #f σ_2)]
+   (Δ σ num? [V_1] #t σ_1)
+   (Δ σ_1 num? [V_1] #t σ_2)]
+  [(Δ σ +|-|* [V_1 V_2] ERR σ_1)
+   (Δ σ num? [V_1] #f σ_1)]
+  [(Δ σ +|-|* [V_1 V_2] ERR σ_2)
+   (Δ σ num? [V_1] #t σ_1)
+   (Δ σ_1 num? [V_2] #f σ_2)]
   
-  [(∆ σ / [m n] (δ / m n) σ)]
-  [(∆ σ / [V_1 V_2] ERR σ_1)
-   (∆ σ num? [V_1] #f σ_1)]
-  [(∆ σ / [V_1 V_2] ERR σ_2)
-   (∆ σ num? [V_1] #t σ_1)
-   (∆ σ num? [V_2] #f σ_2)]
-  [(∆ σ / [V_1 V_2] ERR σ_2)
-   (∆ σ num? [V_1] #t σ_1)
-   (∆ σ zero? [V_2] #t σ_2)]
-  [(∆ σ / [V_1 V_2] ERR σ_3)
-   (∆ σ num? [V_1] #t σ_1)
-   (∆ σ num? [V_2] #t σ_2)
-   (∆ σ zero? [V_2] #f σ_3)]
+  [(Δ σ / [m n] (δ / m n) σ)]
+  [(Δ σ / [V_1 V_2] ERR σ_1)
+   (Δ σ num? [V_1] #f σ_1)]
+  [(Δ σ / [V_1 V_2] ERR σ_2)
+   (Δ σ num? [V_1] #t σ_1)
+   (Δ σ num? [V_2] #f σ_2)]
+  [(Δ σ / [V_1 V_2] ERR σ_2)
+   (Δ σ num? [V_1] #t σ_1)
+   (Δ σ zero? [V_2] #t σ_2)]
+  [(Δ σ / [V_1 V_2] ERR σ_3)
+   (Δ σ num? [V_1] #t σ_1)
+   (Δ σ num? [V_2] #t σ_2)
+   (Δ σ zero? [V_2] #f σ_3)]
   
   ; str-len
-  [(∆ σ str-len [s] (δ str-len s) σ)]
-  [(∆ σ str-len [V] ERR σ_1)
-   (∆ σ str? [V] #f σ_1)]
-  [(∆ σ str-len [V] (★ num?) σ_1)
+  [(Δ σ str-len [s] (δ str-len s) σ)]
+  [(Δ σ str-len [V] ERR σ_1)
+   (Δ σ str? [V] #f σ_1)]
+  [(Δ σ str-len [V] (★ num?) σ_1)
    (side-condition (not-s? V))
-   (∆ σ str? [V] #t σ_1)]
+   (Δ σ str? [V] #t σ_1)]
   
-  [(∆ σ cons? [V] #f σ_1)
+  [(Δ σ cons? [V] #f σ_1)
    ----- "acc-fail"
-   (∆ σ acc [V] ERR σ_1)]
+   (Δ σ acc [V] ERR σ_1)]
   [----- "car"
-   (∆ σ car [(Cons V_1 V_2)] V_1 σ)]
+         (Δ σ car [(Cons V_1 V_2)] V_1 σ)]
   [----- "cdr"
-   (∆ σ cdr [(Cons V_1 V_2)] V_2 σ)]
-  [(∆ σ cons? [l] #t σ_1)
+         (Δ σ cdr [(Cons V_1 V_2)] V_2 σ)]
+  [(Δ σ cons? [l] #t σ_1)
    (where (Cons V_1 V_2) (! σ_1 l))
    ----- "car-l"
-   (∆ σ car [l] V_1 σ_1)]
-  [(∆ σ cons? [l] #t σ_1)
+   (Δ σ car [l] V_1 σ_1)]
+  [(Δ σ cons? [l] #t σ_1)
    (where (Cons V_1 V_2) (! σ_1 l))
    ----- "cdr-l"
-   (∆ σ cdr [l] V_2 σ_1)]
-  [(∆ σ cons [V_1 V_2] (Cons V_1 V_2) σ)])
+   (Δ σ cdr [l] V_2 σ_1)]
+  [(Δ σ cons [V_1 V_2] (Cons V_1 V_2) σ)])
 
 (define-metafunction sλrec
   proves? : W p? -> Verified?
@@ -206,8 +207,8 @@
   [(implies? p? p?) Proved]
   [(implies? p? p?_1)
    ,(if (ormap (λ (g) (and (member (term p?) g) (member (term p?_1) g)))
-           '({num? str? true? false? cons? proc?}
-             {zero? str? true? false? cons? proc?}))
+               '({num? str? true? false? cons? proc?}
+                 {zero? str? true? false? cons? proc?}))
         (term Refuted)
         (term Neither))])
 
@@ -274,3 +275,36 @@
   [(remove-dups {any_1 ... any any_2 ... any any_3 ...})
    (remove-dups {any_1 ... any any_2 ... any_3 ...})]
   [(remove-dups any) any])
+
+(define (render-⇓
+         [cs '("err" "•" "val" "var" "app1" "app2" "app-err1" "app-err2" "app-err3"
+                     "it-true" "if-false" "if-err")])
+  (with-compound-rewriters
+   (['⇓ rewrite-⇓] ['! rewrite-!] [':: rewrite-::] ['Δ rewrite-Δ] ['APP rewrite-APP])
+   (parameterize ([judgment-form-cases cs])
+     (render-judgment-form ⇓))))
+
+(define rewrite-⇓
+  (match-lambda
+    [`(,_ ,_ ,σ ,ρ ,e ,A ,σ′ ,_) `(,σ "," ,ρ " ⊢ " ,e " ⇓ " ,A "; " ,σ′)]))
+
+(define (render-Δ [cs #f])
+  (with-compound-rewriters
+   (['Δ rewrite-Δ] ['! rewrite-!] [':: rewrite-::])
+   (if cs
+       (parameterize ([judgment-form-cases cs])
+         (render-judgment-form Δ))
+       (render-judgment-form Δ))))
+(define rewrite-Δ
+  (match-lambda
+    [`(,_ ,_ ,σ ,o ,xs ,A ,σ′ ,_)
+     `("Δ[" ,σ ", " ,o ", " ,xs "] ∋ <" ,A ", " ,σ′ ">")]))
+
+(define rewrite-APP
+  (match-lambda
+    [`(,_ ,_ ,σ ,f ,xs ,A ,σ′ ,_)
+     `("APP[" ,σ ", " ,f ", " ,xs "] ∋ <" ,A ", " ,σ′ ">")]))
+(define (render-APP)
+  (with-compound-rewriters
+   (['⇓ rewrite-⇓] ['! rewrite-!] [':: rewrite-::] ['Δ rewrite-Δ] ['APP rewrite-APP])
+   (render-judgment-form APP)))
