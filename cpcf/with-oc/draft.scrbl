@@ -70,7 +70,7 @@ a bit by using dependent contract to make the old analysis return a false blame)
 }
 ]
 
-Ad-hoc rules remembering primitive tests do not suffice,
+Ad-hoc rules remembering simple tests do not suffice,
 because real programs can have complex and abstracted tests
 on arbitrary expressions that imply valuable facts when they fail or pass.
 For example, the following expression should return a number
@@ -97,7 +97,7 @@ our previous analysis.
 Contribution:
 @itemlist[
   @item{We give a method of significantly improving precision for
-        symbolic execution by taking advantage of program flow}
+        symbolic execution by making better use of tests and program flow}
   @item{We show that the new analysis can verify a larger set of programs}
   @item{We discuss useful by-products coming out of this analysis, namely 
         more elimination of run-time checks and dead-code,
