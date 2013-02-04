@@ -13,7 +13,7 @@
   
   ; closure
   [V .... (★ V ...) l]
-  [W ((λ x e) ρ) ((rec (f x) e) ρ) b (Cons V V) (★ V ...)]
+  [W ((λ x e) ρ) #;((rec (f x) e) ρ) b (Cons V V) (★ V ...)]
   [l variable-not-otherwise-mentioned]
   
   [EA b function ERR • (• V ...) (Cons EA EA)])
@@ -72,7 +72,7 @@
 (define-judgment-form sλrec
   #:mode     (APP I I I       O O)
   #:contract (APP σ V [V ...] A σ)
-  [(⇓ σ [:: ρ [f ↦ ((rec (f x) e) ρ)] [x ↦ V]] e A σ_1)
+  #;[(⇓ σ [:: ρ [f ↦ ((rec (f x) e) ρ)] [x ↦ V]] e A σ_1)
    ----- "APP-rec"
    (APP σ ((rec (f x) e) ρ) [V] A σ_1)]
   [(⇓ σ [:: ρ (x ↦ V)] e A σ_1)
@@ -149,7 +149,7 @@
   [(Δ σ / [V_1 V_2] ERR σ_2)
    (Δ σ num? [V_1] #t σ_1)
    (Δ σ zero? [V_2] #t σ_2)]
-  [(Δ σ / [V_1 V_2] ERR σ_3)
+  [(Δ σ / [V_1 V_2] (★ num?) σ_3)
    (Δ σ num? [V_1] #t σ_1)
    (Δ σ num? [V_2] #t σ_2)
    (Δ σ zero? [V_2] #f σ_3)]

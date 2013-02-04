@@ -8,7 +8,7 @@
   ; expression
   [e a x (e e e ...) (if e e e)]
   [a err v]
-  [v (λ x e) (rec (f x) e) b]
+  [v (λ x e) #;(rec (f x) e) b]
   [b n #t #f s o]
   [o o1 o2]
   [o1 p? car cdr add1 sub1 str-len]
@@ -71,7 +71,7 @@
   [(APP ((λ x e) ρ) [V])
    A
    (where (A) ,(judgment-holds (⇓ [:: ρ [x ↦ V]] e A) A))]
-  [(APP ((rec (f x) e) ρ) [V])
+  #;[(APP ((rec (f x) e) ρ) [V])
    A
    (where (A) ,(judgment-holds (⇓ [:: ρ [f ↦ ((rec (f x) e) ρ)] [x ↦ V]] e A) A))]
   [(APP o [V ...]) (δ o V ...)]
